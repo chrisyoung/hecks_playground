@@ -441,6 +441,34 @@ fn rust_specializer_produces_byte_identical_run_boot_discover_rs() {
 
 // [antibody-exempt: rust/tests/specializer_golden_test.rs — golden-test scaffolding]
 #[test]
+fn rust_specializer_produces_byte_identical_aggregate_state_rs() {
+    // i147 wave 3-A — Rust-native specializer for runtime/aggregate_state.rs.
+    // Section-as-snippet shape (mirrors heki_query) : three ordered
+    // verbatim_section rows for the AggregateState struct, the impl
+    // block of Value-typed mutators, and the pair of free numeric
+    // helpers (current_numeric / format_numeric) ; concatenated under
+    // a HEADER const that carries the doc comment + antibody marker +
+    // use lines. Wave 3-A introduces a purpose-built
+    // `runtime_state_shape/` rather than extending `dump_shape` —
+    // mutator bodies vary too much to share a template, and dump_shape
+    // is byte-identical so its golden test would gate any change.
+    let root = repo_root();
+    let bin = root.join("rust/target/release/hecks-life");
+    assert!(bin.exists(), "hecks-life binary missing — build release first");
+    let output = Command::new(&bin)
+        .args(["specialize", "aggregate_state"])
+        .current_dir(&root)
+        .output()
+        .expect("hecks-life specialize aggregate_state failed");
+    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
+    let generated = String::from_utf8(output.stdout).expect("non-UTF-8 output");
+    let tracked = fs::read_to_string(root.join("rust/src/runtime/aggregate_state.rs"))
+        .expect("runtime/aggregate_state.rs missing");
+    assert_eq!(generated, tracked, "Rust specializer output drifted from tracked file");
+}
+
+// [antibody-exempt: rust/tests/specializer_golden_test.rs — golden-test scaffolding]
+#[test]
 fn rust_specializer_produces_byte_identical_conceiver_generator_rs() {
     // i147 wave 2 — Rust-native specializer for conceiver/generator.rs.
     // Section-as-snippet shape (mirrors heki_query) : four ordered
@@ -459,6 +487,32 @@ fn rust_specializer_produces_byte_identical_conceiver_generator_rs() {
     let generated = String::from_utf8(output.stdout).expect("non-UTF-8 output");
     let tracked = fs::read_to_string(root.join("rust/src/conceiver/generator.rs"))
         .expect("conceiver/generator.rs missing");
+    assert_eq!(generated, tracked, "Rust specializer output drifted from tracked file");
+}
+
+// [antibody-exempt: rust/tests/specializer_golden_test.rs — golden-test scaffolding]
+#[test]
+fn rust_specializer_produces_byte_identical_adapter_llm_rs() {
+    // i147 Wave 3-B — Rust-native specializer for runtime/adapter_llm.rs.
+    // First NEEDS-NEW-BODY-KIND retirement : the driven_adapter_shape
+    // adds two new body_kinds — `http_post` (ollama backend) and
+    // `shell_invoke` (claude backend) — alongside a verbatim_section
+    // row for the dispatcher (resolve + resolve_ollama + LlmConfig).
+    // The two new kinds emit different function bodies but the same
+    // input → Option<String> signature family, which is what lets the
+    // dispatcher route to either by config triple.
+    let root = repo_root();
+    let bin = root.join("rust/target/release/hecks-life");
+    assert!(bin.exists(), "hecks-life binary missing — build release first");
+    let output = Command::new(&bin)
+        .args(["specialize", "adapter_llm"])
+        .current_dir(&root)
+        .output()
+        .expect("hecks-life specialize adapter_llm failed");
+    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
+    let generated = String::from_utf8(output.stdout).expect("non-UTF-8 output");
+    let tracked = fs::read_to_string(root.join("rust/src/runtime/adapter_llm.rs"))
+        .expect("runtime/adapter_llm.rs missing");
     assert_eq!(generated, tracked, "Rust specializer output drifted from tracked file");
 }
 
