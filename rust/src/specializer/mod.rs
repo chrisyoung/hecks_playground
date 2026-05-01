@@ -22,12 +22,14 @@ pub mod adapter_llm;
 pub mod behaviors_fixtures;
 pub mod behaviors_parser;
 pub mod behaviors_parser_dispatch;
+pub mod behaviors_runner;
 pub mod conceiver;
 pub mod dispatch_query;
 pub mod dump;
 pub mod fixtures_parser;
 pub mod hecksagon_parser;
 pub mod heki_query;
+pub mod ir;
 pub mod parse_blocks;
 pub mod parser;
 pub mod repository;
@@ -50,6 +52,7 @@ pub fn emit(target: &str, repo_root: &Path) -> Result<String, Box<dyn Error>> {
         "aggregate_state" => runtime::aggregate_state::emit(repo_root),
         "behaviors_fixtures" => behaviors_fixtures::emit(repo_root),
         "behaviors_parser" => behaviors_parser::emit(repo_root),
+        "behaviors_runner" => behaviors_runner::emit(repo_root),
         "conceiver_generator" => conceiver::generator::emit(repo_root),
         "discover" => run_boot::discover::emit(repo_root),
         "dispatch_query" => dispatch_query::emit(repo_root),
@@ -58,6 +61,7 @@ pub fn emit(target: &str, repo_root: &Path) -> Result<String, Box<dyn Error>> {
         "hecksagon_parser" => hecksagon_parser::emit(repo_root),
         "heki_query" => heki_query::emit(repo_root),
         "interpreter" => runtime::interpreter::emit(repo_root),
+        "ir" => ir::emit(repo_root),
         "parse_blocks" => parse_blocks::emit(repo_root),
         "parser" => parser::emit(repo_root),
         "repository" => repository::emit(repo_root),
@@ -67,7 +71,7 @@ pub fn emit(target: &str, repo_root: &Path) -> Result<String, Box<dyn Error>> {
         "validator_corpus" => validator_corpus::emit(repo_root),
         "validator_warnings" => validator_warnings::emit(repo_root),
         other => Err(format!(
-            "unknown specializer target: {}. Known: adapter_llm, aggregate_state, behaviors_fixtures, behaviors_parser, conceiver_generator, discover, dispatch_query, dump, fixtures_parser, hecksagon_parser, heki_query, interpreter, parse_blocks, parser, repository, run_statusline, system_prompt, validator, validator_corpus, validator_warnings",
+            "unknown specializer target: {}. Known: adapter_llm, aggregate_state, behaviors_fixtures, behaviors_parser, behaviors_runner, conceiver_generator, discover, dispatch_query, dump, fixtures_parser, hecksagon_parser, heki_query, interpreter, ir, parse_blocks, parser, repository, run_statusline, system_prompt, validator, validator_corpus, validator_warnings",
             other
         )
         .into()),
