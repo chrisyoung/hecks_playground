@@ -15,3 +15,4 @@
 
 pub mod aggregate_state;
 pub mod interpreter;
+pub mod root;
