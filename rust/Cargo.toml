@@ -1,0 +1,9 @@
+[package]
+name = "hecks-life"
+version = "0.1.0"
+edition = "2021"
+description = "Bluebook compiler — reads domain declarations, emits any target"
+
+[dependencies]
+flate2 = "1"
+serde_json = "1"
