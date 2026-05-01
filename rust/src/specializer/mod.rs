@@ -31,6 +31,7 @@ pub mod heki_query;
 pub mod repository;
 pub mod run_boot;
 pub mod run_statusline;
+pub mod runtime;
 pub mod util;
 pub mod validator;
 pub mod validator_checks;
@@ -44,6 +45,7 @@ pub mod validator_warnings;
 pub fn emit(target: &str, repo_root: &Path) -> Result<String, Box<dyn Error>> {
     match target {
         "adapter_llm" | "driven_adapter" => adapter_llm::emit(repo_root),
+        "aggregate_state" => runtime::aggregate_state::emit(repo_root),
         "behaviors_fixtures" => behaviors_fixtures::emit(repo_root),
         "behaviors_parser" => behaviors_parser::emit(repo_root),
         "conceiver_generator" => conceiver::generator::emit(repo_root),
@@ -60,7 +62,7 @@ pub fn emit(target: &str, repo_root: &Path) -> Result<String, Box<dyn Error>> {
         "validator_corpus" => validator_corpus::emit(repo_root),
         "validator_warnings" => validator_warnings::emit(repo_root),
         other => Err(format!(
-            "unknown specializer target: {}. Known: adapter_llm, behaviors_fixtures, behaviors_parser, conceiver_generator, discover, dispatch_query, dump, fixtures_parser, hecksagon_parser, heki_query, repository, run_statusline, system_prompt, validator, validator_corpus, validator_warnings",
+            "unknown specializer target: {}. Known: adapter_llm, aggregate_state, behaviors_fixtures, behaviors_parser, conceiver_generator, discover, dispatch_query, dump, fixtures_parser, hecksagon_parser, heki_query, repository, run_statusline, system_prompt, validator, validator_corpus, validator_warnings",
             other
         )
         .into()),
