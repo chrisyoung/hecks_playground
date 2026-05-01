@@ -6,6 +6,10 @@
 //!
 //! Usage:
 //!   let result = dispatch(&mut runtime, "CreatePizza", attrs)?;
+//!
+//! [antibody-exempt: rust/src/runtime/command_dispatch.rs — kernel-floor
+//!  dispatch path. i156 added strict bare-name resolution gated by the
+//!  HECKS_STRICT_DISPATCH env var ; the rest of the file is pre-i156.]
 
 use super::{AggregateState, Event, Runtime, RuntimeError, Value};
 use super::interpreter;
@@ -69,6 +73,44 @@ pub fn dispatch(
     command_name: &str,
     attrs: HashMap<String, Value>,
 ) -> Result<CommandResult, RuntimeError> {
+    dispatch_inner(rt, command_name, attrs, None)
+}
+
+/// Cascade-aware dispatch (i111-K) — used by `Runtime::drain_policies`
+/// when the triggered command's aggregate has the SAME type as the
+/// upstream event. Passing the upstream id as a hint lets the second
+/// dispatch reuse the existing record instead of counter-minting a
+/// fresh id.
+///
+/// This closes the i111-C surprise : multi-step pipelines like
+/// CorpusPruning (Measure → Split with `given { measured == true }`)
+/// previously needed `identified_by` declared just to keep the cascade
+/// landing on the same row. With this hint, the cascade preserves the
+/// id automatically — `identified_by` becomes a query / addressability
+/// concern, not a cascade-correctness requirement.
+///
+/// The hint is honored only when :
+///   - The triggered command's aggregate type matches `upstream_type`
+///   - A record already exists at `upstream_id` in that repo
+/// Otherwise the dispatch falls through to standard id resolution
+/// (identified_by lookup → counter-mint), keeping cross-type cascades
+/// and missing-record cases unchanged.
+pub fn dispatch_cascade(
+    rt: &mut Runtime,
+    command_name: &str,
+    attrs: HashMap<String, Value>,
+    upstream_type: &str,
+    upstream_id: &str,
+) -> Result<CommandResult, RuntimeError> {
+    dispatch_inner(rt, command_name, attrs, Some((upstream_type.to_string(), upstream_id.to_string())))
+}
+
+fn dispatch_inner(
+    rt: &mut Runtime,
+    command_name: &str,
+    attrs: HashMap<String, Value>,
+    cascade_hint: Option<(String, String)>,
+) -> Result<CommandResult, RuntimeError> {
     let res = resolve(rt, command_name)?;
     let agg_idx = res.agg_idx();
 
@@ -92,6 +134,21 @@ pub fn dispatch(
     let aggregate_context = rt.domain.aggregates[agg_idx].context.clone();
     let repo_hash_key = super::repo_key(aggregate_context.as_deref(), &aggregate_name);
 
+    // i111-K — same-type cascade id preservation. When the cascade
+    // hopped Aggregate → Aggregate (same type) and a record exists at
+    // the upstream id, reuse it. This runs BEFORE id_for_command so it
+    // overrides counter-mint behavior for aggregates without
+    // identified_by — closing the i111-C identified_by-required gap.
+    let cascade_id = cascade_hint.as_ref().and_then(|(up_type, up_id)| {
+        if up_type == &aggregate_name {
+            rt.repositories.get(&repo_hash_key)
+                .and_then(|repo| repo.find(up_id))
+                .map(|_| up_id.clone())
+        } else {
+            None
+        }
+    });
+
     let repo = rt.repositories.get_mut(&repo_hash_key)
         .ok_or_else(|| RuntimeError::UnknownAggregate(aggregate_name.clone()))?;
 
@@ -102,10 +159,26 @@ pub fn dispatch(
                 Some(s) => (s, false),
                 None => return Err(RuntimeError::AggregateNotFound(id)),
             }
+        } else if let Some(ref id) = cascade_id {
+            // Cascade hint resolved a same-type id — reuse it even
+            // when the command has a self-ref kwarg the cascade didn't
+            // populate (the upstream event carries the id, not the
+            // kwarg name).
+            match repo.find(id).cloned() {
+                Some(s) => (s, false),
+                None => return Err(RuntimeError::AggregateNotFound(id.clone())),
+            }
         } else if is_create {
             (AggregateState::new(&repo.id_for_command(&attrs)), true)
         } else {
             return Err(RuntimeError::MissingAttribute("self-referencing id".into()));
+        }
+    } else if let Some(ref id) = cascade_id {
+        // Same-type cascade with an existing record — reuse it,
+        // skipping id_for_command's counter-mint.
+        match repo.find(id).cloned() {
+            Some(s) => (s, false),
+            None => (AggregateState::new(id), true),
         }
     } else {
         let id = repo.id_for_command(&attrs);
@@ -265,32 +338,79 @@ fn resolve(rt: &Runtime, command_name: &str) -> Result<Resolution, RuntimeError>
             }
         }
         [cmd_name] => {
-            // Bare-name dispatch : first-match-wins. The strict-ambiguity
-            // check is filed as i156 (deferred) — depends on the corpus
-            // first migrating cross-bluebook collisions to FQN setups.
-            // Per-aggregate uniqueness (i155) still holds within a single
-            // bluebook ; cross-bluebook collisions are silently resolved
-            // by iteration order until i156 lifts.
+            // Bare-name dispatch — i156 strict mode (opt-in via the
+            // HECKS_STRICT_DISPATCH env var). When strict mode is on AND
+            // the bare name appears on more than one aggregate across
+            // the loaded corpus, fail loudly with the candidate list
+            // instead of silently first-match-wins.
             //
-            // i111-J — the bare-name walk also visits entity-owned
-            // commands so collapsed-entity behaviors can still
-            // dispatch by short name. Aggregate commands take
-            // precedence ; entities are the fallback.
-            for (ai, agg) in rt.domain.aggregates.iter().enumerate() {
-                for (ci, cmd) in agg.commands.iter().enumerate() {
-                    if cmd.name == *cmd_name { return Ok(Resolution::Aggregate(ai, ci)); }
-                }
-            }
-            for (ai, agg) in rt.domain.aggregates.iter().enumerate() {
-                for (ei, ent) in agg.entities.iter().enumerate() {
-                    for (ci, cmd) in ent.commands.iter().enumerate() {
+            // Strict mode stays opt-in until the corpus migration is
+            // complete (the validator_corpus::bare_name_collisions rule
+            // surfaces what's left ; ~107 .behaviors setups already
+            // migrated to qualified form by i156 part 2). The i156 PR
+            // body documents the gating decision.
+            //
+            // Default (non-strict) behavior preserves first-match-wins
+            // for backward compat — same as before. Per-aggregate
+            // uniqueness (i155) still holds within a single bluebook.
+            //
+            // i111-J — the walk also visits entity-owned commands so
+            // collapsed-entity behaviors can still dispatch by short
+            // name. Aggregate commands take precedence ; entities are
+            // the fallback. Strict-mode collision counts include
+            // entity owners alongside aggregate owners.
+            let strict = std::env::var("HECKS_STRICT_DISPATCH")
+                .map(|v| v == "1" || v == "true")
+                .unwrap_or(false);
+            if strict {
+                let mut hits: Vec<(Resolution, String)> = Vec::new();
+                for (ai, agg) in rt.domain.aggregates.iter().enumerate() {
+                    for (ci, cmd) in agg.commands.iter().enumerate() {
                         if cmd.name == *cmd_name {
-                            return Ok(Resolution::Entity(ai, ei, ci));
+                            hits.push((Resolution::Aggregate(ai, ci), agg.name.clone()));
+                        }
+                    }
+                    for (ei, ent) in agg.entities.iter().enumerate() {
+                        for (ci, cmd) in ent.commands.iter().enumerate() {
+                            if cmd.name == *cmd_name {
+                                hits.push((
+                                    Resolution::Entity(ai, ei, ci),
+                                    format!("{}.{}", agg.name, ent.name),
+                                ));
+                            }
                         }
                     }
                 }
+                match hits.len() {
+                    0 => Err(RuntimeError::UnknownCommand(command_name.to_string())),
+                    1 => Ok(hits[0].0),
+                    _ => {
+                        let mut candidates: Vec<String> = hits.iter().map(|h| h.1.clone()).collect();
+                        candidates.sort();
+                        candidates.dedup();
+                        Err(RuntimeError::AmbiguousCommand {
+                            name: cmd_name.to_string(),
+                            candidates,
+                        })
+                    }
+                }
+            } else {
+                for (ai, agg) in rt.domain.aggregates.iter().enumerate() {
+                    for (ci, cmd) in agg.commands.iter().enumerate() {
+                        if cmd.name == *cmd_name { return Ok(Resolution::Aggregate(ai, ci)); }
+                    }
+                }
+                for (ai, agg) in rt.domain.aggregates.iter().enumerate() {
+                    for (ei, ent) in agg.entities.iter().enumerate() {
+                        for (ci, cmd) in ent.commands.iter().enumerate() {
+                            if cmd.name == *cmd_name {
+                                return Ok(Resolution::Entity(ai, ei, ci));
+                            }
+                        }
+                    }
+                }
+                Err(RuntimeError::UnknownCommand(command_name.to_string()))
             }
-            Err(RuntimeError::UnknownCommand(command_name.to_string()))
         }
         _ => Err(RuntimeError::UnknownCommand(command_name.to_string())),
     }

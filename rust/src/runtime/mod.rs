@@ -8,6 +8,10 @@
 //!   let domain = parser::parse(&source);
 //!   let mut rt = Runtime::boot(domain);
 //!   let result = rt.dispatch("CreatePizza", attrs! { "name" => "Margherita" });
+//!
+//! [antibody-exempt: rust/src/runtime/mod.rs — kernel-floor runtime.
+//!  i156 added the AmbiguousCommand variant for strict bare-name
+//!  dispatch ; the rest is pre-i156.]
 
 mod aggregate_state;
 mod command_dispatch;
@@ -247,7 +251,21 @@ impl Runtime {
                 // B nor C's input attrs were in the original test command.
                 self.inject_refs(&cmd, &event.aggregate_type, &event.aggregate_id, &mut data);
 
-                if let Ok(inner_result) = command_dispatch::dispatch(self, &cmd, data) {
+                // i111-K — pass the upstream type+id as a cascade hint.
+                // When the triggered command's aggregate matches
+                // upstream_type AND a record exists at upstream_id, the
+                // cascade preserves the id rather than counter-minting
+                // a fresh one. This closes the i111-C surprise where
+                // multi-step pipeline roots had to declare
+                // `identified_by` just to keep gated cascades landing
+                // on the same row. Cross-type cascades (A → B) and
+                // cases without an existing record fall through to
+                // standard resolution unchanged.
+                let inner = command_dispatch::dispatch_cascade(
+                    self, &cmd, data,
+                    &event.aggregate_type, &event.aggregate_id,
+                );
+                if let Ok(inner_result) = inner {
                     self.drain_policies(&inner_result);
                 }
                 self.policy_engine.complete(&policy_name);
@@ -518,6 +536,15 @@ pub enum RuntimeError {
         current: String,
         allowed: Vec<String>,
     },
+    /// i156 — bare-name dispatch resolved to multiple aggregates when
+    /// `HECKS_STRICT_DISPATCH=1` is set. The validator_corpus
+    /// `bare_name_collisions` rule flags these statically ; this is
+    /// the runtime-side enforcement for callers that haven't
+    /// migrated.
+    AmbiguousCommand {
+        name: String,
+        candidates: Vec<String>,
+    },
 }
 
 impl std::fmt::Display for RuntimeError {
@@ -531,6 +558,10 @@ impl std::fmt::Display for RuntimeError {
             RuntimeError::LifecycleViolation { command, field, current, allowed } => {
                 write!(f, "lifecycle violation: {} cannot run when {} is '{}' (allowed from: {:?})",
                     command, field, current, allowed)
+            }
+            RuntimeError::AmbiguousCommand { name, candidates } => {
+                write!(f, "ambiguous bare-name dispatch: '{}' is declared on aggregates {:?} — qualify with `Aggregate.{}`",
+                    name, candidates, name)
             }
         }
     }
