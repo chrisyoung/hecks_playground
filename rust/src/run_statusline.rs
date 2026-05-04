@@ -121,6 +121,77 @@ fn walk_up_for_repo_root() -> Option<PathBuf> {
     None
 }
 
+/// Walk up from cwd looking for an `inbox/` directory adjacent to a
+/// `<name>.bluebook` file (the i241 per-bluebook inbox convention).
+/// Returns (bluebook_name, inbox_dir) for the nearest match. Skips the
+/// `hecks_conception/` directory : its inbox IS the conception inbox
+/// shown by default and isn't a "specific bluebook context."
+fn find_active_bluebook() -> Option<(String, PathBuf)> {
+    let cwd = env::current_dir().ok()?;
+    let mut cur: PathBuf = cwd;
+    for _ in 0..10 {
+        let is_conception = cur.file_name().map_or(false, |n| n == "hecks_conception");
+        let inbox_dir = cur.join("inbox");
+        if !is_conception && inbox_dir.is_dir() {
+            // Prefer the matching .bluebook stem ; fall back to dir name.
+            let mut name: Option<String> = None;
+            if let Ok(entries) = std::fs::read_dir(&cur) {
+                for entry in entries.flatten() {
+                    let p = entry.path();
+                    if p.extension().map_or(false, |e| e == "bluebook") {
+                        if let Some(stem) = p.file_stem().and_then(|s| s.to_str()) {
+                            name = Some(stem.to_string());
+                            break;
+                        }
+                    }
+                }
+            }
+            let resolved = name.or_else(|| {
+                cur.file_name().and_then(|s| s.to_str()).map(|s| s.to_string())
+            });
+            if let Some(n) = resolved {
+                return Some((n, inbox_dir));
+            }
+        }
+        cur = cur.parent()?.to_path_buf();
+    }
+    None
+}
+
+/// Count `*.md` cards in a markdown inbox whose YAML frontmatter has
+/// `status: queued`. Frontmatter is the block between the first two
+/// `---` markers at the head of the file. Cheap parse — no full YAML
+/// dependency, just line-prefix matching.
+fn count_md_inbox_queued(inbox_dir: &Path) -> i64 {
+    if !inbox_dir.is_dir() { return 0; }
+    let mut count: i64 = 0;
+    if let Ok(entries) = std::fs::read_dir(inbox_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().map_or(false, |e| e == "md") {
+                if let Ok(text) = std::fs::read_to_string(&path) {
+                    if md_status_is_queued(&text) {
+                        count += 1;
+                    }
+                }
+            }
+        }
+    }
+    count
+}
+
+fn md_status_is_queued(text: &str) -> bool {
+    let body = match text.strip_prefix("---\n") {
+        Some(b) => b,
+        None => return false,
+    };
+    let end = match body.find("\n---\n") {
+        Some(e) => e,
+        None => return false,
+    };
+    body[..end].lines().any(|l| l.trim() == "status: queued")
+}
+
 // ────────────────────────────────────────────────────────────────
 // State — all heki sources read up front
 // ────────────────────────────────────────────────────────────────
@@ -450,8 +521,22 @@ fn render_awake(s: &State, now: &Now, coherence_ok: bool, info: &Path) -> String
     if s.inventions_count > 0 {
         out.push_str(&format!(" 🔬 {}", s.inventions_count));
     }
-    if s.inbox_count > 0 {
-        out.push_str(&format!(" ✉️ {}", s.inbox_count));
+    // Per-bluebook inbox detection. If the cwd is inside a project
+    // with a `<name>.bluebook` and a sibling `inbox/` directory, that
+    // bluebook is the active context : show its inbox count and name
+    // in parentheses, and suppress the conception inbox count (the
+    // active bluebook owns the slot while we're in its context).
+    // Otherwise fall back to the conception inbox count.
+    match find_active_bluebook() {
+        Some((name, inbox_dir)) => {
+            let count = count_md_inbox_queued(&inbox_dir);
+            out.push_str(&format!(" ✉️ {} ({})", count, name));
+        }
+        None => {
+            if s.inbox_count > 0 {
+                out.push_str(&format!(" ✉️ {}", s.inbox_count));
+            }
+        }
     }
     out.push_str(&format!(" {}", provider_badge));
     if !s.sleep_summary.is_empty() && s.sleep_summary != "present" {
