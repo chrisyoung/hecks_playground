@@ -192,7 +192,11 @@ HECKS_BIN="$HECKS" \
   >"$RUN_LOG" 2>&1 &
 RUN_PID=$!
 
-sleep 3
+# 5s gives the PM time for the for_each Musing.recent sweep + the
+# subsequent :llm cascade through TestProvider under CI runner load.
+# Local macOS finishes in ~3s ; CI runners are slower and the sweep
+# was missing the second tick at sleep=3s on busy runners.
+sleep 5
 kill "$RUN_PID" 2>/dev/null || true
 wait "$RUN_PID" 2>/dev/null || true
 
