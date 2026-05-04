@@ -142,7 +142,18 @@ done
   phase_ticks=0 dream_pulses=0 dream_pulses_needed=5 is_lucid=no \
   sleep_summary="entering REM — dreams beginning" >/dev/null 2>&1
 
-fail() { echo "FAIL — $1"; exit 1; }
+fail() {
+  echo "FAIL — $1"
+  if [ -n "${RUN_LOG:-}" ] && [ -f "$RUN_LOG" ]; then
+    echo "----- run-loop output -----"
+    cat "$RUN_LOG"
+  fi
+  echo "----- aggregates linked -----"
+  ls "$TMP/aggregates/" 2>/dev/null | head -20
+  echo "----- musing.heki contents -----"
+  "$HECKS" heki read "$TMP/information/musing/musing.heki" 2>/dev/null | head -30
+  exit 1
+}
 
 count_records() {
   [ ! -f "$1" ] && { echo 0; return; }
