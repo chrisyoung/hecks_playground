@@ -285,6 +285,68 @@ fn route_multi(
             ("303 See Other", String::new(), cookie)
         }
 
+        // Customer self-signup. Public route — anyone can register as a
+        // customer (driver + admin signup are restricted paths handled
+        // separately). Two commands cascade : Account.SignUp creates
+        // the auth record (role=customer), Customer.RegisterCustomer
+        // attaches the profile. On success, the session cookie is set
+        // and the user lands on /.
+        ("GET", ["signup"]) => {
+            ("200 OK", super::html_login::generate_signup_page(None), no_extra)
+        }
+        ("POST", ["signup"]) => {
+            let fields = parse_signup_form(body);
+            let email = fields.get("email").cloned().unwrap_or_default();
+            let password = fields.get("password").cloned().unwrap_or_default();
+            if email.is_empty() || password.is_empty() {
+                return (
+                    "200 OK",
+                    super::html_login::generate_signup_page(Some("Email and password are required")),
+                    no_extra,
+                );
+            }
+            let target = match runtimes.values().next() {
+                Some(rt) => rt,
+                None => return ("500 Internal Server Error", "No domain loaded".into(), no_extra),
+            };
+            // Account.SignUp first.
+            let mut acct: HashMap<String, crate::runtime::Value> = HashMap::new();
+            acct.insert("email".into(), crate::runtime::Value::Str(email.clone()));
+            acct.insert("password".into(), crate::runtime::Value::Str(password));
+            acct.insert("role".into(), crate::runtime::Value::Str("customer".into()));
+            let signup_result = {
+                let mut rt_mut = target.borrow_mut();
+                rt_mut.dispatch("SignUp", acct)
+            };
+            if let Err(e) = signup_result {
+                return (
+                    "200 OK",
+                    super::html_login::generate_signup_page(Some(&format!("Couldn't create account: {}", e))),
+                    no_extra,
+                );
+            }
+            // Customer.RegisterCustomer second. Best-effort — if it
+            // fails (e.g. command attribute mismatch) the account
+            // still exists and the user can sign in.
+            let mut prof: HashMap<String, crate::runtime::Value> = HashMap::new();
+            prof.insert("account_email".into(), crate::runtime::Value::Str(email.clone()));
+            for k in &["first_name", "last_name", "phone"] {
+                if let Some(v) = fields.get(*k) {
+                    prof.insert((*k).into(), crate::runtime::Value::Str(v.clone()));
+                }
+            }
+            let _ = {
+                let mut rt_mut = target.borrow_mut();
+                rt_mut.dispatch("RegisterCustomer", prof)
+            };
+            let cookie = format!(
+                "Set-Cookie: hecks_session={}; HttpOnly; SameSite=Strict; Path=/; Max-Age=86400\r\n\
+                 Location: /\r\n",
+                email,
+            );
+            ("303 See Other", String::new(), cookie)
+        }
+
         ("GET", ["domains"]) => {
             let list: Vec<String> = domain_list(runtimes);
             let items: Vec<String> = list.iter()
@@ -438,6 +500,22 @@ fn verify_password(
         }
     }
     false
+}
+
+/// Parse a form-urlencoded body into a HashMap. Used by the multi-
+/// field signup form which carries first_name / last_name / phone in
+/// addition to email + password.
+fn parse_signup_form(body: &str) -> HashMap<String, String> {
+    let mut out = HashMap::new();
+    for pair in body.split('&') {
+        let pair = pair.trim();
+        if let Some(eq) = pair.find('=') {
+            let k = pair[..eq].to_string();
+            let v = url_decode(&pair[eq + 1..]);
+            if !k.is_empty() { out.insert(k, v); }
+        }
+    }
+    out
 }
 
 /// Parse `application/x-www-form-urlencoded` body into (email, password).
