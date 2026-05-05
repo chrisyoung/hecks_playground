@@ -1,7 +1,28 @@
+// [antibody-exempt: rust/src/server/multi.rs — kernel-floor multi-domain
+//  HTTP server. The bluebook surface (runtime/server/server.bluebook,
+//  MultiDomainServer aggregate) describes the operational shape ; this
+//  file is the std::net + parser-glue implementation. Same Trikaya-floor
+//  justification as the rest of rust/src/server/. Edit for the i241
+//  primary-bluebook walk : recursive-merge mode added.]
+
 //! Multi-domain server — serves N bluebook domains under one API
 //!
 //! Scans a directory for *.bluebook files, boots a Runtime for each,
 //! and serves them all with domain-namespaced routes.
+//!
+//! Two scan modes (i241 primary-bluebook convention) :
+//!
+//!   PRIMARY mode — if `<dirname>.bluebook` exists at the top level,
+//!     treat it as the repo's primary and merge every *.bluebook found
+//!     anywhere in the tree (recursive walk) into ONE domain. Child
+//!     files contribute aggregates / value_objects / policies /
+//!     process_managers / cadences ; the primary owns name + vision
+//!     + category + entrypoint. This is the convention every
+//!     application repo follows (bin-buddy/bin-buddy.bluebook etc.).
+//!
+//!   LEGACY mode — no primary at root, each top-level *.bluebook is
+//!     its own domain (catalog-style, e.g. hecks_conception/catalog/
+//!     where each file is a self-contained domain).
 //!
 //! Usage:
 //!   hecks-life serve path/to/hecks/ 3100
@@ -49,25 +70,81 @@ pub fn serve_directory(dir: &str, port: u16) {
 
 fn load_all_domains(dir: &str) -> HashMap<String, RefCell<Runtime>> {
     let mut map = HashMap::new();
-    let entries = std::fs::read_dir(dir).unwrap_or_else(|e| {
-        eprintln!("Cannot read directory {}: {}", dir, e);
-        std::process::exit(1);
-    });
-
     let data_dir = format!("{}/data", dir.trim_end_matches('/'));
 
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.extension().map(|e| e == "bluebook").unwrap_or(false) {
-            if let Ok(source) = std::fs::read_to_string(&path) {
-                let domain = parser::parse(&source);
-                let name = domain.name.clone();
-                let rt = Runtime::boot_with_data_dir(domain, Some(data_dir.clone()));
-                map.insert(name, RefCell::new(rt));
-            }
+    // i241 primary-bluebook convention. `serve <dir>` is a single-product
+    // server : one .world declares the operational world, one
+    // `<dirname>.bluebook` is the primary, and every other *.bluebook in
+    // the tree (typically under `aggregates/<concept>/<concept>.bluebook`)
+    // contributes aggregates / value_objects / policies / process_managers
+    // / cadences to that one domain. Canonicalize first so `serve .` finds
+    // its own basename.
+    let dir_path = std::fs::canonicalize(dir)
+        .unwrap_or_else(|_| std::path::PathBuf::from(dir));
+    let dir_basename = dir_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("");
+    let primary_path = dir_path.join(format!("{}.bluebook", dir_basename));
+
+    if !primary_path.exists() {
+        eprintln!(
+            "No primary bluebook found at {} — `serve <dir>` expects \
+            <dirname>.bluebook at the top of the directory.",
+            primary_path.display()
+        );
+        std::process::exit(1);
+    }
+
+    let merged = merge_tree(&dir_path, &primary_path);
+    let name = merged.name.clone();
+    let rt = Runtime::boot_with_data_dir(merged, Some(data_dir.clone()));
+    map.insert(name, RefCell::new(rt));
+    map
+}
+
+/// Merge every *.bluebook in the tree under `dir` into the primary's Domain.
+/// Primary owns name / vision / category / entrypoint. Children contribute
+/// aggregates, policies, fixtures, sections, process_managers, cadences,
+/// block_grammars. Files that fail to read are silently skipped.
+fn merge_tree(dir: &std::path::Path, primary_path: &std::path::Path) -> crate::ir::Domain {
+    let primary_src = std::fs::read_to_string(primary_path)
+        .expect("primary bluebook must be readable");
+    let mut merged = parser::parse(&primary_src);
+
+    let mut child_paths: Vec<std::path::PathBuf> = Vec::new();
+    collect_bluebooks(dir, primary_path, &mut child_paths);
+    child_paths.sort(); // deterministic order
+
+    for path in child_paths {
+        if let Ok(source) = std::fs::read_to_string(&path) {
+            let child = parser::parse(&source);
+            merged.aggregates.extend(child.aggregates);
+            merged.policies.extend(child.policies);
+            merged.fixtures.extend(child.fixtures);
+            merged.sections.extend(child.sections);
+            merged.process_managers.extend(child.process_managers);
+            merged.cadences.extend(child.cadences);
+            merged.block_grammars.extend(child.block_grammars);
         }
     }
-    map
+    merged
+}
+
+fn collect_bluebooks(
+    dir: &std::path::Path,
+    skip: &std::path::Path,
+    out: &mut Vec<std::path::PathBuf>,
+) {
+    let Ok(entries) = std::fs::read_dir(dir) else { return };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_bluebooks(&path, skip, out);
+        } else if path.extension().map(|e| e == "bluebook").unwrap_or(false) && path != skip {
+            out.push(path);
+        }
+    }
 }
 
 fn handle_multi(

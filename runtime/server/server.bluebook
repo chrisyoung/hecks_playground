@@ -191,7 +191,7 @@ Hecks.bluebook "Server", version: "2026.04.24.1" do
 
     command "ScanDomainsDir" do
       role "System"
-      description "Read every *.bluebook file under dir. Files that fail to read are silently skipped ; files that parse are kept for BootDomainRuntime."
+      description "Read every *.bluebook file under dir. Two modes per the i241 primary-bluebook convention : (1) PRIMARY mode — gated by the presence of a *.world file at the top level (the .world declares 'this directory is one operational world'). When a .world file is present AND `<dirname>.bluebook` exists at the top level, treat it as the repo's primary and merge every *.bluebook found anywhere in the tree (recursive walk) into ONE domain ; child files contribute aggregates / value_objects / policies / process_managers / cadences ; primary owns name + vision + category. (2) LEGACY mode — no .world file (catalog-style library of independent domains) ; each top-level *.bluebook is its own domain. Files that fail to read are silently skipped."
       attribute :dir, String
       then_set :dir, to: :dir
       then_set :phase, to: "scanning"
@@ -200,7 +200,7 @@ Hecks.bluebook "Server", version: "2026.04.24.1" do
 
     command "BootDomainRuntime" do
       role "System"
-      description "For one bluebook file found by ScanDomainsDir, parse the domain and boot a Runtime with data_dir set to <dir>/data. Fires once per domain ; domain_count increments each time."
+      description "For each domain emerging from ScanDomainsDir (one in primary mode, N in legacy mode), boot a Runtime with data_dir set to <dir>/data. domain_count increments each time."
       then_set :domain_count, increment: 1
       emits "DomainRuntimeBooted"
     end
