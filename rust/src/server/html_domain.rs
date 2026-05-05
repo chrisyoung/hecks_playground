@@ -1,3 +1,10 @@
+// [antibody-exempt: rust/src/server/html_domain.rs — kernel-floor HTML
+//  domain-detail page for the multi-domain server. Same Trikaya-floor
+//  justification as the rest of rust/src/server/. Edit for the i241
+//  primary-bluebook walk : sidebar carries aggregates of the active
+//  domain so the user can click an aggregate to jump to its card.
+//  Creation cards now carry id="agg-<Name>" anchors for those links.]
+
 //! HTML domain page — detail view for a single domain
 //!
 //! Shows modules (aggregates), commands, lifecycle states, and records
@@ -29,8 +36,11 @@ pub fn generate_domain_page(
         d.sort_by(|a, b| a.0.cmp(&b.0));
         d
     };
-    let sidebar = sidebar_links(&domains, Some(name));
     let rt = rt.borrow();
+    let sidebar_aggregates: Vec<String> = rt.domain.aggregates.iter()
+        .map(|a| a.name.clone())
+        .collect();
+    let sidebar = sidebar_links(&domains, Some(name), &sidebar_aggregates);
     let mut main = String::new();
     main.push_str(&format!(
         r#"<div class="mb-8">
@@ -89,11 +99,12 @@ fn creation_cards(domain: &str, rt: &Runtime) -> String {
         let desc = agg.description.as_deref().unwrap_or("");
 
         s.push_str(&format!(
-            r#"<div class="bg-surface-2 rounded-xl border border-surface-3 p-5 hover:border-brand/30 transition">
+            r#"<div id="agg-{anchor}" class="bg-surface-2 rounded-xl border border-surface-3 p-5 hover:border-brand/30 transition scroll-mt-20">
   <div class="mb-3">
     <h3 class="font-semibold text-white">{icon} {label}</h3>
     <p class="text-xs text-gray-500 mt-1">{desc}</p>
   </div>"#,
+            anchor = agg.name,
             icon = icon,
             label = esc(&display_name(&agg.name)),
             desc = esc(desc),

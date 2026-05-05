@@ -1,3 +1,9 @@
+// [antibody-exempt: rust/src/server/html_shared.rs — kernel-floor HTML
+//  page wrapper for the multi-domain server. Same Trikaya-floor
+//  justification as the rest of rust/src/server/. Edit for the i241
+//  primary-bluebook walk : sidebar_links now takes aggregates of the
+//  active domain.]
+
 //! Shared HTML layout — app shell, head, sidebar, footer
 //!
 //! Provides the Tailwind-styled page wrapper used by both
@@ -166,8 +172,12 @@ pub fn wrap_page(title: &str, sidebar_html: &str, main_html: &str) -> String {
 }
 
 /// Delegate sidebar generation to html_sidebar module
-pub fn sidebar_links(domains: &[(String, usize)], active: Option<&str>) -> String {
-    super::html_sidebar::sidebar_links(domains, active)
+pub fn sidebar_links(
+    domains: &[(String, usize)],
+    active: Option<&str>,
+    aggregates: &[String],
+) -> String {
+    super::html_sidebar::sidebar_links(domains, active, aggregates)
 }
 
 /// Return an emoji icon for a domain based on keyword matching

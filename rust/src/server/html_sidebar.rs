@@ -1,13 +1,29 @@
+// [antibody-exempt: rust/src/server/html_sidebar.rs — kernel-floor HTML
+//  sidebar renderer for the multi-domain server. Same Trikaya-floor
+//  justification as the rest of rust/src/server/. Edit for the i241
+//  primary-bluebook walk : aggregates of the active domain rendered
+//  as indented sub-links so the user can click an aggregate name.]
+
 //! Sidebar navigation — grouped domain links and utility helpers
 //!
 //! Generates the sidebar HTML with domains grouped under category
-//! headers (Operations, Products, Sales, Compliance).
+//! headers (Operations, Products, Sales, Compliance). When the user
+//! is on a specific domain page, that domain's aggregates render as
+//! indented sub-links beneath the active entry — the "walk into the
+//! domain to get the aggregates" UX from bin-pal / bin-buddy.
 //!
 //! Usage:
-//!   let links = sidebar_links(&domains, Some("manufacturing"));
+//!   let links = sidebar_links(&domains, Some("manufacturing"), &[]);
+//!   let links = sidebar_links(&domains, Some("BinBuddy"), &agg_names);
 
-/// Generate sidebar nav links from domain names, highlighting active
-pub fn sidebar_links(domains: &[(String, usize)], active: Option<&str>) -> String {
+/// Generate sidebar nav links. `aggregates` lists the active domain's
+/// aggregates ; pass an empty slice on the index page or when the
+/// active domain has none.
+pub fn sidebar_links(
+    domains: &[(String, usize)],
+    active: Option<&str>,
+    aggregates: &[String],
+) -> String {
     let groups: &[(&str, &[&str])] = &[
         ("Operations", &["manufacturing", "inventory", "supply_chain", "distribution", "quality"]),
         ("Products", &["catalog", "formulation", "formulation_lab", "pricing"]),
@@ -28,6 +44,9 @@ pub fn sidebar_links(domains: &[(String, usize)], active: Option<&str>) -> Strin
         for (name, _count) in &group_domains {
             placed.insert(name.clone());
             out.push_str(&sidebar_link(name, active));
+            if active == Some(name) {
+                out.push_str(&aggregate_sublinks(aggregates));
+            }
         }
     }
     // Ungrouped domains
@@ -37,8 +56,31 @@ pub fn sidebar_links(domains: &[(String, usize)], active: Option<&str>) -> Strin
     }
     for (name, _) in ungrouped {
         out.push_str(&sidebar_link(name, active));
+        if active == Some(name) {
+            out.push_str(&aggregate_sublinks(aggregates));
+        }
     }
     out
+}
+
+/// Render aggregates under the active domain as indented anchor links.
+/// Each link jumps to `#agg-<Name>` on the current page — the creation
+/// cards in html_domain.rs carry matching `id` attributes.
+fn aggregate_sublinks(aggregates: &[String]) -> String {
+    if aggregates.is_empty() { return String::new(); }
+    let mut s = String::new();
+    s.push_str(r#"<div class="ml-3 mt-1 mb-1 border-l border-surface-3 pl-2">"#);
+    for name in aggregates {
+        let label = super::html_shared::display_name(name);
+        let icon = super::html_shared::module_icon(name);
+        s.push_str(&format!(
+            r##"<a href="#agg-{name}" class="block px-2 py-1 rounded text-xs text-gray-500 hover:bg-surface-2 hover:text-gray-200 transition cursor-pointer" title="Jump to {label}">
+  {icon} {label}
+</a>"##,
+        ));
+    }
+    s.push_str("</div>");
+    s
 }
 
 fn sidebar_link(name: &str, active: Option<&str>) -> String {
