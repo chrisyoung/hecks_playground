@@ -40,7 +40,7 @@ pub fn generate_domain_page(
     let sidebar_aggregates: Vec<String> = rt.domain.aggregates.iter()
         .map(|a| a.name.clone())
         .collect();
-    let sidebar = sidebar_links(&domains, Some(name), &sidebar_aggregates);
+    let sidebar = sidebar_links(&domains, Some(name), &sidebar_aggregates, None);
     let mut main = String::new();
     main.push_str(&format!(
         r#"<div class="mb-8">

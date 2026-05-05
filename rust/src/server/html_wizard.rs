@@ -60,6 +60,10 @@ pub fn wizard_script() -> &'static str {
     modal.querySelector('input,select')?.focus();
   }
   function wizardSubmit(form, domain, cmd) {
+    // Fill any [data-auto="now"] hidden timestamps before serializing.
+    form.querySelectorAll('input[data-auto="now"]').forEach(el => {
+      el.value = new Date().toISOString();
+    });
     const data = {};
     new FormData(form).forEach((v, k) => { if(v) data[k] = v; });
     fetch('/domains/' + domain + '/dispatch', {
@@ -72,7 +76,16 @@ pub fn wizard_script() -> &'static str {
         el.innerHTML = '<div class="p-3 rounded bg-emerald-900/40 text-emerald-300 text-sm">\u2714 ' + humanize(r.event) + ' \u2014 ' + humanize(r.aggregate_type) + ' #' + r.aggregate_id + '</div>';
         addEvent(r.event, cmd, r.aggregate_type, r.aggregate_id, true);
         form.querySelectorAll('input').forEach(i => i.value = '');
-        setTimeout(() => form.closest('div.fixed')?.remove(), 1500);
+        // Persist the event-stream HTML across the reload so events
+        // accumulated across dispatches survive \u2014 sessionStorage is
+        // the simplest place ; restored on DOMContentLoaded below.
+        try {
+          const stream = document.getElementById('event-stream');
+          if (stream) sessionStorage.setItem('event-stream-html', stream.innerHTML);
+        } catch (e) {}
+        // Reload so the Records table picks up the new row.
+        // Short delay so the green confirmation is briefly visible.
+        setTimeout(() => window.location.reload(), 600);
       } else {
         el.innerHTML = '<div class="p-3 rounded bg-red-900/40 text-red-300 text-sm">\u2718 ' + r.error + '</div>';
         addEvent(r.error, cmd, '', '', false);
@@ -80,9 +93,54 @@ pub fn wizard_script() -> &'static str {
     });
     return false;
   }
+  function wizardQuery(form, domain, qname) {
+    const data = {};
+    new FormData(form).forEach((v, k) => { if(v) data[k] = v; });
+    fetch('/domains/' + domain + '/query', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({query: qname, attrs: data})
+    }).then(r => r.json()).then(rows => {
+      const el = form.querySelector('.wizard-result');
+      const list = Array.isArray(rows) ? rows : (rows && typeof rows === 'object' ? [rows] : []);
+      if (!list.length || (list.length === 1 && Object.keys(list[0]).length === 0)) {
+        el.innerHTML = '<div class="p-3 rounded bg-surface-3/40 text-gray-400 text-xs">No results.</div>';
+        return;
+      }
+      const cols = Array.from(new Set(list.flatMap(r => Object.keys(r || {}))));
+      let html = '<div class="overflow-x-auto mt-2"><table class="w-full text-xs"><thead><tr class="text-gray-500 border-b border-surface-3">';
+      cols.forEach(c => { html += '<th class="text-left py-1 pr-3">' + c + '</th>'; });
+      html += '</tr></thead><tbody>';
+      list.forEach(row => {
+        html += '<tr class="border-b border-surface-3/40">';
+        cols.forEach(c => {
+          let v = row && row[c];
+          if (v === null || v === undefined) v = '\u2014';
+          else if (typeof v === 'object') v = JSON.stringify(v);
+          html += '<td class="py-1 pr-3 text-gray-300">' + v + '</td>';
+        });
+        html += '</tr>';
+      });
+      html += '</tbody></table></div>';
+      el.innerHTML = html;
+    }).catch(e => {
+      const el = form.querySelector('.wizard-result');
+      el.innerHTML = '<div class="p-3 rounded bg-red-900/40 text-red-300 text-sm">\u2718 ' + e + '</div>';
+    });
+    return false;
+  }
   document.addEventListener('keydown', function(e) {
     if (e.key === ' ' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
       e.preventDefault();
     }
+  });
+  // Restore the event-stream HTML preserved through a wizardSubmit reload.
+  document.addEventListener('DOMContentLoaded', function() {
+    try {
+      const saved = sessionStorage.getItem('event-stream-html');
+      if (!saved) return;
+      const stream = document.getElementById('event-stream');
+      if (stream) stream.innerHTML = saved;
+    } catch (e) {}
   });"#
 }

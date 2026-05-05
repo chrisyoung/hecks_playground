@@ -45,44 +45,8 @@ pub fn wrap_page(title: &str, sidebar_html: &str, main_html: &str) -> String {
   }}
   </script>
   <style>
-    html {{ scroll-behavior: smooth; }}
     details > summary {{ list-style: none; }}
     details > summary::-webkit-details-marker {{ display: none; }}
-    details[open] > div {{ animation: slideDown 0.3s ease-out; }}
-    @keyframes slideDown {{ from {{ opacity: 0; max-height: 0; transform: translateY(-12px); }} to {{ opacity: 1; max-height: 5000px; transform: translateY(0); }} }}
-
-    /* Slideable panels and tabs */
-    .tab-panel {{ transition: opacity 0.3s ease, transform 0.3s ease; }}
-    .tab-panel.entering {{ opacity: 0; transform: translateX(20px); }}
-
-    /* Module cards slide + lift */
-    details.bg-surface-2 {{ transition: transform 0.2s ease, box-shadow 0.2s ease; }}
-    details.bg-surface-2:hover {{ transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }}
-
-    /* Command forms slide open */
-    details[data-domain-command] > div {{ transition: max-height 0.3s ease, opacity 0.25s ease; overflow: hidden; }}
-
-    /* Sidebar items slide in staggered */
-    nav a {{ opacity: 0; animation: sidebarSlide 0.3s ease forwards; }}
-    @keyframes sidebarSlide {{ from {{ opacity: 0; transform: translateX(-12px); }} to {{ opacity: 1; transform: translateX(0); }} }}
-    nav a:nth-child(1) {{ animation-delay: 0.05s; }}
-    nav a:nth-child(2) {{ animation-delay: 0.1s; }}
-    nav a:nth-child(3) {{ animation-delay: 0.15s; }}
-    nav a:nth-child(4) {{ animation-delay: 0.2s; }}
-    nav a:nth-child(5) {{ animation-delay: 0.25s; }}
-    nav a:nth-child(6) {{ animation-delay: 0.3s; }}
-    nav a:nth-child(7) {{ animation-delay: 0.35s; }}
-    nav a:nth-child(8) {{ animation-delay: 0.4s; }}
-
-    /* Event cards slide in from right */
-    #event-stream > div {{ animation: eventSlide 0.3s ease-out; }}
-    @keyframes eventSlide {{ from {{ opacity: 0; transform: translateX(20px); }} to {{ opacity: 1; transform: translateX(0); }} }}
-    @keyframes blob-drift-1 {{ 0% {{ transform: translate(0,0) scale(1); }} 50% {{ transform: translate(-5vw,8vh) scale(0.9); }} 100% {{ transform: translate(0,0) scale(1); }} }}
-    @keyframes blob-drift-2 {{ 0% {{ transform: translate(0,0) scale(1); }} 50% {{ transform: translate(7vw,-10vh) scale(0.88); }} 100% {{ transform: translate(0,0) scale(1); }} }}
-    .page-blob {{
-      position: fixed; border-radius: 50%; filter: blur(100px);
-      opacity: 0.06; pointer-events: none; will-change: transform;
-    }}
   </style>
   <script>
   {core_script}
@@ -91,12 +55,7 @@ pub fn wrap_page(title: &str, sidebar_html: &str, main_html: &str) -> String {
   </script>
 </head>
 <body class="h-full bg-surface-0 text-gray-100">
-  <div class="page-blob" style="width:500px;height:500px;top:5%;left:20%;background:#ffe400;animation:blob-drift-1 25s ease-in-out infinite"></div>
-  <div class="page-blob" style="width:400px;height:400px;top:60%;right:10%;background:#ef4444;animation:blob-drift-2 30s ease-in-out infinite"></div>
-  <div class="page-blob" style="width:450px;height:450px;bottom:10%;left:50%;background:#22c55e;animation:blob-drift-1 35s ease-in-out infinite reverse"></div>
-  <div class="page-blob" style="width:350px;height:350px;top:30%;right:40%;background:#3b82f6;animation:blob-drift-2 28s ease-in-out infinite"></div>
-  <div class="page-blob" style="width:400px;height:400px;bottom:30%;left:10%;background:#ffffff;animation:blob-drift-1 32s ease-in-out infinite reverse"></div>
-  <div class="flex h-full relative z-10">
+  <div class="flex h-full">
     <aside id="sidebar" class="bg-surface-1 border-r border-surface-3 flex flex-col fixed h-full overflow-y-auto" style="width:240px">
       <div class="p-6">
         <a href="/" class="text-xl font-bold text-brand hover:text-brand-dim transition">{app_name}</a>
@@ -176,8 +135,9 @@ pub fn sidebar_links(
     domains: &[(String, usize)],
     active: Option<&str>,
     aggregates: &[String],
+    active_aggregate: Option<&str>,
 ) -> String {
-    super::html_sidebar::sidebar_links(domains, active, aggregates)
+    super::html_sidebar::sidebar_links(domains, active, aggregates, active_aggregate)
 }
 
 /// Return an emoji icon for a domain based on keyword matching
@@ -251,6 +211,20 @@ pub fn display_name(name: &str) -> String {
         }
     }
     if !cur.is_empty() { words.push(cur); }
+
+    // Known acronyms — uppercase regardless of position. Snake-cased
+    // input like `application_id` → ["Application", "Id"] → "Application ID".
+    const ACRONYMS: &[&str] = &[
+        "ID", "URL", "API", "SQL", "HTTP", "HTTPS", "UUID", "CSV", "JSON",
+        "XML", "HTML", "CSS", "TLS", "SSH", "DNS", "TCP", "UDP", "PDF",
+        "JPG", "PNG", "GIF", "SVG", "OS", "IP", "UI", "UX", "JWT", "OAuth",
+        "SMS", "AWS", "GCP", "S3", "EC2", "RDS",
+    ];
+    for w in &mut words {
+        if let Some(acronym) = ACRONYMS.iter().find(|a| a.eq_ignore_ascii_case(w)) {
+            *w = (*acronym).to_string();
+        }
+    }
     words.join(" ")
 }
 

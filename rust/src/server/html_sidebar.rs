@@ -1,8 +1,9 @@
 // [antibody-exempt: rust/src/server/html_sidebar.rs — kernel-floor HTML
 //  sidebar renderer for the multi-domain server. Same Trikaya-floor
-//  justification as the rest of rust/src/server/. Edit for the i241
+//  justification as the rest of rust/src/server/. Edits for the i241
 //  primary-bluebook walk : aggregates of the active domain rendered
-//  as indented sub-links so the user can click an aggregate name.]
+//  as indented sub-links pointing at /domains/<Name>/aggregates/<Agg>.
+//  active_aggregate parameter highlights the current aggregate.]
 
 //! Sidebar navigation — grouped domain links and utility helpers
 //!
@@ -10,19 +11,22 @@
 //! headers (Operations, Products, Sales, Compliance). When the user
 //! is on a specific domain page, that domain's aggregates render as
 //! indented sub-links beneath the active entry — the "walk into the
-//! domain to get the aggregates" UX from bin-pal / bin-buddy.
+//! domain to get the aggregates" UX from bin-pal / bin-buddy. Each
+//! sub-link points at `/domains/<Domain>/aggregates/<AggName>` ; the
+//! page renderer emits a focused per-aggregate view at that URL.
 //!
 //! Usage:
-//!   let links = sidebar_links(&domains, Some("manufacturing"), &[]);
-//!   let links = sidebar_links(&domains, Some("BinBuddy"), &agg_names);
+//!   let links = sidebar_links(&domains, Some("BinBuddy"), &agg_names, Some("Subscription"));
 
 /// Generate sidebar nav links. `aggregates` lists the active domain's
 /// aggregates ; pass an empty slice on the index page or when the
-/// active domain has none.
+/// active domain has none. `active_aggregate` highlights the current
+/// aggregate when on a per-aggregate page.
 pub fn sidebar_links(
     domains: &[(String, usize)],
     active: Option<&str>,
     aggregates: &[String],
+    active_aggregate: Option<&str>,
 ) -> String {
     let groups: &[(&str, &[&str])] = &[
         ("Operations", &["manufacturing", "inventory", "supply_chain", "distribution", "quality"]),
@@ -45,7 +49,7 @@ pub fn sidebar_links(
             placed.insert(name.clone());
             out.push_str(&sidebar_link(name, active));
             if active == Some(name) {
-                out.push_str(&aggregate_sublinks(aggregates));
+                out.push_str(&aggregate_sublinks(name, aggregates, active_aggregate));
             }
         }
     }
@@ -57,26 +61,35 @@ pub fn sidebar_links(
     for (name, _) in ungrouped {
         out.push_str(&sidebar_link(name, active));
         if active == Some(name) {
-            out.push_str(&aggregate_sublinks(aggregates));
+            out.push_str(&aggregate_sublinks(name, aggregates, active_aggregate));
         }
     }
     out
 }
 
-/// Render aggregates under the active domain as indented anchor links.
-/// Each link jumps to `#agg-<Name>` on the current page — the creation
-/// cards in html_domain.rs carry matching `id` attributes.
-fn aggregate_sublinks(aggregates: &[String]) -> String {
+/// Render aggregates under the active domain as indented links pointing
+/// to `/domains/<Domain>/aggregates/<AggName>`. The active aggregate
+/// (when set) is highlighted with the brand accent.
+fn aggregate_sublinks(
+    domain: &str,
+    aggregates: &[String],
+    active: Option<&str>,
+) -> String {
     if aggregates.is_empty() { return String::new(); }
     let mut s = String::new();
     s.push_str(r#"<div class="ml-3 mt-1 mb-1 border-l border-surface-3 pl-2">"#);
     for name in aggregates {
         let label = super::html_shared::display_name(name);
         let icon = super::html_shared::module_icon(name);
+        let active_class = if active == Some(name.as_str()) {
+            "bg-brand/10 text-brand font-medium"
+        } else {
+            "text-gray-500 hover:bg-surface-2 hover:text-gray-200"
+        };
         s.push_str(&format!(
-            r##"<a href="#agg-{name}" class="block px-2 py-1 rounded text-xs text-gray-500 hover:bg-surface-2 hover:text-gray-200 transition cursor-pointer" title="Jump to {label}">
+            r#"<a href="/domains/{domain}/aggregates/{name}" class="block px-2 py-1 rounded text-xs {active_class} transition cursor-pointer" title="Open {label}">
   {icon} {label}
-</a>"##,
+</a>"#,
         ));
     }
     s.push_str("</div>");

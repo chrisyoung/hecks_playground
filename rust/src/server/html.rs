@@ -24,7 +24,7 @@ pub fn generate_index(runtimes: &HashMap<String, RefCell<Runtime>>) -> String {
         .collect();
     domains.sort_by(|a, b| a.0.cmp(&b.0));
 
-    let sidebar = sidebar_links(&domains, None, &[]);
+    let sidebar = sidebar_links(&domains, None, &[], None);
     let total_modules: usize = domains.iter().map(|(_, c)| c).sum();
     let total_commands: usize = runtimes.values().map(|rt| {
         rt.borrow().domain.aggregates.iter()

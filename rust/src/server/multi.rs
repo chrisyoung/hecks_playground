@@ -38,6 +38,7 @@ use crate::parser;
 use super::{read_request, write_response};
 use super::routes;
 use super::html;
+use super::html_aggregate;
 use super::html_domain;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -184,6 +185,20 @@ fn route_multi(
         ("GET", ["domains", name]) => {
             match runtimes.get(*name) {
                 Some(rt) => ("200 OK", html_domain::generate_domain_page(name, rt, runtimes)),
+                None => ("404 Not Found", format!(
+                    r#"{{"error":"domain not found","name":"{}"}}"#, name
+                )),
+            }
+        }
+
+        // Per-aggregate focused page : `/domains/<Name>/aggregates/<AggName>`
+        // — center panel renders only the named aggregate's bluebook
+        // (header, attributes, value_objects, references, lifecycle,
+        // commands as runnable forms, queries). Click an aggregate in
+        // the left nav and the page filters to just that one aggregate.
+        ("GET", ["domains", name, "aggregates", agg]) => {
+            match runtimes.get(*name) {
+                Some(rt) => ("200 OK", html_aggregate::generate_aggregate_page(name, agg, rt, runtimes)),
                 None => ("404 Not Found", format!(
                     r#"{{"error":"domain not found","name":"{}"}}"#, name
                 )),

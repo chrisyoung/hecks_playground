@@ -32,6 +32,10 @@ pub fn route(
 
         ("POST", ["dispatch"]) => dispatch(body, rt),
 
+        // Query endpoint — body is `{ "query": "FindByEmail", "attrs": {...} }`.
+        // Same shape as /dispatch ; returns the resolve_query JSON.
+        ("POST", ["query"]) => query(body, rt),
+
         ("GET", ["aggregates"]) => {
             let rt = rt.borrow();
             ("200 OK", domain_json(&rt))
@@ -66,6 +70,31 @@ pub fn route(
 
         _ => ("404 Not Found", r#"{"error":"not found"}"#.into()),
     }
+}
+
+/// Resolve a runtime query. Body shape mirrors /dispatch :
+///   { "query": "FindByEmail", "attrs": { "email": "x@y.z" } }
+/// Returns the resolve_query JSON verbatim.
+pub fn query(body: &str, rt: &RefCell<Runtime>) -> (&'static str, String) {
+    // Reuse parse_dispatch_body : it parses `"command"` key by default,
+    // so we hot-swap "query"→"command" in the body before parsing.
+    let swapped = body.replacen("\"query\"", "\"command\"", 1);
+    let (qname, attrs_value) = parse_dispatch_body(&swapped);
+    if qname.is_empty() {
+        return ("400 Bad Request", r#"{"error":"missing query name"}"#.into());
+    }
+    // resolve_query wants HashMap<String, String> ; coerce.
+    let attrs: std::collections::HashMap<String, String> = attrs_value.into_iter()
+        .map(|(k, v)| (k, match v {
+            crate::runtime::Value::Str(s) => s,
+            crate::runtime::Value::Int(n) => n.to_string(),
+            crate::runtime::Value::Bool(b) => b.to_string(),
+            _ => String::new(),
+        }))
+        .collect();
+    let rt = rt.borrow();
+    let result = rt.resolve_query(&qname, &attrs);
+    ("200 OK", result.to_string())
 }
 
 pub fn dispatch(body: &str, rt: &RefCell<Runtime>) -> (&'static str, String) {

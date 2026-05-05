@@ -41,7 +41,7 @@ pub fn core_script() -> &'static str {
     const color = ok ? 'border-emerald-600/40' : 'border-red-600/40';
     const icon = ok ? '\u26A1' : '\u274C';
     const card = document.createElement('div');
-    card.className = 'p-3 rounded-lg bg-surface-2 border ' + color + ' cursor-pointer hover:bg-surface-3 transition text-xs animate-pulse';
+    card.className = 'p-3 rounded-lg bg-surface-2 border ' + color + ' cursor-pointer hover:bg-surface-3 text-xs';
     card.innerHTML = '<div class="flex items-center justify-between mb-1"><span class="font-bold text-brand">' + icon + ' ' + humanize(event||cmd) + '</span><span class="text-gray-600">' + time + '</span></div>' +
       (aggType ? '<p class="text-gray-400">' + humanize(aggType) + (aggId ? ' #' + aggId : '') + '</p>' : '') +
       '<p class="text-gray-500 mt-1">' + humanize(cmd) + '</p>';
@@ -50,7 +50,6 @@ pub fn core_script() -> &'static str {
       card.classList.toggle('ring-brand/50');
     };
     stream.insertBefore(card, stream.firstChild);
-    setTimeout(() => card.classList.remove('animate-pulse'), 1000);
   }
   function toggleCmd(btn) {
     const form = btn.nextElementSibling;
