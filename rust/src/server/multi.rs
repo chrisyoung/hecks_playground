@@ -35,7 +35,7 @@
 
 use crate::runtime::Runtime;
 use crate::parser;
-use super::{read_request, write_response};
+use super::{read_request, write_response, write_response_with_extra};
 use super::routes;
 use super::html;
 use super::html_aggregate;
@@ -152,25 +152,137 @@ fn handle_multi(
     mut stream: std::net::TcpStream,
     runtimes: &HashMap<String, RefCell<Runtime>>,
 ) {
-    let (method, path, body) = match read_request(&stream) {
+    let (method, path, body, cookies) = match read_request(&stream) {
         Some(r) => r,
         None => return,
     };
 
     let seg: Vec<&str> = path.trim_matches('/').split('/').collect();
-    let (status, resp_body) = route_multi(&method, &seg, &body, runtimes);
-    write_response(&mut stream, status, &resp_body);
+    let (status, resp_body, extra) = route_multi(&method, &seg, &body, &cookies, runtimes);
+    if extra.is_empty() {
+        write_response(&mut stream, status, &resp_body);
+    } else {
+        write_response_with_extra(&mut stream, status, &resp_body, Some(&extra));
+    }
 }
 
 fn route_multi(
     method: &str, seg: &[&str], body: &str,
+    cookies: &HashMap<String, String>,
     runtimes: &HashMap<String, RefCell<Runtime>>,
-) -> (&'static str, String) {
+) -> (&'static str, String, String) {
+    let no_extra = String::new();
+    // Gate every /domains/* route behind a valid session cookie.
+    // Unauthenticated requests get redirected to / (which then renders
+    // the login or bootstrap form depending on Account count).
+    // Whitelist : /, /sessions, /sessions/bootstrap, /sign-out, /health,
+    // /webhooks/* (external systems can't carry our cookie). Everything
+    // else under /domains/* requires auth.
+    let path_is_domains = matches!(seg.first(), Some(&"domains"));
+    if path_is_domains && current_email(cookies, runtimes).is_none() {
+        return (
+            "303 See Other",
+            String::new(),
+            "Location: /\r\n".to_string(),
+        );
+    }
     match (method, seg) {
-        ("OPTIONS", _) => ("204 No Content", String::new()),
+        ("OPTIONS", _) => ("204 No Content", String::new(), no_extra),
 
+        // Sign-in form / dashboard / bootstrap at root.
+        //   - Authenticated user (cookie resolves to an active Account) → dashboard
+        //   - Zero Account records exist anywhere → bootstrap form (creates the owner)
+        //   - Otherwise → login form
         ("GET", [""]) | ("GET", []) => {
-            ("200 OK", html::generate_index(runtimes))
+            if let Some(email) = current_email(cookies, runtimes) {
+                ("200 OK", super::html_login::generate_dashboard(&email, runtimes), no_extra)
+            } else if account_count(runtimes) == 0 {
+                ("200 OK", super::html_login::generate_bootstrap_page(None), no_extra)
+            } else {
+                ("200 OK", super::html_login::generate_login_page(None), no_extra)
+            }
+        }
+
+        // First-run owner bootstrap : only works when zero Account
+        // records exist. Creates an Account with role=owner via
+        // Account.SignUp dispatch, sets the cookie, redirects to /.
+        // After this lands, the server has its first Account and the
+        // route stops accepting (returns to login form).
+        ("POST", ["sessions", "bootstrap"]) => {
+            if account_count(runtimes) > 0 {
+                return ("403 Forbidden", "Bootstrap is closed — owner account already exists.".into(), no_extra);
+            }
+            let (email, password) = parse_form_body(body);
+            if email.is_empty() || password.is_empty() {
+                return (
+                    "200 OK",
+                    super::html_login::generate_bootstrap_page(Some("Email and password are both required")),
+                    no_extra,
+                );
+            }
+            // Dispatch Account.SignUp with role=owner against the first
+            // (and only) loaded domain. bin-buddy is single-domain ;
+            // catalog-style multi-domain isn't a flow we need yet.
+            let target = match runtimes.values().next() {
+                Some(rt) => rt,
+                None => return ("500 Internal Server Error", "No domain loaded".into(), no_extra),
+            };
+            let mut attrs: HashMap<String, crate::runtime::Value> = HashMap::new();
+            attrs.insert("email".into(), crate::runtime::Value::Str(email.clone()));
+            attrs.insert("password".into(), crate::runtime::Value::Str(password));
+            attrs.insert("role".into(), crate::runtime::Value::Str("owner".into()));
+            let mut rt_mut = target.borrow_mut();
+            match rt_mut.dispatch("SignUp", attrs) {
+                Ok(_) => {
+                    let cookie = format!(
+                        "Set-Cookie: hecks_session={}; HttpOnly; SameSite=Strict; Path=/; Max-Age=86400\r\n\
+                         Location: /\r\n",
+                        email,
+                    );
+                    ("303 See Other", String::new(), cookie)
+                }
+                Err(e) => (
+                    "200 OK",
+                    super::html_login::generate_bootstrap_page(Some(&format!("Couldn't create owner: {}", e))),
+                    no_extra,
+                ),
+            }
+        }
+
+        // Sign-in : application/x-www-form-urlencoded body, fields
+        // `email` + `password`. On match, set a cookie carrying the
+        // email and redirect to /. On miss, re-render the login form
+        // with a flash error.
+        ("POST", ["sessions"]) => {
+            let (email, password) = parse_form_body(body);
+            if email.is_empty() {
+                return (
+                    "200 OK",
+                    super::html_login::generate_login_page(Some("Email is required")),
+                    no_extra,
+                );
+            }
+            if !verify_password(runtimes, &email, &password) {
+                return (
+                    "200 OK",
+                    super::html_login::generate_login_page(Some("Email or password didn't match")),
+                    no_extra,
+                );
+            }
+            let cookie = format!(
+                "Set-Cookie: hecks_session={}; HttpOnly; SameSite=Strict; Path=/; Max-Age=86400\r\n\
+                 Location: /\r\n",
+                email,
+            );
+            ("303 See Other", String::new(), cookie)
+        }
+
+        // Sign-out : clear cookie, redirect to /. We simply expire the
+        // cookie ; for tonight's walking-skeleton this is sufficient.
+        ("GET", ["sign-out"]) | ("POST", ["sign-out"]) => {
+            let cookie = "Set-Cookie: hecks_session=; HttpOnly; SameSite=Strict; \
+                 Path=/; Max-Age=0\r\nLocation: /\r\n".to_string();
+            ("303 See Other", String::new(), cookie)
         }
 
         ("GET", ["domains"]) => {
@@ -179,15 +291,15 @@ fn route_multi(
                 .map(|n| format!(r#""{}""#, n)).collect();
             ("200 OK", format!(
                 r#"{{"count":{},"domains":[{}]}}"#, items.len(), items.join(",")
-            ))
+            ), no_extra)
         }
 
         ("GET", ["domains", name]) => {
             match runtimes.get(*name) {
-                Some(rt) => ("200 OK", html_domain::generate_domain_page(name, rt, runtimes)),
+                Some(rt) => ("200 OK", html_domain::generate_domain_page(name, rt, runtimes), no_extra),
                 None => ("404 Not Found", format!(
                     r#"{{"error":"domain not found","name":"{}"}}"#, name
-                )),
+                ), no_extra),
             }
         }
 
@@ -198,10 +310,10 @@ fn route_multi(
         // the left nav and the page filters to just that one aggregate.
         ("GET", ["domains", name, "aggregates", agg]) => {
             match runtimes.get(*name) {
-                Some(rt) => ("200 OK", html_aggregate::generate_aggregate_page(name, agg, rt, runtimes)),
+                Some(rt) => ("200 OK", html_aggregate::generate_aggregate_page(name, agg, rt, runtimes), no_extra),
                 None => ("404 Not Found", format!(
                     r#"{{"error":"domain not found","name":"{}"}}"#, name
-                )),
+                ), no_extra),
             }
         }
 
@@ -210,18 +322,19 @@ fn route_multi(
             match runtimes.get(*name) {
                 Some(rt) => {
                     let sub = format!("/{}", rest.join("/"));
-                    routes::route(method, &sub, body, rt)
+                    let (s, b) = routes::route(method, &sub, body, rt);
+                    (s, b, no_extra)
                 }
                 None => ("404 Not Found", format!(
                     r#"{{"error":"domain not found","name":"{}"}}"#, name
-                )),
+                ), no_extra),
             }
         }
 
         // Fall through to single-domain style for health
-        ("GET", ["health"]) => ("200 OK", r#"{"status":"ok"}"#.into()),
+        ("GET", ["health"]) => ("200 OK", r#"{"status":"ok"}"#.into(), no_extra),
 
-        _ => ("404 Not Found", r#"{"error":"not found"}"#.into()),
+        _ => ("404 Not Found", r#"{"error":"not found"}"#.into(), no_extra),
     }
 }
 
@@ -229,5 +342,145 @@ fn domain_list(runtimes: &HashMap<String, RefCell<Runtime>>) -> Vec<String> {
     let mut names: Vec<String> = runtimes.keys().cloned().collect();
     names.sort();
     names
+}
+
+/// Count Account records across every loaded domain. Used by the
+/// bootstrap branch — zero accounts means first-run, so `/` shows the
+/// owner-bootstrap form instead of the login form.
+fn account_count(runtimes: &HashMap<String, RefCell<Runtime>>) -> usize {
+    runtimes.values()
+        .map(|rt| rt.borrow().all("Account").len())
+        .sum()
+}
+
+/// Read the `hecks_session` cookie (an email for tonight's walking-
+/// skeleton) and confirm the email belongs to an active Account in
+/// some loaded domain. Returns the email if so.
+///
+/// SECURITY DEBT acknowledged : cookie value is the plain email, not a
+/// random session token. A man-in-the-middle attacker could forge a
+/// cookie. Acceptable for the walking-skeleton against trusted dev
+/// machines ; must be replaced before any production deploy.
+fn current_email(
+    cookies: &HashMap<String, String>,
+    runtimes: &HashMap<String, RefCell<Runtime>>,
+) -> Option<String> {
+    let email = cookies.get("hecks_session")?;
+    if email.is_empty() { return None; }
+    if find_account_by_email(runtimes, email).is_some() {
+        Some(email.clone())
+    } else {
+        None
+    }
+}
+
+/// Find an Account record whose `email` field matches across any
+/// loaded domain. Returns the (status, role) pair if found.
+fn find_account_by_email(
+    runtimes: &HashMap<String, RefCell<Runtime>>,
+    email: &str,
+) -> Option<(String, String)> {
+    use crate::runtime::Value;
+    for rt_cell in runtimes.values() {
+        let rt = rt_cell.borrow();
+        for state in rt.all("Account") {
+            if let Some(Value::Str(e)) = state.fields.get("email") {
+                if e == email {
+                    let status = match state.fields.get("status") {
+                        Some(Value::Str(s)) => s.clone(),
+                        _ => String::new(),
+                    };
+                    let role = match state.fields.get("role") {
+                        Some(Value::Str(s)) => s.clone(),
+                        _ => String::new(),
+                    };
+                    return Some((status, role));
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Verify a sign-in attempt. Looks up the Account by email and
+/// compares the provided password to the stored value. Tonight this
+/// is plaintext compare against the `password` or `password_hash`
+/// field — bcrypt verification belongs in the auth adapter, which
+/// the multi-server doesn't read yet.
+fn verify_password(
+    runtimes: &HashMap<String, RefCell<Runtime>>,
+    email: &str,
+    password: &str,
+) -> bool {
+    use crate::runtime::Value;
+    if email.is_empty() || password.is_empty() { return false; }
+    for rt_cell in runtimes.values() {
+        let rt = rt_cell.borrow();
+        for state in rt.all("Account") {
+            let stored_email = match state.fields.get("email") {
+                Some(Value::Str(e)) => e.as_str(),
+                _ => continue,
+            };
+            if stored_email != email { continue; }
+            // Account must be active.
+            if let Some(Value::Str(s)) = state.fields.get("status") {
+                if s != "active" { return false; }
+            }
+            // Try password fields in order. The bluebook stores the
+            // bcrypt'd value as `password_hash` ; for the walking
+            // skeleton we accept a `password` field too.
+            for key in &["password", "password_hash"] {
+                if let Some(Value::Str(stored)) = state.fields.get(*key) {
+                    if stored == password { return true; }
+                }
+            }
+            return false;
+        }
+    }
+    false
+}
+
+/// Parse `application/x-www-form-urlencoded` body into (email, password).
+/// Tonight we hand-parse instead of pulling in `url`/`form_urlencoded` —
+/// keeps the zero-dependency posture of the server.
+fn parse_form_body(body: &str) -> (String, String) {
+    let mut email = String::new();
+    let mut password = String::new();
+    for pair in body.split('&') {
+        let pair = pair.trim();
+        if let Some(eq) = pair.find('=') {
+            let k = &pair[..eq];
+            let v = url_decode(&pair[eq + 1..]);
+            match k {
+                "email" => email = v,
+                "password" => password = v,
+                _ => {}
+            }
+        }
+    }
+    (email, password)
+}
+
+fn url_decode(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let bytes = s.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        let b = bytes[i];
+        if b == b'+' {
+            out.push(' ');
+            i += 1;
+        } else if b == b'%' && i + 2 < bytes.len() {
+            let hex = std::str::from_utf8(&bytes[i + 1..i + 3]).unwrap_or("");
+            if let Ok(n) = u8::from_str_radix(hex, 16) {
+                out.push(n as char);
+            }
+            i += 3;
+        } else {
+            out.push(b as char);
+            i += 1;
+        }
+    }
+    out
 }
 

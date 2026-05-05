@@ -37,7 +37,7 @@ pub fn wrap_page(title: &str, sidebar_html: &str, main_html: &str) -> String {
     theme: {{
       extend: {{
         colors: {{
-          brand: {{ DEFAULT: '#ffe400', dim: '#ffd200', glow: 'rgba(255,228,0,0.15)' }},
+          brand: {{ DEFAULT: '#5B3A8E', dim: '#4d2f78', glow: 'rgba(91,58,142,0.15)' }},
           surface: {{ 0: '#111111', 1: '#1a1a1a', 2: '#222222', 3: '#333e48', 4: '#444444' }}
         }}
       }}

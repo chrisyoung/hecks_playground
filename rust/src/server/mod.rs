@@ -1,3 +1,9 @@
+// [antibody-exempt: rust/src/server/mod.rs — kernel-floor HTTP server :
+//  std::net request reader, response writer, CORS + cookie plumbing.
+//  Same Trikaya-floor justification as the rest of rust/src/server/.
+//  Edit for auth : read_request now returns parsed cookies ;
+//  write_response_with_extra accepts a Set-Cookie / Location block.]
+
 //! HTTP Server — JSON API for domain runtimes
 //!
 //! Zero-dependency HTTP server using std::net. Serves one or many
@@ -13,6 +19,7 @@ pub mod html;
 pub mod html_aggregate;
 pub mod html_domain;
 pub mod html_fixtures;
+pub mod html_login;
 pub mod html_help;
 pub mod html_icons;
 pub mod html_kpi;
@@ -51,7 +58,7 @@ pub fn serve(rt: Runtime, port: u16) {
 }
 
 fn handle_single(mut stream: std::net::TcpStream, rt: &RefCell<Runtime>) {
-    let (method, path, body) = match read_request(&stream) {
+    let (method, path, body, _cookies) = match read_request(&stream) {
         Some(r) => r,
         None => return,
     };
@@ -60,7 +67,11 @@ fn handle_single(mut stream: std::net::TcpStream, rt: &RefCell<Runtime>) {
 }
 
 /// Read an HTTP request, return (method, path, body)
-pub fn read_request(stream: &std::net::TcpStream) -> Option<(String, String, String)> {
+/// Parsed HTTP request : (method, path, body, cookies).
+/// cookies is a flat HashMap<name, value> populated from the Cookie header.
+pub fn read_request(
+    stream: &std::net::TcpStream,
+) -> Option<(String, String, String, std::collections::HashMap<String, String>)> {
     let mut reader = BufReader::new(stream);
     let mut request_line = String::new();
     if reader.read_line(&mut request_line).is_err() { return None; }
@@ -71,12 +82,26 @@ pub fn read_request(stream: &std::net::TcpStream) -> Option<(String, String, Str
     let path = parts[1].to_string();
 
     let mut content_length = 0usize;
+    let mut cookies: std::collections::HashMap<String, String> = std::collections::HashMap::new();
     loop {
         let mut header = String::new();
         if reader.read_line(&mut header).is_err() { return None; }
         if header.trim().is_empty() { break; }
-        if header.to_lowercase().starts_with("content-length:") {
+        let lower = header.to_lowercase();
+        if lower.starts_with("content-length:") {
             content_length = header[15..].trim().parse().unwrap_or(0);
+        } else if lower.starts_with("cookie:") {
+            let raw = header[7..].trim();
+            for pair in raw.split(';') {
+                let pair = pair.trim();
+                if let Some(eq) = pair.find('=') {
+                    let k = pair[..eq].trim().to_string();
+                    let v = pair[eq + 1..].trim().to_string();
+                    if !k.is_empty() {
+                        cookies.insert(k, v);
+                    }
+                }
+            }
         }
     }
 
@@ -88,23 +113,36 @@ pub fn read_request(stream: &std::net::TcpStream) -> Option<(String, String, Str
         String::new()
     };
 
-    Some((method, path, body))
+    Some((method, path, body, cookies))
 }
 
-/// Write an HTTP response with CORS headers
+/// Write an HTTP response with CORS headers. `extra` is an optional
+/// header block (e.g. "Set-Cookie: hecks_session=abc; HttpOnly\r\n"
+/// or "Location: /domains/BinBuddy\r\n") inserted before the blank
+/// line. Pass `None` for plain responses.
 pub fn write_response(stream: &mut std::net::TcpStream, status: &str, body: &str) {
+    write_response_with_extra(stream, status, body, None);
+}
+
+pub fn write_response_with_extra(
+    stream: &mut std::net::TcpStream,
+    status: &str,
+    body: &str,
+    extra: Option<&str>,
+) {
     let content_type = if body.starts_with("<!") || body.starts_with("<h") {
         "text/html"
     } else {
         "application/json"
     };
+    let extra_block = extra.unwrap_or("");
     let resp = format!(
         "HTTP/1.1 {}\r\nContent-Type: {}\r\n\
          Access-Control-Allow-Origin: *\r\n\
          Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n\
          Access-Control-Allow-Headers: Content-Type\r\n\
-         Content-Length: {}\r\n\r\n{}",
-        status, content_type, body.len(), body
+         {}Content-Length: {}\r\n\r\n{}",
+        status, content_type, extra_block, body.len(), body
     );
     let _ = stream.write_all(resp.as_bytes());
 }
