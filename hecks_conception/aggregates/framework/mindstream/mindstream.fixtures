@@ -1,0 +1,16 @@
+Hecks.fixtures "Swarm" do
+  aggregate "Swarm" do
+    fixture "boot",
+            name:        "boot",
+            description: "The Miette boot pipeline as a one-shot supervised process group. Runs the bluebook-defined organ wiring (DiscoverOrgans, WriteCensus, ClassifyStores, GenerateSystemPrompt, EnsureDaemons, PrintVitals, SurfaceWakeReport) and exits. The first Swarm ; future Swarms (body cycles, integration tests, ...) drop in alongside it.",
+            directory:   { path: "hecks_conception" }
+  end
+
+  aggregate "ManagedProcess" do
+    fixture "boot",
+            name:     "boot",
+            swarm:    "boot",
+            command:  { line: "../rust/target/release/hecks-life run ../runtime/boot/boot.bluebook" },
+            lifespan: { kind: "one_shot", may_exit: true, restart_on_failure: false }
+  end
+end

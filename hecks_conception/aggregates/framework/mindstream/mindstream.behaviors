@@ -1,0 +1,53 @@
+Hecks.behaviors "Swarm" do
+  vision "Behavioral tests for the Swarm aggregate and its ManagedProcess line items — define / register / retire semantics that drive the :overmind generator."
+
+  # ── Swarm.Define ──────────────────────────────────────────────────
+
+  test "Define stamps name, description, and directory" do
+    tests "Define", on: "Swarm"
+    input  name:        "boot",
+           description: "The Miette boot pipeline as a one-shot supervised process group.",
+           directory:   { path: "hecks_conception" }
+    expect name:        "boot",
+           description: "The Miette boot pipeline as a one-shot supervised process group.",
+           directory:   { path: "hecks_conception" }
+  end
+
+  # ── ManagedProcess.Register ───────────────────────────────────────
+
+  test "Register a one-shot process under a swarm" do
+    tests "Register", on: "ManagedProcess"
+    input  name:     "boot",
+           swarm:    "boot",
+           command:  { line: "../rust/target/release/hecks-life run ../runtime/boot/boot.bluebook" },
+           lifespan: { kind: "one_shot", may_exit: true, restart_on_failure: false }
+    expect name:     "boot",
+           command:  { line: "../rust/target/release/hecks-life run ../runtime/boot/boot.bluebook" },
+           lifespan: { kind: "one_shot", may_exit: true, restart_on_failure: false }
+  end
+
+  test "Register a persistent process — defaults to restart_on_failure" do
+    tests "Register", on: "ManagedProcess"
+    input  name:     "studio",
+           swarm:    "studio",
+           command:  { line: "./surface/studio/studio.sh" },
+           lifespan: { kind: "persistent", may_exit: false, restart_on_failure: true }
+    expect lifespan: { kind: "persistent", may_exit: false, restart_on_failure: true }
+  end
+
+  # ── Swarm.Retire ──────────────────────────────────────────────────
+
+  test "Retire a swarm — emits Retired" do
+    tests "Retire", on: "Swarm"
+    input name: "boot"
+    expect_event "Retired"
+  end
+
+  # ── ManagedProcess.Retire ─────────────────────────────────────────
+
+  test "Retire a process — emits Retired" do
+    tests "Retire", on: "ManagedProcess"
+    input name: "boot"
+    expect_event "Retired"
+  end
+end

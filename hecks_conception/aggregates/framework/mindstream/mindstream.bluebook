@@ -1,0 +1,98 @@
+Hecks.bluebook "Swarm", version: "2026.05.07.2" do
+  vision "Overmind-supervised process group. The bluebook is the source of truth ; the :overmind capability generates Procfile + .overmind.env from it. The verb 'boot Miette' becomes 'overmind start' in the swarm's directory. Future swarms (body cycles, integration tests, anything that wants supervised processes) drop in by adding fixtures."
+  category "framework"
+
+  # ============================================================
+  # SWARM — overmind-supervised process group
+  # ============================================================
+  #
+  # A Swarm is one Procfile : a named group of processes overmind
+  # launches together and supervises through a single .overmind.sock.
+  # The framework treats one Swarm = one supervised unit. Studio is
+  # intentionally not a Swarm member — studio is UI, this is framework,
+  # they live as separate concerns.
+
+  aggregate "Swarm", "A named group of processes overmind supervises together. One Swarm = one Procfile + one .overmind.env. The :overmind capability emits both files into the swarm's directory." do
+    identified_by :name
+
+    # Directory — the filesystem path (relative to the repo root) where
+    # the generated Procfile and .overmind.env land. First-class value
+    # object so future code can validate, normalise, or join paths
+    # without re-handling raw strings.
+    value_object "Directory" do
+      attribute :path, String
+    end
+
+    attribute :name,        String
+    attribute :description, String
+    attribute :directory,   Directory
+
+    command "Define" do
+      role "Framework"
+      description "Declare a new swarm. The name identifies the supervised group ; description names its purpose ; directory is where the generated Procfile and .overmind.env will land."
+      attribute :name,        String
+      attribute :description, String
+      attribute :directory,   Directory
+      emits "Defined"
+    end
+
+    command "Retire" do
+      role "Framework"
+      description "Remove a swarm from the catalog. The :overmind capability stops emitting artifacts for it on the next regeneration."
+      reference_to(Swarm)
+      emits "Retired"
+    end
+  end
+
+  # ============================================================
+  # MANAGEDPROCESS — one Procfile entry
+  # ============================================================
+  #
+  # ManagedProcess is the line-level concept inside a Swarm. Each one
+  # becomes one Procfile line and contributes (or not) to the swarm's
+  # OVERMIND_CAN_DIE list based on its lifespan.
+
+  aggregate "ManagedProcess", "One Procfile entry — a single process the swarm runs and overmind supervises. Belongs to one Swarm via reference_to(Swarm)." do
+    identified_by :name
+
+    # ShellCommand — the line overmind invokes from the Swarm's
+    # directory. Value object so the generator can interpolate, validate,
+    # or rewrite the command line uniformly.
+    value_object "ShellCommand" do
+      attribute :line, String
+    end
+
+    # Lifespan — domain language for whether a process is one-shot
+    # (allowed to exit cleanly ; flows into OVERMIND_CAN_DIE) or
+    # persistent (must keep running ; overmind treats exit as crash).
+    # The enum constraint forbids any other value at parse time ;
+    # may_exit + restart_on_failure capture the semantic dimensions
+    # the generator reads to produce overmind directives.
+    value_object "Lifespan" do
+      attribute :kind,               String,    enum: ["one_shot", "persistent"]
+      attribute :may_exit,           TrueClass, default: false
+      attribute :restart_on_failure, TrueClass, default: true
+    end
+
+    attribute :name,     String
+    attribute :command,  ShellCommand
+    attribute :lifespan, Lifespan
+
+    command "Register" do
+      role "Framework"
+      description "Add a process to a swarm. Inputs : the process name, the swarm it joins, the shell command overmind invokes, and its lifespan."
+      reference_to(Swarm)
+      attribute :name,     String
+      attribute :command,  ShellCommand
+      attribute :lifespan, Lifespan
+      emits "Registered"
+    end
+
+    command "Retire" do
+      role "Framework"
+      description "Remove a process from supervision. The :overmind capability drops it from the next Procfile regeneration."
+      reference_to(ManagedProcess)
+      emits "Retired"
+    end
+  end
+end
