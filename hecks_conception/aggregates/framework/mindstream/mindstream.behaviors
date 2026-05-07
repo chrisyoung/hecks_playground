@@ -1,52 +1,52 @@
-Hecks.behaviors "Swarm" do
-  vision "Behavioral tests for the Swarm aggregate and its ManagedProcess line items — define / register / retire semantics that drive the :overmind generator."
+Hecks.behaviors "Mindstream" do
+  vision "Behavioral tests for the Mindstream aggregate and its MindstreamMember line items — define / register / retire semantics that drive the :overmind generator."
 
-  # ── Swarm.Define ──────────────────────────────────────────────────
+  # ── Mindstream.Define ─────────────────────────────────────────────
 
   test "Define stamps name, description, and directory" do
-    tests "Define", on: "Swarm"
+    tests "Define", on: "Mindstream"
     input  name:        "boot",
-           description: "The Miette boot pipeline as a one-shot supervised process group.",
+           description: "The Miette boot pipeline as a one-shot supervised mindstream.",
            directory:   { path: "hecks_conception" }
     expect name:        "boot",
-           description: "The Miette boot pipeline as a one-shot supervised process group.",
+           description: "The Miette boot pipeline as a one-shot supervised mindstream.",
            directory:   { path: "hecks_conception" }
   end
 
-  # ── ManagedProcess.Register ───────────────────────────────────────
+  # ── MindstreamMember.Register ─────────────────────────────────────
 
-  test "Register a one-shot process under a swarm" do
-    tests "Register", on: "ManagedProcess"
-    input  name:     "boot",
-           swarm:    "boot",
-           command:  { line: "../rust/target/release/hecks-life run ../runtime/boot/boot.bluebook" },
-           lifespan: { kind: "one_shot", may_exit: true, restart_on_failure: false }
-    expect name:     "boot",
-           command:  { line: "../rust/target/release/hecks-life run ../runtime/boot/boot.bluebook" },
-           lifespan: { kind: "one_shot", may_exit: true, restart_on_failure: false }
+  test "Register a one-shot member under a mindstream" do
+    tests "Register", on: "MindstreamMember"
+    input  name:       "boot",
+           mindstream: "boot",
+           command:    { line: "../rust/target/release/hecks-life run ../runtime/boot/boot.bluebook" },
+           lifespan:   { kind: "one_shot", may_exit: true, restart_on_failure: false }
+    expect name:       "boot",
+           command:    { line: "../rust/target/release/hecks-life run ../runtime/boot/boot.bluebook" },
+           lifespan:   { kind: "one_shot", may_exit: true, restart_on_failure: false }
   end
 
-  test "Register a persistent process — defaults to restart_on_failure" do
-    tests "Register", on: "ManagedProcess"
-    input  name:     "studio",
-           swarm:    "studio",
-           command:  { line: "./surface/studio/studio.sh" },
-           lifespan: { kind: "persistent", may_exit: false, restart_on_failure: true }
-    expect lifespan: { kind: "persistent", may_exit: false, restart_on_failure: true }
+  test "Register a persistent member — defaults to restart_on_failure" do
+    tests "Register", on: "MindstreamMember"
+    input  name:       "studio",
+           mindstream: "studio",
+           command:    { line: "./surface/studio/studio.sh" },
+           lifespan:   { kind: "persistent", may_exit: false, restart_on_failure: true }
+    expect lifespan:   { kind: "persistent", may_exit: false, restart_on_failure: true }
   end
 
-  # ── Swarm.Retire ──────────────────────────────────────────────────
+  # ── Mindstream.Retire ─────────────────────────────────────────────
 
-  test "Retire a swarm — emits Retired" do
-    tests "Retire", on: "Swarm"
+  test "Retire a mindstream — emits Retired" do
+    tests "Retire", on: "Mindstream"
     input name: "boot"
     expect_event "Retired"
   end
 
-  # ── ManagedProcess.Retire ─────────────────────────────────────────
+  # ── MindstreamMember.Retire ───────────────────────────────────────
 
-  test "Retire a process — emits Retired" do
-    tests "Retire", on: "ManagedProcess"
+  test "Retire a member — emits Retired" do
+    tests "Retire", on: "MindstreamMember"
     input name: "boot"
     expect_event "Retired"
   end

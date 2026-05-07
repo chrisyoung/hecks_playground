@@ -1,18 +1,19 @@
-Hecks.bluebook "Swarm", version: "2026.05.07.2" do
-  vision "Overmind-supervised process group. The bluebook is the source of truth ; the :overmind capability generates Procfile + .overmind.env from it. The verb 'boot Miette' becomes 'overmind start' in the swarm's directory. Future swarms (body cycles, integration tests, anything that wants supervised processes) drop in by adding fixtures."
+Hecks.bluebook "Mindstream", version: "2026.05.07.3" do
+  vision "The framework mindstream — the stream of supervised processes that keeps Miette's body running. Sibling to the self/voice/mind_stream consciousness stream : both are streams flowing through her, at different levels (thoughts there, processes here). One Mindstream = one Procfile + one .overmind.env ; the :overmind capability emits both into the mindstream's directory. The verb 'boot Miette' becomes 'overmind start' in that directory."
   category "framework"
 
   # ============================================================
-  # SWARM — overmind-supervised process group
+  # MINDSTREAM — overmind-supervised process group
   # ============================================================
   #
-  # A Swarm is one Procfile : a named group of processes overmind
-  # launches together and supervises through a single .overmind.sock.
-  # The framework treats one Swarm = one supervised unit. Studio is
-  # intentionally not a Swarm member — studio is UI, this is framework,
-  # they live as separate concerns.
+  # A Mindstream is one Procfile : a named group of MindstreamMember
+  # processes that overmind launches together and supervises through
+  # a single .overmind.sock. The framework treats one Mindstream =
+  # one supervised unit. Studio is intentionally not a Mindstream
+  # member — studio is UI, this is framework, they live as separate
+  # concerns and are not launched from the same Procfile.
 
-  aggregate "Swarm", "A named group of processes overmind supervises together. One Swarm = one Procfile + one .overmind.env. The :overmind capability emits both files into the swarm's directory." do
+  aggregate "Mindstream", "A named group of processes overmind supervises together. One Mindstream = one Procfile + one .overmind.env. The :overmind capability emits both files into the mindstream's directory." do
     identified_by :name
 
     # Directory — the filesystem path (relative to the repo root) where
@@ -29,7 +30,7 @@ Hecks.bluebook "Swarm", version: "2026.05.07.2" do
 
     command "Define" do
       role "Framework"
-      description "Declare a new swarm. The name identifies the supervised group ; description names its purpose ; directory is where the generated Procfile and .overmind.env will land."
+      description "Declare a new mindstream. The name identifies the supervised group ; description names its purpose ; directory is where the generated Procfile and .overmind.env will land."
       attribute :name,        String
       attribute :description, String
       attribute :directory,   Directory
@@ -38,24 +39,24 @@ Hecks.bluebook "Swarm", version: "2026.05.07.2" do
 
     command "Retire" do
       role "Framework"
-      description "Remove a swarm from the catalog. The :overmind capability stops emitting artifacts for it on the next regeneration."
-      reference_to(Swarm)
+      description "Remove a mindstream from the catalog. The :overmind capability stops emitting artifacts for it on the next regeneration."
+      reference_to(Mindstream)
       emits "Retired"
     end
   end
 
   # ============================================================
-  # MANAGEDPROCESS — one Procfile entry
+  # MINDSTREAMMEMBER — one Procfile entry
   # ============================================================
   #
-  # ManagedProcess is the line-level concept inside a Swarm. Each one
-  # becomes one Procfile line and contributes (or not) to the swarm's
+  # Each member is one process flowing in the mindstream. It becomes
+  # one Procfile line and contributes (or not) to the mindstream's
   # OVERMIND_CAN_DIE list based on its lifespan.
 
-  aggregate "ManagedProcess", "One Procfile entry — a single process the swarm runs and overmind supervises. Belongs to one Swarm via reference_to(Swarm)." do
+  aggregate "MindstreamMember", "One Procfile entry — a single process flowing in the mindstream. Belongs to one Mindstream via reference_to(Mindstream)." do
     identified_by :name
 
-    # ShellCommand — the line overmind invokes from the Swarm's
+    # ShellCommand — the line overmind invokes from the Mindstream's
     # directory. Value object so the generator can interpolate, validate,
     # or rewrite the command line uniformly.
     value_object "ShellCommand" do
@@ -80,8 +81,8 @@ Hecks.bluebook "Swarm", version: "2026.05.07.2" do
 
     command "Register" do
       role "Framework"
-      description "Add a process to a swarm. Inputs : the process name, the swarm it joins, the shell command overmind invokes, and its lifespan."
-      reference_to(Swarm)
+      description "Add a member to a mindstream. Inputs : the member name, the mindstream it joins, the shell command overmind invokes, and its lifespan."
+      reference_to(Mindstream)
       attribute :name,     String
       attribute :command,  ShellCommand
       attribute :lifespan, Lifespan
@@ -90,8 +91,8 @@ Hecks.bluebook "Swarm", version: "2026.05.07.2" do
 
     command "Retire" do
       role "Framework"
-      description "Remove a process from supervision. The :overmind capability drops it from the next Procfile regeneration."
-      reference_to(ManagedProcess)
+      description "Remove a member from supervision. The :overmind capability drops it from the next Procfile regeneration."
+      reference_to(MindstreamMember)
       emits "Retired"
     end
   end
