@@ -702,13 +702,10 @@ fn fatigue_icon_for(fatigue: &str) -> &'static str {
 fn provider_badge_for(provider: &str) -> &'static str {
     match provider {
         "local" => "🦙",
-        // "off" surfaces explicitly with 🚫 — silence is a state, and
-        // the badge tells you Claude is intentionally off rather than
-        // simply absent. The earlier empty-return version made the
-        // off-state visually indistinguishable from "claude default
-        // unset", which was the source of provider_badge_covers_three_
-        // states going stale.
-        "off"   => "🚫",
+        // "off" returns empty — the 🚫 badge is visual noise on a
+        // working statusline. The render code already gates on
+        // !is_empty(), so off shows nothing.
+        "off"   => "",
         _       => "🤖", // claude is the default when unset
     }
 }
