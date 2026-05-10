@@ -3000,7 +3000,8 @@ fn run_enforce_edit(_args: &[String]) {
         None
     };
     let exempted = dispatch_info.is_some()
-        || (matches!(kind, FileKind::Imperative) && file_is_in_exempt_registry(&file_path));
+        || (matches!(kind, FileKind::Imperative) && file_is_in_exempt_registry(&file_path))
+        || (matches!(kind, FileKind::Imperative) && file_has_antibody_marker_in_header(&file_path));
 
     let cmd_name = match kind {
         FileKind::Bluebook   => "RecordBluebookEdit",
@@ -3437,6 +3438,22 @@ fn unreasoned_heki_writes(file_path: &str) -> Option<Vec<String>> {
 ///
 /// Returns `false` on any read/parse error — safe default for a hook
 /// that must never panic the editor.
+/// Honors the `[antibody-exempt: ...]` marker convention specified in
+/// enforcer.bluebook (ExemptedEdited event). The marker IS the audit
+/// trail — when a file declares why it's kernel-surface in its own
+/// header, the enforcer dispatches RecordExemptedEdit (silent exit)
+/// rather than RecordImperativeEdit (the bluebook-first violation).
+///
+/// Scans the first 30 lines only — the marker convention puts it in
+/// the file's doc-comment header. Past 30 lines is body code.
+fn file_has_antibody_marker_in_header(file_path: &str) -> bool {
+    let text = match std::fs::read_to_string(file_path) {
+        Ok(s) => s,
+        Err(_) => return false,
+    };
+    text.lines().take(30).any(|line| line.contains("[antibody-exempt:"))
+}
+
 fn file_is_in_exempt_registry(file_path: &str) -> bool {
     // ExemptRegistry rows live in `information/exempt_registry.heki`
     // (per test-purity rule : runtime config goes through .heki, not
