@@ -19,8 +19,8 @@ fn build_attrs(
     in_scope: &HashMap<String, String>,
 ) -> HashMap<String, Value> {
     let mut attrs = to_runtime_attrs(args);
-    if let Some(cmd) = find_command(rt, command_name) {
-        for r in &cmd.references {
+    if let Some(references) = find_behavior_references(rt, command_name) {
+        for r in references {
             // Don't overwrite if the user explicitly set this kwarg
             // (escape hatch for advanced cases — tests usually don't).
             if attrs.contains_key(&r.name) { continue; }

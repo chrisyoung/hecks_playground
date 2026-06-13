@@ -1,5 +1,11 @@
 //! Generator for behavioral test suites
 //!
+//! [antibody-exempt: rust/src/behaviors_conceiver/generator.rs —
+//!  kernel-surface conceiver (emits .behaviors from IR). Touched by
+//!  first-class factories phase 2 : is_create_command re-commented as
+//!  TRANSITIONAL (models the find-or-mint fallback until the phase-4/5
+//!  sweep) ; conceiving behaviors FOR factory nodes is the successor.]
+//!
 //! Walks a source domain's IR and emits one starter test per command
 //! plus one per query. Smart enough that the auto-generated suite
 //! mostly *passes* against the in-memory runner — the user iterates
@@ -1436,6 +1442,12 @@ fn resolve_mutation_value(raw: &str, cmd: &Command) -> String {
     raw.to_string()
 }
 
+/// TRANSITIONAL — first-class factories phase 2 deleted the dispatch
+/// `is_create` heuristic ; this conceiver-side copy survives only to
+/// model the no-self-ref find-or-mint fallback that prefix-named
+/// COMMAND creators ride until the phase-4/5 sweep converts them to
+/// `factory` blocks. Conceiving behaviors FOR factory nodes is the
+/// successor (factories carry their own attrs/givens/emits).
 fn is_create_command(cmd: &Command) -> bool {
     for prefix in &["Create", "Add", "Place", "Register", "Open"] {
         if cmd.name.starts_with(prefix) { return true; }

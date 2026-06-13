@@ -9,9 +9,9 @@ fn check_lifecycle(
         Some(lc) => lc,
         None => return Ok(()),
     };
-    let cmd = cmd_for(rt, res);
+    let cmd = behavior_for(rt, res);
     let matching: Vec<_> = lifecycle.transitions.iter()
-        .filter(|t| t.command == cmd.name).collect();
+        .filter(|t| t.command == cmd.name()).collect();
     if matching.is_empty() { return Ok(()); }
 
     let current = format!("{}", state.get(&lifecycle.field));
@@ -21,7 +21,7 @@ fn check_lifecycle(
     });
     if allowed { Ok(()) } else {
         Err(RuntimeError::LifecycleViolation {
-            command: cmd.name.clone(),
+            command: cmd.name().to_string(),
             field: lifecycle.field.clone(),
             current,
             allowed: matching.iter().filter_map(|t| t.from_state.clone()).collect(),
@@ -37,10 +37,10 @@ fn apply_lifecycle_transition(rt: &Runtime, res: Resolution, state: &mut Aggrega
         Some(lc) => lc,
         None => return,
     };
-    let cmd = cmd_for(rt, res);
+    let cmd = behavior_for(rt, res);
     let current = format!("{}", state.get(&lifecycle.field));
     for t in &lifecycle.transitions {
-        if t.command != cmd.name { continue; }
+        if t.command != cmd.name() { continue; }
         let from_ok = match &t.from_state {
             Some(from) => current == *from,
             None => true,

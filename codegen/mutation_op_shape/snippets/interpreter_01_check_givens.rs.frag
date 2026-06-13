@@ -1,5 +1,6 @@
 pub fn check_givens(
-    cmd: &Command,
+    attributes: &[crate::ir::Attribute],
+    givens: &[crate::ir::Given],
     state: &AggregateState,
     attrs: &HashMap<String, Value>,
 ) -> Result<(), RuntimeError> {
@@ -7,7 +8,7 @@ pub fn check_givens(
     // absent, Null, or empty refuses the command the same shape a failed given
     // does. Structural superset of the old `given { x != "" }` idiom, which
     // could not see a truly-absent (Null) kwarg.
-    for attr in &cmd.attributes {
+    for attr in attributes {
         if attr.required {
             let present = attrs.get(&attr.name)
                 .map_or(false, |v| !matches!(v, Value::Null) && v.to_string() != "");
@@ -19,7 +20,7 @@ pub fn check_givens(
             }
         }
     }
-    for given in &cmd.givens {
+    for given in givens {
         if !evaluate_given(&given.expression, state, attrs) {
             return Err(RuntimeError::GivenFailed {
                 message: given

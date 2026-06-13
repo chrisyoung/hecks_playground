@@ -18,6 +18,21 @@ fn command_palette(domain: &str, rt: &Runtime) -> String {
                 is_create, fields.join(","),
             ));
         }
+        // First-class factories phase 2 — births are their own node ;
+        // the palette indexes them alongside commands, always create.
+        for fac in &agg.factories {
+            let fields: Vec<String> = fac.attributes.iter().map(|a| {
+                format!(r#"{{"name":"{}","type":"{}"}}"#, esc(&a.name), esc(&a.attr_type))
+            }).collect();
+            let goal = fac.description.as_deref().unwrap_or("");
+            let role = fac.role.as_deref().unwrap_or("");
+            let event = fac.emits.as_deref().unwrap_or("");
+            cmds_json.push(format!(
+                r#"{{"name":"{}","aggregate":"{}","goal":"{}","role":"{}","event":"{}","create":true,"fields":[{}]}}"#,
+                esc(&fac.name), esc(&agg.name), esc(goal), esc(role), esc(event),
+                fields.join(","),
+            ));
+        }
     }
 
     format!(

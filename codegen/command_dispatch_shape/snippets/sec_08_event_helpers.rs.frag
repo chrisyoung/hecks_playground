@@ -8,8 +8,9 @@ fn build_event_res(
 ) -> Option<Event> {
     let agg_idx = res.agg_idx();
     let agg = &rt.domain.aggregates[agg_idx];
-    let cmd = cmd_for(rt, res);
-    let event_name = cmd.emits.clone().unwrap_or_else(|| default_event_name(&cmd.name));
+    let cmd = behavior_for(rt, res);
+    let event_name = cmd.emits().map(str::to_string)
+        .unwrap_or_else(|| default_event_name(cmd.name()));
     Some(Event {
         name: event_name,
         aggregate_type: agg.name.clone(),
@@ -226,10 +227,10 @@ fn unknown_command_message_bare(rt: &Runtime, cmd_name: &str) -> String {
 fn self_ref_missing_message(
     rt: &Runtime, res: Resolution, command_name: &str, ref_name: &str,
 ) -> String {
-    let cmd = cmd_for(rt, res);
+    let cmd = behavior_for(rt, res);
     // Collect the reference target so the message names what's
     // being addressed (e.g. "reference_to Pizza" → mention Pizza).
-    let target_hint = cmd.references.iter()
+    let target_hint = cmd.references().iter()
         .find(|r| &r.name == ref_name)
         .map(|r| format!(" (reference_to {})", r.target))
         .unwrap_or_default();

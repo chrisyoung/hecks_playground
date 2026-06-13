@@ -1,8 +1,8 @@
     // Pipeline: givens → lifecycle check → mutations → lifecycle transition
-    let cmd = cmd_for(rt, res);
-    interpreter::check_givens(cmd, &state, &attrs)?;
+    let bhv = behavior_for(rt, res);
+    interpreter::check_givens(bhv.attributes(), bhv.givens(), &state, &attrs)?;
     check_lifecycle(rt, res, &state)?;
-    interpreter::apply_mutations(cmd, &mut state, &attrs);
+    interpreter::apply_mutations(bhv.mutations(), &mut state, &attrs);
     apply_lifecycle_transition(rt, res, &mut state);
 
     // f4 — aggregate-level invariants are checked on the RESULTING state

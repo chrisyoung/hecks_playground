@@ -23,10 +23,16 @@ pub struct CommandResult {
     pub event: Option<Event>,
 }
 
-/// Resolution of a dispatch address — i111-J.
+/// Resolution of a dispatch address — i111-J + first-class factories
+/// phase 2.
 ///
 /// `Aggregate(agg_idx, cmd_idx)` — command lives directly on the
 /// aggregate's commands list.
+///
+/// `Factory(agg_idx, fac_idx)` — the verb names a Factory on the
+/// aggregate : a BIRTH. The node type IS the create/transition bit ;
+/// dispatch takes the mint path (fresh id, error if it already
+/// exists), never the load path.
 ///
 /// `Entity(agg_idx, ent_idx, cmd_idx)` — command lives inside an
 /// entity declared inside the aggregate's `entity "Foo" do … end`
@@ -36,6 +42,7 @@ pub struct CommandResult {
 #[derive(Debug, Clone, Copy)]
 enum Resolution {
     Aggregate(usize, usize),
+    Factory(usize, usize),
     Entity(usize, usize, usize),
 }
 
@@ -43,16 +50,52 @@ impl Resolution {
     fn agg_idx(&self) -> usize {
         match self {
             Resolution::Aggregate(a, _) => *a,
+            Resolution::Factory(a, _) => *a,
             Resolution::Entity(a, _, _) => *a,
         }
     }
 }
 
-/// Borrow the resolved command from the runtime's IR.
-fn cmd_for<'a>(rt: &'a Runtime, res: Resolution) -> &'a Command {
+/// Borrowed view over the resolved behavior node — first-class
+/// factories phase 2. Factory (birth) and Command (transition) share
+/// every field the downstream pipeline reads (attributes, references,
+/// givens, mutations, emits) ; the Resolution variant carries WHICH
+/// path the verb takes, this view erases the difference for the
+/// shared phases.
+#[derive(Clone, Copy)]
+enum BehaviorRef<'a> {
+    Cmd(&'a Command),
+    Fac(&'a crate::ir::Factory),
+}
+
+impl<'a> BehaviorRef<'a> {
+    fn name(&self) -> &'a str {
+        match self { BehaviorRef::Cmd(c) => &c.name, BehaviorRef::Fac(f) => &f.name }
+    }
+    fn attributes(&self) -> &'a [crate::ir::Attribute] {
+        match self { BehaviorRef::Cmd(c) => &c.attributes, BehaviorRef::Fac(f) => &f.attributes }
+    }
+    fn references(&self) -> &'a [crate::ir::Reference] {
+        match self { BehaviorRef::Cmd(c) => &c.references, BehaviorRef::Fac(f) => &f.references }
+    }
+    fn givens(&self) -> &'a [crate::ir::Given] {
+        match self { BehaviorRef::Cmd(c) => &c.givens, BehaviorRef::Fac(f) => &f.givens }
+    }
+    fn mutations(&self) -> &'a [crate::ir::Mutation] {
+        match self { BehaviorRef::Cmd(c) => &c.mutations, BehaviorRef::Fac(f) => &f.mutations }
+    }
+    fn emits(&self) -> Option<&'a str> {
+        match self { BehaviorRef::Cmd(c) => c.emits.as_deref(), BehaviorRef::Fac(f) => f.emits.as_deref() }
+    }
+}
+
+/// Borrow the resolved behavior node (Command or Factory) from the
+/// runtime's IR.
+fn behavior_for<'a>(rt: &'a Runtime, res: Resolution) -> BehaviorRef<'a> {
     match res {
-        Resolution::Aggregate(a, c) => &rt.domain.aggregates[a].commands[c],
-        Resolution::Entity(a, e, c) => &rt.domain.aggregates[a].entities[e].commands[c],
+        Resolution::Aggregate(a, c) => BehaviorRef::Cmd(&rt.domain.aggregates[a].commands[c]),
+        Resolution::Factory(a, f) => BehaviorRef::Fac(&rt.domain.aggregates[a].factories[f]),
+        Resolution::Entity(a, e, c) => BehaviorRef::Cmd(&rt.domain.aggregates[a].entities[e].commands[c]),
     }
 }
 
@@ -61,6 +104,7 @@ fn cmd_for<'a>(rt: &'a Runtime, res: Resolution) -> &'a Command {
 fn lifecycle_for<'a>(rt: &'a Runtime, res: Resolution) -> Option<&'a Lifecycle> {
     match res {
         Resolution::Aggregate(a, _) => rt.domain.aggregates[a].lifecycle.as_ref(),
+        Resolution::Factory(a, _) => rt.domain.aggregates[a].lifecycle.as_ref(),
         Resolution::Entity(a, e, _) => rt.domain.aggregates[a].entities[e]
             .lifecycle
             .as_ref()
@@ -122,25 +166,12 @@ fn dispatch_inner(
         }
     }
 
-    // First-class factories phase 1 : a verb that names a Factory on the
-    // resolved aggregate IS a birth — the node type carries the bit the
-    // #729 creates bool used to. The name-heuristic survives only until
-    // phase 2 replaces this whole block with the two-path split
-    // (Factory → mint, Command → load).
-    let is_factory_verb = {
-        let resolved_name = &cmd_for(rt, res).name;
-        match res {
-            Resolution::Aggregate(a, _) => rt.domain.aggregates[a]
-                .factories.iter().any(|f| &f.name == resolved_name),
-            Resolution::Entity(..) => false,
-        }
-    };
-    let is_create = is_factory_verb
-        || command_name.starts_with("Create")
-        || command_name.starts_with("Add")
-        || command_name.starts_with("Place")
-        || command_name.starts_with("Register")
-        || command_name.starts_with("Open");
+    // First-class factories phase 2 : the node TYPE carries the
+    // create/transition bit. A verb resolving to a Factory takes the
+    // mint path ; a Command takes the load path. The #729-era
+    // `is_create` name heuristic (Create/Add/Place/Register/Open
+    // prefixes) is DELETED — creation is declared, never guessed.
+    let is_factory_verb = matches!(res, Resolution::Factory(..));
 
     let self_ref = find_self_ref_res(rt, res);
     let aggregate_name = rt.domain.aggregates[agg_idx].name.clone();
@@ -207,7 +238,24 @@ fn dispatch_inner(
     let repo = rt.repositories.get_mut(&repo_hash_key)
         .ok_or(RuntimeError::UnknownAggregate(unknown_agg_msg))?;
 
-    let (mut state, is_new) = if let Some(ref_name) = &self_ref {
+    let (mut state, is_new) = if is_factory_verb {
+        // BIRTH — first-class factories phase 2. A factory mints a fresh
+        // record ; it NEVER targets an existing one. The id comes from
+        // the dispatch attrs (identified_by) or the repo's counter mint ;
+        // an existing record under that id REFUSES the dispatch — no
+        // silent upsert at birth. Factories ignore self_ref and cascade
+        // hints by construction : a thing being born has no prior id to
+        // load.
+        let id = repo.id_for_command(&attrs);
+        if repo.find(&id).is_some() {
+            return Err(RuntimeError::AggregateAlreadyExists {
+                aggregate: aggregate_name.clone(),
+                id: id.clone(),
+                factory: command_name.to_string(),
+            });
+        }
+        (AggregateState::new(&id), true)
+    } else if let Some(ref_name) = &self_ref {
         // Universal self-ref dispatch — i519 sidequest. Callers may pass
         // either the snake-cased aggregate name (the historical kwarg
         // determined by `find_self_ref_res`) or the universal `id` key.
@@ -244,9 +292,12 @@ fn dispatch_inner(
                         aggregate_name, id)
                 )),
             }
-        } else if is_create {
-            (AggregateState::new(&repo.id_for_command(&attrs)), true)
         } else {
+            // No id resolvable on a self-ref'd COMMAND — a transition
+            // with nothing to transition. The #729-era heuristic minted
+            // here for Create*/Add*/… names ; phase 2 deleted it. A verb
+            // that births must be a `factory` block — declared, not
+            // name-guessed.
             return Err(RuntimeError::MissingAttribute(
                 self_ref_missing_message(rt, res, command_name, ref_name)
             ));
@@ -272,10 +323,10 @@ fn dispatch_inner(
     }
 
     // Pipeline: givens → lifecycle check → mutations → lifecycle transition
-    let cmd = cmd_for(rt, res);
-    interpreter::check_givens(cmd, &state, &attrs)?;
+    let bhv = behavior_for(rt, res);
+    interpreter::check_givens(bhv.attributes(), bhv.givens(), &state, &attrs)?;
     check_lifecycle(rt, res, &state)?;
-    interpreter::apply_mutations(cmd, &mut state, &attrs);
+    interpreter::apply_mutations(bhv.mutations(), &mut state, &attrs);
     apply_lifecycle_transition(rt, res, &mut state);
 
     // f4 — aggregate-level invariants are checked on the RESULTING state
@@ -299,8 +350,8 @@ fn dispatch_inner(
     if is_new {
         let agg_attr_names: Vec<&str> = rt.domain.aggregates[agg_idx]
             .attributes.iter().map(|a| a.name.as_str()).collect();
-        let cmd = cmd_for(rt, res);
-        for cmd_attr in &cmd.attributes {
+        let bhv = behavior_for(rt, res);
+        for cmd_attr in bhv.attributes() {
             if agg_attr_names.contains(&cmd_attr.name.as_str()) {
                 if let Some(val) = attrs.get(&cmd_attr.name) {
                     state.set(&cmd_attr.name, val.clone());
@@ -354,7 +405,22 @@ fn dispatch_inner(
     })
 }
 
-/// Resolve a command address to a Resolution (aggregate or entity-owned).
+/// Search one aggregate's commands then factories for `verb` —
+/// first-class factories phase 2. Commands and factories share one
+/// verb namespace per aggregate ; the node KIND decides the dispatch
+/// path via the Resolution variant (Command → load, Factory → mint).
+fn verb_on_aggregate(agg: &crate::ir::Aggregate, ai: usize, verb: &str) -> Option<Resolution> {
+    for (ci, cmd) in agg.commands.iter().enumerate() {
+        if cmd.name == verb { return Some(Resolution::Aggregate(ai, ci)); }
+    }
+    for (fi, fac) in agg.factories.iter().enumerate() {
+        if fac.name == verb { return Some(Resolution::Factory(ai, fi)); }
+    }
+    None
+}
+
+/// Resolve a command address to a Resolution (aggregate, factory, or
+/// entity-owned).
 ///
 /// ## Canonical form — i560 v2 FQN migration (2026-05-12)
 ///
@@ -404,9 +470,7 @@ fn resolve(rt: &Runtime, command_name: &str) -> Result<Resolution, RuntimeError>
             for (ai, agg) in rt.domain.aggregates.iter().enumerate() {
                 if agg.name != *b { continue; }
                 if agg.context.as_deref() != Some(*a) { continue; }
-                for (ci, cmd) in agg.commands.iter().enumerate() {
-                    if cmd.name == *c { return Ok(Resolution::Aggregate(ai, ci)); }
-                }
+                if let Some(r) = verb_on_aggregate(agg, ai, c) { return Ok(r); }
             }
             for (ai, agg) in rt.domain.aggregates.iter().enumerate() {
                 if agg.name != *a { continue; }
@@ -422,12 +486,10 @@ fn resolve(rt: &Runtime, command_name: &str) -> Result<Resolution, RuntimeError>
             ))
         }
         [agg_name, cmd_name] => {
-            // First pass — direct aggregate command match.
+            // First pass — direct aggregate command/factory match.
             for (ai, agg) in rt.domain.aggregates.iter().enumerate() {
                 if agg.name != *agg_name { continue; }
-                for (ci, cmd) in agg.commands.iter().enumerate() {
-                    if cmd.name == *cmd_name { return Ok(Resolution::Aggregate(ai, ci)); }
-                }
+                if let Some(r) = verb_on_aggregate(agg, ai, cmd_name) { return Ok(r); }
             }
             // Second pass (i111-J) — entity-owned command, accepted
             // only when unambiguous (single owning entity within the
@@ -496,10 +558,8 @@ fn resolve(rt: &Runtime, command_name: &str) -> Result<Resolution, RuntimeError>
             if strict {
                 let mut hits: Vec<(Resolution, String)> = Vec::new();
                 for (ai, agg) in rt.domain.aggregates.iter().enumerate() {
-                    for (ci, cmd) in agg.commands.iter().enumerate() {
-                        if cmd.name == *cmd_name {
-                            hits.push((Resolution::Aggregate(ai, ci), agg.name.clone()));
-                        }
+                    if let Some(r) = verb_on_aggregate(agg, ai, cmd_name) {
+                        hits.push((r, agg.name.clone()));
                     }
                     for (ei, ent) in agg.entities.iter().enumerate() {
                         for (ci, cmd) in ent.commands.iter().enumerate() {
@@ -529,9 +589,7 @@ fn resolve(rt: &Runtime, command_name: &str) -> Result<Resolution, RuntimeError>
                 }
             } else {
                 for (ai, agg) in rt.domain.aggregates.iter().enumerate() {
-                    for (ci, cmd) in agg.commands.iter().enumerate() {
-                        if cmd.name == *cmd_name { return Ok(Resolution::Aggregate(ai, ci)); }
-                    }
+                    if let Some(r) = verb_on_aggregate(agg, ai, cmd_name) { return Ok(r); }
                 }
                 for (ai, agg) in rt.domain.aggregates.iter().enumerate() {
                     for (ei, ent) in agg.entities.iter().enumerate() {
@@ -608,15 +666,12 @@ fn resolve_fully_qualified(rt: &Runtime, command_name: &str) -> Result<Resolutio
 
     let domain_lc = domain.to_lowercase();
 
-    // First pass — aggregate-rooted command (target == aggregate name).
+    // First pass — aggregate-rooted command or factory (target ==
+    // aggregate name).
     for (ai, agg) in rt.domain.aggregates.iter().enumerate() {
         if agg.name != target { continue; }
         if !domain_matches(rt, ai, &domain, &domain_lc) { continue; }
-        for (ci, c) in agg.commands.iter().enumerate() {
-            if c.name == cmd {
-                return Ok(Resolution::Aggregate(ai, ci));
-            }
-        }
+        if let Some(r) = verb_on_aggregate(agg, ai, &cmd) { return Ok(r); }
     }
 
     // Second pass — entity-owned command. The canonical form uses the
@@ -673,11 +728,16 @@ fn domain_matches(rt: &Runtime, agg_idx: usize, domain: &str, domain_lc: &str) -
 /// runner / DSL passes the kwarg under ; the runtime must look up
 /// under the same key.
 fn find_self_ref_res(rt: &Runtime, res: Resolution) -> Option<String> {
+    // Factories BIRTH — a self-reference on a factory is meaningless by
+    // construction (the record does not exist yet), so the mint path
+    // never consults one. Converted creators may still carry a
+    // transitional `reference_to(Self)` ; it is ignored here.
+    if matches!(res, Resolution::Factory(..)) { return None; }
     let agg_idx = res.agg_idx();
     let agg = &rt.domain.aggregates[agg_idx];
-    let cmd = cmd_for(rt, res);
+    let cmd = behavior_for(rt, res);
     let agg_snake = to_snake_case(&agg.name);
-    for r in &cmd.references {
+    for r in cmd.references() {
         let ref_snake = to_snake_case(&r.target);
         if ref_snake == agg_snake || agg_snake.ends_with(&ref_snake) {
             return Some(r.name.clone());
@@ -697,9 +757,9 @@ fn check_lifecycle(
         Some(lc) => lc,
         None => return Ok(()),
     };
-    let cmd = cmd_for(rt, res);
+    let cmd = behavior_for(rt, res);
     let matching: Vec<_> = lifecycle.transitions.iter()
-        .filter(|t| t.command == cmd.name).collect();
+        .filter(|t| t.command == cmd.name()).collect();
     if matching.is_empty() { return Ok(()); }
 
     let current = format!("{}", state.get(&lifecycle.field));
@@ -709,7 +769,7 @@ fn check_lifecycle(
     });
     if allowed { Ok(()) } else {
         Err(RuntimeError::LifecycleViolation {
-            command: cmd.name.clone(),
+            command: cmd.name().to_string(),
             field: lifecycle.field.clone(),
             current,
             allowed: matching.iter().filter_map(|t| t.from_state.clone()).collect(),
@@ -725,10 +785,10 @@ fn apply_lifecycle_transition(rt: &Runtime, res: Resolution, state: &mut Aggrega
         Some(lc) => lc,
         None => return,
     };
-    let cmd = cmd_for(rt, res);
+    let cmd = behavior_for(rt, res);
     let current = format!("{}", state.get(&lifecycle.field));
     for t in &lifecycle.transitions {
-        if t.command != cmd.name { continue; }
+        if t.command != cmd.name() { continue; }
         let from_ok = match &t.from_state {
             Some(from) => current == *from,
             None => true,
@@ -771,8 +831,9 @@ fn build_event_res(
 ) -> Option<Event> {
     let agg_idx = res.agg_idx();
     let agg = &rt.domain.aggregates[agg_idx];
-    let cmd = cmd_for(rt, res);
-    let event_name = cmd.emits.clone().unwrap_or_else(|| default_event_name(&cmd.name));
+    let cmd = behavior_for(rt, res);
+    let event_name = cmd.emits().map(str::to_string)
+        .unwrap_or_else(|| default_event_name(cmd.name()));
     Some(Event {
         name: event_name,
         aggregate_type: agg.name.clone(),
@@ -989,10 +1050,10 @@ fn unknown_command_message_bare(rt: &Runtime, cmd_name: &str) -> String {
 fn self_ref_missing_message(
     rt: &Runtime, res: Resolution, command_name: &str, ref_name: &str,
 ) -> String {
-    let cmd = cmd_for(rt, res);
+    let cmd = behavior_for(rt, res);
     // Collect the reference target so the message names what's
     // being addressed (e.g. "reference_to Pizza" → mention Pizza).
-    let target_hint = cmd.references.iter()
+    let target_hint = cmd.references().iter()
         .find(|r| &r.name == ref_name)
         .map(|r| format!(" (reference_to {})", r.target))
         .unwrap_or_default();

@@ -69,6 +69,12 @@ pub fn emit(repo_root: &Path) -> Result<String, Box<dyn Error>> {
 
 const HEADER: &str = r#"//! HTML domain page — detail view for a single domain
 //!
+//! [antibody-exempt: rust/src/server/html_domain.rs — SPECIALIZER OUTPUT
+//!  generated from html_domain_shape ; the dispatch_query structural claim
+//!  covers rust/src/<X>.rs only, not subdirectory targets like server/.
+//!  This emitted marker retires when the claim table learns subdirectory
+//!  target paths (i78 family).]
+//!
 //! Shows modules (aggregates), commands, lifecycle states, and records
 //! for one domain. Forms submit to the JSON dispatch endpoint.
 //!

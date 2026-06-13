@@ -1,5 +1,11 @@
 //! HTML domain page — detail view for a single domain
 //!
+//! [antibody-exempt: rust/src/server/html_domain.rs — SPECIALIZER OUTPUT
+//!  generated from html_domain_shape ; the dispatch_query structural claim
+//!  covers rust/src/<X>.rs only, not subdirectory targets like server/.
+//!  This emitted marker retires when the claim table learns subdirectory
+//!  target paths (i78 family).]
+//!
 //! Shows modules (aggregates), commands, lifecycle states, and records
 //! for one domain. Forms submit to the JSON dispatch endpoint.
 //!
@@ -242,6 +248,21 @@ fn command_palette(domain: &str, rt: &Runtime) -> String {
                 r#"{{"name":"{}","aggregate":"{}","goal":"{}","role":"{}","event":"{}","create":{},"fields":[{}]}}"#,
                 esc(&cmd.name), esc(&agg.name), esc(goal), esc(role), esc(event),
                 is_create, fields.join(","),
+            ));
+        }
+        // First-class factories phase 2 — births are their own node ;
+        // the palette indexes them alongside commands, always create.
+        for fac in &agg.factories {
+            let fields: Vec<String> = fac.attributes.iter().map(|a| {
+                format!(r#"{{"name":"{}","type":"{}"}}"#, esc(&a.name), esc(&a.attr_type))
+            }).collect();
+            let goal = fac.description.as_deref().unwrap_or("");
+            let role = fac.role.as_deref().unwrap_or("");
+            let event = fac.emits.as_deref().unwrap_or("");
+            cmds_json.push(format!(
+                r#"{{"name":"{}","aggregate":"{}","goal":"{}","role":"{}","event":"{}","create":true,"fields":[{}]}}"#,
+                esc(&fac.name), esc(&agg.name), esc(goal), esc(role), esc(event),
+                fields.join(","),
             ));
         }
     }

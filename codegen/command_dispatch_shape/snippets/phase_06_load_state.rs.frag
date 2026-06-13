@@ -1,4 +1,21 @@
-    let (mut state, is_new) = if let Some(ref_name) = &self_ref {
+    let (mut state, is_new) = if is_factory_verb {
+        // BIRTH — first-class factories phase 2. A factory mints a fresh
+        // record ; it NEVER targets an existing one. The id comes from
+        // the dispatch attrs (identified_by) or the repo's counter mint ;
+        // an existing record under that id REFUSES the dispatch — no
+        // silent upsert at birth. Factories ignore self_ref and cascade
+        // hints by construction : a thing being born has no prior id to
+        // load.
+        let id = repo.id_for_command(&attrs);
+        if repo.find(&id).is_some() {
+            return Err(RuntimeError::AggregateAlreadyExists {
+                aggregate: aggregate_name.clone(),
+                id: id.clone(),
+                factory: command_name.to_string(),
+            });
+        }
+        (AggregateState::new(&id), true)
+    } else if let Some(ref_name) = &self_ref {
         // Universal self-ref dispatch — i519 sidequest. Callers may pass
         // either the snake-cased aggregate name (the historical kwarg
         // determined by `find_self_ref_res`) or the universal `id` key.
@@ -35,9 +52,12 @@
                         aggregate_name, id)
                 )),
             }
-        } else if is_create {
-            (AggregateState::new(&repo.id_for_command(&attrs)), true)
         } else {
+            // No id resolvable on a self-ref'd COMMAND — a transition
+            // with nothing to transition. The #729-era heuristic minted
+            // here for Create*/Add*/… names ; phase 2 deleted it. A verb
+            // that births must be a `factory` block — declared, not
+            // name-guessed.
             return Err(RuntimeError::MissingAttribute(
                 self_ref_missing_message(rt, res, command_name, ref_name)
             ));

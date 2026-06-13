@@ -456,32 +456,6 @@ impl Runtime {
         self.repositories = repositories;
     }
 
-    /// TRANSITIONAL — first-class factories phase 1 ; phase 2 deletes
-    /// this with the two-path dispatch split. Each Factory gains a
-    /// Command VIEW in the runtime's command table so the existing
-    /// index-based Resolution / cmd_for machinery dispatches factory
-    /// verbs unchanged. is_create truth comes from the factories vec
-    /// (see command_dispatch phase_03_prepare), never from the view.
-    fn materialize_factory_commands(mut domain: Domain) -> Domain {
-        for agg in &mut domain.aggregates {
-            for f in agg.factories.clone() {
-                if agg.commands.iter().any(|c| c.name == f.name) { continue; }
-                agg.commands.push(crate::ir::Command {
-                    name: f.name,
-                    description: f.description,
-                    role: f.role,
-                    attributes: f.attributes,
-                    references: f.references,
-                    emits: f.emits,
-                    emits_identified_by: f.emits_identified_by,
-                    givens: f.givens,
-                    mutations: f.mutations,
-                });
-            }
-        }
-        domain
-    }
-
     /// Resolve the SQLite db path from the attached hecksagons : the
     /// first hecksagon whose `persistence == "sqlite"` and that carries
     /// a `db:` option. None when no sqlite override is declared.
@@ -510,13 +484,11 @@ impl Runtime {
     }
 
     pub fn boot_with_data_dir(domain: Domain, data_dir: Option<String>) -> Self {
-        // TRANSITIONAL — first-class factories phase 1 (phase 2 DELETES
-        // this). Factories become dispatchable by materializing a Command
-        // view into the RUNTIME's in-memory command table only ; the
-        // parsed IR (dumps, parity, validators) keeps factories separate.
-        // The two-path dispatch split (Factory → mint / Command → load)
-        // replaces this seam wholesale.
-        let domain = Self::materialize_factory_commands(domain);
+        // First-class factories phase 2 : factories dispatch NATIVELY —
+        // the resolver searches `aggregate.factories` alongside commands
+        // (Resolution::Factory → mint path). The phase-1 materialize-a-
+        // Command-view boot seam is deleted ; the runtime's command table
+        // is the parsed IR, unpolluted.
         let mut repositories = HashMap::new();
         for agg in &domain.aggregates {
             // i142 Tier 2 — key repositories by (context, name) so
@@ -3160,6 +3132,16 @@ pub enum RuntimeError {
     /// is the invariant's rule name ; `expression` is its predicate source.
     InvariantViolation { name: String, expression: String },
     AggregateNotFound(String),
+    /// First-class factories phase 2 — a Factory verb (a BIRTH) was
+    /// dispatched but a record already exists under the resolved id.
+    /// A factory NEVER silently upserts ; re-creating an existing
+    /// aggregate is refused the same loud way a transition on a
+    /// missing one is.
+    AggregateAlreadyExists {
+        aggregate: String,
+        id: String,
+        factory: String,
+    },
     MissingAttribute(String),
     LifecycleViolation {
         command: String,
@@ -3186,6 +3168,10 @@ impl std::fmt::Display for RuntimeError {
             RuntimeError::GivenFailed { message, .. } => write!(f, "given failed: {}", message),
             RuntimeError::InvariantViolation { name, .. } => write!(f, "invariant violation: {}", name),
             RuntimeError::AggregateNotFound(id) => write!(f, "aggregate not found: {}", id),
+            RuntimeError::AggregateAlreadyExists { aggregate, id, factory } => {
+                write!(f, "aggregate already exists: '{}' id '{}' — factory '{}' births a NEW record ; to change an existing one, dispatch a command (transition), not a factory",
+                    aggregate, id, factory)
+            }
             RuntimeError::MissingAttribute(a) => write!(f, "missing attribute: {}", a),
             RuntimeError::LifecycleViolation { command, field, current, allowed } => {
                 write!(f, "lifecycle violation: {} cannot run when {} is '{}' (allowed from: {:?})",

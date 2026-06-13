@@ -1,5 +1,5 @@
 Hecks.bluebook "Dispatch", version: "2026.05.10.1" do
-  vision "The bus. Routes a phrase + params to the target bluebook, validates the params against the target command's attributes, dispatches through the configured storage adapter, and re-emits the resulting event. Every surface (Spring REPL, Glass palette, the conversation surface, the bin-buddy command bus, future hosts) calls into Route ; no surface does its own resolution."
+  vision "The bus. Routes a phrase + params to the target bluebook, validates the params against the target command's attributes, dispatches through the configured storage adapter, and re-emits the resulting event. Every surface (Spring REPL, Glass palette, the conversation surface, the bin-buddy command bus, future hosts) calls into Route ; no surface does its own resolution. Two dispatch paths, decided by the resolved node's TYPE (first-class factories phase 2) : a Factory verb is a BIRTH — mint a fresh id, refuse if a record already exists — and a Command verb is a TRANSITION — load the existing record by id. No name heuristic ; creation is declared in the grammar, never guessed from a verb's spelling."
   category "storehouse"
 
   # ============================================================

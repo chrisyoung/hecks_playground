@@ -1,5 +1,11 @@
 //! Bluebook IO validator
 //!
+//! [antibody-exempt: rust/src/io_validator.rs — kernel-floor static
+//!  validator (IO-purity scan over the IR). Touched by first-class
+//!  factories phase 2 : the CREATE_PREFIXES comment now names the
+//!  transitional find-or-mint fallback instead of the deleted dispatch
+//!  heuristic. Retires when validators are bluebook-derived (i78).]
+//!
 //! Asserts that a bluebook is pure-memory-runnable. Bluebooks describe
 //! state transitions, not external effects — IO belongs in hecksagon
 //! adapters. This validator catches drift from that invariant.
@@ -90,7 +96,13 @@ const IO_CATEGORIES: &[&str] = &["infrastructure"];
 
 /// Command-name prefixes that imply state-bootstrap (the runtime
 /// auto-applies the command's attrs into the new aggregate, so no
-/// explicit then_set is needed). Mirrors `command_dispatch::is_create`.
+/// explicit then_set is needed). TRANSITIONAL — the dispatch-side
+/// `is_create` heuristic was DELETED in first-class factories phase 2
+/// (a birth is a `factory` node, declared not name-guessed) ; this
+/// list now models only the no-self-ref find-or-mint fallback that
+/// prefix-named COMMAND creators (Board.Open, Task.Add, …) ride until
+/// the phase-4/5 sweep converts them to factories, which retires this
+/// constant with them.
 const CREATE_PREFIXES: &[&str] = &["Create", "Add", "Place", "Register", "Open"];
 
 pub fn static_scan(domain: &Domain) -> Vec<Finding> {

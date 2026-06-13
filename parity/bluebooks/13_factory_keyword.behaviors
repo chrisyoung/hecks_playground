@@ -1,0 +1,30 @@
+Hecks.behaviors "FactoryKeyword" do
+  vision "Two-path dispatch — factory verbs mint (Resolution::Factory), command verbs load. First-class factories phase 2."
+
+  # ── Factory → mint path ──────────────────────────────────
+
+  test "Plan factory mints a Sprint" do
+    tests "Plan", on: "Sprint"
+    input  number: "21"
+    expect number: "21"
+  end
+
+  # ── Command → load path (transition on the minted record) ──────
+
+  test "Activate transitions a planned Sprint" do
+    tests "Activate", on: "Sprint"
+    setup  "Plan", number: "21"
+    input  number: "21"
+    expect number: "21"
+  end
+
+  # ── Cross-aggregate factory parses + mints (produces routing is
+  #    phase 3 — today DraftStory mints under its declaring aggregate;
+  #    this pins the verb stays dispatchable through the native
+  #    Resolution::Factory path, no materialize seam) ──────────────
+
+  test "DraftStory factory verb dispatches" do
+    tests "DraftStory", on: "Backlog"
+    input  title: "as-a-user"
+  end
+end

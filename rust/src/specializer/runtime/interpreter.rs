@@ -1,5 +1,13 @@
 //! Rust-native specializer for `rust/src/runtime/interpreter.rs`.
 //!
+//! [antibody-exempt: rust/src/specializer/runtime/interpreter.rs —
+//!  kernel-floor specializer module ; the dispatch_query structural
+//!  claim covers rust/src/specializer/<X>.rs only, not subdirectory
+//!  modules like specializer/runtime/. Touched by first-class factories
+//!  phase 2 : apply_mutations emits a slice signature so births and
+//!  transitions share one evaluator. Marker retires when the claim
+//!  table learns subdirectory paths (i78 family).]
+//!
 //! i147 Wave 4-A target (i171 closure) — the runtime expression
 //! engine that evaluates givens and applies mutations, regenerated
 //! from the `mutation_op_shape` bluebook + ordered `.rs.frag`
@@ -94,11 +102,11 @@ fn emit_apply_mutations(
 
     let mut out = String::new();
     out.push_str("pub fn apply_mutations(\n");
-    out.push_str("    cmd: &Command,\n");
+    out.push_str("    mutations: &[crate::ir::Mutation],\n");
     out.push_str("    state: &mut AggregateState,\n");
     out.push_str("    attrs: &HashMap<String, Value>,\n");
     out.push_str(") {\n");
-    out.push_str("    for mutation in &cmd.mutations {\n");
+    out.push_str("    for mutation in mutations {\n");
     out.push_str("        match mutation.operation {\n");
     for op in &ops {
         out.push_str(&emit_arm(repo_root, op)?);
@@ -209,9 +217,10 @@ const HEADER: &str = r#"//! HecksalInterpreter — evaluates givens and applies 
 //! The expression evaluator for Bluebook's declarative behavior.
 //! Givens are predicates. Mutations are state changes. Both are data.
 //!
-//! Usage:
-//!   check_givens(cmd, state, attrs)?;
-//!   apply_mutations(cmd, state, attrs);
+//! Usage (first-class factories phase 2 — slice-shaped, so Factory
+//! births and Command transitions share the same evaluator):
+//!   check_givens(bhv.attributes(), bhv.givens(), state, attrs)?;
+//!   apply_mutations(bhv.mutations(), state, attrs);
 //!
 //! [antibody-exempt: i106 dsl-mutation-primitives — kernel-surface
 //!  runtime extension that applies Multiply / Clamp / Decay. Same
@@ -231,7 +240,7 @@ const HEADER: &str = r#"//! HecksalInterpreter — evaluates givens and applies 
 //!  ruby/hecks/behaviors/interpreter.rb.]
 
 use super::{AggregateState, RuntimeError, Value};
-use crate::ir::{Command, MutationOp};
+use crate::ir::MutationOp;
 use std::collections::HashMap;
 
 "#;

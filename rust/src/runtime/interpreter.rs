@@ -3,9 +3,10 @@
 //! The expression evaluator for Bluebook's declarative behavior.
 //! Givens are predicates. Mutations are state changes. Both are data.
 //!
-//! Usage:
-//!   check_givens(cmd, state, attrs)?;
-//!   apply_mutations(cmd, state, attrs);
+//! Usage (first-class factories phase 2 — slice-shaped, so Factory
+//! births and Command transitions share the same evaluator):
+//!   check_givens(bhv.attributes(), bhv.givens(), state, attrs)?;
+//!   apply_mutations(bhv.mutations(), state, attrs);
 //!
 //! [antibody-exempt: i106 dsl-mutation-primitives — kernel-surface
 //!  runtime extension that applies Multiply / Clamp / Decay. Same
@@ -25,11 +26,12 @@
 //!  ruby/hecks/behaviors/interpreter.rb.]
 
 use super::{AggregateState, RuntimeError, Value};
-use crate::ir::{Command, MutationOp};
+use crate::ir::MutationOp;
 use std::collections::HashMap;
 
 pub fn check_givens(
-    cmd: &Command,
+    attributes: &[crate::ir::Attribute],
+    givens: &[crate::ir::Given],
     state: &AggregateState,
     attrs: &HashMap<String, Value>,
 ) -> Result<(), RuntimeError> {
@@ -37,7 +39,7 @@ pub fn check_givens(
     // absent, Null, or empty refuses the command the same shape a failed given
     // does. Structural superset of the old `given { x != "" }` idiom, which
     // could not see a truly-absent (Null) kwarg.
-    for attr in &cmd.attributes {
+    for attr in attributes {
         if attr.required {
             let present = attrs.get(&attr.name)
                 .map_or(false, |v| !matches!(v, Value::Null) && v.to_string() != "");
@@ -49,7 +51,7 @@ pub fn check_givens(
             }
         }
     }
-    for given in &cmd.givens {
+    for given in givens {
         if !evaluate_given(&given.expression, state, attrs) {
             return Err(RuntimeError::GivenFailed {
                 message: given
@@ -64,11 +66,11 @@ pub fn check_givens(
 }
 
 pub fn apply_mutations(
-    cmd: &Command,
+    mutations: &[crate::ir::Mutation],
     state: &mut AggregateState,
     attrs: &HashMap<String, Value>,
 ) {
-    for mutation in &cmd.mutations {
+    for mutation in mutations {
         match mutation.operation {
             MutationOp::Set => {
                 let val = resolve_mutation_value(&mutation.value, attrs, state);

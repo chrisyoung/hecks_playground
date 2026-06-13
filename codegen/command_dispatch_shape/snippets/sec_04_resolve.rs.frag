@@ -1,4 +1,19 @@
-/// Resolve a command address to a Resolution (aggregate or entity-owned).
+/// Search one aggregate's commands then factories for `verb` —
+/// first-class factories phase 2. Commands and factories share one
+/// verb namespace per aggregate ; the node KIND decides the dispatch
+/// path via the Resolution variant (Command → load, Factory → mint).
+fn verb_on_aggregate(agg: &crate::ir::Aggregate, ai: usize, verb: &str) -> Option<Resolution> {
+    for (ci, cmd) in agg.commands.iter().enumerate() {
+        if cmd.name == verb { return Some(Resolution::Aggregate(ai, ci)); }
+    }
+    for (fi, fac) in agg.factories.iter().enumerate() {
+        if fac.name == verb { return Some(Resolution::Factory(ai, fi)); }
+    }
+    None
+}
+
+/// Resolve a command address to a Resolution (aggregate, factory, or
+/// entity-owned).
 ///
 /// ## Canonical form — i560 v2 FQN migration (2026-05-12)
 ///
@@ -48,9 +63,7 @@ fn resolve(rt: &Runtime, command_name: &str) -> Result<Resolution, RuntimeError>
             for (ai, agg) in rt.domain.aggregates.iter().enumerate() {
                 if agg.name != *b { continue; }
                 if agg.context.as_deref() != Some(*a) { continue; }
-                for (ci, cmd) in agg.commands.iter().enumerate() {
-                    if cmd.name == *c { return Ok(Resolution::Aggregate(ai, ci)); }
-                }
+                if let Some(r) = verb_on_aggregate(agg, ai, c) { return Ok(r); }
             }
             for (ai, agg) in rt.domain.aggregates.iter().enumerate() {
                 if agg.name != *a { continue; }
@@ -66,12 +79,10 @@ fn resolve(rt: &Runtime, command_name: &str) -> Result<Resolution, RuntimeError>
             ))
         }
         [agg_name, cmd_name] => {
-            // First pass — direct aggregate command match.
+            // First pass — direct aggregate command/factory match.
             for (ai, agg) in rt.domain.aggregates.iter().enumerate() {
                 if agg.name != *agg_name { continue; }
-                for (ci, cmd) in agg.commands.iter().enumerate() {
-                    if cmd.name == *cmd_name { return Ok(Resolution::Aggregate(ai, ci)); }
-                }
+                if let Some(r) = verb_on_aggregate(agg, ai, cmd_name) { return Ok(r); }
             }
             // Second pass (i111-J) — entity-owned command, accepted
             // only when unambiguous (single owning entity within the
@@ -140,10 +151,8 @@ fn resolve(rt: &Runtime, command_name: &str) -> Result<Resolution, RuntimeError>
             if strict {
                 let mut hits: Vec<(Resolution, String)> = Vec::new();
                 for (ai, agg) in rt.domain.aggregates.iter().enumerate() {
-                    for (ci, cmd) in agg.commands.iter().enumerate() {
-                        if cmd.name == *cmd_name {
-                            hits.push((Resolution::Aggregate(ai, ci), agg.name.clone()));
-                        }
+                    if let Some(r) = verb_on_aggregate(agg, ai, cmd_name) {
+                        hits.push((r, agg.name.clone()));
                     }
                     for (ei, ent) in agg.entities.iter().enumerate() {
                         for (ci, cmd) in ent.commands.iter().enumerate() {
@@ -173,9 +182,7 @@ fn resolve(rt: &Runtime, command_name: &str) -> Result<Resolution, RuntimeError>
                 }
             } else {
                 for (ai, agg) in rt.domain.aggregates.iter().enumerate() {
-                    for (ci, cmd) in agg.commands.iter().enumerate() {
-                        if cmd.name == *cmd_name { return Ok(Resolution::Aggregate(ai, ci)); }
-                    }
+                    if let Some(r) = verb_on_aggregate(agg, ai, cmd_name) { return Ok(r); }
                 }
                 for (ai, agg) in rt.domain.aggregates.iter().enumerate() {
                     for (ei, ent) in agg.entities.iter().enumerate() {
@@ -252,15 +259,12 @@ fn resolve_fully_qualified(rt: &Runtime, command_name: &str) -> Result<Resolutio
 
     let domain_lc = domain.to_lowercase();
 
-    // First pass — aggregate-rooted command (target == aggregate name).
+    // First pass — aggregate-rooted command or factory (target ==
+    // aggregate name).
     for (ai, agg) in rt.domain.aggregates.iter().enumerate() {
         if agg.name != target { continue; }
         if !domain_matches(rt, ai, &domain, &domain_lc) { continue; }
-        for (ci, c) in agg.commands.iter().enumerate() {
-            if c.name == cmd {
-                return Ok(Resolution::Aggregate(ai, ci));
-            }
-        }
+        if let Some(r) = verb_on_aggregate(agg, ai, &cmd) { return Ok(r); }
     }
 
     // Second pass — entity-owned command. The canonical form uses the
