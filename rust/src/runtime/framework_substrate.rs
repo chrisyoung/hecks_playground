@@ -139,10 +139,66 @@ impl Runtime {
     pub fn framework_mut(&mut self) -> &mut Runtime {
         if self.framework.is_none() {
             let dir = self.framework_store_dir();
+            // The AppendLog bind is applied by `boot_with_data_dir` itself, so the
+            // collaborator gets it on the same path every other runtime does.
             let rt = Runtime::boot_with_data_dir(Self::framework_domain(), dir);
             self.framework = Some(Box::new(rt));
         }
         self.framework.as_mut().expect("just booted")
+    }
+
+    /// Put the collaborator's `EventSourcing::Event` repository on the AppendLog
+    /// adapter — the binding `event_sourcing.hecksagon` already DECLARES
+    /// (`EventSourcing::Event.persisted_by("AppendLog")`) and the collaborator was
+    /// silently missing.
+    ///
+    /// THE SPLIT-BRAIN THIS CLOSES. `boot_with_data_dir` attaches no hecksagons, so
+    /// the collaborator's Event repo fell through to the implicit heki default. That
+    /// made `Event.Append`'s save an UPSERT INTO `event.heki`, while every READER
+    /// (Replay / ForAggregate / the fold) goes through the AppendLog substrate —
+    /// `event.log` and the shards. Two Event repositories over two different files:
+    /// the writer wrote one, the reader read the other, and neither ever failed
+    /// loudly. `record_event_append`'s own comment already ASSERTED this binding
+    /// ("Append's save routes through the AppendLog adapter to THIS process's
+    /// shard") — it simply was not true, so every shard it reserved stayed 0 bytes.
+    ///
+    /// Done PROGRAMMATICALLY rather than by compiling in the hecksagon and booting
+    /// the collaborator with it. Three reasons. (1) Cost: the collaborator is booted
+    /// lazily precisely so the ~124 test binaries that never append an Event do not
+    /// pay a parse; a hecksagon boot reverses that deliberate decision for every
+    /// event-sourced path. (2) Resolution: `resolve_bindings` type-checks
+    /// adapter->family->verb against the `.adapter` / `.family` files, which live in
+    /// the conception, not in `rust/resources` — a compiled-in hecksagon would need
+    /// them compiled in too. (3) Honesty: the Event Log's backend is a KERNEL
+    /// INVARIANT, not a per-deployment choice. The Log IS AppendLog. Reading it from
+    /// a file would imply a deployment could bind it elsewhere, which it cannot.
+    ///
+    /// The `data_dir` is taken from the repository `boot_with_data_dir` just built,
+    /// so the store root is byte-identical to today's — the shard dir the writer
+    /// (`record_event_append`) and the tail reader (`unconsolidated_log_tail`)
+    /// already compute stays exactly where it is.
+    pub(super) fn bind_event_log_to_appendlog(&mut self) {
+        let key = repo_key(Some("EventSourcing"), "Event");
+        let Some(data_dir) = self.repositories.get(&key).and_then(|r| r.heki_path()) else {
+            // No Event repo, or a memory-backed one (the test harness's explicit
+            // in-process choice) — nothing to rebind either way.
+            return;
+        };
+        let identified_by = self
+            .domain
+            .aggregates
+            .iter()
+            .find(|a| a.name == "Event" && a.context.as_deref() == Some("EventSourcing"))
+            .and_then(|a| a.identified_by.clone());
+        self.repositories.insert(
+            key,
+            LazyRepository::new_appendlog(
+                "Event",
+                Some(data_dir),
+                identified_by,
+                Some("EventSourcing".to_string()),
+            ),
+        );
     }
 
     /// The crate-owned world declaring WHERE the framework collaborator's stores

@@ -653,6 +653,23 @@ impl Runtime {
         // overrides so it reads the final repositories.
         let m = acl_readmodel::AclReadModel::hydrate(&rt);
         rt.acl_read_model = m;
+        // THE EVENT LOG'S SUBSTRATE IS AN INVARIANT, not a per-deployment wiring
+        // choice : wherever an `EventSourcing::Event` repository exists it is the
+        // append-only Log, so it is AppendLog-backed. Applied HERE, on the one
+        // path every runtime boots through, because there are TWO places an Event
+        // repo appears — the framework collaborator, and any runtime that carries
+        // the EventSourcing substrate itself — and if they disagree you get a
+        // split-brain: the writer appends to shards while the reader reads
+        // event.heki, each succeeding, neither seeing the other.
+        //
+        // That is not hypothetical. It is what shipped: the collaborator fell
+        // through to the heki default and wrote event.heki, while the AppendLog
+        // reader read event.log — so a cold `Event.Replay` returned [] for a
+        // command whose `state` query answered fine. In-process it LOOKED correct
+        // only because both repos happened to be heki over the SAME file, so the
+        // reader's lazy hydrate picked up the writer's rows by coincidence.
+        // Binding in one place is what makes that coincidence into a guarantee.
+        rt.bind_event_log_to_appendlog();
         // Hydrate the middleware stack (runtime projection of the Gate registry).
         rt.hydrate_middleware();
         rt

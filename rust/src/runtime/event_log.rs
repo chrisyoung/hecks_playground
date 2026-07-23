@@ -175,6 +175,45 @@ pub fn load_states(global: &str) -> Vec<AggregateState> {
     out
 }
 
+/// The UNCONSOLIDATED tail : Event records sitting in this realm's per-process
+/// shards that the merge has not yet folded into the global `event.log`.
+///
+/// The COMPLETE Log is `load_states(event.log)` PLUS this. Without it a reader sees
+/// only what some consolidation pass happened to have folded already — so a cold
+/// one-shot `storehouse` invocation, which never consolidates, could not read back
+/// the events it had itself just written. `state` worked and `Event.Replay` returned
+/// `[]` for the same command, because current-state reads already folded the tail
+/// (Snapshot.ReadForward) and the raw Log queries did not.
+///
+/// READ-ONLY, and that is the whole trick : it loads a PRIVATE copy of the merge
+/// checkpoint, runs one `merge_pass` to collect the post-checkpoint records, and
+/// throws the mutated copy away. So any number of readers can observe the tail
+/// without perturbing the single consolidate driver that owns the real checkpoint.
+/// Because the pass is checkpoint-bounded it returns only records the global log
+/// does NOT already carry, so seeding both cannot double-count.
+///
+/// `store_dir` is the Event repository's store root ; the shards are its `shards/`
+/// sibling — the same path `record_event_append` writes to.
+pub fn unconsolidated_tail_states(store_dir: &str) -> Vec<AggregateState> {
+    let shard_dir = Path::new(store_dir).join("shards");
+    let checkpoint = shard_dir.join(".merge.checkpoint.json");
+    let shards = match super::event_merge::discover_shards(&shard_dir) {
+        Ok(s) => s,
+        Err(_) => return Vec::new(),
+    };
+    let mut cp = super::event_merge::load_checkpoint(&checkpoint)
+        .unwrap_or_else(|_| super::event_merge::Checkpoint::new());
+    let batch = match super::event_merge::merge_pass(&shards, &mut cp) {
+        Ok(b) => b,
+        Err(_) => return Vec::new(),
+    };
+    // `state_from_obj` — the SAME per-record conversion the consolidated read uses,
+    // so a tail record is byte-for-byte the state it will become once folded (and
+    // carries its event_id as the AggregateState id, which is what lets a repository
+    // seed dedupe it against the global rows).
+    batch.iter().map(|rec| state_from_obj(&rec.event)).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

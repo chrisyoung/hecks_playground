@@ -272,9 +272,19 @@ fn dispatch_inner(
     } else {
         repo.id_for_command(&attrs)
     };
-    let (mut state, is_new) = match repo.find(&resolved_id).cloned() {
-        Some(s) => (s, false),
-        None => (AggregateState::new(&resolved_id), true),
+    let (mut state, is_new) = if repo.is_append_only() {
+        // APPEND-ONLY (the Event Log) : every id is a freshly reserved event_id
+        // ({shard}-{seq}), so this find is guaranteed to miss — an append never
+        // updates a row. It is also, on a real Log, the single most expensive call
+        // in the dispatch : `find` materialises the ENTIRE log to answer "no" (a
+        // 166MB event.log turned a 0.06s cold dispatch into 8.1s). Skipping it is
+        // not an optimisation of the semantics, it IS the semantics.
+        (AggregateState::new(&resolved_id), true)
+    } else {
+        match repo.find(&resolved_id).cloned() {
+            Some(s) => (s, false),
+            None => (AggregateState::new(&resolved_id), true),
+        }
     };
 
     // Event-sourcing delta capture (i-event-sourcing) — snapshot state

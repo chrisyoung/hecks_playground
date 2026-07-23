@@ -11,7 +11,7 @@
 //! shard from where it left off. And because each shard has exactly ONE
 //! writer (the owning process), there is no cross-process interleave — so the
 //! >4KB O_APPEND-atomicity caveat that killed the multi-writer design does
-//! > not apply here AT ALL ; a record may be any size.
+//! not apply here AT ALL ; a record may be any size.
 //!
 //! Each line is one self-contained JSON `ShardRecord`. The record carries
 //! everything the merge needs to impose a global total order WITHOUT a later
@@ -22,6 +22,18 @@
 //! Does NOT touch record_event_append (still gated off). Slice 2 is the
 //! merge daemon + the N-process losslessness proof ; slice 3 rewires the
 //! writer + flips the gate. Un-gating is the LAST act, never before merge.
+//!
+//! [antibody-exempt: rust/src/runtime/event_shard.rs — kernel-floor persistence
+//!  IO. The append-only, one-JSON-line-per-event process shard : format + writer
+//!  + offset-reader, the WRITE half of the shards-plus-merge topology whose read
+//!  half is event_merge.rs and whose consolidated substrate is event_log.rs — both
+//!  siblings carrying this same marker, alongside heki.rs. The CONCEPT is conceived
+//!  in the EventSourcing bluebook (persisted_by("AppendLog") — Event.Append's save
+//!  IS this append) ; this is its hand-written runtime realization. A shard is a
+//!  persistence ARTIFACT below the aggregate (like a .heki file), so modeling it as
+//!  a domain aggregate would be the PersistenceIsAggregateOnly anti-pattern — the
+//!  substrate the language bottoms out on, not the language. The marker was missing
+//!  here while both siblings carried it ; an oversight, corrected 2026-07-23.]
 
 use std::fs::OpenOptions;
 use std::io::{Read, Seek, SeekFrom, Write};
@@ -155,16 +167,30 @@ pub fn read_from(path: &Path, offset: u64) -> std::io::Result<(Vec<ShardRecord>,
     Ok((records, offset + consumed as u64))
 }
 
-// ── Process-private singleton shard (the live write path) ──────────────
-// One shard per process, opened once and appended to for the process's
-// life — the single-writer property that makes the append lossless at any
-// size. Mirrors storehouse_log::FILE_SINK : a process-global OnceLock so
+// ── Process-private shard, ONE PER SHARD DIRECTORY (the live write path) ───
+// One shard per process PER REALM, opened once and appended to for the
+// process's life — the single-writer property that makes the append lossless at
+// any size. Mirrors storehouse_log::FILE_SINK : a process-global map so
 // record_event_append (called per dispatch, &mut self) writes without
 // threading a ShardWriter through the Runtime struct.
+//
+// KEYED BY DIRECTORY, and that matters. This was a single `OnceLock<...>` — one
+// sink for the whole process, rooted at whichever `shard_dir` happened to call
+// FIRST. Every later append then went to that first directory no matter which
+// realm produced it, silently, because the write still succeeded. A process
+// hosting more than one realm (`storehouse serve --multi` does exactly that)
+// would file one realm's events under another realm's shard. It stayed hidden
+// while only a hecksagon-bound AppendLog repo used this path ; the moment the
+// Event Log's substrate became an invariant, every event started coming through
+// here and the misrouting surfaced (a test binary whose ten tests each use their
+// own temp dir is just the cheapest reproduction of a multi-realm process).
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 
-static PROCESS_SHARD: OnceLock<Option<Mutex<ShardWriter>>> = OnceLock::new();
+/// shard_dir -> that directory's sink. `None` records a failed open, so a
+/// broken path is not retried on every single append.
+type SinkMap = std::collections::HashMap<std::path::PathBuf, Option<Arc<Mutex<ShardWriter>>>>;
+static PROCESS_SHARDS: OnceLock<Mutex<SinkMap>> = OnceLock::new();
 static SHARD_SEQ: AtomicU64 = AtomicU64::new(0);
 static SHARD_ID: OnceLock<String> = OnceLock::new();
 
@@ -186,19 +212,22 @@ pub fn process_shard_id() -> &'static str {
 /// as `<shard-id>.shard`. Returns the sink, or None if it could not be opened
 /// (warned once — a failed Log write never crashes the dispatch). The single
 /// place the open path lives ; shared by `reserve` + `append_to_process_shard`.
-fn open_sink(shard_dir: &Path) -> Option<&'static Mutex<ShardWriter>> {
-    PROCESS_SHARD
-        .get_or_init(|| {
-            let path = shard_dir.join(format!("{}.shard", process_shard_id()));
-            match ShardWriter::open(&path) {
-                Ok(w) => Some(Mutex::new(w)),
-                Err(e) => {
-                    eprintln!("[event_shard] cannot open process shard ({}) — events not logged", e);
-                    None
-                }
-            }
-        })
-        .as_ref()
+fn open_sink(shard_dir: &Path) -> Option<Arc<Mutex<ShardWriter>>> {
+    let sinks = PROCESS_SHARDS.get_or_init(|| Mutex::new(SinkMap::new()));
+    let mut guard = sinks.lock().ok()?;
+    if let Some(existing) = guard.get(shard_dir) {
+        return existing.clone();
+    }
+    let path = shard_dir.join(format!("{}.shard", process_shard_id()));
+    let opened = match ShardWriter::open(&path) {
+        Ok(w) => Some(Arc::new(Mutex::new(w))),
+        Err(e) => {
+            eprintln!("[event_shard] cannot open process shard ({}) — events not logged", e);
+            None
+        }
+    };
+    guard.insert(shard_dir.to_path_buf(), opened.clone());
+    opened
 }
 
 /// Reserve the next (shard_id, seq) for THIS process WITHOUT writing — the
@@ -219,12 +248,15 @@ pub fn reserve(shard_dir: &Path) -> Option<(String, u64)> {
 /// `reserve`) to this process's sink — no fetch_add, no re-stamp. Returns false
 /// if the sink isn't open or the write fails (warned, never panics). The sink
 /// must have been opened by a prior `reserve` / `append_to_process_shard`.
-pub fn append_record(rec: &ShardRecord) -> bool {
-    let sink = match PROCESS_SHARD.get() {
-        Some(Some(m)) => m,
-        _ => return false,
+pub fn append_record(shard_dir: &Path, rec: &ShardRecord) -> bool {
+    let sink = match open_sink(shard_dir) {
+        Some(s) => s,
+        None => return false,
     };
-    match sink.lock() {
+    // Bound to a named local (not the tail expression) so the MutexGuard's
+    // temporary is dropped before `sink` — the Arc is owned here, unlike the
+    // &'static the single-sink version handed back.
+    let ok = match sink.lock() {
         Ok(mut w) => match w.append(rec) {
             Ok(()) => true,
             Err(e) => {
@@ -233,7 +265,8 @@ pub fn append_record(rec: &ShardRecord) -> bool {
             }
         },
         Err(_) => false,
-    }
+    };
+    ok
 }
 
 /// Append one event to THIS process's private shard. The convenience entry that
@@ -247,7 +280,7 @@ pub fn append_to_process_shard(shard_dir: &Path, mut rec: ShardRecord) -> Option
     rec.seq = seq;
     // event_id is the merge's dedup key, globally unique across shards.
     rec.event_id = format!("{}-{}", shard, seq);
-    if append_record(&rec) {
+    if append_record(shard_dir, &rec) {
         Some(seq)
     } else {
         None

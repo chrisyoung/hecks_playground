@@ -709,16 +709,34 @@ impl Runtime {
     /// assigns the global order, so a watermark captured in one process is only
     /// meaningful against that process's ordering. `ReadForward` already carries
     /// this property ; consolidating first is what makes it global.
-    pub(super) fn maybe_capture_snapshot(&mut self) {
-        let threshold = Self::snapshot_threshold();
-        if threshold <= 0 {
-            return;
-        }
-        let name = Self::CURRENT_STATE_PROJECTION;
-        let fw = self.framework_mut();
-
-        let head = fw
-            .all_qualified(Some("EventSourcing"), "Event")
+    /// The highest sequence the Log currently carries — the snapshot watermark,
+    /// and the one number `maybe_capture_snapshot` needs to decide whether the
+    /// Log has grown far enough to re-capture.
+    ///
+    /// Computed WITHOUT materialising the Log. It used to be `max(sequence)` over
+    /// `all_qualified(EventSourcing, Event)` — hydrating and folding EVERY event
+    /// on EVERY dispatch to learn a single integer. That is O(whole-log) per
+    /// command: on a real 166MB Log, eleven seconds each. It stayed invisible only
+    /// while the collaborator read the small, wrong store (event.heki); the moment
+    /// the Event Log's substrate became an invariant it dominated every dispatch.
+    ///
+    /// Same VALUE, two cheap sources instead of one expensive one:
+    ///   * the consolidated head is the `.seq` sidecar the merge advances after
+    ///     every durable append — an O(1) read of a few bytes ;
+    ///   * the unconsolidated tail's max, O(tail).
+    /// Their max is exactly what the full scan returned, because the consolidated
+    /// records ARE the sidecar's range and the tail records are the rest.
+    pub(super) fn log_head_sequence(&self) -> i64 {
+        let es_key = repo_key(Some("EventSourcing"), "Event");
+        let dir = match self.repositories.get(&es_key).and_then(|r| r.heki_path()) {
+            Some(d) => d,
+            None => return 0,
+        };
+        let global = super::event_log::global_path(&dir, Some("EventSourcing"));
+        // read_next_seq is the NEXT sequence to assign, so the head is one behind.
+        // A fresh Log has no sidecar -> next = 1 -> head 0, which is correct.
+        let consolidated = (super::event_log::read_next_seq(&global) as i64) - 1;
+        let tail = super::event_log::unconsolidated_tail_states(&dir)
             .iter()
             .map(|e| match e.get("sequence") {
                 Value::Int(i) => *i,
@@ -727,6 +745,18 @@ impl Runtime {
             })
             .max()
             .unwrap_or(0);
+        consolidated.max(tail)
+    }
+
+    pub(super) fn maybe_capture_snapshot(&mut self) {
+        let threshold = Self::snapshot_threshold();
+        if threshold <= 0 {
+            return;
+        }
+        let name = Self::CURRENT_STATE_PROJECTION;
+        let fw = self.framework_mut();
+
+        let head = fw.log_head_sequence();
         let watermark = match fw.find("Snapshot", name).map(|s| s.get("watermark").clone()) {
             Some(Value::Int(i)) => i,
             Some(Value::Map(m)) => m.get("value").and_then(|v| v.as_int()).unwrap_or(0),
@@ -1014,28 +1044,13 @@ impl Runtime {
             Some(d) => d,
             None => return Vec::new(),
         };
-        let shard_dir = std::path::Path::new(&store_dir).join("shards");
-        let checkpoint = shard_dir.join(".merge.checkpoint.json");
-        let shards = match event_merge::discover_shards(&shard_dir) {
-            Ok(s) => s,
-            Err(_) => return Vec::new(),
-        };
-        let mut cp = event_merge::load_checkpoint(&checkpoint)
-            .unwrap_or_else(|_| event_merge::Checkpoint::new());
-        let batch = match event_merge::merge_pass(&shards, &mut cp) {
-            Ok(b) => b,
-            Err(_) => return Vec::new(),
-        };
-        // Discard cp : read-only, no save_checkpoint / write_batch_to_global.
-        batch
-            .iter()
-            .map(|rec| {
-                let mut st = AggregateState::new("");
-                for (k, v) in &rec.event {
-                    st.set(k, json_to_value_recursive(v));
-                }
-                st
-            })
-            .collect()
+        // ONE tail reader, shared with the AppendLog repository seed. It used to be
+        // duplicated here, and the two copies had already drifted : this one built
+        // `AggregateState::new("")`, giving every tail record an EMPTY id, which is
+        // harmless for a fold (it keys on aggregate_name/aggregate_id) but would
+        // collapse all of them onto one another the moment a repository seeded them.
+        // The shared reader uses `state_from_obj`, so a tail record is byte-for-byte
+        // the state it becomes once consolidated.
+        super::event_log::unconsolidated_tail_states(&store_dir)
     }
 }

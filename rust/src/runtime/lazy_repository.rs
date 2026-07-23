@@ -237,6 +237,20 @@ impl LazyRepository {
                             for st in super::event_log::load_states(&path) {
                                 r.seed_record(st);
                             }
+                            // ...PLUS the unconsolidated tail. The global log is
+                            // only what some consolidation pass already folded ;
+                            // the freshest events are still in the shards. Without
+                            // this a reader cannot see writes that have not been
+                            // consolidated yet — which for a cold one-shot means
+                            // its OWN writes. Checkpoint-bounded, so it returns
+                            // only records the global does not already carry, and
+                            // seed_record keys on the event_id either way.
+                            // This makes `all("Event")` == the COMPLETE Log for
+                            // every reader, matching what Snapshot.ReadForward
+                            // already did for current-state reads.
+                            for st in super::event_log::unconsolidated_tail_states(dir) {
+                                r.seed_record(st);
+                            }
                         }
                         r
                     })
@@ -354,7 +368,20 @@ impl LazyRepository {
             Backend::AppendLog { data_dir, context, .. } => {
                 let dir = data_dir.as_ref()?;
                 let path = super::event_log::global_path(dir, context.as_deref());
-                super::event_log_query::load_filtered(&path, wheres, attrs)
+                let mut candidates = super::event_log_query::load_filtered(&path, wheres, attrs)?;
+                // ...PLUS the unconsolidated tail. This pushdown reads event.log
+                // DIRECTLY, so it bypasses the repository cell entirely — seeding
+                // the tail into the cell is not enough, and a pushable query
+                // (Replay's `where(aggregate_name:)`) would still miss every
+                // event not yet consolidated. That is the cold-read gap: `state`
+                // answered and `Event.Replay` returned [] for the same command.
+                //
+                // The tail goes in UNFILTERED and that is safe by construction:
+                // the caller re-applies every clause through the oracle, so a
+                // prefilter may only NARROW. Adding candidates can never admit a
+                // non-matching row, only cost a few comparisons.
+                candidates.extend(super::event_log::unconsolidated_tail_states(dir));
+                Some(candidates)
             }
             _ => None,
         }
@@ -370,7 +397,24 @@ impl LazyRepository {
         if self.is_adapter() { self.adapter_mut().find_mut(id) } else { self.repo_mut().find_mut(id) }
     }
 
+    /// True when this backend is APPEND-ONLY : every save mints a new immutable
+    /// record rather than overwriting a row, so a dispatch never has an existing
+    /// row to find. `command_dispatch` reads it to skip the find-before-insert.
+    pub fn is_append_only(&self) -> bool {
+        matches!(self.backend, Backend::AppendLog { .. })
+    }
+
     pub fn id_for_command(&mut self, attrs: &HashMap<String, Value>) -> String {
+        // Append-only fast path : the id is the event_id the shard reserve
+        // already minted and the command carries. Resolve it WITHOUT hydrating
+        // — materialising the whole Log just to name a record that is being
+        // appended regardless is pure cost, and on a real Log it dominates the
+        // dispatch.
+        if let Backend::AppendLog { identified_by: Some(field), .. } = &self.backend {
+            if let Some(v) = attrs.get(field) {
+                return v.to_string();
+            }
+        }
         if self.is_adapter() { self.adapter_mut().id_for_command(attrs) } else { self.repo_mut().id_for_command(attrs) }
     }
 
@@ -379,6 +423,23 @@ impl LazyRepository {
         // immutable shard record instead of overwriting a per-id row.
         if let Backend::AppendLog { data_dir, .. } = &self.backend {
             Self::append_log_save(&data_dir.clone(), &state);
+            // READ-YOUR-OWN-WRITES. The append went to a shard file ; the
+            // in-memory cell was seeded from the global log + the tail as it
+            // stood BEFORE it, so without this the very process that appended an
+            // Event cannot see it until something consolidates. Seed the record
+            // in too, keyed on its event_id — an append-only store's in-memory
+            // view must include its own appends.
+            //
+            // ONLY IF ALREADY HYDRATED. `repo_mut()` would otherwise FORCE
+            // hydration, and hydrating this repo means materialising the entire
+            // global log : on a real store (a 166MB event.log) that turned a
+            // 0.37s cold dispatch into 7.5s. An append must never have to read
+            // the whole log to write one record. A process that has not read the
+            // Log has nothing to keep consistent ; one that has, gets its own
+            // write. Either way the durable shard append above already happened.
+            if self.is_hydrated() {
+                self.repo_mut().seed_record(state);
+            }
             return;
         }
         if self.is_adapter() { self.adapter_mut().save(state, ctx) } else { self.repo_mut().save(state, ctx) }
@@ -419,7 +480,7 @@ impl LazyRepository {
             event_id: s("event_id"),
             event,
         };
-        if !event_shard::append_record(&rec) {
+        if !event_shard::append_record(&shard_dir, &rec) {
             let _ = event_shard::append_to_process_shard(&shard_dir, rec);
         }
     }

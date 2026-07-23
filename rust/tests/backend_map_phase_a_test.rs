@@ -58,9 +58,24 @@ fn dump_backend_map_reports_heki_default_with_path() {
     let map = rt.dump_backend_map();
 
     assert!(!map.is_empty(), "the conception has repositories");
+
+    // The Event Log is the ONE declared exception, and it is not a hecksagon
+    // choice : `EventSourcing::Event` is the append-only Log, so every runtime
+    // binds it to AppendLog as an INVARIANT (Runtime::bind_event_log_to_appendlog,
+    // called from boot_with_data_dir). Pinning it here rather than loosening the
+    // `all()` keeps the gate's teeth — it still catches a repo that changes
+    // backend silently, and now also catches the Log LOSING its binding, which is
+    // the split-brain that let the writer append to event.heki while the reader
+    // read event.log.
+    let log_key = "EventSourcing::Event";
+    assert_eq!(
+        map.iter().find(|b| b.repo_key == log_key).map(|b| b.kind),
+        Some(BackendKind::AppendLog),
+        "the Event Log is AppendLog-backed on every runtime, by invariant",
+    );
     assert!(
-        map.iter().all(|b| b.kind == BackendKind::Heki),
-        "with no :memory/:sqlite hecksagons, every repo resolves to the heki default",
+        map.iter().filter(|b| b.repo_key != log_key).all(|b| b.kind == BackendKind::Heki),
+        "with no :memory/:sqlite hecksagons, every OTHER repo resolves to the heki default",
     );
     assert!(
         map.iter().any(|b| b.heki_path.as_deref() == Some("/tmp/i728_gate")),
