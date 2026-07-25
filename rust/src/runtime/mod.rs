@@ -283,6 +283,8 @@ pub mod event_shard;
 pub mod projection_fold;
 pub mod event_log;
 pub mod event_log_query;
+#[cfg(test)]
+mod event_log_query_tests;
 pub mod event_log_index;
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod causation_trace_tests;
