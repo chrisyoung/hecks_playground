@@ -147,6 +147,8 @@ mod reaction_io_shared;
 mod reaction_llm;
 mod driven_adapter_args;
 #[cfg(test)]
+mod driven_adapter_tests;
+#[cfg(test)]
 mod pm_engine_tests;
 mod pm_persistence;
 mod reaction_outbox;
