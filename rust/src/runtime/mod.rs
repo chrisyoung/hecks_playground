@@ -146,6 +146,7 @@ mod reaction_compute;
 mod reaction_io_shared;
 mod reaction_llm;
 mod driven_adapter_args;
+mod driven_adapter_enumerate;
 #[cfg(test)]
 mod driven_adapter_tests;
 #[cfg(test)]
