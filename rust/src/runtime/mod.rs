@@ -161,6 +161,7 @@ mod es_chain;
 mod es_log_migration;
 mod es_replay;
 mod es_verification;
+mod family_file_parse;
 mod fqn_address;
 mod fqn_resolution;
 mod interp_expr;
