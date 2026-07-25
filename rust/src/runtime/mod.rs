@@ -146,6 +146,7 @@ mod reaction_compute;
 mod reaction_io_shared;
 mod reaction_llm;
 mod reaction_outbox;
+mod web_search_parse;
 #[cfg(not(target_arch = "wasm32"))]
 mod reaction_outbound;
 mod reaction_mcp;
