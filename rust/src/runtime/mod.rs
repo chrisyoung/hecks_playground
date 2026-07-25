@@ -159,6 +159,7 @@ mod es_replay;
 mod es_verification;
 mod fqn_address;
 mod fqn_resolution;
+mod interp_expr;
 mod interp_expr_ops;
 #[cfg(test)]
 mod fqn_tests;
