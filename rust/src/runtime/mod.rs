@@ -145,6 +145,8 @@ mod reaction_claude_tool;
 mod reaction_compute;
 mod reaction_llm;
 mod reaction_outbox;
+#[cfg(not(target_arch = "wasm32"))]
+mod reaction_outbound;
 mod reaction_mcp;
 mod canonical_naming;
 pub(crate) mod command_dispatch;
