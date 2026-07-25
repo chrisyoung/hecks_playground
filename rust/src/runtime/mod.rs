@@ -184,6 +184,8 @@ mod lifecycle_defaults;
 mod log_sink;
 mod log_time;
 #[cfg(test)]
+mod loop_driver_tests;
+#[cfg(test)]
 mod storehouse_log_tests;
 pub mod payload_gate;
 mod event_bus;
