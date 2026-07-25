@@ -142,6 +142,7 @@ pub mod acl_readmodel;
 mod bulk_dispatch;
 mod bulk_specs;
 pub(crate) mod command_dispatch;
+mod dispatch_diagnostics;
 pub mod payload_gate;
 mod event_bus;
 pub mod loop_driver;
