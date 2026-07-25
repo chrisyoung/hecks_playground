@@ -145,6 +145,7 @@ mod reaction_claude_tool;
 mod reaction_compute;
 mod reaction_io_shared;
 mod reaction_llm;
+mod driven_adapter_args;
 #[cfg(test)]
 mod pm_engine_tests;
 mod pm_persistence;
