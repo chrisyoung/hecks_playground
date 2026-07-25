@@ -181,6 +181,7 @@ mod interp_mutations;
 #[cfg(test)]
 mod fqn_tests;
 mod lifecycle_defaults;
+mod log_sink;
 mod log_time;
 #[cfg(test)]
 mod storehouse_log_tests;

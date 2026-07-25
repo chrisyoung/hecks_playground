@@ -10,7 +10,7 @@
 //!  blanket.]
 
 use super::log_time::{format_iso8601, interpolate_now_tokens, parse_now_token};
-use super::storehouse_log::*;
+use super::log_sink::maybe_rotate;
 use std::fs::OpenOptions;
 
 #[test]
