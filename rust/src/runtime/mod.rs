@@ -143,6 +143,8 @@ mod bulk_dispatch;
 mod bulk_specs;
 pub(crate) mod command_dispatch;
 mod dispatch_diagnostics;
+#[cfg(test)]
+mod fqn_tests;
 pub mod payload_gate;
 mod event_bus;
 pub mod loop_driver;
