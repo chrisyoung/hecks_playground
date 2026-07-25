@@ -147,6 +147,7 @@ mod reaction_io_shared;
 mod reaction_llm;
 mod reaction_outbox;
 mod web_search_parse;
+mod web_tool_requests;
 #[cfg(test)]
 mod web_tool_tests;
 #[cfg(not(target_arch = "wasm32"))]
