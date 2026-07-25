@@ -143,6 +143,7 @@ mod bulk_dispatch;
 mod bulk_specs;
 mod reaction_claude_tool;
 mod reaction_compute;
+mod reaction_io_shared;
 mod reaction_llm;
 mod reaction_outbox;
 #[cfg(not(target_arch = "wasm32"))]
