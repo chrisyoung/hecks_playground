@@ -162,6 +162,8 @@ mod es_log_migration;
 mod es_replay;
 mod es_verification;
 mod family_file_parse;
+#[cfg(test)]
+mod framework_registry_tests;
 mod fqn_address;
 mod fqn_resolution;
 mod interp_expr;
