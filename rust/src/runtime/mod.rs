@@ -145,6 +145,7 @@ mod canonical_naming;
 pub(crate) mod command_dispatch;
 mod dispatch_diagnostics;
 mod fqn_address;
+mod fqn_resolution;
 #[cfg(test)]
 mod fqn_tests;
 mod lifecycle_defaults;

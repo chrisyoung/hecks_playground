@@ -12,8 +12,9 @@
 //!  dispatch naming surface, relocated verbatim from command_dispatch.rs
 //!  blanket.]
 
-use super::command_dispatch::{cmd_for, domain_matches, resolve};
+use super::command_dispatch::{cmd_for, resolve};
 use super::fqn_address::parse_fqn;
+use super::fqn_resolution::domain_matches;
 use super::Runtime;
 
 /// The canonical FQN form of a dispatch address, for the LOG surfaces.
