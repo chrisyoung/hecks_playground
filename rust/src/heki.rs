@@ -755,7 +755,11 @@ fn read_conception_config(path: &std::path::Path) -> Option<String> {
     }
 }
 
-fn walk_up_for_repo_root() -> Option<std::path::PathBuf> {
+/// Public : the framework substrate resolves its engine-owned stdlib dir
+/// (`rust/resources/`) from the EXECUTABLE, never from `HECKS_CONCEPTION_DIR`
+/// (a test points that at a temp conception, which must not redirect the
+/// engine's own bluebooks). This is the exe-only walker for exactly that.
+pub fn walk_up_for_repo_root() -> Option<std::path::PathBuf> {
     let exe = std::env::current_exe().ok()?.canonicalize().ok()?;
     walk_up_from(exe.parent()?)
 }

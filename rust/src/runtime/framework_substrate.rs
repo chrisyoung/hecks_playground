@@ -40,6 +40,7 @@ impl Runtime {
     /// copy (referenced by event_sourcing.bluebook) ; a monorepo parity check
     /// guards them against drift. Loaded into the framework collaborator, never
     /// merged into a user's domain.
+    #[cfg(target_arch = "wasm32")]
     const OUTBOX_SUBSTRATE: &'static str = include_str!(
         "../../resources/outbound_event.bluebook"
     );
@@ -47,6 +48,7 @@ impl Runtime {
     /// The embedded EventSourcing chapter — the Event Log the kernel appends
     /// to. Crate-owned for the same reason the outbox is : storehouse must be
     /// able to event-source a domain without a sibling `hecks_conception/`.
+    #[cfg(target_arch = "wasm32")]
     const EVENT_SOURCING_SUBSTRATE: &'static str = include_str!(
         "../../resources/event_sourcing.bluebook"
     );
@@ -55,6 +57,7 @@ impl Runtime {
     /// dispatch records to. Crate-owned for the same reason as the others : an
     /// authorization denial must be auditable on ANY runtime, not only one that
     /// happened to merge the Governance conception.
+    #[cfg(target_arch = "wasm32")]
     const GOVERNANCE_SUBSTRATE: &'static str = include_str!(
         "../../resources/governance.bluebook"
     );
@@ -67,21 +70,88 @@ impl Runtime {
     /// ONE collaborator, not one per substrate (CARD decision 1) : four boots
     /// would mean four stores and four times the wiring for a single mechanism.
     fn framework_domain() -> Domain {
-        let mut domain = crate::parser::parse(Self::EVENT_SOURCING_SUBSTRATE);
-        for source in [Self::GOVERNANCE_SUBSTRATE, Self::OUTBOX_SUBSTRATE] {
-            let extra = crate::parser::parse(source);
-            for agg in extra.aggregates {
-                if !domain
-                    .aggregates
-                    .iter()
-                    .any(|e| e.name == agg.name && e.context == agg.context)
-                {
-                    domain.aggregates.push(agg);
+        Self::merge_framework_sources(Self::framework_sources())
+    }
+
+    /// Merge an ordered list of framework bluebook sources into ONE domain.
+    /// Aggregates keep their own `context` ; a later source never clobbers an
+    /// earlier aggregate of the same (name, context). Shared by the native
+    /// (disk) and wasm (embedded) source paths so the merge is identical.
+    fn merge_framework_sources(sources: Vec<String>) -> Domain {
+        let mut merged: Option<Domain> = None;
+        for src in &sources {
+            let extra = crate::parser::parse(src);
+            match merged.as_mut() {
+                None => merged = Some(extra),
+                Some(domain) => {
+                    for agg in extra.aggregates {
+                        if !domain
+                            .aggregates
+                            .iter()
+                            .any(|e| e.name == agg.name && e.context == agg.context)
+                        {
+                            domain.aggregates.push(agg);
+                        }
+                    }
+                    domain.policies.extend(extra.policies);
                 }
             }
-            domain.policies.extend(extra.policies);
         }
-        domain
+        merged.expect("at least one framework bluebook must be present")
+    }
+
+    /// The framework stdlib sources, in deterministic order. NATIVE reads every
+    /// `.bluebook` in the engine-owned resources dir FROM DISK — the substrate is
+    /// convention-loaded data, never baked into the generic binary. Sorted by
+    /// path so the merge base is stable (event_sourcing, governance,
+    /// outbound_event) — the same order the embedded list used.
+    #[cfg(not(target_arch = "wasm32"))]
+    fn framework_sources() -> Vec<String> {
+        let dir = Self::framework_resources_dir().unwrap_or_else(|| {
+            panic!(
+                "framework resources dir not found — set STOREHOUSE_FRAMEWORK_DIR \
+                 or run the engine inside the hecks repo"
+            )
+        });
+        let mut paths: Vec<std::path::PathBuf> = std::fs::read_dir(&dir)
+            .unwrap_or_else(|e| panic!("read framework resources {}: {e}", dir.display()))
+            .filter_map(|e| e.ok().map(|e| e.path()))
+            .filter(|p| p.extension().is_some_and(|x| x == "bluebook"))
+            .collect();
+        paths.sort();
+        paths
+            .iter()
+            .map(|p| {
+                std::fs::read_to_string(p)
+                    .unwrap_or_else(|e| panic!("read framework bluebook {}: {e}", p.display()))
+            })
+            .collect()
+    }
+
+    /// WASM has no filesystem, so the edge artifact keeps the substrate EMBEDDED
+    /// (the include_str! consts above). That is the specializer's job — a target
+    /// that cannot read a disk bakes the domains it needs — not the generic
+    /// runtime's default. Same three sources, same order as the native glob.
+    #[cfg(target_arch = "wasm32")]
+    fn framework_sources() -> Vec<String> {
+        vec![
+            Self::EVENT_SOURCING_SUBSTRATE.to_string(),
+            Self::GOVERNANCE_SUBSTRATE.to_string(),
+            Self::OUTBOX_SUBSTRATE.to_string(),
+        ]
+    }
+
+    /// The engine-owned framework stdlib dir (`rust/resources/`), resolved from
+    /// the EXECUTABLE — never from HECKS_CONCEPTION_DIR, which a test redirects to
+    /// a temp conception. `STOREHOUSE_FRAMEWORK_DIR` overrides for packaging.
+    #[cfg(not(target_arch = "wasm32"))]
+    fn framework_resources_dir() -> Option<std::path::PathBuf> {
+        if let Ok(d) = std::env::var("STOREHOUSE_FRAMEWORK_DIR") {
+            if !d.is_empty() {
+                return Some(std::path::PathBuf::from(d));
+            }
+        }
+        crate::heki::walk_up_for_repo_root().map(|r| r.join("rust").join("resources"))
     }
 
     /// Every delivery currently in the framework outbox.
@@ -145,28 +215,20 @@ impl Runtime {
         self.framework.as_mut().expect("just booted")
     }
 
-    /// The crate-owned world declaring WHERE the framework collaborator's stores
-    /// live. Compiled in for the same reason the substrate bluebooks are :
-    /// storehouse must build standalone with no sibling `hecks_conception`.
-    #[cfg(not(target_arch = "wasm32"))]
-    const FRAMEWORK_WORLD: &'static str = include_str!("../../resources/framework.world");
-
     /// Resolve the framework store location from its DECLARATION.
     ///
-    /// The collaborator used to clone `self.data_dir` outright — the right
-    /// location for the wrong reason, an accident nobody had declared. Now
-    /// `framework.world` states it : `dir :default` means "the same folder as
-    /// the host application's persistence", which is that same inherited
-    /// `data_dir`. Behaviour is unchanged BY DESIGN — this converts an
-    /// inheritance into a contract, so the location can be read rather than
-    /// inferred, and a deployment can override it by naming a literal dir.
-    ///
-    /// Temp-dir isolation is preserved by construction : `:default` resolves to
-    /// whatever the host is using, so a `/tmp` conception keeps its own store
-    /// exactly as before.
+    /// `framework.world` states it : `dir :default` means "the same folder as the
+    /// host application's persistence" (the inherited `data_dir`) ; a literal dir
+    /// overrides. Read from the engine's resources dir ON DISK — no longer
+    /// compiled in — so a missing declaration simply falls back to the default.
+    /// Temp-dir isolation is preserved : `:default` resolves to whatever the host
+    /// is using, so a `/tmp` conception keeps its own store.
     #[cfg(not(target_arch = "wasm32"))]
     fn framework_store_dir(&self) -> Option<String> {
-        let world = crate::world::parser::parse(Self::FRAMEWORK_WORLD);
+        let world_src = Self::framework_resources_dir()
+            .and_then(|d| std::fs::read_to_string(d.join("framework.world")).ok())
+            .unwrap_or_default();
+        let world = crate::world::parser::parse(&world_src);
         match world.config_for("heki").and_then(|c| c.get("dir")) {
             // The declared default : co-locate with the host's persistence.
             Some("default") | None => self.data_dir.clone(),
