@@ -296,6 +296,8 @@ pub mod framework_registry;
 pub mod primitive_registry;
 pub mod storehouse_log;
 pub mod dispatch_detail;
+
+mod dispatch_scope;
 #[cfg(test)]
 mod dispatch_detail_tests;
 
