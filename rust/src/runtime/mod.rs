@@ -152,6 +152,7 @@ mod reaction_mcp;
 mod canonical_naming;
 pub(crate) mod command_dispatch;
 mod dispatch_diagnostics;
+mod es_chain;
 mod es_replay;
 mod fqn_address;
 mod fqn_resolution;
