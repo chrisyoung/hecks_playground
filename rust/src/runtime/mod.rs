@@ -182,6 +182,8 @@ mod interp_mutations;
 mod fqn_tests;
 mod lifecycle_defaults;
 mod log_time;
+#[cfg(test)]
+mod storehouse_log_tests;
 pub mod payload_gate;
 mod event_bus;
 pub mod loop_driver;
