@@ -145,6 +145,7 @@ pub(crate) mod command_dispatch;
 mod dispatch_diagnostics;
 #[cfg(test)]
 mod fqn_tests;
+mod lifecycle_defaults;
 pub mod payload_gate;
 mod event_bus;
 pub mod loop_driver;
@@ -251,7 +252,7 @@ pub mod dispatch_detail;
 pub use aggregate_state::AggregateState;
 pub use command_dispatch::CommandResult;
 #[cfg(not(target_arch = "wasm32"))]
-pub(crate) use command_dispatch::apply_lifecycle_default;
+pub(crate) use lifecycle_defaults::apply_lifecycle_default;
 pub use event_bus::{Event, EventBus};
 pub use middleware::{MiddlewareEntry, MiddlewareStack, Phase};
 pub use policy_engine::{PolicyEngine, PolicyTrigger};

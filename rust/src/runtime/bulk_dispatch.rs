@@ -11,8 +11,9 @@
 //!  dispatch path, relocated verbatim from command_dispatch.rs blanket.]
 
 use super::bulk_specs::{parse_specs_from_str, spec_to_attrs};
-use super::command_dispatch::{apply_defaults, apply_lifecycle_default, CommandResult};
+use super::command_dispatch::CommandResult;
 use super::dispatch_diagnostics::unknown_aggregate_message;
+use super::lifecycle_defaults::{apply_defaults, apply_lifecycle_default};
 use super::{AggregateState, Event, Runtime, RuntimeError, Value};
 use std::collections::HashMap;
 
