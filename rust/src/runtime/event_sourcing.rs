@@ -709,9 +709,26 @@ impl Runtime {
     /// assigns the global order, so a watermark captured in one process is only
     /// meaningful against that process's ordering. `ReadForward` already carries
     /// this property ; consolidating first is what makes it global.
-    /// The highest sequence the Log currently carries — the snapshot watermark,
-    /// and the one number `maybe_capture_snapshot` needs to decide whether the
-    /// Log has grown far enough to re-capture.
+    /// `(watermark, growth)` for the snapshot decision — TWO numbers, because the
+    /// Log has two sequence spaces and they answer different questions.
+    ///
+    /// `watermark` is the CONSOLIDATED head : the highest GLOBAL sequence the
+    /// merge has assigned. It is the only value safe to store on a Snapshot,
+    /// because the watermark is later compared as `sequence.value > watermark`
+    /// against Log records — and only consolidated records live in that space.
+    /// A watermark drawn from the per-process tail (1, 2, 3…) would be
+    /// meaningless there, and a watermark that OVER-states coverage would make
+    /// the reader skip events it never folded.
+    ///
+    /// `growth` adds the unconsolidated tail's COUNT — what "has the Log grown
+    /// far enough to re-capture?" actually means. Under-stating it would stall
+    /// capture forever on a realm whose consolidation is behind.
+    ///
+    /// The snapshot's ROWS do include the tail's effects (ReadForward folds it
+    /// unconditionally), so the stored watermark UNDER-describes what the snapshot
+    /// covers. That direction is safe: the tail is simply re-folded on the next
+    /// read, and the fold is idempotent because a delta carries the field's full
+    /// post-command value, never an increment.
     ///
     /// Computed WITHOUT materialising the Log. It used to be `max(sequence)` over
     /// `all_qualified(EventSourcing, Event)` — hydrating and folding EVERY event
@@ -726,26 +743,18 @@ impl Runtime {
     ///   * the unconsolidated tail's max, O(tail).
     /// Their max is exactly what the full scan returned, because the consolidated
     /// records ARE the sidecar's range and the tail records are the rest.
-    pub(super) fn log_head_sequence(&self) -> i64 {
+    pub(super) fn log_head_sequence(&self) -> (i64, i64) {
         let es_key = repo_key(Some("EventSourcing"), "Event");
         let dir = match self.repositories.get(&es_key).and_then(|r| r.heki_path()) {
             Some(d) => d,
-            None => return 0,
+            None => return (0, 0),
         };
         let global = super::event_log::global_path(&dir, Some("EventSourcing"));
         // read_next_seq is the NEXT sequence to assign, so the head is one behind.
         // A fresh Log has no sidecar -> next = 1 -> head 0, which is correct.
         let consolidated = (super::event_log::read_next_seq(&global) as i64) - 1;
-        let tail = super::event_log::unconsolidated_tail_states(&dir)
-            .iter()
-            .map(|e| match e.get("sequence") {
-                Value::Int(i) => *i,
-                Value::Map(m) => m.get("value").and_then(|v| v.as_int()).unwrap_or(0),
-                _ => 0,
-            })
-            .max()
-            .unwrap_or(0);
-        consolidated.max(tail)
+        let tail = super::event_log::unconsolidated_tail_states(&dir).len() as i64;
+        (consolidated, consolidated + tail)
     }
 
     pub(super) fn maybe_capture_snapshot(&mut self) {
@@ -756,13 +765,16 @@ impl Runtime {
         let name = Self::CURRENT_STATE_PROJECTION;
         let fw = self.framework_mut();
 
-        let head = fw.log_head_sequence();
+        let (head, growth) = fw.log_head_sequence();
         let watermark = match fw.find("Snapshot", name).map(|s| s.get("watermark").clone()) {
             Some(Value::Int(i)) => i,
             Some(Value::Map(m)) => m.get("value").and_then(|v| v.as_int()).unwrap_or(0),
             _ => 0,
         };
-        if head - watermark < threshold {
+        // GROWTH decides whether to capture (it counts the unconsolidated tail,
+        // so a realm whose consolidation is behind still snapshots) ; HEAD is what
+        // gets stored, because only the consolidated space is comparable later.
+        if growth - watermark < threshold {
             return;
         }
 

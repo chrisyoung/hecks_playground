@@ -104,9 +104,34 @@ fn the_log_captures_a_snapshot_at_the_threshold_without_changing_the_read() {
         bump(&mut warm, "c1", i);
     }
 
-    // (1) It captured, and the watermark actually advanced past zero.
-    let wm = watermark(&mut warm);
-    assert!(wm > 0, "a snapshot must be captured once the Log grows past the threshold");
+    // (1) It captured. The EVIDENCE is that a Snapshot row now exists — not that
+    // the watermark moved.
+    //
+    // The watermark is deliberately 0 here, and that is correct. A watermark is a
+    // CONSOLIDATED global sequence, because that is the only space it is later
+    // compared against (`sequence.value > watermark`). This realm never runs
+    // consolidation, so its events are all still in the shards carrying
+    // PER-PROCESS sequences (1, 2, 3…) and the consolidated head is genuinely 0.
+    //
+    // Storing the per-process max instead — which is what this used to do — is
+    // wrong in both directions. On a realm WITH a consolidated Log it makes
+    // `seq > 24` re-fold the entire Log on every read ; and it was paired with a
+    // reader that FILTERED the unconsolidated tail by that same watermark, so
+    // once any snapshot existed every not-yet-consolidated event was silently
+    // dropped from the derived state. The reader now folds the tail
+    // unconditionally (it is by definition beyond any watermark), which is what
+    // property (3) below actually measures.
+    assert!(
+        warm.framework_mut().find("Snapshot", "current_state").is_some(),
+        "a snapshot must be captured once the Log grows past the threshold",
+    );
+    assert_eq!(
+        watermark(&mut warm),
+        0,
+        "an unconsolidated realm has no global sequence yet, so the watermark \
+         stays 0 — the snapshot's rows still cover the tail, the watermark just \
+         does not claim to",
+    );
 
     // (2) The cached state is not empty — it holds the folded rows, not a husk.
     let cached = warm.framework_mut().find("Snapshot", "current_state").map(|s| s.get("state").clone());

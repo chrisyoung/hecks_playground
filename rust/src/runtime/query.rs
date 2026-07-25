@@ -370,18 +370,67 @@ impl Runtime {
                 value: watermark.to_string(),
             }];
             let no_attrs = std::collections::HashMap::new();
-            let owned = self
-                .repositories
-                .get(&repo_key(Some("EventSourcing"), "Event"))
-                .and_then(|repo| repo.query(&tail_wheres, &no_attrs));
-            let tail_refs: Vec<&AggregateState> = match owned {
-                Some(ref o) => o.iter().collect(),
-                None => self.all_qualified(Some("EventSourcing"), "Event"),
+            // THE TAIL COMES IN TWO PARTS, because the Log has TWO SEQUENCE SPACES
+            // and only one of them is comparable to the watermark.
+            //
+            //  (a) CONSOLIDATED — global sequences, assigned by the merge. Directly
+            //      comparable to the watermark, so seek `sequence.value > watermark`.
+            //  (b) UNCONSOLIDATED — still in the shards, carrying PER-PROCESS
+            //      sequences (1, 2, 3…) that the merge has not yet rewritten. These
+            //      are NOT comparable to a watermark drawn from the global space, and
+            //      a snapshot watermark NEVER covers them: the tail is by definition
+            //      the part no consolidation has folded. So they fold UNCONDITIONALLY.
+            //
+            // Filtering (b) by `sequence.value > watermark` is what this used to do,
+            // and it silently dropped EVERY unconsolidated event once a snapshot
+            // existed — a fresh event stamped `sequence: 1` never clears a watermark
+            // of 306891. Measured: the raw Log held ten Vault instances while the
+            // derived current_state projection held ZERO. That is the read side
+            // ("state is DERIVED from the Log") quietly not deriving.
+            //
+            // Over-including is SAFE and under-including is not: a delta records the
+            // field's full post-command value, never an increment, so folding one
+            // twice lands on the same value.
+            let es_key = repo_key(Some("EventSourcing"), "Event");
+            let store_dir = self.repositories.get(&es_key).and_then(|r| r.heki_path());
+            let (consolidated, unconsolidated) = match &store_dir {
+                Some(dir) => {
+                    let global = super::event_log::global_path(dir, Some("EventSourcing"));
+                    let cons = super::event_log_query::load_filtered(
+                        &global,
+                        &tail_wheres,
+                        &no_attrs,
+                    )
+                    .unwrap_or_else(|| {
+                        // Not pushable (cannot happen for a sequence range, but the
+                        // fallback keeps this honest rather than silently empty).
+                        super::event_log::load_states(&global)
+                            .into_iter()
+                            .filter(|s| where_matches(s, &tail_wheres[0], &no_attrs))
+                            .collect()
+                    });
+                    (cons, super::event_log::unconsolidated_tail_states(dir))
+                }
+                // No disk Log — a memory-backed Event repo (the test harness's
+                // explicit choice). The repository IS the whole Log, so there is no
+                // consolidated/unconsolidated split to make : filter it in memory.
+                None => (Vec::new(), Vec::new()),
             };
-            let tail: Vec<&AggregateState> = tail_refs
-                .into_iter()
-                .filter(|s| where_matches(s, &tail_wheres[0], &no_attrs))
-                .collect();
+            let in_memory: Vec<&AggregateState> = if store_dir.is_none() {
+                self.all_qualified(Some("EventSourcing"), "Event")
+            } else {
+                Vec::new()
+            };
+            // Consolidated first, then the tail : `fold_forward_onto` is
+            // last-write-wins and the tail is, by construction, the newer half.
+            let mut tail: Vec<&AggregateState> = Vec::new();
+            tail.extend(consolidated.iter());
+            tail.extend(unconsolidated.iter());
+            tail.extend(
+                in_memory
+                    .into_iter()
+                    .filter(|s| where_matches(s, &tail_wheres[0], &no_attrs)),
+            );
             rows = super::projection_fold::fold_forward_onto(rows, &tail);
             let mut keys: Vec<&String> = rows.keys().collect();
             keys.sort();
