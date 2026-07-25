@@ -145,6 +145,7 @@ mod reaction_claude_tool;
 mod reaction_compute;
 mod reaction_io_shared;
 mod reaction_llm;
+mod pm_persistence;
 mod reaction_outbox;
 mod registry_kernel_hooks;
 mod web_search_parse;
