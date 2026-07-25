@@ -185,6 +185,7 @@ mod log_sink;
 mod log_time;
 #[cfg(test)]
 mod loop_driver_tests;
+mod loop_tick;
 #[cfg(test)]
 mod storehouse_log_tests;
 pub mod payload_gate;
