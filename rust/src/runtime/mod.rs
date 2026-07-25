@@ -291,6 +291,8 @@ mod causation_trace_tests;
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod consequence_tree_tests;
 pub mod event_merge;
+#[cfg(test)]
+mod event_merge_tests;
 pub mod compute_functions;
 pub mod framework_registry;
 pub mod primitive_registry;
