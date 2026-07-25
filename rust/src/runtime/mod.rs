@@ -141,6 +141,7 @@ mod aggregate_state;
 pub mod acl_readmodel;
 mod bulk_dispatch;
 mod bulk_specs;
+mod reaction_claude_tool;
 mod reaction_compute;
 mod reaction_mcp;
 mod canonical_naming;
