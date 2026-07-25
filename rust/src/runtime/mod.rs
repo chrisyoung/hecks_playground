@@ -151,6 +151,7 @@ mod driven_adapter_enumerate;
 mod driven_adapter_tests;
 #[cfg(test)]
 mod pm_engine_tests;
+mod persistence_apply;
 mod pm_persistence;
 mod reaction_outbox;
 mod registry_kernel_hooks;
