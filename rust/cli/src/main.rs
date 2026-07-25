@@ -78,10 +78,13 @@ use std::env;
 use std::fs;
 
 fn main() {
-    // Composition root : wire concrete persistence adapters into the runtime
-    // BEFORE any boot. The lib names no engine — this is the ONE place sqlite
-    // (and future R2 / postgres) get registered against their hexagon tokens.
-    storehouse_sqlite::register();
+    // The generic runtime carries NO impure persistence adapter : it speaks only
+    // the in-process heki / memory substrate the kernel always has. A heavy or
+    // native-dependency adapter (sqlite -> C SQLite, future R2 / postgres) is NOT
+    // compiled in here — a project that needs one hooks it up in its OWN
+    // composition root (`storehouse_sqlite::register()` before boot, as
+    // sqlite/tests/sqlite_scope_test.rs does) and resolves its `adapter :sqlite`
+    // bindings against the registry it populated. The lib names no engine.
 
     let args: Vec<String> = env::args().collect();
 

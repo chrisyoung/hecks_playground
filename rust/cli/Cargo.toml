@@ -9,6 +9,12 @@ name = "storehouse"
 path = "src/main.rs"
 
 [dependencies]
+# The generic runtime carries NO impure persistence adapter — not even as an
+# optional feature. It links only the in-process heki / memory substrate the
+# kernel always has. A heavy or native-dependency adapter (storehouse-sqlite ->
+# rusqlite -> C SQLite) is hooked up by a PROJECT's own composition root, which
+# depends on the adapter crate and calls `storehouse_sqlite::register()` before
+# boot (see sqlite/tests/sqlite_scope_test.rs). Keeping it out of here is what
+# makes "you cannot run sqlite through the generic runtime" true by construction.
 storehouse = { path = ".." }
-storehouse-sqlite = { path = "../sqlite" }
 serde_json = "1"
