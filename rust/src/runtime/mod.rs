@@ -153,6 +153,7 @@ mod canonical_naming;
 pub(crate) mod command_dispatch;
 mod dispatch_diagnostics;
 mod es_chain;
+mod es_log_migration;
 mod es_replay;
 mod es_verification;
 mod fqn_address;
