@@ -146,6 +146,7 @@ mod reaction_compute;
 mod reaction_io_shared;
 mod reaction_llm;
 mod reaction_outbox;
+mod registry_kernel_hooks;
 mod web_search_parse;
 mod web_tool_requests;
 #[cfg(test)]
