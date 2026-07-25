@@ -139,6 +139,7 @@
 
 mod aggregate_state;
 pub mod acl_readmodel;
+mod bulk_dispatch;
 mod bulk_specs;
 pub(crate) mod command_dispatch;
 pub mod payload_gate;
