@@ -11,7 +11,8 @@
 //!  resolution tests, relocated verbatim from command_dispatch.rs blanket.]
 
 use super::command_dispatch;
-use super::command_dispatch::parse_fqn;
+use super::fqn_address;
+use super::fqn_address::parse_fqn;
 
 
 // parse_fqn reads a realm-qualified, VARIABLE-DEPTH address by its ENDS :
@@ -67,7 +68,7 @@ fn ambiguity_two_distinct_realms_realm_omitted_is_ambiguous() {
 // Domain::Aggregate.command across two realms reports BOTH candidates
 // instead of silently first-match-winning.
 let realms = vec!["hecks/framework".to_string(), "miette/body".to_string()];
-let got = command_dispatch::ambiguity_candidates(&realms, true, "Tools::Widget.Make");
+let got = fqn_address::ambiguity_candidates(&realms, true, "Tools::Widget.Make");
 assert_eq!(got, Some(vec![
     "hecks::framework::Tools::Widget.Make".to_string(),
     "miette::body::Tools::Widget.Make".to_string(),
@@ -79,14 +80,14 @@ fn ambiguity_realm_qualified_dispatch_is_never_ambiguous() {
 // When the caller named the realm, realm_context_matches already
 // narrowed — keep first-match-wins.
 let realms = vec!["hecks/framework".to_string(), "miette/body".to_string()];
-assert_eq!(command_dispatch::ambiguity_candidates(&realms, false, "X::Y.Z"), None);
+assert_eq!(fqn_address::ambiguity_candidates(&realms, false, "X::Y.Z"), None);
 }
 
 #[test]
 fn ambiguity_same_realm_twice_is_not_ambiguous() {
 // Two hits in the SAME realm dedup to one candidate — not ambiguous.
 let realms = vec!["hecks/framework".to_string(), "hecks/framework".to_string()];
-assert_eq!(command_dispatch::ambiguity_candidates(&realms, true, "X::Y.Z"), None);
+assert_eq!(fqn_address::ambiguity_candidates(&realms, true, "X::Y.Z"), None);
 }
 
 #[test]
@@ -94,7 +95,7 @@ fn ambiguity_unstamped_realms_keep_first_match() {
 // Legacy / string-parsed aggregates carry an empty realm_path —
 // filtered out, so they fall through to first-match-wins.
 let realms = vec![String::new(), String::new()];
-assert_eq!(command_dispatch::ambiguity_candidates(&realms, true, "X::Y.Z"), None);
+assert_eq!(fqn_address::ambiguity_candidates(&realms, true, "X::Y.Z"), None);
 }
 
 // ---- caller-scoped local-first (i-fqn local-short) ----
@@ -210,12 +211,12 @@ assert_eq!(rt.domain.aggregates[r.agg_idx()].realm_path.as_deref(), Some("miette
 #[test]
 fn over_qualified_fqn_reduces_to_domain_aggregate_command_tail() {
 assert_eq!(
-    command_dispatch::realm_over_qualified_tail("Hecks::Framework::Cascade::Cascade.RecordResult"),
+    fqn_address::realm_over_qualified_tail("Hecks::Framework::Cascade::Cascade.RecordResult"),
     Some("Cascade::Cascade.RecordResult".to_string())
 );
 // A deeper realm still reduces to the LAST two namespace segments.
 assert_eq!(
-    command_dispatch::realm_over_qualified_tail("A::B::C::D::Widget.Make"),
+    fqn_address::realm_over_qualified_tail("A::B::C::D::Widget.Make"),
     Some("D::Widget.Make".to_string())
 );
 }
@@ -223,10 +224,10 @@ assert_eq!(
 #[test]
 fn already_minimal_fqn_is_not_reduced() {
 // Exactly two segments (Domain::Aggregate) — nothing to strip.
-assert_eq!(command_dispatch::realm_over_qualified_tail("Cascade::Cascade.RecordResult"), None);
+assert_eq!(fqn_address::realm_over_qualified_tail("Cascade::Cascade.RecordResult"), None);
 // One segment before the command — also minimal.
-assert_eq!(command_dispatch::realm_over_qualified_tail("Widget.Make"), None);
+assert_eq!(fqn_address::realm_over_qualified_tail("Widget.Make"), None);
 // No command at all — no tail to build.
-assert_eq!(command_dispatch::realm_over_qualified_tail("A::B::C::Widget"), None);
+assert_eq!(fqn_address::realm_over_qualified_tail("A::B::C::Widget"), None);
 }
 
