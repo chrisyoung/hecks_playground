@@ -180,6 +180,7 @@ mod interp_givens;
 mod interp_mutations;
 #[cfg(test)]
 mod fqn_tests;
+mod lazy_backend;
 mod lazy_repo_ops;
 mod lifecycle_defaults;
 mod log_sink;
