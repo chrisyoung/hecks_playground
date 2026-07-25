@@ -296,6 +296,8 @@ pub mod framework_registry;
 pub mod primitive_registry;
 pub mod storehouse_log;
 pub mod dispatch_detail;
+#[cfg(test)]
+mod dispatch_detail_tests;
 
 pub use aggregate_state::AggregateState;
 pub use command_dispatch::CommandResult;
