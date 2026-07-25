@@ -181,6 +181,7 @@ mod interp_mutations;
 #[cfg(test)]
 mod fqn_tests;
 mod lifecycle_defaults;
+mod log_time;
 pub mod payload_gate;
 mod event_bus;
 pub mod loop_driver;
