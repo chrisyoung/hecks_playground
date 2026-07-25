@@ -145,6 +145,8 @@ mod reaction_claude_tool;
 mod reaction_compute;
 mod reaction_io_shared;
 mod reaction_llm;
+#[cfg(test)]
+mod pm_engine_tests;
 mod pm_persistence;
 mod reaction_outbox;
 mod registry_kernel_hooks;
