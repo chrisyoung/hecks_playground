@@ -213,6 +213,7 @@ mod event_driving;
 pub mod adapter_env;
 mod reaction;
 mod query;
+mod query_event_fields;
 /// Framework substrate — the collaborator holding the kernel's own aggregates
 /// (the event Log, the veto audit, the outbox), so the runtime never depends on
 /// a user's domain having merged them.
