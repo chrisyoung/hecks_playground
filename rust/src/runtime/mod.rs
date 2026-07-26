@@ -279,6 +279,8 @@ pub mod actor;
 pub mod driving_adapter_resolver;
 pub mod drive_scheduler;
 pub mod cron_schedule;
+#[cfg(test)]
+mod cron_schedule_tests;
 mod repo_hydrate;
 pub mod event_shard;
 mod shard_sink;
