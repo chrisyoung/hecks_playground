@@ -301,6 +301,8 @@ mod event_log_index_tests;
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod causation_trace_tests;
 #[cfg(all(test, not(target_arch = "wasm32")))]
+mod causation_e2e_tests;
+#[cfg(all(test, not(target_arch = "wasm32")))]
 mod consequence_tree_tests;
 pub mod event_merge;
 #[cfg(test)]
