@@ -295,6 +295,8 @@ pub mod event_log_query;
 #[cfg(test)]
 mod event_log_query_tests;
 pub mod event_log_index;
+#[cfg(test)]
+mod event_log_index_tests;
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod causation_trace_tests;
 #[cfg(all(test, not(target_arch = "wasm32")))]
