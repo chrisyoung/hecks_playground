@@ -309,6 +309,7 @@ pub mod event_merge;
 mod event_merge_tests;
 pub mod compute_functions;
 pub mod framework_registry;
+mod payload_gate_terms;
 pub mod primitive_registry;
 #[cfg(test)]
 mod primitive_registry_tests;
