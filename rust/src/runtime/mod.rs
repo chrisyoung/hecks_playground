@@ -310,6 +310,8 @@ mod event_merge_tests;
 pub mod compute_functions;
 pub mod framework_registry;
 pub mod primitive_registry;
+#[cfg(test)]
+mod primitive_registry_tests;
 pub mod storehouse_log;
 pub mod dispatch_detail;
 
