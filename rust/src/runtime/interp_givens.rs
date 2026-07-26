@@ -6,6 +6,17 @@
 //! interp_expr's resolver). `interpreter::check_givens` /
 //! `interpreter::evaluate_predicate` stay valid through parent re-exports.
 //!
+//! SPLIT ORDER, lowest precedence outward — this is semantics, not style :
+//!
+//!   ||  ->  &&  ->  .any? / .empty?  ->  .include?  ->  >= <= < > == !=
+//!       ->  !  ->  bare
+//!
+//! `!` sits second-from-last because it binds TIGHTER than every binary
+//! operator: Ruby reads `!a && b` as `(!a) && b`. The `.any?` / `.empty?`
+//! branches match on a SUFFIX, so they carry an explicit guard against a
+//! leading `!` — without it they strip the suffix off `!value` instead of
+//! `value` and swallow the negation entirely.
+//!
 //! Cask extracted VERBATIM from runtime/interpreter.rs (cask-runtime).
 //!
 //! [antibody-exempt: rust/src/runtime/interp_givens.rs — kernel-floor
@@ -109,13 +120,23 @@ pub(super) fn evaluate_given(
     // `field.any?` → field.size > 0; `field.empty?` → field.size == 0.
     // Ruby idioms used in handwritten bluebooks; rewrite to runtime
     // primitives so the comparison evaluator below handles them.
-    if let Some(field) = expr.strip_suffix(".any?") {
-        let val = resolve_expr(&format!("{}.size", field.trim()), state, attrs, ctx);
-        return compare_lt(&Value::Int(0), &val);
-    }
-    if let Some(field) = expr.strip_suffix(".empty?") {
-        let val = resolve_expr(&format!("{}.size", field.trim()), state, attrs, ctx);
-        return values_equal(&val, &Value::Int(0));
+    // The `!expr.starts_with('!')` guard is what keeps NEGATION working. These
+    // two branches match on a SUFFIX, so without the guard `!value.empty?`
+    // matches here and strips `.empty?` off `!value` rather than off `value` —
+    // the `!` is silently discarded, the unknown field `!value` resolves to 0,
+    // `0 == 0` is true, and the rule passes. Every `requires { !value.empty? }`
+    // in the corpus (storehouse/lexicon, story, command_bus ; adapters heki,
+    // ollama, r2, storehouse_api) read "must not be blank" and never fired.
+    // Negation is handled below, at its correct precedence.
+    if !expr.starts_with('!') {
+        if let Some(field) = expr.strip_suffix(".any?") {
+            let val = resolve_expr(&format!("{}.size", field.trim()), state, attrs, ctx);
+            return compare_lt(&Value::Int(0), &val);
+        }
+        if let Some(field) = expr.strip_suffix(".empty?") {
+            let val = resolve_expr(&format!("{}.size", field.trim()), state, attrs, ctx);
+            return values_equal(&val, &Value::Int(0));
+        }
     }
 
     // `list_field.include?(arg)` -> membership : true when the list field (a
@@ -177,6 +198,18 @@ pub(super) fn evaluate_given(
         return !values_equal(&left, &right);
     }
 
+    // NEGATION — `!expr`. Sits AFTER the comparison splits because `!` binds
+    // TIGHTER than every binary operator: Ruby reads `!a && b` as `(!a) && b`,
+    // so reaching negation earlier would read it as `!(a && b)` and invert the
+    // verdict on a sentence that looks unambiguous. `a != b` never arrives here
+    // — it does not START with `!`, and `!=` is split above.
+    //
+    // Mirrors lib/hecksagain/bluebook/expression/evaluator.rb, which places the
+    // same branch in the same position for the same reason.
+    if let Some(inner) = expr.strip_prefix('!') {
+        return !evaluate_given(inner.trim(), state, attrs, ctx);
+    }
+
     // A bare boolean expression with no comparison operator — e.g. a VO
     // predicate derivation `given { balance.covers?(amount) }`, or a plain
     // Bool field. Resolve it and honour a Bool result ; a non-boolean bare
@@ -185,5 +218,64 @@ pub(super) fn evaluate_given(
     match resolve_expr(expr, state, attrs, ctx) {
         Value::Bool(b) => b,
         _ => true,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::evaluate_predicate;
+    use super::{AggregateState, EvalCtx, HashMap, Value};
+
+    fn with_value(text: &str) -> AggregateState {
+        let mut state = AggregateState::new("x");
+        state.set("value", Value::Str(text.to_string()));
+        state
+    }
+
+    fn check(expr: &str, state: &AggregateState) -> bool {
+        evaluate_predicate(expr, state, &HashMap::new(), EvalCtx::default())
+    }
+
+    /// THE REGRESSION. A predicate and its exact negation must disagree.
+    ///
+    /// `.empty?` matches on a SUFFIX, so before the guard above it stripped
+    /// `.empty?` off `!value` rather than off `value` — the `!` was silently
+    /// discarded, the unknown field `!value` resolved to 0, `0 == 0` was true,
+    /// and BOTH of these answered true. Every `requires { !value.empty? }` in
+    /// the corpus read "must not be blank" and never fired.
+    #[test]
+    fn negation_disagrees_with_the_predicate_it_negates() {
+        let state = with_value("Hello");
+        assert!(!check("value.empty?", &state));
+        assert!(check("!value.empty?", &state));
+    }
+
+    /// The corpus rule doing its job: a blank value is refused.
+    #[test]
+    fn negated_empty_refuses_a_blank_value() {
+        let state = with_value("");
+        assert!(check("value.empty?", &state));
+        assert!(!check("!value.empty?", &state));
+    }
+
+    /// `!` binds TIGHTER than the binary operators: `!a && b` is `(!a) && b`,
+    /// never `!(a && b)`.
+    #[test]
+    fn negation_binds_tighter_than_the_binary_operators() {
+        let mut state = AggregateState::new("x");
+        state.set("ready", Value::Bool(false));
+        state.set("open", Value::Bool(true));
+        assert!(check("!ready && open", &state));
+
+        state.set("ready", Value::Bool(true));
+        assert!(!check("!ready && open", &state));
+    }
+
+    /// `.any?` is the mirror of `.empty?` and took the same suffix-match fault.
+    #[test]
+    fn negation_composes_with_any() {
+        let state = with_value("Hello");
+        assert!(check("value.any?", &state));
+        assert!(!check("!value.any?", &state));
     }
 }
