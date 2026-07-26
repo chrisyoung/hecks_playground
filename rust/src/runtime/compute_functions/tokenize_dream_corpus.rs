@@ -101,7 +101,7 @@ pub fn tokenize_dream_corpus(
 
 /// Walk the store, window each record, flatten + tokenize the
 /// `dream_images` field. Out-of-window records are silently skipped.
-fn collect_tokens(store: &heki::Store, lower: &str, upper: &str) -> Vec<String> {
+pub(super) fn collect_tokens(store: &heki::Store, lower: &str, upper: &str) -> Vec<String> {
     let mut tokens: Vec<String> = Vec::new();
     for record in store.values() {
         if !record_in_window(record, lower, upper) {
@@ -119,7 +119,7 @@ fn collect_tokens(store: &heki::Store, lower: &str, upper: &str) -> Vec<String> 
 /// Group tokens by value and sort by `(count desc, word asc)` —
 /// same secondary key the jq pipeline uses
 /// (`sort_by(-.count, .word)`).
-fn rank_by_count(tokens: Vec<String>) -> Vec<(String, usize)> {
+pub(super) fn rank_by_count(tokens: Vec<String>) -> Vec<(String, usize)> {
     let mut counts: HashMap<String, usize> = HashMap::new();
     for tok in tokens {
         *counts.entry(tok).or_insert(0) += 1;
@@ -132,7 +132,7 @@ fn rank_by_count(tokens: Vec<String>) -> Vec<(String, usize)> {
 /// True when the record's `updated_at` (or `created_at` fallback)
 /// sits inside `[lower, upper]`. Empty bounds mean "no constraint
 /// on that side".
-fn record_in_window(record: &heki::Record, lower: &str, upper: &str) -> bool {
+pub(super) fn record_in_window(record: &heki::Record, lower: &str, upper: &str) -> bool {
     if lower.is_empty() && upper.is_empty() {
         return true;
     }
@@ -148,7 +148,7 @@ fn record_in_window(record: &heki::Record, lower: &str, upper: &str) -> bool {
 
 /// Pick the record's timestamp — `updated_at` if present, else
 /// `created_at`, else empty string (which fails any non-empty bound).
-fn record_timestamp(record: &heki::Record) -> String {
+pub(super) fn record_timestamp(record: &heki::Record) -> String {
     if let Some(v) = record.get("updated_at").and_then(|v| v.as_str()) {
         return v.to_string();
     }
@@ -162,7 +162,7 @@ fn record_timestamp(record: &heki::Record) -> String {
 /// shape (canonical JSON form) and the comma-joined string shape
 /// (what `storehouse heki append … dream_images=foo` writes for a
 /// single-string attribute).
-fn extract_dream_images(record: &heki::Record) -> Vec<String> {
+pub(super) fn extract_dream_images(record: &heki::Record) -> Vec<String> {
     let v = match record.get("dream_images") {
         Some(v) => v,
         None => return Vec::new(),
@@ -181,7 +181,7 @@ fn extract_dream_images(record: &heki::Record) -> Vec<String> {
 /// Lowercase + extract `[a-z]+` runs of length >= 3, drop stopwords.
 /// Mirrors the jq `ascii_downcase | scan("[a-z]+") | select(length>=3)
 /// | select(stopwords | not)` chain.
-fn tokenize(text: &str) -> Vec<String> {
+pub(super) fn tokenize(text: &str) -> Vec<String> {
     let lower = text.to_ascii_lowercase();
     let mut out: Vec<String> = Vec::new();
     let mut current = String::new();
@@ -199,75 +199,9 @@ fn tokenize(text: &str) -> Vec<String> {
     out
 }
 
-fn push_if_keepable(out: &mut Vec<String>, candidate: &str) {
+pub(super) fn push_if_keepable(out: &mut Vec<String>, candidate: &str) {
     if candidate.len() < 3 || is_stopword(candidate) {
         return;
     }
     out.push(candidate.to_string());
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn tokenize_drops_stopwords_and_short_words() {
-        let toks = tokenize("the ocean dissolving in a library");
-        assert_eq!(toks, vec!["ocean", "dissolving", "library"]);
-    }
-
-    #[test]
-    fn tokenize_handles_french_stopwords() {
-        let toks = tokenize("je suis dans le monde");
-        assert_eq!(toks, vec!["monde"]);
-    }
-
-    #[test]
-    fn empty_data_dir_returns_empty_string() {
-        let attrs = HashMap::new();
-        assert_eq!(tokenize_dream_corpus(None, &attrs, None), "");
-    }
-
-    #[test]
-    fn missing_dream_state_heki_returns_empty_string() {
-        let attrs = HashMap::new();
-        let tmp = std::env::temp_dir().join("tokenize_dream_corpus_missing");
-        let _ = std::fs::create_dir_all(&tmp);
-        assert_eq!(tokenize_dream_corpus(None, &attrs, tmp.to_str()), "");
-    }
-
-    #[test]
-    fn record_window_open_bounds_admits_everything() {
-        let mut r: heki::Record = HashMap::new();
-        r.insert("updated_at".into(), serde_json::json!("2026-05-03T00:00:00Z"));
-        assert!(record_in_window(&r, "", ""));
-    }
-
-    #[test]
-    fn record_window_lower_bound_rejects_older() {
-        let mut r: heki::Record = HashMap::new();
-        r.insert("updated_at".into(), serde_json::json!("2026-05-01T00:00:00Z"));
-        assert!(!record_in_window(&r, "2026-05-02T00:00:00Z", ""));
-    }
-
-    #[test]
-    fn record_window_upper_bound_rejects_newer() {
-        let mut r: heki::Record = HashMap::new();
-        r.insert("updated_at".into(), serde_json::json!("2026-05-05T00:00:00Z"));
-        assert!(!record_in_window(&r, "", "2026-05-04T00:00:00Z"));
-    }
-
-    #[test]
-    fn extract_dream_images_array_form() {
-        let mut r: heki::Record = HashMap::new();
-        r.insert("dream_images".into(), serde_json::json!(["a", "b"]));
-        assert_eq!(extract_dream_images(&r), vec!["a", "b"]);
-    }
-
-    #[test]
-    fn extract_dream_images_string_form() {
-        let mut r: heki::Record = HashMap::new();
-        r.insert("dream_images".into(), serde_json::json!("a single image"));
-        assert_eq!(extract_dream_images(&r), vec!["a single image"]);
-    }
 }
