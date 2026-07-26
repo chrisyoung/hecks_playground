@@ -12,27 +12,7 @@
 
 use super::*;
 
-/// One row of the backend-map projection (i728) — which backend each repository
-/// resolved to, without hydrating it. `Runtime::dump_backend_map` builds the Vec ;
-/// the Phase-A enforcement gate diffs it before/after a change and treats any
-/// unexpected backend flip as an automatic stop.
-#[derive(Debug, Clone)]
-pub struct BackendInfo {
-    pub repo_key: String,
-    pub kind: BackendKind,
-    pub heki_path: Option<String>,
-}
-
-
-/// Phase 3 — one enqueued reaction: a command result whose cross-
-/// aggregate reactions have not yet been delivered. Held in the Runtime
-/// outbox until `pump()` runs `react` for it.
-#[derive(Debug, Clone)]
-pub struct PendingReaction {
-    pub result: CommandResult,
-    pub command_name: String,
-    pub attrs: HashMap<String, Value>,
-}
+pub use super::runtime_support_types::{BackendInfo, PendingReaction};
 
 pub struct Runtime {
     pub domain: Domain,
