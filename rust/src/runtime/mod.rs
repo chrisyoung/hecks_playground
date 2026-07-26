@@ -280,6 +280,9 @@ pub mod driving_adapter_resolver;
 pub mod drive_scheduler;
 pub mod cron_schedule;
 pub mod event_shard;
+mod shard_sink;
+#[cfg(test)]
+mod event_shard_tests;
 pub mod projection_fold;
 pub mod event_log;
 pub mod event_log_query;
