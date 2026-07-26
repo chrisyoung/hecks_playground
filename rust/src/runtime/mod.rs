@@ -285,6 +285,8 @@ mod shard_sink;
 #[cfg(test)]
 mod event_shard_tests;
 pub mod projection_fold;
+#[cfg(test)]
+mod projection_fold_tests;
 pub mod event_log;
 pub mod event_log_query;
 #[cfg(test)]
