@@ -62,3 +62,40 @@ bluebook prose. Gate: parity suite + full tests green.
 2. Sites 2-3 (miette repo bluebooks + runner rewires).
 3. Orphan deletions (prove nothing bites: suite green before/after).
 4. Language removal sweep + parity.
+
+## CLOSED (2026-07-27) — scorecard
+
+The inventory above missed three production sites (deployments/ + cli/
+sat outside the parity walk — the "zero real fixture blocks" claim was
+wrong). Final ledger, every bite RED→GREEN before its fixture died :
+
+| site | fixture | policies | seam | bite |
+|---|---|---|---|---|
+| pilot | agent_instrumentation.fixtures | 2 | agent_defs render(corpus_rt) | agent_defs_establishment_test |
+| 1 | system_prompt_content.fixtures (miette) | 15 + sections/*.md paths | system_prompt render(corpus_rt), Phase 4 after completion | system_prompt_establishment_test |
+| 2 | mindstream.fixtures (miette deploy) | 15 (Define+14 Register w/ :order) | projection::procfile + `project procfile` (Procfile + .overmind.env byte-identical) | mindstream_establishment_test |
+| 4 | cloudflare.bluebook inline block | 1 | projection::wrangler + `project wrangler` (wrangler.toml byte-identical — Chris: "we need a seam") | worker_config_establishment_test |
+| 5 | daily_musing.fixtures (worker seeds) | 2 | worker lib.rs dispatches CompleteBoot per boot | daily_musing_establishment_test |
+| 6 | subcommand.fixtures (30 rows) | 30 | seed-subcommand-registry → `storehouse establish cli/subcommand/bluebook` | subcommand_registry_establishment_test |
+
+Orphans deleted : 24 (prior sweep) + 15 (repo-level fixtures/ dirs the
+runner never probes) + transparency.fixtures (miette). Language surface
+gone : grammar line, BlockParser::Fixture + routing, parser arm +
+consume_do_block, Domain.fixtures IR, dump/canonical_ir keys, server
+views (html_fixtures/html_kpi deleted), conceiver dim (9→8), Ruby
+builder stub + aggregate-scope no-op ; `fixture` is asserted unlinkable
+in block_grammar_test. Zero `fixture` blocks parse anywhere ; remaining
+.fixtures are behaviors-runner siblings or retained test vocabulary
+(parity/fixtures/* — the fixtures-parser harness corpus ;
+rust/tests/fixtures/vindiction ; rem_dream canned :fixture-llm responses).
+
+Open findings filed while here :
+- miette corpus has 2 pre-existing behaviors failures (proprioception
+  SenseLimb, being GraftDomain) — unrelated, present before this arc.
+- unknown TOP-LEVEL block keywords parse-skip line-by-line (no
+  consume_do_block for unknowns) — inner lines are silently dropped and
+  the validator only flags in-aggregate unknowns. A dead block in a
+  .bluebook vanishes without complaint ; wants a top-level
+  unknown-keyword validator (both parsers).
+- live registry store carries one corrupted all-empty Subcommand row
+  (pre-existing, visible in ListAll) — worth a heki sweep.
