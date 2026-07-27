@@ -191,6 +191,57 @@ pub fn parse_command(lines: &[&str]) -> (Command, usize) {
                     // the impl helpers added by ImplReference fixture.
                     cmd.references.push(Reference::single(name, target, None));
                 }
+            } else if line.starts_with("given") && line.contains(" do ") && line.ends_with("end") {
+                // INLINE one-liner : given("msg") do expr end
+                // Mirrors the invariant arm of the same shape.
+                let msg = extract_string(line);
+                if let (Some(do_pos), Some(stripped)) = (inline_do_pos(line), line.strip_suffix("end")) {
+                    let expr = stripped[do_pos + " do ".len()..].trim().to_string();
+                    if !expr.is_empty() {
+                        cmd.givens.push(Given { expression: expr, message: msg });
+                    }
+                }
+            } else if line.starts_with("given") && ends_with_do_block(line) {
+                // MULTI-LINE : given("msg") do
+                //                expr
+                //              end
+                //
+                // Ruby takes a block either way — `do … end` and `{ … }` are
+                // the same construct — so a parser that reads only one accepts
+                // a NARROWER language than the DSL does, and a bluebook can
+                // then be valid Ruby and mean something else here. The VO
+                // invariant parser already carries this exact scar ; givens
+                // had the same hole, and 0 of the corpus's 144 givens are
+                // written this way, so nothing ever caught it.
+                //
+                // What it did, before this arm existed : `extract_block` found
+                // no brace, so the expression fell back to the MESSAGE — the
+                // given became `"a rule must hold"`, a non-empty string
+                // compared against nothing, permanently truthy. A rule that
+                // always passes is indistinguishable from a rule that holds.
+                // Worse, the block's `end` then fell through to the depth
+                // tracker and closed the COMMAND early, so `emits` and every
+                // later clause silently vanished too.
+                let msg = extract_string(line);
+                let mut body: Vec<&str> = Vec::new();
+                let mut j = i + 1;
+                let mut d = 1;
+                while j < lines.len() && d > 0 {
+                    let l = lines[j].trim();
+                    if ends_with_do_block(l) { d += 1; }
+                    if l == "end" {
+                        d -= 1;
+                        if d == 0 { break; }
+                    }
+                    if !l.is_empty() && !l.starts_with('#') { body.push(l); }
+                    j += 1;
+                }
+                let expr = body.join(" && ");
+                if !expr.is_empty() {
+                    cmd.givens.push(Given { expression: expr, message: msg });
+                }
+                i = j + 1;
+                continue;
             } else if line.starts_with("given") {
                 // Two forms:
                 //   given "msg"         → expression = "msg", message = "msg"
@@ -628,6 +679,34 @@ fn parse_derive_signature(header: &str) -> Option<(String, String)> {
     Some((name, rtype))
 }
 
+/// Byte offset of the ` do ` that OPENS a one-line block body, for the forms
+/// that carry a quoted message first (`given("…") do … end`,
+/// `invariant("…") do … end`).
+///
+/// Naively taking the FIRST ` do ` picks up one sitting inside the message :
+/// `given("inline do given") do size < 100 end` split at the message's own
+/// ` do `, yielding the predicate `given") do size < 100`. The message is
+/// author-supplied prose and may contain anything ; the body always begins
+/// after it closes.
+///
+/// NOT for `derive :name, Type do … end`, which carries no quoted message —
+/// there the first quote would be in the BODY and skipping past it would break
+/// a form that works today.
+///
+/// Found by the multi-line-given regression test on the day that arm was
+/// written, which is the argument for exercising a construct for real rather
+/// than reasoning that it must be fine.
+fn inline_do_pos(line: &str) -> Option<usize> {
+    let after_message = match line.find('"') {
+        Some(open) => line[open + 1..]
+            .find('"')
+            .map(|close| open + 1 + close + 1)
+            .unwrap_or(0),
+        None => 0,
+    };
+    line[after_message..].find(" do ").map(|at| after_message + at)
+}
+
 /// Split a `|a, b| rest` block body into its parameter NAMES and the
 /// remaining expression text. A body with no `|params|` prefix returns
 /// (empty, whole body).
@@ -713,7 +792,7 @@ pub fn parse_value_object(lines: &[&str]) -> (ValueObject, usize) {
             // contract caught this gap the same day the field joined the
             // canonical IR.
             let inv_name = extract_string(line).unwrap_or_default();
-            if let (Some(do_pos), Some(stripped)) = (line.find(" do "), line.strip_suffix("end")) {
+            if let (Some(do_pos), Some(stripped)) = (inline_do_pos(line), line.strip_suffix("end")) {
                 let expr = stripped[do_pos + " do ".len()..].trim();
                 if !inv_name.is_empty() && !expr.is_empty() {
                     vo.invariants.push(Invariant { name: inv_name, expression: expr.to_string() });
