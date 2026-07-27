@@ -1,49 +1,58 @@
-//! Phase 4 — GenerateSystemPrompt
+//! Phase 4 — GenerateSystemPrompt (relocated after boot completion)
 //!
 //! [antibody-exempt: rust/src/run_boot/system_prompt.rs —
-//!  Rust implementation of the deferred Phase 4 in run_boot/. Assembles
-//!  the system prompt from the per-being content fixtures
-//!  `<being>/self/system_prompt/system_prompt_content.fixtures` (a
-//!  `Hecks.fixtures "SystemPromptContent"` file whose
-//!  `SystemPromptSection` rows each carry an `order` + a `markdown`
-//!  body), ordered by `:order`, then substitutes the two remaining
-//!  placeholders — `{{standards}}` (primary's standards.md) and
-//!  `{{grammar}}` (the language/grammar bluebooks) — and writes the
-//!  result to `<being>/self/system_prompt.md`. This is i145 Phase 2 :
-//!  the bluebook content fixtures are the single source ; the former
-//!  flat `<being>_prompt.md.template` is retired. Retires fully under
-//!  i78 when this phase regenerates from a meta-shape.]
+//!  Rust implementation of the deferred Phase 4 in run_boot/. Stitches
+//!  the system prompt from the ESTABLISHED SystemPromptSection records
+//!  (fixtures→policies, 2026-07-26 : seeded by the `on "BootCompleted"`
+//!  policies in the being's system_prompt_content.bluebook — each record
+//!  carries an `order` + a `markdown_path` pointing at a sibling
+//!  sections/*.md fragment), ordered by `:order`, then substitutes the
+//!  remaining placeholders — `{{standards}}` (primary's standards.md),
+//!  `{{grammar}}` (the language/grammar bluebooks), `{{pizzas}}`,
+//!  `{{door}}` — and writes the result to
+//!  `<being>/self/system_prompt.md`. Retires fully under i78 when this
+//!  phase regenerates from a meta-shape.]
 //!
-//! Why fixtures instead of the flat template (i145 Phase 2) :
+//! Why established records instead of fixtures (fixtures→policies) :
 //!
-//!   - Phase 1 lifted every section's body into
-//!     `system_prompt_content.fixtures` as `SystemPromptSection` rows.
-//!     The flat `<being>_prompt.md.template` was a parallel copy that
-//!     DRIFTED : sections authored in the fixtures never reached the
-//!     rendered prompt because the render read the template, not the
-//!     fixtures. Reading the fixtures directly makes the bluebook
-//!     content the single source of truth and that drift impossible.
-//!   - Only two placeholders remain dynamic : `{{standards}}` and
-//!     `{{grammar}}`. Every other section is pre-baked per being in
-//!     that being's own fixtures file.
+//!   - The section rows are production standing-state, so they reach the
+//!     runtime as self-seeding `on "BootCompleted"` policy — the same
+//!     keystone the authz roster and agent defs ride. Register upserts
+//!     on :name ; `storehouse establish` re-asserts on demand.
+//!   - Markdown bodies are real sections/*.md files (the
+//!     agent_instrumentation roles/ pattern) — no \n-escaped one-liners,
+//!     no unescape step. Proven byte-identical to the retired fixture
+//!     assembly at conversion time.
+//!   - The policies live in the BEING'S repo, so the live boot needs that
+//!     bluebook root in HECKS_ADDITIONAL_CORPUS_ROOTS for the completion
+//!     corpus to register them — the deploy's .overmind.env carries it.
 //!
-//! Per-being fixtures :
+//! Per-being content :
 //!
-//!   <being>/self/system_prompt/system_prompt_content.fixtures
+//!   <being>/self/system_prompt/bluebook/system_prompt_content.bluebook
+//!   <being>/self/system_prompt/bluebook/sections/*.md
 //!
-//! Spring's fixtures don't exist yet — when the second being lands the
-//! file appears alongside Miette's and the runner picks it up by
+//! Spring's content doesn't exist yet — when the second being lands the
+//! bluebook appears alongside Miette's and the runner picks it up by
 //! being-name lookup. Until then a Spring boot surfaces a warning + skip.
 
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// Render the system prompt for `being` and write it to the
-/// canonical location next to the being's repo. Returns the byte
-/// count of the written file (used by Phase 7 vitals) ; returns 0 on
-/// any failure with a stderr line so boot stays alive.
-pub fn render(conception_dir: &Path, being: &str) -> usize {
+/// Render the system prompt for `being` from the ESTABLISHED
+/// SystemPromptSection records (fixtures→policies, 2026-07-26 : seeded by
+/// the `on "BootCompleted"` policies in the being's
+/// system_prompt_content.bluebook) and write it to the canonical location
+/// next to the being's repo. `corpus_rt` is the completion runtime ; None
+/// (completion failed) or zero established sections skips the regen
+/// LOUDLY — the previous boot's prompt stays. Returns the byte count of
+/// the written file ; 0 on any skip/failure so boot stays alive.
+pub fn render(
+    corpus_rt: Option<&crate::runtime::Runtime>,
+    conception_dir: &Path,
+    being: &str,
+) -> usize {
     let mut vars = variables_for_being(being);
     vars.insert("standards", primary_standards(conception_dir));
     vars.insert("grammar", grammar_block());
@@ -53,28 +62,30 @@ pub fn render(conception_dir: &Path, being: &str) -> usize {
     // and the subagents can never drift on the storehouse-door convention.
     vars.insert("door", super::agent_defs::door_fragment());
 
-    let fixtures_path = match content_fixtures_path_for_being(being) {
-        Some(p) => p,
-        None => {
-            eprintln!("  ⚠ system_prompt: could not resolve content fixtures for {}", being);
-            return 0;
-        }
+    let Some(rt) = corpus_rt else {
+        eprintln!("  ⚠ system_prompt: boot completion failed — skipping prompt regen (previous prompt stays)");
+        return 0;
     };
-
-    let source = match fs::read_to_string(&fixtures_path) {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!("  ⚠ system_prompt: content fixtures not found at {} ({})", fixtures_path.display(), e);
-            return 0;
-        }
+    let Some(content_dir) = content_dir_for_being(being) else {
+        eprintln!("  ⚠ system_prompt: could not resolve content dir for {}", being);
+        return 0;
     };
-
-    let body = assemble_sections(&source);
+    let Some(body) = assemble_established(rt, &content_dir) else {
+        eprintln!(
+            "  ⚠ system_prompt: no SystemPromptSection records established — skipping prompt \
+             regen (is {} in HECKS_ADDITIONAL_CORPUS_ROOTS ?)",
+            content_dir.display()
+        );
+        return 0;
+    };
     let rendered = substitute(&body, &vars);
     let dest = destination_for_being(conception_dir, being);
 
     match fs::write(&dest, &rendered) {
-        Ok(_) => rendered.len(),
+        Ok(_) => {
+            eprintln!("  system_prompt.md regenerated: {} bytes", rendered.len());
+            rendered.len()
+        }
         Err(e) => {
             eprintln!("  ⚠ system_prompt: write to {} failed ({})", dest.display(), e);
             0
@@ -101,46 +112,61 @@ fn variables_for_being(being: &str) -> HashMap<&'static str, String> {
     v
 }
 
-/// Resolve the per-being content fixtures :
-/// `<projects>/<being_lower>/self/system_prompt/system_prompt_content.fixtures`.
+/// Resolve the per-being content dir — where system_prompt_content.bluebook
+/// and its sections/*.md fragments live :
+/// `<projects>/<being_lower>/self/system_prompt/bluebook/`.
 /// Found via `heki::repo_root()` then one level up to the projects
 /// parent, mirroring `destination_for_being` so the per-being
 /// sibling-repo layout (i117 R4) resolves regardless of where
 /// boot.bluebook lives.
-fn content_fixtures_path_for_being(being: &str) -> Option<PathBuf> {
+fn content_dir_for_being(being: &str) -> Option<PathBuf> {
     let stem = being.to_lowercase();
     let hecks_root = crate::heki::repo_root()?;
     let projects_root = hecks_root.parent()?;
-    Some(projects_root.join(&stem).join("self/system_prompt/system_prompt_content.fixtures"))
+    Some(projects_root.join(&stem).join("self/system_prompt/bluebook"))
 }
 
-/// Parse the content fixtures `source` and concatenate every
-/// `SystemPromptSection` row's `markdown` body in `:order`. Rows are
-/// sorted NUMERICALLY by `order` (string values — lexical sort would
-/// put 10 before 2). Bodies join with one newline : each ends in a
-/// newline, so the join yields one blank line between sections.
-fn assemble_sections(source: &str) -> String {
-    let parsed = crate::fixtures_parser::parse(source);
-    let mut sections: Vec<(i64, String)> = parsed
-        .fixtures
+/// Unwrap a runtime Value to its bare string (VO maps unwrap to their
+/// `value` member) — same accessor shape as run_boot/agent_defs.rs.
+fn bare(v: &crate::runtime::Value) -> String {
+    match v {
+        crate::runtime::Value::Str(s) => s.clone(),
+        crate::runtime::Value::Map(m) => m.get("value").map(bare).unwrap_or_default(),
+        other => other.to_string(),
+    }
+}
+
+/// Stitch the ESTABLISHED SystemPromptSection records : each record's
+/// `markdown_path` fragment (relative to `content_dir`) read verbatim,
+/// concatenated in NUMERIC `:order` (lexical sort would put 10 before 2).
+/// Bodies join with one newline : each fragment ends in a newline, so the
+/// join yields one blank line between sections — byte-identical to the
+/// retired fixture assembly (proven at conversion, 10188 bytes). None when
+/// no records established, so the caller skips loudly.
+fn assemble_established(rt: &crate::runtime::Runtime, content_dir: &Path) -> Option<String> {
+    let recs = rt.all("SystemPromptSection");
+    if recs.is_empty() {
+        return None;
+    }
+    let sections: Vec<(i64, String)> = recs
         .iter()
-        .filter(|f| f.aggregate_name == "SystemPromptSection")
-        .map(|f| {
-            let order = f
-                .attributes
-                .iter()
-                .find(|(k, _)| k == "order")
-                .and_then(|(_, v)| v.trim().parse::<i64>().ok())
-                .unwrap_or(i64::MAX);
-            let markdown = f
-                .attributes
-                .iter()
-                .find(|(k, _)| k == "markdown")
-                .map(|(_, v)| v.clone())
-                .unwrap_or_default();
-            (order, markdown)
+        .map(|rec| {
+            let order = bare(rec.get("order")).trim().parse::<i64>().unwrap_or(i64::MAX);
+            let rel = bare(rec.get("markdown_path"));
+            let body = fs::read_to_string(content_dir.join(&rel)).unwrap_or_else(|e| {
+                eprintln!("  ⚠ system_prompt: fragment {} unreadable ({})", rel, e);
+                String::new()
+            });
+            (order, body)
         })
         .collect();
+    Some(stitch(sections))
+}
+
+/// The pure ordering/join contract : sort NUMERICALLY by order, join with
+/// one newline (each body ends in one, so sections separate by one blank
+/// line). Split out so the contract stays unit-testable without a Runtime.
+fn stitch(mut sections: Vec<(i64, String)>) -> String {
     sections.sort_by_key(|(order, _)| *order);
     sections
         .iter()
@@ -375,10 +401,12 @@ mod tests {
     }
 
     #[test]
-    fn assemble_orders_numerically_and_joins_with_blank_line() {
-        let src = "Hecks.fixtures \"T\" do\n  aggregate \"SystemPromptSection\" do\n    fixture \"B\", order: 10, markdown: \"## Tenth\\nbody ten\\n\"\n    fixture \"A\", order: 2, markdown: \"## Second\\nbody two\\n\"\n  end\nend\n";
-        let out = assemble_sections(src);
-        assert_eq!(out, "## Second\nbody two\n\n## Tenth\nbody ten\n");
+    fn stitch_orders_numerically_and_joins_with_blank_line() {
+        let sections = vec![
+            (10, "## Tenth\nbody ten\n".to_string()),
+            (2, "## Second\nbody two\n".to_string()),
+        ];
+        assert_eq!(stitch(sections), "## Second\nbody two\n\n## Tenth\nbody ten\n");
     }
 
     #[test]

@@ -100,13 +100,13 @@ pub fn run(
     // Phase 3 — ClassifyStores
     let classification = classify::classify(&info_dir);
 
-    // Phase 4 — GenerateSystemPrompt
-    //   Assembles <being>/self/system_prompt.md from that being's
-    //   content fixtures (system_prompt_content.fixtures) in :order,
-    //   substituting {{standards}} + {{grammar}} (i145 Phase 2 — the
-    //   bluebook fixtures are the single source ; the flat template
-    //   is retired). Returns the byte count for vitals.
-    let prompt_bytes = system_prompt::render(&conception_dir, &being);
+    // Phase 4 — GenerateSystemPrompt : MOVED after boot completion.
+    //   The SystemPromptSection rows are ESTABLISHED by `on "BootCompleted"`
+    //   policies (fixtures→policies, 2026-07-26), so the prompt now stitches
+    //   from the completion runtime's established records — see the render
+    //   call after complete_boot below. Vitals suppresses its prompt line
+    //   (prompt_bytes 0) ; the relocated render prints its own byte count.
+    let prompt_bytes = 0usize;
 
     // Phase 4b — RegenerateAgentDefs : MOVED after boot completion.
     //   The AgentDefinition rows are ESTABLISHED by `on "BootCompleted"`
@@ -156,6 +156,13 @@ pub fn run(
     // can never drift from governance ; skips loudly (previous boot's defs
     // stay on disk) when completion failed.
     let _agent_defs = agent_defs::render(corpus_rt.as_ref());
+
+    // Phase 4 (relocated) — GenerateSystemPrompt : stitch the ESTABLISHED
+    // SystemPromptSection records (seeded by the BootCompleted policies in
+    // the being's system_prompt_content.bluebook) + sections/*.md fragments
+    // into <being>/self/system_prompt.md. Skips loudly (previous prompt
+    // stays) when completion failed or nothing established.
+    let _prompt_bytes = system_prompt::render(corpus_rt.as_ref(), &conception_dir, &being);
 
     ExitKind::Ok.code()
 }
