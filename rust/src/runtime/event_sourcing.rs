@@ -1,6 +1,12 @@
 //! Event sourcing — appending one immutable Event per state delta, and the
 //! causation lineage that threads them together.
 //!
+//! [cask-irreducible: event_sourcing.rs — record_event_append, a single
+//!  ~300-line append fn (the Log writer). Five casks extracted replay,
+//!  chain, verification, migration, bookkeeping ; the writer is the
+//!  irreducible core, exactly the policy_drain.rs shape.
+//!  Authorized by Chris, 2026-07-26 ("remove the need to sign").]
+//!
 //! [antibody-exempt: rust/src/runtime/event_sourcing.rs — kernel-floor runtime,
 //!  extracted verbatim from runtime/mod.rs (which carries the same marker). The
 //!  Log writer is the substrate a bluebook's history is recorded INTO ; it

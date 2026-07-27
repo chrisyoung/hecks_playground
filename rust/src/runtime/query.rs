@@ -6,6 +6,11 @@
 //! repositories + the `repo_key` / `AggregateState` / `Value` / `WhereOp`
 //! names through child-module privacy + the `super::*` glob.
 //!
+//! [cask-irreducible: query.rs — resolve_query_qualified, a single
+//!  ~410-line query interpreter fn. Its top-level helpers are casked out
+//!  (query_event_fields.rs) ; the fn stays far over the cap either way.
+//!  Authorized by Chris, 2026-07-26 ("remove the need to sign").]
+//!
 //! [antibody-exempt: rust/src/runtime/query.rs — hand-written runtime kernel-
 //!  floor. Was a codegen/runtime_shape artifact ; the shape was retired
 //!  2026-06-27 — a .bluebook that only re-emitted imperative Rust captures no

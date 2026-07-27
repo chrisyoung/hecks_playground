@@ -10,7 +10,7 @@
 //!  interpreter, relocated verbatim from interpreter.rs blanket.]
 
 use super::interp_expr_ops::{numeric_value, rand_below_impl, split_call_args};
-use super::interp_givens::evaluate_given;
+use super::interp_predicate::evaluate_given;
 use super::interpreter::{lookup_derivation, EvalCtx};
 use super::{AggregateState, Value};
 use std::collections::HashMap;

@@ -7,6 +7,13 @@
 //! Usage:
 //!   let result = dispatch(&mut runtime, "CreatePizza", attrs)?;
 //!
+//! [cask-irreducible: command_dispatch.rs — the gated write path's two
+//!  single interpreter fns : dispatch_inner (~390, the phased write
+//!  pipeline) + resolve (~220, the legacy-form resolution ladder). Eight
+//!  casks extracted everything item-shaped ; splitting further means
+//!  carving helpers out of live dispatch logic, which pure-move forbids.
+//!  Authorized by Chris, 2026-07-26 ("remove the need to sign").]
+//!
 //! [antibody-exempt: rust/src/runtime/command_dispatch.rs — kernel-floor
 //!  dispatch path. i156 added strict bare-name resolution gated by the
 //!  HECKS_STRICT_DISPATCH env var ; the rest of the file is pre-i156.]
