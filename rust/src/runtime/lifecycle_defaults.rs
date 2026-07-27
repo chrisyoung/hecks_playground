@@ -102,25 +102,28 @@ pub(super) fn apply_defaults(rt: &Runtime, agg_idx: usize, state: &mut Aggregate
     for attr in &agg.attributes {
         if let Some(ref default) = attr.default {
             state.set(&attr.name, parse_default(default, &attr.attr_type));
+        } else if attr.list {
+            // A declared list ALWAYS starts empty — and this branch runs
+            // BEFORE the rich-VO branch, because a VO's canonical default is
+            // the zero of ONE element, never the list's zero. When the VO
+            // branch ran first, `list_of(Limb)` (Limb carrying any member
+            // default) initialised as the VO's Map — append piled onto a
+            // non-list and `_size` read null. Surfaced by the proprioception +
+            // being suites (fixtures→policies arc, 2026-07-27).
+            //
+            // ONLY a declared list gets the placeholder. This used to read
+            // `attr.list || vo_names.contains(&attr.attr_type)` — the
+            // AUTO-LIST HEURISTIC, which the locked convention retired from
+            // both parsers (`attribute :foos, Foo` is SCALAR ; lists require
+            // `list_of(X)`).
+            state.set(&attr.name, Value::List(vec![]));
         } else if let Some(vo_default) = construct_vo_default(agg, &attr.attr_type) {
             // A value object with inner-attribute defaults self-constructs
             // its canonical instance (Money{cents:0, currency:{code:"USD"}}) :
             // a RICH value object owns its zero, no hand-written then_set.
             // Opt-in — only a VO that declares inner defaults materialises ;
-            // a defaultless VO stays unset (falls through to the list/none
-            // branches), so this never injects an empty map.
+            // a defaultless VO stays unset, so this never injects an empty map.
             state.set(&attr.name, vo_default);
-        } else if attr.list {
-            // ONLY a declared list gets an empty-list placeholder. This used to
-            // read `attr.list || vo_names.contains(&attr.attr_type)` — the
-            // AUTO-LIST HEURISTIC, which the locked convention retired from both
-            // parsers (`attribute :foos, Foo` is SCALAR ; lists require
-            // `list_of(X)`). It survived here, so every scalar value-object
-            // attribute was initialised as an empty list and read back as the
-            // string "[0 items]" — e.g. ToolShed's `attribute :currency,
-            // Currency`. The symptom looked like a Display leak ; the value
-            // itself was wrong.
-            state.set(&attr.name, Value::List(vec![]));
         }
     }
 }
