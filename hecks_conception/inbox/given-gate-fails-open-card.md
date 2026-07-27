@@ -1,4 +1,10 @@
-# The given gate fails OPEN — three findings (2026-07-26)
+# The given gate fails OPEN — two findings remain (2026-07-26)
+
+> STATUS (updated 2026-07-26 evening) : findings 0 and 1 are FIXED. Finding 1
+> turned out not to be a given bug at all — the single-file CLI branch was
+> discarding its whole argv payload. Findings 2 and 3 are unchanged and still
+> open ; both are deliberate fails-open defaults that need a decision rather
+> than a patch, and finding 2 explicitly should NOT be flipped blind.
 
 Found while writing hecksagain's `grammar/bluebook.bluebook`, by describing
 the language in itself and watching which sentences the runtime could not
@@ -26,7 +32,7 @@ never fired. Fixed on this branch ; 1050 cargo tests green, 152/152
 
 ---
 
-## 1. Command attributes do not reach a given
+## 1. FIXED (2026-07-26) — command attributes do not reach a given
 
     command "WordEquals" do
       attribute :word, String
@@ -42,18 +48,38 @@ attribute of type String. `command_dispatch.rs:371` hands `attrs` to
 did not chase it into `rust/cli/src/main.rs` (7k lines, several `split_once('=')`
 sites) rather than guess.
 
-Confirmed the same via the MCP door and the bare CLI, so it is not the
-harness. Also confirmed against an attribute that does NOT share a name with
-an aggregate field, so it is not name shadowing.
-
 Why it fails open rather than loudly : an unresolvable bare name falls
 through to `Value::Str(expr)` (`interp_expr.rs:39`), so `word` resolves to
 the literal string `"word"` — truthy, non-empty, and unequal to anything
 the author meant.
 
-**Blast radius unknown.** Any given reading a command attribute rather than
-stored state is currently not guarding. Worth a corpus grep before deciding
-severity.
+**The diagnosis was right and the site is found.** `cli/src/main.rs` — the
+single-FILE dispatch branch parsed its `k=v` pairs into `attrs` and then
+called `rt.dispatch(cmd_name, HashMap::new())`, discarding every one. The
+payload never arrived, so `word` was genuinely undeclared at evaluation.
+Not a given bug at all — a transport bug wearing a given bug's clothes.
+
+Blast radius, now known and bounded : the sibling DIRECTORY branch
+(`dispatch_hecksagon`) always passed attrs through, so the MCP door and
+`storehouse <root> …` were never affected. Only `storehouse <file.bluebook>
+…` dropped its payload — the form no script in the repo uses, and the one
+README.md:29 teaches first. No corpus given was silently unguarded ; the
+corpus dispatches through the door.
+
+The note above that this reproduced "via the MCP door" is the one part that
+misleads : `storehouse__dispatch` accepts a single bluebook FILE as its
+`aggregates_dir`, and pointed at a file it takes this same broken branch.
+The door was fine ; the path through it was not.
+
+This also silently defeated the `%w[]` literal-set work committed earlier on
+this branch — that interpreter fix was correct and complete all along, but
+its live repro ran through this path, so an out-of-set value was never
+refused and the work looked unfinished. Two investigations, one cause.
+
+Pinned by `rust/tests/single_file_payload_argv_test.rs`, which spawns the
+real binary (every other gate test boots `Runtime` directly and so enters
+BELOW the transport, which is why none of them could arbitrate). Verified
+to go RED when the bug is reinstated — per the meta-finding below.
 
 ## 2. A bare non-Bool given silently passes
 

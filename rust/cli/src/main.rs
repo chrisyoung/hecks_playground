@@ -1101,7 +1101,27 @@ fn main() {
                 .unwrap_or_else(|| format!("{}/data", std::path::Path::new(target).parent()
                     .unwrap_or(std::path::Path::new(".")).display()));
             let mut rt = Runtime::boot_with_data_dir(domain, Some(data_dir));
-            match rt.dispatch(cmd_name, std::collections::HashMap::new()) {
+            // THE PAYLOAD, not an empty map. This branch parsed `k=v` off argv
+            // into `attrs` and then dispatched `HashMap::new()`, discarding
+            // every one — so a single-FILE dispatch wrote a record whose fields
+            // were all absent and reported ok:true. Silent, because absence is
+            // legal at every gate : the payload gate's invariant arm skips a
+            // missing attr on purpose (it is the required arm's concern), so an
+            // out-of-set value was never judged — it was never DELIVERED. The
+            // sibling directory branch above always passed attrs through, which
+            // is why the MCP door and `storehouse <root> …` were unaffected and
+            // this survived : the broken path is the one only a human types.
+            let payload: std::collections::HashMap<String, storehouse::runtime::Value> = attrs
+                .iter()
+                .map(|(k, v)| {
+                    let s = match v {
+                        serde_json::Value::String(s) => s.clone(),
+                        other => other.to_string(),
+                    };
+                    (k.clone(), storehouse::runtime::Value::Str(s))
+                })
+                .collect();
+            match rt.dispatch(cmd_name, payload) {
                 Ok(result) => println!("{}", serde_json::json!({
                     "ok": true, "aggregate": result.aggregate_type, "id": result.aggregate_id,
                 })),
