@@ -89,13 +89,16 @@ in block_grammar_test. Zero `fixture` blocks parse anywhere ; remaining
 (parity/fixtures/* — the fixtures-parser harness corpus ;
 rust/tests/fixtures/vindiction ; rem_dream canned :fixture-llm responses).
 
-Open findings filed while here :
-- miette corpus has 2 pre-existing behaviors failures (proprioception
-  SenseLimb, being GraftDomain) — unrelated, present before this arc.
-- unknown TOP-LEVEL block keywords parse-skip line-by-line (no
-  consume_do_block for unknowns) — inner lines are silently dropped and
-  the validator only flags in-aggregate unknowns. A dead block in a
-  .bluebook vanishes without complaint ; wants a top-level
-  unknown-keyword validator (both parsers).
-- live registry store carries one corrupted all-empty Subcommand row
-  (pre-existing, visible in ListAll) — worth a heki sweep.
+Findings filed while here — ALL CLOSED (2026-07-27, same session) :
+- miette's 2 pre-existing behaviors failures (proprioception SenseLimb,
+  being GraftDomain) → kernel apply_defaults branch-order bug : a
+  list_of(X) whose element VO carries member defaults initialised as the
+  VO's Map. Fixed list-first (7e5dac48f) ; pinned by list_vo_default_test.
+- unknown TOP-LEVEL block keywords → recorded on Domain.unknown_keywords,
+  whole block consumed (the inner-line leak was a latent parity hole —
+  Ruby never evaluates an unknown method's block), validator reports
+  INVALID with `did you mean` on near-misses (773b0eef2). Accepted-but-
+  uncaptured keywords (saga/glossary/…) consume silently ; paragraph
+  stays transparent.
+- corrupted all-empty Subcommand row (id 1) → retired through the door
+  (SubcommandRegistry::Subcommand.Retire), 47→46 records.
