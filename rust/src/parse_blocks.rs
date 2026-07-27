@@ -769,9 +769,19 @@ pub fn parse_value_object(lines: &[&str]) -> (ValueObject, usize) {
                         if let Some(colon) = pair.find(':') {
                             let key = pair[..colon].trim().trim_matches(':').to_string();
                             let raw_val = pair[colon + 1..].trim();
+                            let bare = raw_val.trim_matches(',').trim();
                             let val = extract_string(raw_val)
-                                .unwrap_or_else(|| raw_val.trim_matches(',').trim().to_string());
-                            if !key.is_empty() && !val.is_empty() {
+                                .unwrap_or_else(|| bare.to_string());
+                            // A DECLARED empty string is a VALUE, not an absence.
+                            // `member code: "", symbol: "-"` says this member's
+                            // code is deliberately blank ; dropping the pair makes
+                            // the member one field shorter than the one the author
+                            // wrote, and the Ruby DSL keeps it (kwargs preserve
+                            // every key), so the two IRs stop matching on a member
+                            // nobody mis-declared. Only a missing key or an
+                            // unparseable bare token is nothing.
+                            let declared = bare.starts_with('"') || !val.is_empty();
+                            if !key.is_empty() && declared {
                                 fields.push((key, val));
                             }
                         }
