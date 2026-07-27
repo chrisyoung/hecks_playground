@@ -22,7 +22,6 @@ pub fn parse(source: &str) -> Domain {
         vision: None,
         aggregates: vec![],
         policies: vec![],
-        fixtures: vec![],
         entrypoint: None,
         sections: vec![],
         process_managers: vec![],
@@ -195,36 +194,7 @@ fn invoke(parser: BlockParser, slice: &[&str], domain: &mut Domain) -> usize {
             domain.cadences.push(cad);
             consumed
         }
-        BlockParser::Fixture => {
-            // Fixtures inside a Hecks.bluebook are no-op'd Ruby-side
-            // (canonical home is sibling .fixtures files). Rust still
-            // walks the do/end block to consume it cleanly, matching
-            // the legacy behavior.
-            consume_do_block(slice)
-        }
     }
-}
-
-/// Walk a `do … end` block and return the number of source lines it
-/// covers (including the closing `end`). Used by Fixture dispatch as a
-/// no-op consumer.
-fn consume_do_block(lines: &[&str]) -> usize {
-    let first = lines.first().map(|l| l.trim()).unwrap_or("");
-    if !ends_with_do_block(first) {
-        return 1;
-    }
-    let mut depth = 1usize;
-    let mut i = 0;
-    while i + 1 < lines.len() && depth > 0 {
-        i += 1;
-        let l = lines[i].trim();
-        if l == "end" {
-            depth -= 1;
-        } else if ends_with_do_block(l) {
-            depth += 1;
-        }
-    }
-    i + 1
 }
 
 /// Parse a `block_grammar "Name" do … end` block declaring keyword

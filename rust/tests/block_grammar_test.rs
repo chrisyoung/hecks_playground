@@ -4,7 +4,8 @@
 // that :
 //   1. The canonical Bluebook grammar routes existing keywords to
 //      their typed parsers (aggregate, policy, process_manager,
-//      section, cadence, fixture).
+//      section, cadence). `fixture` left the language entirely
+//      (fixtures→policies, 2026-07-26) — asserted gone below.
 //   2. Cadence parses cleanly via the registry (body_tick + heart_tick
 //      + breath_tick fixtures from miette/body/cycles/).
 //   3. A bluebook can declare its own block_grammar inline ; the IR
@@ -25,12 +26,16 @@ use storehouse::ir::{BlockParser, BlockGrammar};
 use storehouse::parser;
 
 #[test]
-fn canonical_grammar_lists_six_keywords_in_priority_order() {
+fn canonical_grammar_lists_five_keywords_in_priority_order() {
     let g = BlockGrammar::canonical_bluebook();
     let keywords: Vec<&str> = g.blocks.iter().map(|e| e.keyword.as_str()).collect();
     assert_eq!(
         keywords,
-        vec!["aggregate", "section", "policy", "process_manager", "cadence", "fixture"]
+        vec!["aggregate", "section", "policy", "process_manager", "cadence"]
+    );
+    assert!(
+        !keywords.contains(&"fixture"),
+        "`fixture` must stay out of the bluebook language (fixtures→policies)"
     );
 }
 
@@ -42,13 +47,16 @@ fn block_parser_round_trips_through_name() {
         BlockParser::ProcessManager,
         BlockParser::Cadence,
         BlockParser::Section,
-        BlockParser::Fixture,
     ] {
         let name = variant.name();
         let resolved = BlockParser::from_name(name).expect("known parser name");
         assert_eq!(resolved, variant);
     }
     assert!(BlockParser::from_name("parse_unknown").is_none());
+    assert!(
+        BlockParser::from_name("parse_fixture").is_none(),
+        "parse_fixture must stay unlinkable — the keyword left the language"
+    );
 }
 
 #[test]

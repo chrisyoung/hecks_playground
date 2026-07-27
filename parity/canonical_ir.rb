@@ -41,7 +41,6 @@ module Hecks
           "vision"           => domain.vision,
           "aggregates"       => domain.aggregates.map { |a| dump_aggregate(a) },
           "policies"         => all_policies.map { |p| dump_policy(p) },
-          "fixtures"         => (domain.fixtures || []).map { |f| dump_fixture(f) },
           "process_managers" => pms.map { |pm| dump_process_manager(pm) },
         }
       end
@@ -475,38 +474,6 @@ module Hecks
         }
       end
 
-      def dump_fixture(f)
-        pairs = (f.attributes || {}).map { |k, v| [k.to_s, normalize_value(fixture_value(v))] }
-        {
-          "name"           => (f.respond_to?(:name) ? f.name : nil),
-          "aggregate_name" => f.aggregate_name,
-          "attributes"     => pairs,
-        }
-      end
-
-      # Render a Ruby fixture value as the source-text token Rust would emit:
-      # arrays as [a, b], hashes as { k: v }, strings as their content (Rust
-      # already unwraps the quotes for fixture string values).
-      def fixture_value(v)
-        case v
-        when Array  then "[#{v.map { |e| fixture_value_inner(e) }.join(', ')}]"
-        when Hash   then "{ #{v.map { |k, val| "#{k}: #{fixture_value_inner(val)}" }.join(', ')} }"
-        when Symbol then ":#{v}"
-        when nil    then ""
-        else v.to_s
-        end
-      end
-
-      def fixture_value_inner(v)
-        case v
-        when String then "\"#{v}\""
-        when Symbol then ":#{v}"
-        when Array  then "[#{v.map { |e| fixture_value_inner(e) }.join(', ')}]"
-        when Hash   then "{ #{v.map { |k, val| "#{k}: #{fixture_value_inner(val)}" }.join(', ')} }"
-        else v.to_s
-        end
-      end
-
       # Strip whitespace adjacent to brackets/braces/parens — matches Rust's
       # normalize_value in dump.rs. Both sides apply this so the canonical
       # output agrees regardless of source whitespace.
@@ -750,6 +717,21 @@ module Hecks
 
       # Args render as ordered [key, value] pairs matching Rust's
       # BTreeMap traversal — both sides emit alphabetical key order.
+      # Canonical renderer for nested value tokens (arrays/hashes/strings)
+      # — the source-text shape the Rust parser captures. Shared by
+      # test_arg_value (behaviors parity); named for its fixture-era origin,
+      # kept as the one nested-token contract.
+      def fixture_value_inner(v)
+        case v
+        when String then "\"#{v}\""
+        when Symbol then ":#{v}"
+        when Array  then "[#{v.map { |e| fixture_value_inner(e) }.join(', ')}]"
+        when Hash   then "{ #{v.map { |k, val| "#{k}: #{fixture_value_inner(val)}" }.join(', ')} }"
+        when nil    then ""
+        else v.to_s
+        end
+      end
+
       def dump_test_args(args)
         (args || {}).sort_by { |k, _| k.to_s }.map { |k, v| [k.to_s, test_arg_value(v)] }
       end

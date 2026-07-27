@@ -390,7 +390,6 @@ fn merge_tree(dir: &std::path::Path, primary_path: &std::path::Path) -> crate::i
             let child = parser::parse(&source);
             merged.aggregates.extend(child.aggregates);
             merged.policies.extend(child.policies);
-            merged.fixtures.extend(child.fixtures);
             merged.sections.extend(child.sections);
             merged.process_managers.extend(child.process_managers);
             merged.cadences.extend(child.cadences);

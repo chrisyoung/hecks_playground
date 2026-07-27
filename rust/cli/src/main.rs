@@ -899,7 +899,15 @@ fn main() {
     // boot pipeline runs as Phase 4b ; exposed here so it can be triggered
     // without a full boot (and verified in isolation).
     if command == "gen-agent-defs" {
-        let n = storehouse::run_boot::agent_defs::render();
+        // The defs project from ESTABLISHED AgentDefinition records, so the
+        // on-demand path routes BootCompleted through the corpus policy engine
+        // first — the same completion runtime Phase 4b hands to render.
+        let corpus_rt = find_boot_bluebook(&storehouse::storehouse_router::conception_root())
+            .and_then(|p| storehouse::run::load_script(&p).ok())
+            .and_then(|(boot_domain, hex)| {
+                storehouse::run_boot::complete::complete_boot(boot_domain, vec![hex], "Miette")
+            });
+        let n = storehouse::run_boot::agent_defs::render(corpus_rt.as_ref());
         eprintln!("gen-agent-defs : {} agent def(s) written + CLAUDE.md door blocks refreshed", n);
         std::process::exit(0);
     }
@@ -1467,7 +1475,7 @@ fn main() {
         // Terraform HCL projection.
         "counts" => {
             let cmds: usize = domain.aggregates.iter().map(|a| a.commands.len()).sum();
-            println!("{}|{}|{}|{}|{}", domain.name, domain.aggregates.len(), cmds, domain.policies.len(), domain.fixtures.len());
+            println!("{}|{}|{}|{}", domain.name, domain.aggregates.len(), cmds, domain.policies.len());
         }
         "serve" => {
             let port: u16 = args.iter().find(|a| a.parse::<u16>().is_ok())
@@ -1527,7 +1535,7 @@ fn run_batch(command: &str) {
             }
             "counts" => {
                 let cmds: usize = domain.aggregates.iter().map(|a| a.commands.len()).sum();
-                println!("{}|{}|{}|{}|{}|{}", file_path, domain.name, domain.aggregates.len(), cmds, domain.policies.len(), domain.fixtures.len());
+                println!("{}|{}|{}|{}|{}", file_path, domain.name, domain.aggregates.len(), cmds, domain.policies.len());
                 valid += 1;
             }
             _ => { eprintln!("Batch mode only supports: validate, counts"); std::process::exit(1); }
@@ -2325,11 +2333,14 @@ fn run_project(args: &[String]) -> i32 {
     let target = args.get(2).map(|s| s.as_str()).unwrap_or("");
     if target.is_empty() {
         eprintln!("Usage: storehouse project <target> <hecksagon> [world] [--output <dir>]");
-        eprintln!("       targets: terraform");
+        eprintln!("       targets: terraform, wrangler");
         return 2;
     }
+    if target == "wrangler" {
+        return run_project_wrangler(args);
+    }
     if target != "terraform" {
-        eprintln!("project: unknown target '{}' — only 'terraform' is wired (i693 Phase 1)", target);
+        eprintln!("project: unknown target '{}' — targets: terraform, wrangler", target);
         return 2;
     }
     let hecksagon_path = match args.get(3) {
@@ -2386,6 +2397,65 @@ fn run_project(args: &[String]) -> i32 {
             print!("{}", result.hcl);
             eprintln!("# {} resource(s) emitted", result.adapter_count);
         }
+    }
+    0
+}
+
+/// `storehouse project wrangler <root> [--output <file>]` — the
+/// fixtures→policies SEAM for the Cloudflare deploy config : load the
+/// corpus at `root`, route BootCompleted through it (the establishment
+/// policy asserts the WorkerConfig record — in memory, nothing persists),
+/// and render wrangler.toml from the ESTABLISHED record via
+/// projection::wrangler. The artifact derives from the record, never from
+/// re-parsing the bluebook. No --output prints to stdout.
+fn run_project_wrangler(args: &[String]) -> i32 {
+    let Some(root) = args.get(3) else {
+        eprintln!("Usage: storehouse project wrangler <root> [--output <file>]");
+        return 2;
+    };
+    if !std::path::Path::new(root).is_dir() {
+        eprintln!("project wrangler: root {} is not a directory", root);
+        return 1;
+    }
+    let Some(boot_path) = find_boot_bluebook(root) else {
+        eprintln!(
+            "project wrangler: no runtime/boot/bluebook/boot.bluebook found walking up from {}",
+            root
+        );
+        return 1;
+    };
+    let (boot_domain, hex) = match storehouse::run::load_script(&boot_path) {
+        Ok(x) => x,
+        Err(e) => return e.code(),
+    };
+    let corpus = storehouse::corpus_loader::load_combined_domain(root);
+    let root_abs = std::fs::canonicalize(root)
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_else(|_| root.to_string());
+    let (rt, outcome) = storehouse::run_boot::complete::complete_over_checked(
+        boot_domain, corpus, None, vec![hex], Some(root_abs), "Miette",
+    );
+    if let Err(e) = outcome {
+        eprintln!("project wrangler: {}", e);
+        return 1;
+    }
+    let Some(toml) = storehouse::projection::wrangler::render(&rt) else {
+        eprintln!(
+            "project wrangler: no WorkerConfig record established at {} — nothing to render",
+            root
+        );
+        return 1;
+    };
+    let output = args.iter().position(|a| a == "--output").and_then(|i| args.get(i + 1));
+    match output {
+        Some(path) => {
+            if let Err(e) = std::fs::write(path, &toml) {
+                eprintln!("project wrangler: cannot write {}: {}", path, e);
+                return 1;
+            }
+            eprintln!("project wrangler: wrote {}", path);
+        }
+        None => print!("{}", toml),
     }
     0
 }

@@ -22,7 +22,7 @@
 //!   # → JSON to stdout, exit 0
 
 use crate::ir::{
-    Aggregate, Attribute, Cardinality, Command, Direction, Domain, Entity, Factory, Fixture, Given,
+    Aggregate, Attribute, Cardinality, Command, Direction, Domain, Entity, Factory, Given,
     Invariant, Lifecycle, LimitSpec, Mutation, MutationOp, OrderBy, Policy,
     DispatchSpec, ProcessManager, ProcessManagerHandler, Query, Reference, ReferenceKind, Transition, ValueSpec,
     ValueObject, View, WhereClause, WhereOp,
@@ -37,7 +37,6 @@ pub fn dump(domain: &Domain) -> Value {
         "vision": domain.vision,
         "aggregates": domain.aggregates.iter().map(dump_aggregate).collect::<Vec<_>>(),
         "policies": domain.policies.iter().map(dump_policy).collect::<Vec<_>>(),
-        "fixtures": domain.fixtures.iter().map(dump_fixture).collect::<Vec<_>>(),
         "process_managers": domain.process_managers.iter().map(dump_process_manager).collect::<Vec<_>>(),
     })
 }
@@ -333,18 +332,6 @@ fn dump_policy(p: &Policy) -> Value {
         "on_event": p.on_event,
         "trigger_command": p.trigger_command,
         "target_domain": p.target_domain,
-    })
-}
-
-fn dump_fixture(f: &Fixture) -> Value {
-    // Use array of [key, value] pairs to preserve order — same shape Ruby will emit.
-    let pairs: Vec<Value> = f.attributes.iter()
-        .map(|(k, v)| json!([k, normalize_value(v)]))
-        .collect();
-    json!({
-        "name": f.name,
-        "aggregate_name": f.aggregate_name,
-        "attributes": pairs,
     })
 }
 

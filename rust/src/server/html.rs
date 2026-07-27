@@ -25,8 +25,6 @@ pub fn generate_index(runtimes: &HashMap<String, RefCell<Runtime>>) -> String {
         rt.borrow().domain.aggregates.iter()
             .map(|a| a.commands.len()).sum::<usize>()
     }).sum();
-    let total_fixtures: usize = runtimes.values()
-        .map(|rt| rt.borrow().domain.fixtures.len()).sum();
 
     let mut main = String::new();
     main.push_str(&format!(
@@ -35,7 +33,7 @@ pub fn generate_index(runtimes: &HashMap<String, RefCell<Runtime>>) -> String {
 <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-10">
   {}</div>
 "#,
-        metric_cards(domains.len(), total_modules, total_commands, total_fixtures),
+        metric_cards(domains.len(), total_modules, total_commands),
     ));
 
     main.push_str(r#"<h2 class="text-xl font-semibold mb-4">Modules</h2><div class="grid grid-cols-1 md:grid-cols-2 gap-4">"#);
@@ -53,7 +51,7 @@ pub fn generate_index(runtimes: &HashMap<String, RefCell<Runtime>>) -> String {
 }
 
 fn metric_cards(
-    domains: usize, modules: usize, commands: usize, records: usize,
+    domains: usize, modules: usize, commands: usize,
 ) -> String {
     let card = |label: &str, value: &str, color: &str, hint: &str| -> String {
         format!(
@@ -65,11 +63,10 @@ fn metric_cards(
         )
     };
     format!(
-        "{}{}{}{}",
+        "{}{}{}",
         card("Domains", &domains.to_string(), "text-brand", "Bounded contexts"),
         card("Modules", &modules.to_string(), "text-emerald-400", "Across all domains"),
         card("Actions", &commands.to_string(), "text-amber-400", "Available commands"),
-        card("Records", &records.to_string(), "text-purple-400", "Seeded data"),
     )
 }
 

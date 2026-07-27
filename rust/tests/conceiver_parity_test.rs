@@ -93,7 +93,9 @@ fn vector_extractors_produce_non_empty_vectors() {
     let domain = small_domain();
     let bb_vec = storehouse::conceiver::vector::extract_vector(&domain);
     assert!(!bb_vec.is_empty(), "bluebook vector is empty");
-    assert_eq!(bb_vec.len(), 9, "bluebook vector length should be 9 (drift if changed)");
+    // 9 → 8 when the fixtures dimension left with the `fixture` keyword
+    // (fixtures→policies, 2026-07-26).
+    assert_eq!(bb_vec.len(), 8, "bluebook vector length should be 8 (drift if changed)");
 
     let suite = small_suite();
     let bh_vec = storehouse::behaviors_conceiver::vector::extract_vector(&suite);

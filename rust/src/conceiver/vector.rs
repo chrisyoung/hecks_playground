@@ -31,7 +31,6 @@ pub fn extract_vector(domain: &Domain) -> Vec<f64> {
         .flat_map(|a| a.commands.iter())
         .map(|c| c.givens.len())
         .sum();
-    let fixtures = domain.fixtures.len() as f64;
 
     vec![
         agg_count,
@@ -42,7 +41,6 @@ pub fn extract_vector(domain: &Domain) -> Vec<f64> {
         lifecycles,
         list_ofs as f64,
         givens as f64,
-        fixtures,
     ]
 }
 

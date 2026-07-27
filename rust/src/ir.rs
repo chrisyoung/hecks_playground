@@ -29,7 +29,6 @@ pub struct Domain {
     pub vision: Option<String>,
     pub aggregates: Vec<Aggregate>,
     pub policies: Vec<Policy>,
-    pub fixtures: Vec<Fixture>,
     /// Optional top-level `entrypoint "CommandName"` — the command that
     /// `storehouse run <file>` dispatches when invoked as an executable.
     /// None for library-style bluebooks with no default command.
@@ -123,7 +122,6 @@ pub enum BlockParser {
     ProcessManager,
     Cadence,
     Section,
-    Fixture,
 }
 
 impl BlockParser {
@@ -138,7 +136,6 @@ impl BlockParser {
             "parse_process_manager" => Some(Self::ProcessManager),
             "parse_cadence" => Some(Self::Cadence),
             "parse_section" => Some(Self::Section),
-            "parse_fixture" => Some(Self::Fixture),
             _ => None,
         }
     }
@@ -153,7 +150,6 @@ impl BlockParser {
             Self::ProcessManager => "parse_process_manager",
             Self::Cadence => "parse_cadence",
             Self::Section => "parse_section",
-            Self::Fixture => "parse_fixture",
         }
     }
 }
@@ -175,7 +171,6 @@ impl BlockGrammar {
                 entry("policy", BlockParser::Policy),
                 entry("process_manager", BlockParser::ProcessManager),
                 entry("cadence", BlockParser::Cadence),
-                entry("fixture", BlockParser::Fixture),
             ],
         }
     }

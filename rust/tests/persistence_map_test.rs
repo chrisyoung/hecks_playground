@@ -43,7 +43,6 @@ fn dom(aggs: Vec<Aggregate>) -> Domain {
         vision: None,
         aggregates: aggs,
         policies: vec![],
-        fixtures: vec![],
         entrypoint: None,
         sections: vec![],
         process_managers: vec![],

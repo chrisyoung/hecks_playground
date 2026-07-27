@@ -69,7 +69,6 @@ module Hecks
         @cadences = []
         @block_grammars = []
         @glossary_rules = []
-        @fixtures = []
         @modules = []
         @tenancy = nil
         @event_subscribers = []
@@ -416,23 +415,6 @@ module Hecks
         @policies << builder.build
       end
 
-      # Inline `fixture` is no longer supported inside `Hecks.bluebook`.
-      # Move records to a sibling `fixtures/<domain>.fixtures` file and
-      # use the `Hecks.fixtures` DSL:
-      #
-      #   Hecks.fixtures "Pizzas" do
-      #     aggregate "Pizza" do
-      #       fixture "Margherita", name: "Margherita", description: "Classic"
-      #     end
-      #   end
-      #
-      # Kept as a no-op (rather than raising) so legacy files don't
-      # crash the parser during the corpus migration window. The
-      # io_validator will surface any stragglers.
-      def fixture(*_args, **_kwargs, &_block)
-        # no-op
-      end
-
       # Accept-and-ignore: legacy nursery bluebooks declare `lifecycle` at
       # the top level (outside any `aggregate` block). The canonical DSL
       # attaches `lifecycle` to a specific aggregate. Rust's line-scanner
@@ -498,7 +480,7 @@ module Hecks
       # @return [BluebookModel::Structure::Domain] the fully built domain IR object
       def build
         domain = Structure::Domain.new(
-          name: @name, version: @version, aggregates: @aggregates, paragraphs: @paragraphs, policies: @policies, fixtures: @fixtures,
+          name: @name, version: @version, aggregates: @aggregates, paragraphs: @paragraphs, policies: @policies,
           services: @services, views: @views, workflows: @workflows,
           actors: @actors, tenancy: @tenancy,
           event_subscribers: @event_subscribers,
