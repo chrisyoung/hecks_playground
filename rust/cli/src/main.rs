@@ -2339,8 +2339,11 @@ fn run_project(args: &[String]) -> i32 {
     if target == "wrangler" {
         return run_project_wrangler(args);
     }
+    if target == "procfile" {
+        return run_project_procfile(args);
+    }
     if target != "terraform" {
-        eprintln!("project: unknown target '{}' — targets: terraform, wrangler", target);
+        eprintln!("project: unknown target '{}' — targets: terraform, wrangler, procfile", target);
         return 2;
     }
     let hecksagon_path = match args.get(3) {
@@ -2456,6 +2459,74 @@ fn run_project_wrangler(args: &[String]) -> i32 {
             eprintln!("project wrangler: wrote {}", path);
         }
         None => print!("{}", toml),
+    }
+    0
+}
+
+/// `storehouse project procfile <root> [--output-dir <dir>]` — the
+/// fixtures→policies SEAM for the overmind deploy artifacts : load the
+/// corpus at `root` (the conception — the framework mindstream.bluebook
+/// carries both the types and the establishment policies), route
+/// BootCompleted through it in memory, and render Procfile +
+/// .overmind.env from the ESTABLISHED Mindstream + MindstreamMember
+/// records via projection::procfile. No --output-dir prints both to
+/// stdout.
+fn run_project_procfile(args: &[String]) -> i32 {
+    let Some(root) = args.get(3) else {
+        eprintln!("Usage: storehouse project procfile <root> [--output-dir <dir>]");
+        return 2;
+    };
+    if !std::path::Path::new(root).is_dir() {
+        eprintln!("project procfile: root {} is not a directory", root);
+        return 1;
+    }
+    let Some(boot_path) = find_boot_bluebook(root) else {
+        eprintln!(
+            "project procfile: no runtime/boot/bluebook/boot.bluebook found walking up from {}",
+            root
+        );
+        return 1;
+    };
+    let (boot_domain, hex) = match storehouse::run::load_script(&boot_path) {
+        Ok(x) => x,
+        Err(e) => return e.code(),
+    };
+    let corpus = storehouse::corpus_loader::load_combined_domain(root);
+    let root_abs = std::fs::canonicalize(root)
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_else(|_| root.to_string());
+    let (rt, outcome) = storehouse::run_boot::complete::complete_over_checked(
+        boot_domain, corpus, None, vec![hex], Some(root_abs), "Miette",
+    );
+    if let Err(e) = outcome {
+        eprintln!("project procfile: {}", e);
+        return 1;
+    }
+    let Some(arts) = storehouse::projection::procfile::render(&rt) else {
+        eprintln!(
+            "project procfile: no Mindstream/MindstreamMember records established at {} — nothing to render",
+            root
+        );
+        return 1;
+    };
+    let output = args.iter().position(|a| a == "--output-dir").and_then(|i| args.get(i + 1));
+    match output {
+        Some(dir) => {
+            let d = std::path::Path::new(dir);
+            for (name, body) in [("Procfile", &arts.procfile), (".overmind.env", &arts.env)] {
+                let path = d.join(name);
+                if let Err(e) = std::fs::write(&path, body) {
+                    eprintln!("project procfile: cannot write {}: {}", path.display(), e);
+                    return 1;
+                }
+                eprintln!("project procfile: wrote {}", path.display());
+            }
+        }
+        None => {
+            print!("{}", arts.procfile);
+            println!("# ── .overmind.env ──");
+            print!("{}", arts.env);
+        }
     }
     0
 }
