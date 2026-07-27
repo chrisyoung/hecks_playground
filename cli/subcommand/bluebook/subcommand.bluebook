@@ -178,4 +178,340 @@ Hecks.bluebook "SubcommandRegistry", version: "2026.05.16.1" do
       description "Every Subcommand row, ordered alphabetically by name. The print_usage path walks this to render `storehouse --help` ; future help capability composes per-row help from name + handler description."
     end
   end
+
+  # The subcommand catalog as ESTABLISHMENT (fixtures→policies,
+  # 2026-07-26) — one `on "BootCompleted"` policy per subcommand row the
+  # retired subcommand.fixtures carried. Register upserts on :name, so
+  # `storehouse establish <repo>/cli/subcommand` (bin/seed-subcommand-registry)
+  # re-asserts the catalog idempotently. Bite :
+  # rust/tests/subcommand_registry_establishment_test.rs.
+  policy "EstablishStorehouseSubcommand" do
+    on "BootCompleted"
+    trigger "Subcommand.Register"
+    with "name", "storehouse"
+    with "handler", "run_storehouse"
+    with "exit_kind_default", "ok"
+    with "deprecated", "no"
+    with "argv_shape", "{ min_positional: 1, max_positional: -1, allowed_kwargs: \"\", allowed_flags: \"\" }"
+    with "dispatch_address", "{ value: \"\" }"
+  end
+
+  policy "EstablishLexiconSubcommand" do
+    on "BootCompleted"
+    trigger "Subcommand.Register"
+    with "name", "lexicon"
+    with "handler", "run_lexicon"
+    with "exit_kind_default", "ok"
+    with "deprecated", "no"
+    with "argv_shape", "{ min_positional: 0, max_positional: 2, allowed_kwargs: \"\", allowed_flags: \"\" }"
+    with "dispatch_address", "{ value: \"\" }"
+  end
+
+  policy "EstablishTerminalSubcommand" do
+    on "BootCompleted"
+    trigger "Subcommand.Register"
+    with "name", "terminal"
+    with "handler", "run_terminal"
+    with "exit_kind_default", "ok"
+    with "deprecated", "no"
+    with "argv_shape", "{ min_positional: 0, max_positional: 0, allowed_kwargs: \"\", allowed_flags: \"\" }"
+    with "dispatch_address", "{ value: \"\" }"
+  end
+
+  policy "EstablishTransitionalPrintSubcommand" do
+    on "BootCompleted"
+    trigger "Subcommand.Register"
+    with "name", "transitional_print"
+    with "handler", "run_transitional_print"
+    with "exit_kind_default", "ok"
+    with "deprecated", "yes"
+    with "argv_shape", "{ min_positional: 0, max_positional: 0, allowed_kwargs: \"\", allowed_flags: \"\" }"
+    with "dispatch_address", "{ value: \"\" }"
+  end
+
+  policy "EstablishHekiSubcommand" do
+    on "BootCompleted"
+    trigger "Subcommand.Register"
+    with "name", "heki"
+    with "handler", "run_heki"
+    with "exit_kind_default", "ok"
+    with "deprecated", "no"
+    with "argv_shape", "{ min_positional: 1, max_positional: -1, allowed_kwargs: \"\", allowed_flags: \"\" }"
+    with "dispatch_address", "{ value: \"\" }"
+  end
+
+  policy "EstablishConceiveSubcommand" do
+    on "BootCompleted"
+    trigger "Subcommand.Register"
+    with "name", "conceive"
+    with "handler", "run_conceive"
+    with "exit_kind_default", "ok"
+    with "deprecated", "no"
+    with "argv_shape", "{ min_positional: 1, max_positional: -1, allowed_kwargs: \"\", allowed_flags: \"\" }"
+    with "dispatch_address", "{ value: \"\" }"
+  end
+
+  policy "EstablishDevelopSubcommand" do
+    on "BootCompleted"
+    trigger "Subcommand.Register"
+    with "name", "develop"
+    with "handler", "run_develop"
+    with "exit_kind_default", "ok"
+    with "deprecated", "no"
+    with "argv_shape", "{ min_positional: 1, max_positional: -1, allowed_kwargs: \"\", allowed_flags: \"\" }"
+    with "dispatch_address", "{ value: \"\" }"
+  end
+
+  policy "EstablishConceiveBehaviorsSubcommand" do
+    on "BootCompleted"
+    trigger "Subcommand.Register"
+    with "name", "conceive-behaviors"
+    with "handler", "run_conceive_behaviors"
+    with "exit_kind_default", "ok"
+    with "deprecated", "no"
+    with "argv_shape", "{ min_positional: 1, max_positional: -1, allowed_kwargs: \"\", allowed_flags: \"\" }"
+    with "dispatch_address", "{ value: \"\" }"
+  end
+
+  policy "EstablishBehaviorsSubcommand" do
+    on "BootCompleted"
+    trigger "Subcommand.Register"
+    with "name", "behaviors"
+    with "handler", "run_behaviors"
+    with "exit_kind_default", "ok"
+    with "deprecated", "no"
+    with "argv_shape", "{ min_positional: 1, max_positional: -1, allowed_kwargs: \"\", allowed_flags: \"\" }"
+    with "dispatch_address", "{ value: \"\" }"
+  end
+
+  policy "EstablishTestSubcommand" do
+    on "BootCompleted"
+    trigger "Subcommand.Register"
+    with "name", "test"
+    with "handler", "run_behaviors"
+    with "exit_kind_default", "ok"
+    with "deprecated", "no"
+    with "argv_shape", "{ min_positional: 1, max_positional: -1, allowed_kwargs: \"\", allowed_flags: \"\" }"
+    with "dispatch_address", "{ value: \"\" }"
+  end
+
+  policy "EstablishDumpFixturesSubcommand" do
+    on "BootCompleted"
+    trigger "Subcommand.Register"
+    with "name", "dump-fixtures"
+    with "handler", "run_dump_fixtures"
+    with "exit_kind_default", "ok"
+    with "deprecated", "no"
+    with "argv_shape", "{ min_positional: 1, max_positional: 2, allowed_kwargs: \"\", allowed_flags: \"\" }"
+    with "dispatch_address", "{ value: \"\" }"
+  end
+
+  policy "EstablishDumpWorldSubcommand" do
+    on "BootCompleted"
+    trigger "Subcommand.Register"
+    with "name", "dump-world"
+    with "handler", "run_dump_world"
+    with "exit_kind_default", "ok"
+    with "deprecated", "no"
+    with "argv_shape", "{ min_positional: 1, max_positional: 1, allowed_kwargs: \"\", allowed_flags: \"\" }"
+    with "dispatch_address", "{ value: \"\" }"
+  end
+
+  policy "EstablishDumpHecksagonSubcommand" do
+    on "BootCompleted"
+    trigger "Subcommand.Register"
+    with "name", "dump-hecksagon"
+    with "handler", "run_dump_hecksagon"
+    with "exit_kind_default", "ok"
+    with "deprecated", "no"
+    with "argv_shape", "{ min_positional: 1, max_positional: 1, allowed_kwargs: \"\", allowed_flags: \"\" }"
+    with "dispatch_address", "{ value: \"\" }"
+  end
+
+  policy "EstablishSpecializeSubcommand" do
+    on "BootCompleted"
+    trigger "Subcommand.Register"
+    with "name", "specialize"
+    with "handler", "run_specialize"
+    with "exit_kind_default", "ok"
+    with "deprecated", "no"
+    with "argv_shape", "{ min_positional: 1, max_positional: -1, allowed_kwargs: \"\", allowed_flags: \"\" }"
+    with "dispatch_address", "{ value: \"\" }"
+  end
+
+  policy "EstablishCascadeSubcommand" do
+    on "BootCompleted"
+    trigger "Subcommand.Register"
+    with "name", "cascade"
+    with "handler", "run_cascade"
+    with "exit_kind_default", "ok"
+    with "deprecated", "no"
+    with "argv_shape", "{ min_positional: 1, max_positional: 1, allowed_kwargs: \"\", allowed_flags: \"\" }"
+    with "dispatch_address", "{ value: \"\" }"
+  end
+
+  policy "EstablishCheckIoSubcommand" do
+    on "BootCompleted"
+    trigger "Subcommand.Register"
+    with "name", "check-io"
+    with "handler", "run_check_io"
+    with "exit_kind_default", "ok"
+    with "deprecated", "no"
+    with "argv_shape", "{ min_positional: 1, max_positional: -1, allowed_kwargs: \"\", allowed_flags: \"\" }"
+    with "dispatch_address", "{ value: \"\" }"
+  end
+
+  policy "EstablishCheckLifecycleSubcommand" do
+    on "BootCompleted"
+    trigger "Subcommand.Register"
+    with "name", "check-lifecycle"
+    with "handler", "run_check_lifecycle"
+    with "exit_kind_default", "ok"
+    with "deprecated", "no"
+    with "argv_shape", "{ min_positional: 1, max_positional: -1, allowed_kwargs: \"\", allowed_flags: \"\" }"
+    with "dispatch_address", "{ value: \"\" }"
+  end
+
+  policy "EstablishCheckDuplicatePoliciesSubcommand" do
+    on "BootCompleted"
+    trigger "Subcommand.Register"
+    with "name", "check-duplicate-policies"
+    with "handler", "run_check_duplicate_policies"
+    with "exit_kind_default", "ok"
+    with "deprecated", "no"
+    with "argv_shape", "{ min_positional: 1, max_positional: -1, allowed_kwargs: \"\", allowed_flags: \"\" }"
+    with "dispatch_address", "{ value: \"\" }"
+  end
+
+  policy "EstablishCheckAllSubcommand" do
+    on "BootCompleted"
+    trigger "Subcommand.Register"
+    with "name", "check-all"
+    with "handler", "run_check_all"
+    with "exit_kind_default", "ok"
+    with "deprecated", "no"
+    with "argv_shape", "{ min_positional: 1, max_positional: -1, allowed_kwargs: \"\", allowed_flags: \"\" }"
+    with "dispatch_address", "{ value: \"\" }"
+  end
+
+  policy "EstablishRunSubcommand" do
+    on "BootCompleted"
+    trigger "Subcommand.Register"
+    with "name", "run"
+    with "handler", "run_script"
+    with "exit_kind_default", "ok"
+    with "deprecated", "no"
+    with "argv_shape", "{ min_positional: 1, max_positional: -1, allowed_kwargs: \"\", allowed_flags: \"\" }"
+    with "dispatch_address", "{ value: \"\" }"
+  end
+
+  policy "EstablishLoopSubcommand" do
+    on "BootCompleted"
+    trigger "Subcommand.Register"
+    with "name", "loop"
+    with "handler", "run_loop"
+    with "exit_kind_default", "ok"
+    with "deprecated", "no"
+    with "argv_shape", "{ min_positional: 2, max_positional: -1, allowed_kwargs: \"*\", allowed_flags: \"*\" }"
+    with "dispatch_address", "{ value: \"\" }"
+  end
+
+  policy "EstablishRunLoopSubcommand" do
+    on "BootCompleted"
+    trigger "Subcommand.Register"
+    with "name", "run-loop"
+    with "handler", "run_pm_loop"
+    with "exit_kind_default", "ok"
+    with "deprecated", "no"
+    with "argv_shape", "{ min_positional: 1, max_positional: -1, allowed_kwargs: \"*\", allowed_flags: \"*\" }"
+    with "dispatch_address", "{ value: \"\" }"
+  end
+
+  policy "EstablishDaemonSubcommand" do
+    on "BootCompleted"
+    trigger "Subcommand.Register"
+    with "name", "daemon"
+    with "handler", "run_daemon"
+    with "exit_kind_default", "ok"
+    with "deprecated", "no"
+    with "argv_shape", "{ min_positional: 1, max_positional: -1, allowed_kwargs: \"*\", allowed_flags: \"*\" }"
+    with "dispatch_address", "{ value: \"\" }"
+  end
+
+  policy "EstablishMacrophageSubcommand" do
+    on "BootCompleted"
+    trigger "Subcommand.Register"
+    with "name", "macrophage"
+    with "handler", "run_macrophage"
+    with "exit_kind_default", "ok"
+    with "deprecated", "no"
+    with "argv_shape", "{ min_positional: 0, max_positional: 0, allowed_kwargs: \"\", allowed_flags: \"\" }"
+    with "dispatch_address", "{ value: \"\" }"
+  end
+
+  policy "EstablishEnforceEditSubcommand" do
+    on "BootCompleted"
+    trigger "Subcommand.Register"
+    with "name", "enforce-edit"
+    with "handler", "run_macrophage"
+    with "exit_kind_default", "ok"
+    with "deprecated", "yes"
+    with "argv_shape", "{ min_positional: 0, max_positional: 0, allowed_kwargs: \"\", allowed_flags: \"\" }"
+    with "dispatch_address", "{ value: \"\" }"
+  end
+
+  policy "EstablishStatuslineSubcommand" do
+    on "BootCompleted"
+    trigger "Subcommand.Register"
+    with "name", "statusline"
+    with "handler", "run_statusline"
+    with "exit_kind_default", "ok"
+    with "deprecated", "no"
+    with "argv_shape", "{ min_positional: 0, max_positional: -1, allowed_kwargs: \"\", allowed_flags: \"\" }"
+    with "dispatch_address", "{ value: \"\" }"
+  end
+
+  policy "EstablishIsDispatchedSubcommand" do
+    on "BootCompleted"
+    trigger "Subcommand.Register"
+    with "name", "is-dispatched"
+    with "handler", "run_is_dispatched"
+    with "exit_kind_default", "ok"
+    with "deprecated", "no"
+    with "argv_shape", "{ min_positional: 1, max_positional: 2, allowed_kwargs: \"\", allowed_flags: \"\" }"
+    with "dispatch_address", "{ value: \"\" }"
+  end
+
+  policy "EstablishClockSubcommand" do
+    on "BootCompleted"
+    trigger "Subcommand.Register"
+    with "name", "clock"
+    with "handler", "run_clock"
+    with "exit_kind_default", "ok"
+    with "deprecated", "no"
+    with "argv_shape", "{ min_positional: 1, max_positional: -1, allowed_kwargs: \"*\", allowed_flags: \"*\" }"
+    with "dispatch_address", "{ value: \"\" }"
+  end
+
+  policy "EstablishSleepSubcommand" do
+    on "BootCompleted"
+    trigger "Subcommand.Register"
+    with "name", "sleep"
+    with "handler", "run_sleep"
+    with "exit_kind_default", "ok"
+    with "deprecated", "no"
+    with "argv_shape", "{ min_positional: 1, max_positional: -1, allowed_kwargs: \"*\", allowed_flags: \"\" }"
+    with "dispatch_address", "{ value: \"\" }"
+  end
+
+  policy "EstablishReplSubcommand" do
+    on "BootCompleted"
+    trigger "Subcommand.Register"
+    with "name", "repl"
+    with "handler", "run_repl"
+    with "exit_kind_default", "ok"
+    with "deprecated", "no"
+    with "argv_shape", "{ min_positional: 0, max_positional: -1, allowed_kwargs: \"\", allowed_flags: \"\" }"
+    with "dispatch_address", "{ value: \"\" }"
+  end
 end
