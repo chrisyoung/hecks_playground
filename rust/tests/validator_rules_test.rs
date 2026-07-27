@@ -132,6 +132,7 @@ fn duplicate_aggregate_names() {
         sections: vec![],
         cadences: vec![],
         block_grammars: vec![],
+        unknown_keywords: vec![],
     };
     let errors = validate(&domain);
     assert!(errors.iter().any(|e| e.contains("Duplicate aggregate")));
@@ -164,6 +165,7 @@ fn aggregate_without_commands() {
         sections: vec![],
         cadences: vec![],
         block_grammars: vec![],
+        unknown_keywords: vec![],
     };
     let errors = validate(&domain);
     assert!(errors.iter().any(|e| e.contains("has no commands")));
@@ -208,6 +210,7 @@ fn bad_command_naming() {
         sections: vec![],
         cadences: vec![],
         block_grammars: vec![],
+        unknown_keywords: vec![],
     };
     let errors = validate(&domain);
     assert!(errors
@@ -337,6 +340,7 @@ fn unknown_policy_trigger() {
         sections: vec![],
         cadences: vec![],
         block_grammars: vec![],
+        unknown_keywords: vec![],
     };
     let errors = validate(&domain);
     assert!(errors

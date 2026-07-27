@@ -48,6 +48,7 @@ fn dom(aggs: Vec<Aggregate>) -> Domain {
         process_managers: vec![],
         cadences: vec![],
         block_grammars: vec![],
+        unknown_keywords: vec![],
     }
 }
 

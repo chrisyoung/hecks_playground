@@ -59,6 +59,97 @@ fn block_parser_round_trips_through_name() {
     );
 }
 
+/// fixtures→policies follow-up (2026-07-27) : an unknown TOP-LEVEL block
+/// opener is RECORDED and its whole block CONSUMED — before this, the
+/// parser walked past line-by-line, so a dead block vanished silently AND
+/// its inner lines could be claimed as top-level declarations (a `policy`
+/// inside a leftover `fixture` block would leak into domain.policies while
+/// Ruby — which raises NoMethodError on the unknown method and never
+/// evaluates its block — saw nothing).
+#[test]
+fn unknown_top_level_block_is_recorded_and_consumed() {
+    let domain = parser::parse(
+        r#"Hecks.bluebook "Tiny" do
+  aggregate "Widget" do
+    command "Create" do
+      role "Admin"
+    end
+  end
+
+  fixture "Leftover", on: "Widget" do
+    name "ghost"
+    policy "LeakedPolicy" do
+      on "Nothing"
+      trigger "Widget.Create"
+    end
+  end
+end
+"#,
+    );
+    assert_eq!(domain.aggregates.len(), 1);
+    assert_eq!(
+        domain.unknown_keywords.len(),
+        1,
+        "the dead fixture block must be RECORDED, not silently swallowed"
+    );
+    assert_eq!(domain.unknown_keywords[0].keyword, "fixture");
+    assert!(
+        domain.policies.is_empty(),
+        "inner lines of an unknown block must never leak into the IR (got {:?})",
+        domain.policies.iter().map(|p| &p.name).collect::<Vec<_>>()
+    );
+    let errors = storehouse::validator_keywords::unknown_keyword_errors(&domain);
+    assert_eq!(errors.len(), 1);
+    assert!(errors[0].contains("unknown top-level keyword `fixture`"));
+}
+
+/// A near-miss top-level opener carries a `did you mean` hint.
+#[test]
+fn unknown_top_level_near_miss_suggests_the_real_keyword() {
+    let domain = parser::parse(
+        r#"Hecks.bluebook "Tiny" do
+  agregate "Widget" do
+    command "Create" do
+      role "Admin"
+    end
+  end
+end
+"#,
+    );
+    assert_eq!(domain.unknown_keywords.len(), 1);
+    assert_eq!(domain.unknown_keywords[0].keyword, "agregate");
+    assert_eq!(domain.unknown_keywords[0].suggestion, "aggregate");
+    assert!(domain.aggregates.is_empty(), "the typo'd block is consumed, not parsed");
+}
+
+/// ACCEPTED-but-uncaptured top-level keywords (Ruby evaluates them in a
+/// sub-builder, or not at all) consume their blocks SILENTLY — no unknown
+/// recorded, and their inner lines never become top-level declarations
+/// (mirrors Ruby, where a glossary block runs in GlossaryBuilder).
+#[test]
+fn accepted_top_level_blocks_consume_without_complaint() {
+    let domain = parser::parse(
+        r#"Hecks.bluebook "Tiny" do
+  glossary do
+    define "widget", as: "a thing"
+  end
+
+  lifecycle "RoomSetup" do
+    state "drafted"
+  end
+
+  aggregate "Widget" do
+    command "Create" do
+      role "Admin"
+    end
+  end
+end
+"#,
+    );
+    assert!(domain.unknown_keywords.is_empty());
+    assert_eq!(domain.aggregates.len(), 1);
+}
+
 #[test]
 fn parses_aggregate_via_block_grammar_registry() {
     let domain = parser::parse(

@@ -65,6 +65,7 @@ fn empty_domain(name: &str, aggregates: Vec<Aggregate>) -> Domain {
         sections: vec![],
         cadences: vec![],
         block_grammars: vec![],
+        unknown_keywords: vec![],
     }
 }
 

@@ -17,6 +17,16 @@ use std::fmt;
 #[derive(Debug, Clone)]
 pub struct Domain {
     pub name: String,
+    /// Unknown TOP-LEVEL block-opening keywords (e.g. a leftover `fixture`
+    /// block after fixtures→policies, 2026-07-27). Ruby's builder RAISES
+    /// NoMethodError on these, so a file carrying one is unreadable on the
+    /// Ruby side ; the Rust parser records the keyword, consumes the whole
+    /// block (its inner lines must not be claimed as top-level declarations —
+    /// Ruby never evaluates an unknown method's block), and
+    /// `validator_keywords::unknown_keyword_errors` reports each. NOT dumped —
+    /// dump.rs emits no such field, so the parity dump is byte-unchanged.
+    /// Empty for every well-formed bluebook.
+    pub unknown_keywords: Vec<UnknownKeyword>,
     /// The bluebook's declared `version:` from its header
     /// (`Hecks.bluebook "X", version: "2026.06.27.1"`). Provenance : stamped
     /// onto each aggregate (`Aggregate.bluebook_version`) and thence into every
