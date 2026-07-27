@@ -1,0 +1,19 @@
+Hecks.bluebook "Boot" do
+  vision "The Worker's per-request boot IS a boot — it completes like one. CompleteBoot emits BootCompleted so every `on \"BootCompleted\"` establishment policy self-seeds (fixtures→policies, 2026-07-26 : the demo musings ride this, not fixture seeding)."
+  category "boot"
+
+  aggregate "BootRun" do
+    identified_by :phase
+    attribute :phase, Phase, default: "pending"
+
+    value_object "Phase" do
+      attribute :value, String
+    end
+
+    command "CompleteBoot" do
+      role "System"
+      description "Complete the per-request boot — BootCompleted fans out to every establishment policy"
+      emits "BootCompleted"
+    end
+  end
+end

@@ -1,9 +1,11 @@
 // AUTO-GENERATED — daily-musing bluebooks embedded into the Worker WASM.
-// To regenerate (until `hecks-life compile` ships per inbox/i103) :
+// To regenerate :
 //   python3 worker/scripts/regenerate-embedded.py
 //
 // Embedded files : 3
 // Primary        : daily_musing.bluebook
+// `.fixtures` files are never embedded (fixtures→policies, 2026-07-26) —
+// demo records establish via `on "BootCompleted"` policies at CompleteBoot.
 
 pub const PRIMARY_BASENAME: &str = "daily_musing.bluebook";
 pub const BLUEBOOK_COUNT:   usize = 3;
@@ -14,6 +16,9 @@ pub static EMBEDDED_BLUEBOOKS: &[(&str, &str)] = &[
   category "blog"
 
   aggregate "BlogEntry", "A single post in the Daily Musing — its title, body, author, and published state" do
+    # The natural key establishment upserts on (fixtures→policies,
+    # 2026-07-26) : re-Posting a title updates that entry, never duplicates.
+    identified_by :title
     attribute :title, Title
     attribute :body, Body
     attribute :author, AuthorName
@@ -46,8 +51,12 @@ pub static EMBEDDED_BLUEBOOKS: &[(&str, &str)] = &[
       emits "EntryPosted"
     end
 
+    # No from-gate : establishment re-asserts by re-Posting the same title
+    # (idempotent upsert on :title), so Post must land "published" from any
+    # state — a from: "draft" gate would turn re-establishment into a
+    # LifecycleViolation instead of an upsert.
     lifecycle :status, default: "draft" do
-      transition "Post" => "published", from: "draft"
+      transition "Post" => "published"
     end
 
     query "DailyMusing" do
@@ -55,37 +64,50 @@ pub static EMBEDDED_BLUEBOOKS: &[(&str, &str)] = &[
       where status: "published"
     end
   end
+
+  # The demo musings as ESTABLISHMENT (fixtures→policies, 2026-07-26) —
+  # `on "BootCompleted"` seeds the two published entries the retired
+  # daily_musing.fixtures carried. The Worker's generated lib.rs dispatches
+  # CompleteBoot on every per-request boot (its boot IS a boot), so a fresh
+  # memory-only runtime always has a readable Daily Musing ; R2 state still
+  # layers on top afterwards and wins by id. Bite :
+  # rust/tests/daily_musing_establishment_test.rs.
+  policy "EstablishWelcomeMusing" do
+    on "BootCompleted"
+    trigger "BlogEntry.Post"
+    with "title", "Welcome to the Daily Musing"
+    with "body", "This blog runs on a single Hecks bluebook compiled to WebAssembly and served from a Cloudflare Worker — no container, no server. The domain IS the contract."
+    with "author", "Miette"
+    with "published_at", "2026-05-23T08:00:00Z"
+  end
+
+  policy "EstablishMorningLightMusing" do
+    on "BootCompleted"
+    trigger "BlogEntry.Post"
+    with "title", "Morning Light"
+    with "body", "A quiet musing on starting the day with a clear bluebook and a warm runtime."
+    with "author", "Chris"
+    with "published_at", "2026-05-23T09:30:00Z"
+  end
 end
 "#####),
-    ("daily_musing.fixtures", r#####"Hecks.fixtures "DailyMusing" do
-  # Seed musings so a fresh, memory-only Worker boot already has a
-  # readable Daily Musing. Each Worker request boots a fresh in-memory
-  # runtime ; without persistence (R2, a later phase) these seeds are
-  # the published entries every GET returns. A live POST appears in
-  # that request's cascade but does not survive into the next request
-  # until R2 is wired.
-  #
-  # Form : nested `aggregate "BlogEntry" do fixture "Label", k: v ... end`
-  # — the dialect storehouse::fixtures_parser parses (see its header).
-  # The BlogEntry query `DailyMusing` filters `where status: "published"`,
-  # so every seed sets status explicitly. Values are flat — the Worker's
-  # seed_fixtures path sets them straight onto AggregateState, matching
-  # the shape the query reads back.
+    ("boot.bluebook", r#####"Hecks.bluebook "Boot" do
+  vision "The Worker's per-request boot IS a boot — it completes like one. CompleteBoot emits BootCompleted so every `on \"BootCompleted\"` establishment policy self-seeds (fixtures→policies, 2026-07-26 : the demo musings ride this, not fixture seeding)."
+  category "boot"
 
-  aggregate "BlogEntry" do
-    fixture "EntryWelcome",
-      title: "Welcome to the Daily Musing",
-      body: "This blog runs on a single Hecks bluebook compiled to WebAssembly and served from a Cloudflare Worker — no container, no server. The domain IS the contract.",
-      author: "Miette",
-      published_at: "2026-05-23T08:00:00Z",
-      status: "published"
+  aggregate "BootRun" do
+    identified_by :phase
+    attribute :phase, Phase, default: "pending"
 
-    fixture "EntryMorningLight",
-      title: "Morning Light",
-      body: "A quiet musing on starting the day with a clear bluebook and a warm runtime.",
-      author: "Chris",
-      published_at: "2026-05-23T09:30:00Z",
-      status: "published"
+    value_object "Phase" do
+      attribute :value, String
+    end
+
+    command "CompleteBoot" do
+      role "System"
+      description "Complete the per-request boot — BootCompleted fans out to every establishment policy"
+      emits "BootCompleted"
+    end
   end
 end
 "#####),
