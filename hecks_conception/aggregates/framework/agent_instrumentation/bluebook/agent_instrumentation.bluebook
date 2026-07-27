@@ -8,8 +8,9 @@ Hecks.bluebook "AgentInstrumentation", version: "2026.06.21.1" do
   # followed by the authored role prose at role_body (roles/<name>.md). The
   # tooling instructions are NOT in the role body — they come from the shared
   # door fragment — so a role body carries only role-specific guidance.
-  # The instances live in agent_instrumentation.fixtures ; Register is the
-  # command those fixtures project through.
+  # The instances are ESTABLISHED at boot by the `on "BootCompleted"`
+  # policies below (fixtures→policies, 2026-07-26) ; Register is the
+  # command they project through, upserting on identified_by :name.
   aggregate "AgentDefinition", "One custom subagent — projected into .claude/agents/<name>.md as frontmatter + shared door fragment + authored role body" do
     identified_by :name
     attribute :name,        AgentName
@@ -52,5 +53,34 @@ Hecks.bluebook "AgentInstrumentation", version: "2026.06.21.1" do
       then_set :model,       to: :model
       then_set :role_body,   to: :role_body
     end
+  end
+
+  # ── Establishment : the agent roster self-seeds at boot ──
+  #
+  # On BootCompleted (the genesis event) each policy re-asserts one
+  # AgentDefinition via the EXISTING Register command + `with` literals —
+  # order-independent and idempotent because Register upserts on
+  # identified_by :name. Replaces agent_instrumentation.fixtures
+  # (fixtures→policies, 2026-07-26) ; the boot runner
+  # (rust/src/run_boot/agent_defs.rs) projects these established records
+  # into .claude/agents/<name>.md AFTER the establishment cascade.
+  # Bite proof : rust/tests/agent_defs_establishment_test.rs.
+
+  policy "EstablishSidequestAgent" do
+    on "BootCompleted"
+    trigger "AgentDefinition.Register"
+    with "name", "sidequest"
+    with "model", "sonnet"
+    with "description", "Use this agent for small interruptive work that pops up while Miette is focused on the main thread — inbox sweeps, email replies (drafts only), embryonaut.ai tweaks, music/audio bugs, John V smoke results, content polish, and other ~15-30 minute surface-glue tasks. NOT for kernel-floor changes, codegen emitters, multi-PR arcs, or anything that touches storehouse/parity. When in doubt, ask Miette to handle it instead."
+    with "role_body", "roles/sidequest.md"
+  end
+
+  policy "EstablishSecurityReviewerAgent" do
+    on "BootCompleted"
+    trigger "AgentDefinition.Register"
+    with "name", "security-reviewer"
+    with "model", "sonnet"
+    with "description", "Review code changes for security vulnerabilities specific to the Hecks framework"
+    with "role_body", "roles/security-reviewer.md"
   end
 end

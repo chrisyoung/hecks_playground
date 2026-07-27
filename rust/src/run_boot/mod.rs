@@ -108,14 +108,11 @@ pub fn run(
     //   is retired). Returns the byte count for vitals.
     let prompt_bytes = system_prompt::render(&conception_dir, &being);
 
-    // Phase 4b — RegenerateAgentDefs
-    //   Project the AgentInstrumentation source (door.md + AgentDefinition
-    //   fixtures + roles/<name>.md) into the subagent instrumentation :
-    //   the shared door block in both CLAUDE.md files (inherited by every
-    //   subagent) + each .claude/agents/<name>.md def. Runs every boot so
-    //   the door convention can never drift from governance. Shares the
-    //   door fragment the system-prompt {{door}} placeholder resolves from.
-    let _agent_defs = agent_defs::render();
+    // Phase 4b — RegenerateAgentDefs : MOVED after boot completion.
+    //   The AgentDefinition rows are ESTABLISHED by `on "BootCompleted"`
+    //   policies (fixtures→policies, 2026-07-26), so the projection now
+    //   runs over the completion runtime's established records — see the
+    //   render call after complete_boot below.
 
     // Phase 5 — RecordBootJournal : DEFERRED
     //   aggregates/boot.bluebook declares Identity, Hydration, etc. ;
@@ -150,7 +147,15 @@ pub fn run(
     // runtime and dispatch CompleteBoot on a corpus-loaded runtime (see
     // complete.rs). Best-effort post-completion effect — never gates the
     // boot exit code.
-    complete::complete_boot(rt.domain.clone(), rt.hecksagons.clone(), &being);
+    let corpus_rt = complete::complete_boot(rt.domain.clone(), rt.hecksagons.clone(), &being);
+
+    // Phase 4b (relocated) — RegenerateAgentDefs : project the ESTABLISHED
+    // AgentDefinition records (seeded by the BootCompleted policies) + door.md
+    // + roles/<name>.md into both CLAUDE.md door blocks and each
+    // .claude/agents/<name>.md def. Runs every boot so the door convention
+    // can never drift from governance ; skips loudly (previous boot's defs
+    // stay on disk) when completion failed.
+    let _agent_defs = agent_defs::render(corpus_rt.as_ref());
 
     ExitKind::Ok.code()
 }
