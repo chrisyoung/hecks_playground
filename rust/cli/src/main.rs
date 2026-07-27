@@ -5544,6 +5544,14 @@ fn run_host_cli(args: &[String]) {
             (parser::parse(&source), Vec::new())
         };
         let mut rt = Runtime::boot_with_hecksagons(domain, Some(data_dir), hecksagons);
+        // i750 pump + spawn-cwd contract — thread the dispatch root onto the
+        // runtime (absolute) so pump_outbound_events and Primitive::Process.Spawn
+        // resolve conception-root-relative paths regardless of the daemon's own
+        // cwd (overmind members run from deploy/, not the conception).
+        rt.aggregates_root = std::fs::canonicalize(&target)
+            .ok()
+            .map(|p| p.to_string_lossy().into_owned())
+            .or_else(|| Some(target.to_string()));
         storehouse::world::attach::attach_world_servers(&mut rt, &target);
         storehouse::world::attach::attach_world_adapter_bindings(&mut rt, &target);
         rt
@@ -5754,6 +5762,15 @@ fn run_loop(args: &[String]) {
     // dispatch fine but no :llm adapter would fire and text_fr / text_en
     // would never populate. Mirrors the dispatch_hecksagon path.
     let mut rt = Runtime::boot_with_hecksagons(domain, Some(data_dir), hecksagons);
+    // i750 pump + spawn-cwd contract — thread the dispatch root onto the
+    // runtime (absolute) so pump_outbound_events and Primitive::Process.Spawn
+    // resolve conception-root-relative paths regardless of the daemon's own
+    // cwd (overmind members run from deploy/ — the process_health_reap/sweep
+    // "No such file or directory" bug, 2026-07-27).
+    rt.aggregates_root = std::fs::canonicalize(target)
+        .ok()
+        .map(|p| p.to_string_lossy().into_owned())
+        .or_else(|| Some(target.to_string()));
     register_llm_providers(&mut rt, target);
     storehouse::world::attach::attach_world_servers(&mut rt, target);
     storehouse::world::attach::attach_world_adapter_bindings(&mut rt, target);
@@ -5843,6 +5860,11 @@ fn run_drive(args: &[String]) {
         (parser::parse(&source), Vec::new())
     };
     let mut rt = Runtime::boot_with_hecksagons(domain, Some(data_dir), hecksagons);
+    // i750 pump + spawn-cwd contract — same threading as run_loop above.
+    rt.aggregates_root = std::fs::canonicalize(target)
+        .ok()
+        .map(|p| p.to_string_lossy().into_owned())
+        .or_else(|| Some(target.to_string()));
     register_llm_providers(&mut rt, target);
     storehouse::world::attach::attach_world_servers(&mut rt, target);
     storehouse::world::attach::attach_world_adapter_bindings(&mut rt, target);
@@ -6102,6 +6124,11 @@ fn run_pm_loop(args: &[String]) {
     // dispatcher's drain_policies hook resolves :llm adapters during
     // PM-cascade dispatches. Same wiring as run_loop / dispatch_hecksagon.
     let mut rt = Runtime::boot_with_hecksagons(domain, Some(data_dir), hecksagons);
+    // i750 pump + spawn-cwd contract — same threading as run_loop above.
+    rt.aggregates_root = std::fs::canonicalize(target)
+        .ok()
+        .map(|p| p.to_string_lossy().into_owned())
+        .or_else(|| Some(target.to_string()));
     register_llm_providers(&mut rt, target);
     storehouse::world::attach::attach_world_servers(&mut rt, target);
     storehouse::world::attach::attach_world_adapter_bindings(&mut rt, target);

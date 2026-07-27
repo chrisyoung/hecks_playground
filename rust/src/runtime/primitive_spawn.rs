@@ -147,7 +147,53 @@ impl Runtime {
                 (vec![], None)
             };
 
-        let exec_result = exec_dispatcher::dispatch(&cmd, &extra_env, stdin_payload.as_deref());
+        // The child runs from the root that actually CONTAINS the declared
+        // program — the same ladder resolve_handler_path climbs for effect
+        // handlers : (1) the declaring domain's root (aggregates_root with a
+        // trailing `aggregates` component stripped — Procfile loop members
+        // pass `<conception>/aggregates`), then (2) the hecks conception
+        // root (miette body domains declare `exec: "bin/…"` whose scripts
+        // live in hecks_conception/bin). First root where the program
+        // exists wins and becomes the child's cwd, so the script's own
+        // relative paths resolve from its home too. Enforced by
+        // construction : the old contract silently assumed the process cwd
+        // WAS the conception root, which broke when the Procfile moved to
+        // deploy/ (process_health_reap/sweep + speech_stream_advance
+        // "No such file or directory", 2026-07-27). Absolute programs skip
+        // the ladder ; no-root library/test boots inherit cwd, as before.
+        let domain_root = self.aggregates_root.as_deref().map(|root| {
+            let p = std::path::Path::new(root);
+            if p.file_name().map(|n| n == "aggregates").unwrap_or(false) {
+                p.parent().unwrap_or(p).to_string_lossy().into_owned()
+            } else {
+                root.to_string()
+            }
+        });
+        let program = cmd.split_whitespace().next().unwrap_or("");
+        let spawn_cwd = if std::path::Path::new(program).is_absolute() {
+            domain_root
+        } else {
+            let mut candidates: Vec<String> = Vec::new();
+            if let Some(r) = &domain_root {
+                candidates.push(r.clone());
+            }
+            // storehouse_router is not-wasm (it walks the local fs) ; a
+            // wasm build has no process to spawn into anyway, so the
+            // conception-root rung only exists off-wasm.
+            #[cfg(not(target_arch = "wasm32"))]
+            candidates.push(crate::storehouse_router::conception_root());
+            candidates
+                .iter()
+                .find(|r| std::path::Path::new(r).join(program).exists())
+                .cloned()
+                .or(domain_root)
+        };
+        let exec_result = exec_dispatcher::dispatch(
+            &cmd,
+            &extra_env,
+            stdin_payload.as_deref(),
+            spawn_cwd.as_deref(),
+        );
         let err_tail = match (&exec_result.ok, &exec_result.error) {
             (false, Some(msg)) => format!(" error={:?}", msg),
             _ => String::new(),
