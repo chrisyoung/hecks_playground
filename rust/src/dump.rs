@@ -175,13 +175,19 @@ fn dump_value_object(vo: &ValueObject) -> Value {
         "name": vo.name,
         "description": vo.description,
         "attributes": vo.attributes.iter().map(dump_attribute).collect::<Vec<_>>(),
-        // 2026-07-18 — VO invariants, NAMES ONLY : the Ruby side holds the
-        // predicate as a Proc (source unrecoverable), so the shared canonical
-        // contract is the invariant's name ; each runtime enforces the
-        // predicate from its own parse. The Rust IR keeps the expression
-        // internally (payload_gate) — it just isn't part of the parity
-        // contract.
-        "invariants": vo.invariants.iter().map(|i| json!({"name": i.name})).collect::<Vec<_>>(),
+        // 2026-07-26 — VO invariants now carry their PREDICATE. The contract
+        // excluded it because "the Ruby side holds the predicate as a Proc
+        // (source unrecoverable)" — true when written, untrue since Ruby 3.3
+        // shipped Prism, and the Ruby side now recovers it
+        // (bluebook_model/predicate_source.rb).
+        //
+        // The omission had a cost : an invariant could be INVERTED while
+        // keeping its name and the contract saw no change, because it carried
+        // only the name. Two runtimes then enforce different rules and agree
+        // perfectly about it. The name is not the rule.
+        "invariants": vo.invariants.iter()
+            .map(|i| json!({"name": i.name, "expression": i.expression}))
+            .collect::<Vec<_>>(),
         // 2026-07-21 — VO derivations, SIGNATURE ONLY (name + return_type +
         // param names) : the body is a Ruby Proc on the Ruby side, so the
         // shared contract excludes the expression, exactly like invariants.

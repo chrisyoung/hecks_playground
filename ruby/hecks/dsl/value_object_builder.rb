@@ -1,3 +1,10 @@
+# PredicateSource recovers an invariant block's source text so the canonical IR
+# can carry the RULE and not just its name. Required directly rather than left to
+# the BluebookModel autoload because bluebook.rb bootstraps this builder before
+# hecks/autoloads.rb is in play — same reason fixtures_builder requires
+# structure/fixture outright.
+require "hecks/bluebook_model/predicate_source"
+
 module Hecks
   module DSL
 
@@ -78,7 +85,16 @@ module Hecks
       # @yield block that returns true when the invariant holds, false when violated
       # @return [void]
       def invariant(message, &block)
-        @invariants << Structure::Invariant.new(message: message, block: block)
+        # The block stays a live Proc — the Ruby runtime still evaluates it — AND
+        # its source is recovered, so the canonical IR can carry the rule rather
+        # than only its name. An invariant whose name survives while its
+        # predicate is inverted is a rule two runtimes can disagree about while
+        # the contract reports agreement.
+        @invariants << Structure::Invariant.new(
+          message: message,
+          block: block,
+          expression: block && BluebookModel::PredicateSource.canonical(block)
+        )
       end
 
       # Define a pure DERIVATION on this value object -- the behaviour half

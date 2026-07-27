@@ -41,6 +41,26 @@ pub(super) fn resolve_expr(expr: &str, state: &AggregateState, attrs: &HashMap<S
     if expr.starts_with('"') && expr.ends_with('"') {
         return Value::Str(expr[1..expr.len() - 1].to_string());
     }
+    // `%w[a b c]` — Ruby's word-array literal, the corpus's way of saying
+    // "one of these". 58 invariants across 14 bluebooks are written this way
+    // (`%w[debit credit].include?(name)`, `%w[draft published].include?(value)`),
+    // and until now NONE of them fired : there was no list literal, so the
+    // receiver resolved to Null, `.include?` fell to its `_ => false` arm,
+    // and the payload gate skipped the clause as unjudgeable anyway. Every
+    // one of them looked exactly like a rule.
+    //
+    // Admitted as a LITERAL rather than rewritten away. Forty-five distinct
+    // predicates spelled this way is the corpus saying the language needs
+    // the construct ; turning each into a chain of `==` comparisons would
+    // bend the domain to fit the interpreter.
+    if let Some(words) = expr.strip_prefix("%w[").and_then(|rest| rest.strip_suffix(']')) {
+        return Value::List(
+            words
+                .split_whitespace()
+                .map(|word| Value::Str(word.to_string()))
+                .collect(),
+        );
+    }
     if expr == "true" {
         return Value::Bool(true);
     }

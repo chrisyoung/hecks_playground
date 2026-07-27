@@ -79,6 +79,7 @@ module Hecks
     autoload :Behavior,                "hecks/bluebook_model/behavior"
     autoload :Structure,               "hecks/bluebook_model/structure"
     autoload :Names,                   "hecks/bluebook_model/names"
+    autoload :PredicateSource,         "hecks/bluebook_model/predicate_source"
     autoload :SubscriberRegistration,  "hecks/bluebook_model/subscriber_registration"
   end
 

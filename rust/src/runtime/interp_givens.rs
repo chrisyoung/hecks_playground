@@ -150,7 +150,15 @@ pub(super) fn evaluate_given(
         if let Some(without_close) = expr.strip_suffix(')') {
             let field = expr[..open].trim();
             let arg = without_close[open + ".include?(".len()..].trim();
-            let haystack = attrs.get(field).cloned().unwrap_or_else(|| state.get(field).clone());
+            // A LITERAL receiver resolves ; a FIELD receiver is looked up as
+            // before. Only the literal form goes through resolve_expr, because
+            // an unresolvable bare name there falls through to Str(name) and a
+            // field haystack would silently become its own spelling.
+            let haystack = if field.starts_with("%w[") {
+                resolve_expr(field, state, attrs, ctx)
+            } else {
+                attrs.get(field).cloned().unwrap_or_else(|| state.get(field).clone())
+            };
             let needle = resolve_expr(arg, state, attrs, ctx);
             let needle_s = match &needle {
                 Value::Str(s) => s.clone(),
@@ -158,7 +166,16 @@ pub(super) fn evaluate_given(
             };
             return match haystack {
                 Value::List(items) => items.iter().any(|v| v.to_string() == needle_s),
-                Value::Str(s) => s.split(',').any(|item| item.trim() == needle_s),
+                // RUBY'S MEANING, which is SUBSTRING. This read the string as
+                // comma-separated fields and asked whether any WHOLE one
+                // equalled the needle, so `address.include?("@")` answered
+                // false for "ada@example.com" — refusing every address that
+                // was in fact an address. The comment above still claims this
+                // branch mirrors Ruby ; it mirrored Array#include?, never
+                // String#include?. A list that happens to be stored as text is
+                // a LIST, and bending String#include? to serve that storage
+                // choice broke the claim for every genuine string.
+                Value::Str(s) => s.contains(needle_s.as_str()),
                 _ => false,
             };
         }
@@ -277,5 +294,69 @@ mod tests {
         let state = with_value("Hello");
         assert!(check("value.any?", &state));
         assert!(!check("!value.any?", &state));
+    }
+
+    // WORD-ARRAY MEMBERSHIP — the corpus's way of saying "one of these", and
+    // 58 invariants across 14 bluebooks are written this way. Until the list
+    // literal existed NONE fired : the receiver resolved to nothing, include?
+    // fell to its false arm, and the payload gate skipped the clause as
+    // unjudgeable. Every one looked exactly like a rule.
+
+    const MODE: &str = "%w[ensure status stop].include?(value)";
+
+    fn judge(expression: &str, value: &str) -> bool {
+        let mut attrs: HashMap<String, Value> = HashMap::new();
+        attrs.insert("value".to_string(), Value::Str(value.to_string()));
+
+        evaluate_predicate(expression, &AggregateState::new("x"), &attrs, EvalCtx::default())
+    }
+
+    #[test]
+    fn word_array_admits_a_member() {
+        assert!(judge(MODE, "status"));
+        assert!(judge(MODE, "ensure"));
+        assert!(judge(MODE, "stop"));
+    }
+
+    #[test]
+    fn word_array_refuses_a_non_member() {
+        assert!(!judge(MODE, "banana"));
+        assert!(!judge(MODE, ""));
+        // A near-miss is still a miss : membership is over WHOLE words.
+        assert!(!judge(MODE, "statuses"));
+    }
+
+    /// String include? is SUBSTRING, as in Ruby. This branch read the string as
+    /// comma-separated fields and asked whether any WHOLE one equalled the
+    /// needle, so an address containing an @ was reported as not containing one.
+    #[test]
+    fn string_include_is_substring_as_in_ruby() {
+        let mut attrs: HashMap<String, Value> = HashMap::new();
+        attrs.insert("address".to_string(), Value::Str("ada@example.com".to_string()));
+
+        let judge_address = |expr: &str| {
+            evaluate_predicate(expr, &AggregateState::new("x"), &attrs, EvalCtx::default())
+        };
+
+        assert!(judge_address("address.include?(\"@\")"));
+        assert!(!judge_address("address.include?(\"!\")"));
+    }
+
+    /// A LIST field still answers membership, not substring — the arm that was
+    /// already correct, pinned so the substring fix cannot quietly take it over.
+    #[test]
+    fn a_list_field_still_answers_membership() {
+        let mut attrs: HashMap<String, Value> = HashMap::new();
+        attrs.insert(
+            "queued".to_string(),
+            Value::List(vec![Value::Str("a".into()), Value::Str("b".into())]),
+        );
+
+        let judge_queued = |expr: &str| {
+            evaluate_predicate(expr, &AggregateState::new("x"), &attrs, EvalCtx::default())
+        };
+
+        assert!(judge_queued("queued.include?(\"a\")"));
+        assert!(!judge_queued("queued.include?(\"c\")"));
     }
 }

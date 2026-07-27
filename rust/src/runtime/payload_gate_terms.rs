@@ -26,6 +26,20 @@ pub(super) fn judgeable(expr: &str) -> bool {
                     return simple_term(l) && simple_term(r);
                 }
             }
+            // `%w[a b c].include?(term)` — membership over a LITERAL set, which
+            // the interpreter now speaks. It carries no comparison operator, so
+            // it failed every arm above and passed unjudged : 58 invariants
+            // across the corpus, each looking like a rule and gating nothing.
+            //
+            // Only the LITERAL receiver is admitted. A field receiver
+            // (`queued_sprints.include?(x)`) reads aggregate state the payload
+            // gate does not have — the gate sees a payload, not a record — so
+            // judging it here would refuse on absence rather than on falsity.
+            if let Some((receiver, argument)) = c.split_once(".include?(") {
+                return receiver.trim().starts_with("%w[")
+                    && receiver.trim().ends_with(']')
+                    && argument.strip_suffix(')').map(simple_term).unwrap_or(false);
+            }
             false
         })
 }

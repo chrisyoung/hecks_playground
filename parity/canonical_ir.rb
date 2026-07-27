@@ -251,12 +251,26 @@ module Hecks
           "name"        => vo.name,
           "description" => vo.description,
           "attributes"  => (vo.attributes || []).map { |a| dump_attribute(a) },
-          # 2026-07-18 — VO invariants, NAMES ONLY (mirrors dump.rs) : the
-          # Ruby side holds the predicate as a Proc whose source is
-          # unrecoverable, so the shared canonical contract is the name ;
-          # each runtime enforces the predicate from its own parse.
+          # 2026-07-26 — VO invariants now carry their PREDICATE, not just
+          # their name. The old contract excluded it because "the Ruby side
+          # holds the predicate as a Proc whose source is unrecoverable" —
+          # true when written, and untrue since Ruby 3.3 shipped Prism.
+          #
+          # The omission had a cost : an invariant could be INVERTED while
+          # keeping its name (`cents > 0` becoming `cents < 0`) and the
+          # contract saw no change, because it carried only the name. Two
+          # runtimes then enforce different rules and agree perfectly about
+          # it. The name is not the rule.
+          #
+          # A predicate whose source genuinely cannot be read (an eval'd
+          # block has no file) recovers as nil and is omitted — the honest
+          # answer, and one the Rust side reproduces by having no expression
+          # to emit either.
           "invariants"  => (vo.respond_to?(:invariants) ? (vo.invariants || []) : []).map { |inv|
-            { "name" => inv.respond_to?(:message) ? inv.message.to_s : inv.name.to_s }
+            name = inv.respond_to?(:message) ? inv.message.to_s : inv.name.to_s
+            expression = inv.respond_to?(:expression) ? inv.expression : nil
+
+            { "name" => name, "expression" => expression.to_s }
           },
           # 2026-07-21 — VO derivations, SIGNATURE ONLY (mirrors dump.rs) :
           # name + return_type + param names ; the body is a Proc whose
