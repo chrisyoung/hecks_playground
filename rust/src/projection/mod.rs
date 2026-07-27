@@ -24,3 +24,4 @@
 
 pub mod terraform;
 pub mod json_schema;
+pub mod wrangler;

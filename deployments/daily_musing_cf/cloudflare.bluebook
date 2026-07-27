@@ -12,12 +12,12 @@ Hecks.bluebook "DailyMusingCloudflare", version: "2026.05.23.1" do
   # name, compatibility date, account, build command, and the
   # R2 persistence binding (heki -> R2).
   #
-  # Derivation is a follow-up specializer (filed as an inbox card) —
-  # `storehouse specialize wrangler_toml --config cloudflare.bluebook`
-  # would emit deployments/daily_musing_cf/worker/wrangler.toml from
-  # the WorkerConfig fixture below, a sibling of the existing
-  # wasm_worker / embedded_bluebooks emitters. Until that lands the
-  # wrangler.toml is hand-kept in sync with this declaration.
+  # Derivation is the SEAM (fixtures→policies, 2026-07-26) :
+  # `storehouse project wrangler deployments/daily_musing_cf` routes
+  # BootCompleted through this corpus, the EstablishDailyMusingWorker
+  # policy asserts the WorkerConfig record, and projection::wrangler
+  # renders worker/wrangler.toml from the ESTABLISHED record. Byte-identity
+  # is enforced by rust/tests/worker_config_establishment_test.rs.
 
   aggregate "WorkerConfig", "One Cloudflare Worker's deploy configuration" do
     identified_by :name
@@ -61,11 +61,23 @@ Hecks.bluebook "DailyMusingCloudflare", version: "2026.05.23.1" do
 
     command "Declare" do
       role "System"
-      description "Declare the worker config (worker name, account, build)"
+      description "Declare the worker config (worker name, account, build, R2 binding)"
       attribute :name, WorkerName
+      attribute :compatibility_date, CompatibilityDate
       attribute :account_id, AccountId
+      attribute :main_entrypoint, MainEntrypoint
+      attribute :build_command, BuildCommand
+      attribute :r2_binding, R2Binding
+      attribute :r2_bucket, R2Bucket
+      attribute :observability, Observability
       then_set :name, to: :name
+      then_set :compatibility_date, to: :compatibility_date
       then_set :account_id, to: :account_id
+      then_set :main_entrypoint, to: :main_entrypoint
+      then_set :build_command, to: :build_command
+      then_set :r2_binding, to: :r2_binding
+      then_set :r2_bucket, to: :r2_bucket
+      then_set :observability, to: :observability
       emits "ConfigDeclared"
     end
 
@@ -74,15 +86,23 @@ Hecks.bluebook "DailyMusingCloudflare", version: "2026.05.23.1" do
     end
   end
 
-  fixture "DailyMusingWorker", on: "WorkerConfig" do
-    name               "daily-musing-worker"
-    compatibility_date "2026-05-10"
-    account_id         "d64266851dc554da77687e13c058917c"
-    main_entrypoint    "build/worker/shim.mjs"
-    build_command      "cargo install -q worker-build && worker-build --release"
-    r2_binding         "DAILY_MUSING_R2_BUCKET"
-    r2_bucket          "daily-musing-heki"
-    observability      "enabled"
+  # The worker config as ESTABLISHMENT (fixtures→policies, 2026-07-26) —
+  # `on "BootCompleted"` (the boot-establishment keystone) upserts the
+  # WorkerConfig on :name ; `storehouse establish <root>` re-asserts on
+  # demand. The derived wrangler.toml projects from the ESTABLISHED record
+  # through the seam (`storehouse project wrangler <root>` →
+  # projection::wrangler) — never by re-parsing this file, never by hand.
+  policy "EstablishDailyMusingWorker" do
+    on "BootCompleted"
+    trigger "WorkerConfig.Declare"
+    with "name", "daily-musing-worker"
+    with "compatibility_date", "2026-05-10"
+    with "account_id", "d64266851dc554da77687e13c058917c"
+    with "main_entrypoint", "build/worker/shim.mjs"
+    with "build_command", "cargo install -q worker-build && worker-build --release"
+    with "r2_binding", "DAILY_MUSING_R2_BUCKET"
+    with "r2_bucket", "daily-musing-heki"
+    with "observability", "enabled"
   end
 
   glossary do
