@@ -47,7 +47,21 @@ pub fn apply_mutations(
                         continue;
                     }
                 }
-                let amount = val.as_int().unwrap_or(1);
+                // A non-numeric amount SKIPS LOUDLY — never ±1. The old
+                // `unwrap_or(1)` moved a banking balance by one cent when the
+                // caller sent a source-text map ; a ledger drifting by ±1 per
+                // bad payload is the exact silent wrongness the fixtures→
+                // policies banking audit caught (2026-07-27). hecksagain's
+                // runtime REFUSES the dispatch outright ; full refusal here
+                // needs apply() to grow a Result and is the named follow-up
+                // on the banking-exact card.
+                let Some(amount) = val.as_int() else {
+                    eprintln!(
+                        "  ⚠ increment of {} needs a number, got {} — mutation skipped",
+                        mutation.field, val
+                    );
+                    continue;
+                };
                 state.increment(&mutation.field, amount);
             }
             MutationOp::Decrement => {
@@ -62,7 +76,16 @@ pub fn apply_mutations(
                         continue;
                     }
                 }
-                let amount = val.as_int().unwrap_or(1);
+                // Same rule as increment : a non-numeric amount skips loudly,
+                // never −1. A balance draining by one cent per bad payload is
+                // money disappearing from somewhere.
+                let Some(amount) = val.as_int() else {
+                    eprintln!(
+                        "  ⚠ decrement of {} needs a number, got {} — mutation skipped",
+                        mutation.field, val
+                    );
+                    continue;
+                };
                 state.decrement(&mutation.field, amount);
             }
             MutationOp::Toggle => {
