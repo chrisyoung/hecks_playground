@@ -179,6 +179,7 @@ mod fqn_resolution;
 mod interp_expr;
 mod interp_expr_ops;
 mod interp_givens;
+mod interp_idioms;
 mod interp_predicate;
 #[cfg(test)]
 mod interp_givens_tests;

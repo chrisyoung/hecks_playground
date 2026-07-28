@@ -117,7 +117,48 @@ refuses any bare-arm clause that does not name a declared `Boolean` derivation,
 the one shape the arm can actually judge. Corpus today : 6 judgeable, 0 not.
 A new `given { thing.whatever? }` fails at test time instead of at dispatch.
 
-## 2. A bare non-Bool given silently passes
+## 2. FIXED (2026-07-28) — a bare non-Bool given silently passes
+
+> Landed the way this section asked : audit first, read the list, then flip. The
+> audit found 10 bare-arm clauses across 334 bluebooks — 6 legitimate Boolean
+> derivations and the 4 dead commands of finding 1b. With those repaired the
+> corpus had ZERO unjudgeable givens, so the flip surfaced nothing and broke
+> nothing : full workspace sweep green, 152 test binaries.
+>
+> The gate now has THREE outcomes, not two. `judge` returns
+> `Result<bool, Unjudgeable>` and propagates through `||`, `&&` and `!` ; the
+> bare arm returns `Err` instead of `true` ; `check_givens` reports
+> `RuntimeError::UnjudgeableGiven { expression, clause }`, naming the leaf it
+> could not read. A defect in the rule is no longer spelled as a refusal of the
+> payload — nothing the caller sends can satisfy a predicate nobody can read.
+>
+> Both clauses of `&&` / `||` are judged even when the first decides the
+> verdict : an unreadable clause is a defect wherever it sits, and a
+> short-circuit would hide exactly the half nobody exercises. A given has no
+> side effects, so there is nothing to short-circuit FOR.
+>
+> `evaluate_given` survives as a total wrapper (`judge(...).unwrap_or(false)`)
+> for the three callers with no error channel — aggregate invariants, the
+> payload gate, and a derivation body inside `resolve_expr`. Unreadable is FALSE
+> for them : refused loudly rather than passed silently.
+>
+> Pinned by `rust/tests/unjudgeable_given_test.rs` — a typo'd bare name and an
+> unimplemented method are both UnjudgeableGiven ; a readable rule still refuses
+> as a plain GivenFailed carrying the author's message, and still admits when
+> satisfied. The flip bites, and it does not over-refuse.
+>
+> HONEST LIMIT, and it is finding 3's : a typo INSIDE a comparison
+> (`given { conut > 0 }`) is still not caught. `resolve_expr` spells an unknown
+> bare name back as a Str, so the comparison reads `"conut" > 0`, coerces to 0,
+> and answers false — a silent refusal wearing the author's message. Only BARE
+> leaves reach the arm that was flipped. The self-spelling fallback is the next
+> flip, and it is a bigger one.
+>
+> `interp_predicate.rs` crossed 200 lines on the way, so the Ruby idioms
+> (`.nil?`, `.any?`, `.empty?`, `.include?`) moved to `interp_idioms.rs` — they
+> share one rule (suffix matching, hence the leading-`!` guard) and now say so.
+
+ORIGINAL TEXT :
 
 `evaluate_given` ends :
 

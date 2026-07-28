@@ -11,6 +11,7 @@
 //!  interpreter, relocated verbatim from interp_givens.rs blanket.]
 
 use super::interp_expr::resolve_expr;
+use super::interp_idioms::judge_idiom;
 use super::interp_expr_ops::{compare_lt, split_comparison, split_top_level, values_equal};
 use super::interpreter::EvalCtx;
 use super::{AggregateState, Value};
@@ -29,12 +30,36 @@ pub fn evaluate_predicate(
     evaluate_given(expr, state, attrs, ctx)
 }
 
+/// A predicate the interpreter could not READ — it resolved to something that
+/// is neither true nor false. Not a false : an unknown name, a typo'd
+/// attribute, or a Ruby method outside the interpreter's subset is a DEFECT in
+/// the rule, and a defect deserves a different verdict from "the rule was read
+/// and not satisfied". `clause` is the leaf that could not be read, which is
+/// rarely the whole expression.
+pub(super) struct Unjudgeable {
+    pub clause: String,
+}
+
+/// The total wrapper, for the callers with no error channel : aggregate
+/// invariants, the payload gate, and a derivation body evaluated inside
+/// `resolve_expr`. An unreadable predicate is FALSE for them — refused loudly
+/// rather than passed silently. `check_givens` calls `judge` directly so a
+/// command's refusal can name the clause it could not read.
 pub(super) fn evaluate_given(
     expr: &str,
     state: &AggregateState,
     attrs: &HashMap<String, Value>,
     ctx: EvalCtx,
 ) -> bool {
+    judge(expr, state, attrs, ctx).unwrap_or(false)
+}
+
+pub(super) fn judge(
+    expr: &str,
+    state: &AggregateState,
+    attrs: &HashMap<String, Value>,
+    ctx: EvalCtx,
+) -> Result<bool, Unjudgeable> {
     let expr = expr.trim();
 
     // Boolean operators — split lowest precedence first.
@@ -42,97 +67,26 @@ pub(super) fn evaluate_given(
     // We don't honor parentheses or short-circuit semantics beyond what
     // recursion gives us; `a || b || c` parses left-to-right via the
     // first `||` split, which matches common usage in givens.
+    // Both clauses are judged even when the first decides the verdict : an
+    // unreadable clause is a defect wherever it sits, and a short-circuit would
+    // hide exactly the half nobody exercises. Ruby's own short-circuit is about
+    // side effects ; a given has none.
     if let Some((lhs, rhs)) = split_top_level(expr, "||") {
-        return evaluate_given(lhs, state, attrs, ctx) || evaluate_given(rhs, state, attrs, ctx);
+        let (l, r) = (judge(lhs, state, attrs, ctx)?, judge(rhs, state, attrs, ctx)?);
+        return Ok(l || r);
     }
     if let Some((lhs, rhs)) = split_top_level(expr, "&&") {
-        return evaluate_given(lhs, state, attrs, ctx) && evaluate_given(rhs, state, attrs, ctx);
+        let (l, r) = (judge(lhs, state, attrs, ctx)?, judge(rhs, state, attrs, ctx)?);
+        return Ok(l && r);
     }
 
-    // `field.any?` → field.size > 0; `field.empty?` → field.size == 0.
-    // Ruby idioms used in handwritten bluebooks; rewrite to runtime
-    // primitives so the comparison evaluator below handles them.
-    // The `!expr.starts_with('!')` guard is what keeps NEGATION working. These
-    // two branches match on a SUFFIX, so without the guard `!value.empty?`
-    // matches here and strips `.empty?` off `!value` rather than off `value` —
-    // the `!` is silently discarded, the unknown field `!value` resolves to 0,
-    // `0 == 0` is true, and the rule passes. Every `requires { !value.empty? }`
-    // in the corpus (storehouse/lexicon, story, command_bus ; adapters heki,
-    // ollama, r2, storehouse_api) read "must not be blank" and never fired.
-    // Negation is handled below, at its correct precedence.
-    if !expr.starts_with('!') {
-        // `field.nil?` — Ruby's absence test. Three corpus givens read
-        // `!title.nil? && !title.empty?` ; unimplemented, `title.nil?` fell all
-        // the way to the bare arm, passed by the permissive default, and then
-        // NEGATED to a permanent false — so Feature.PlanAdditions,
-        // Feature.VerifyAdditions and Notification.DismissAlert could not be
-        // dispatched at all, with any payload. The permissive default does not
-        // only fail open ; under `!` it fails CLOSED, and neither is a verdict
-        // the author wrote.
-        //
-        // Resolved by LOOKUP, not resolve_expr : an unknown bare name resolves
-        // to its own spelling there, which is never Null, so every absent field
-        // would answer "not nil". A DOTTED path has no flat entry to find, so it
-        // resolves — the same asymmetry the `.size` receiver makes.
-        if let Some(field) = expr.strip_suffix(".nil?") {
-            let f = field.trim();
-            let val = if f.contains('.') {
-                resolve_expr(f, state, attrs, ctx)
-            } else {
-                attrs.get(f).cloned().unwrap_or_else(|| state.get(f).clone())
-            };
-            return matches!(val, Value::Null);
-        }
-        if let Some(field) = expr.strip_suffix(".any?") {
-            let val = resolve_expr(&format!("{}.size", field.trim()), state, attrs, ctx);
-            return compare_lt(&Value::Int(0), &val);
-        }
-        if let Some(field) = expr.strip_suffix(".empty?") {
-            let val = resolve_expr(&format!("{}.size", field.trim()), state, attrs, ctx);
-            return values_equal(&val, &Value::Int(0));
-        }
-    }
-
-    // `list_field.include?(arg)` -> membership : true when the list field (a
-    // list_of attr stored as Value::List, or a CSV Value::Str) contains the
-    // resolved value of arg. Powers LOCAL list-membership gates, e.g.
-    // Board.ActivateSprint's given { queued_sprints.include?(sprint_ref) }
-    // (only a sprint already placed on the board may be activated). Mirrors
-    // Ruby's native Array#include? so the same given evaluates identically in
-    // both runtimes.
-    if let Some(open) = expr.find(".include?(") {
-        if let Some(without_close) = expr.strip_suffix(')') {
-            let field = expr[..open].trim();
-            let arg = without_close[open + ".include?(".len()..].trim();
-            // A LITERAL receiver resolves ; a FIELD receiver is looked up as
-            // before. Only the literal form goes through resolve_expr, because
-            // an unresolvable bare name there falls through to Str(name) and a
-            // field haystack would silently become its own spelling.
-            let haystack = if field.starts_with("%w[") {
-                resolve_expr(field, state, attrs, ctx)
-            } else {
-                attrs.get(field).cloned().unwrap_or_else(|| state.get(field).clone())
-            };
-            let needle = resolve_expr(arg, state, attrs, ctx);
-            let needle_s = match &needle {
-                Value::Str(s) => s.clone(),
-                other => other.to_string(),
-            };
-            return match haystack {
-                Value::List(items) => items.iter().any(|v| v.to_string() == needle_s),
-                // RUBY'S MEANING, which is SUBSTRING. This read the string as
-                // comma-separated fields and asked whether any WHOLE one
-                // equalled the needle, so `address.include?("@")` answered
-                // false for "ada@example.com" — refusing every address that
-                // was in fact an address. The comment above still claims this
-                // branch mirrors Ruby ; it mirrored Array#include?, never
-                // String#include?. A list that happens to be stored as text is
-                // a LIST, and bending String#include? to serve that storage
-                // choice broke the claim for every genuine string.
-                Value::Str(s) => s.contains(needle_s.as_str()),
-                _ => false,
-            };
-        }
+    // Ruby idioms the corpus writes — `.nil?`, `.any?`, `.empty?`, `.include?`.
+    // Their branch order and the leading-`!` guard are SEMANTICS, not style ;
+    // both live with them in interp_idioms.rs. None of them can be unjudgeable :
+    // each one asks a question about presence or membership that always has a
+    // true/false answer, even when the receiver is absent.
+    if let Some(verdict) = judge_idiom(expr, state, attrs, ctx) {
+        return Ok(verdict);
     }
 
     // Order matters: check `>=`/`<=` BEFORE `>`/`<` so the longer
@@ -141,32 +95,32 @@ pub(super) fn evaluate_given(
     if let Some((lhs, rhs)) = split_comparison(expr, ">=") {
         let left = resolve_expr(lhs.trim(), state, attrs, ctx);
         let right = resolve_expr(rhs.trim(), state, attrs, ctx);
-        return !compare_lt(&left, &right);
+        return Ok(!compare_lt(&left, &right));
     }
     if let Some((lhs, rhs)) = split_comparison(expr, "<=") {
         let left = resolve_expr(lhs.trim(), state, attrs, ctx);
         let right = resolve_expr(rhs.trim(), state, attrs, ctx);
-        return !compare_lt(&right, &left);
+        return Ok(!compare_lt(&right, &left));
     }
     if let Some((lhs, rhs)) = split_comparison(expr, "<") {
         let left = resolve_expr(lhs.trim(), state, attrs, ctx);
         let right = resolve_expr(rhs.trim(), state, attrs, ctx);
-        return compare_lt(&left, &right);
+        return Ok(compare_lt(&left, &right));
     }
     if let Some((lhs, rhs)) = split_comparison(expr, ">") {
         let left = resolve_expr(lhs.trim(), state, attrs, ctx);
         let right = resolve_expr(rhs.trim(), state, attrs, ctx);
-        return compare_lt(&right, &left);
+        return Ok(compare_lt(&right, &left));
     }
     if let Some((lhs, rhs)) = split_comparison(expr, "==") {
         let left = resolve_expr(lhs.trim(), state, attrs, ctx);
         let right = resolve_expr(rhs.trim(), state, attrs, ctx);
-        return values_equal(&left, &right);
+        return Ok(values_equal(&left, &right));
     }
     if let Some((lhs, rhs)) = split_comparison(expr, "!=") {
         let left = resolve_expr(lhs.trim(), state, attrs, ctx);
         let right = resolve_expr(rhs.trim(), state, attrs, ctx);
-        return !values_equal(&left, &right);
+        return Ok(!values_equal(&left, &right));
     }
 
     // NEGATION — `!expr`. Sits AFTER the comparison splits because `!` binds
@@ -178,16 +132,23 @@ pub(super) fn evaluate_given(
     // Mirrors lib/hecksagain/bluebook/expression/evaluator.rb, which places the
     // same branch in the same position for the same reason.
     if let Some(inner) = expr.strip_prefix('!') {
-        return !evaluate_given(inner.trim(), state, attrs, ctx);
+        return Ok(!judge(inner.trim(), state, attrs, ctx)?);
     }
 
-    // A bare boolean expression with no comparison operator — e.g. a VO
-    // predicate derivation `given { balance.covers?(amount) }`, or a plain
-    // Bool field. Resolve it and honour a Bool result ; a non-boolean bare
-    // given preserves the historical permissive default (passes), so this
-    // only ADDS truthiness for expressions that actually resolve to a Bool.
+    // A bare boolean expression with no comparison operator — a VO predicate
+    // derivation (`given { balance.covers?(amount) }`), or a plain Bool field.
+    // Resolve it and honour a Bool result.
+    //
+    // Anything else is UNJUDGEABLE. This was `_ => true`, "the historical
+    // permissive default", and it decided every typo, every renamed attribute,
+    // and every Ruby method outside this subset — silently, in the author's
+    // name. It reads as a satisfied rule, and under a leading `!` (how the
+    // corpus writes nearly every presence check) it inverts into a permanent
+    // refusal : `.nil?` and `.strip` were missing for exactly that long, and
+    // four commands could not be dispatched with any payload at all. A
+    // predicate that cannot be evaluated is a defect, not a false.
     match resolve_expr(expr, state, attrs, ctx) {
-        Value::Bool(b) => b,
-        _ => true,
+        Value::Bool(b) => Ok(b),
+        _ => Err(Unjudgeable { clause: expr.to_string() }),
     }
 }

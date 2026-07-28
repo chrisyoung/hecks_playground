@@ -68,15 +68,30 @@ pub fn check_givens(
             }
         }
     }
+    // A given has THREE outcomes, not two : satisfied, refused, and unreadable.
+    // The third used to be silently folded into the first (`_ => true` in the
+    // bare arm) — so a rule with a typo'd name looked exactly like a rule that
+    // held. `judge` returns it separately, and it is reported as a DEFECT in
+    // the rule rather than as a refusal of the payload : nothing the caller
+    // sends can satisfy a predicate the interpreter cannot read.
     for given in &cmd.givens {
-        if !evaluate_given(&given.expression, state, attrs, ctx) {
-            return Err(RuntimeError::GivenFailed {
-                message: given
-                    .message
-                    .clone()
-                    .unwrap_or_else(|| given.expression.clone()),
-                expression: given.expression.clone(),
-            });
+        match judge(&given.expression, state, attrs, ctx) {
+            Ok(true) => {}
+            Ok(false) => {
+                return Err(RuntimeError::GivenFailed {
+                    message: given
+                        .message
+                        .clone()
+                        .unwrap_or_else(|| given.expression.clone()),
+                    expression: given.expression.clone(),
+                })
+            }
+            Err(unjudgeable) => {
+                return Err(RuntimeError::UnjudgeableGiven {
+                    expression: given.expression.clone(),
+                    clause: unjudgeable.clause,
+                })
+            }
         }
     }
     Ok(())
@@ -84,4 +99,4 @@ pub fn check_givens(
 
 
 pub use super::interp_predicate::evaluate_predicate;
-use super::interp_predicate::evaluate_given;
+use super::interp_predicate::judge;
