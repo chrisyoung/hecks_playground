@@ -26,6 +26,19 @@ pub(super) fn resolve_expr(expr: &str, state: &AggregateState, attrs: &HashMap<S
     if let Some(field) = expr.strip_suffix(".length") {
         return resolve_expr(&format!("{}.size", field.trim()), state, attrs, ctx);
     }
+    // `field.strip` — Ruby's whitespace trim. The corpus writes "must not be
+    // blank" as `!query_text.strip.empty?` ; unimplemented, `query_text.strip`
+    // was looked up as a FLAT FIELD NAME, missed, reported size 0, and
+    // `.empty?` answered true — so the rule refused every payload it was
+    // written to admit. A trim on a non-Str is the value unchanged (Ruby would
+    // raise ; refusing here would be stricter than the bare arm below, which is
+    // the one place refusal belongs).
+    if let Some(inner) = expr.strip_suffix(".strip") {
+        return match resolve_expr(inner.trim(), state, attrs, ctx) {
+            Value::Str(s) => Value::Str(s.trim().to_string()),
+            other => other,
+        };
+    }
     if let Ok(n) = expr.parse::<i64>() {
         return Value::Int(n);
     }
@@ -85,9 +98,24 @@ pub(super) fn resolve_expr(expr: &str, state: &AggregateState, attrs: &HashMap<S
         return Value::Int(rand_below_impl(n));
     }
     if let Some(field) = expr.strip_suffix(".size") {
-        let val = attrs.get(field)
-            .cloned()
-            .unwrap_or_else(|| state.get(field).clone());
+        let field = field.trim();
+        let val = match attrs.get(field) {
+            Some(v) => v.clone(),
+            None => {
+                let from_state = state.get(field).clone();
+                // A DOTTED receiver (`amount.currency.size`, `query_text.strip.size`)
+                // is not a flat field name, so a miss here is not an absence — it is a
+                // path nobody walked. Resolve it properly rather than reporting 0.
+                // BARE names keep the flat lookup deliberately : sending one through
+                // resolve_expr spells an unknown name back as a Str, so `nope.size`
+                // would answer the length of its own spelling.
+                if matches!(from_state, Value::Null) && field.contains('.') {
+                    resolve_expr(field, state, attrs, ctx)
+                } else {
+                    from_state
+                }
+            }
+        };
         return match val {
             Value::List(v) => Value::Int(v.len() as i64),
             Value::Str(s) => Value::Int(s.len() as i64),

@@ -81,6 +81,42 @@ real binary (every other gate test boots `Runtime` directly and so enters
 BELOW the transport, which is why none of them could arbitrate). Verified
 to go RED when the bug is reinstated — per the meta-finding below.
 
+## 1b. FIXED (2026-07-28) — the permissive default also fails CLOSED
+
+Found by auditing the bare arm's population before flipping it (finding 2's
+prescribed "log every `_ => true` hit first"). The audit walks 334 corpus
+bluebooks, classifies every `given` / `holds_when` clause by which branch of
+`evaluate_given` claims it, and reports the leaves that reach the bare arm.
+Ten. Six are banking's rich-VO predicates (`balance.covers?(amount)`), which
+resolve to Bool correctly. The other four were dead :
+
+    Feature.PlanAdditions      given { !title.nil? && !title.empty? }
+    Feature.VerifyAdditions    given { !additions.nil? && !additions.empty? }
+    Notification.DismissAlert  given { !alerts.nil? && alerts.size > alert_index }
+    Search.SearchDomain        given { !query_text.strip.empty? }
+
+Neither `.nil?` nor `.strip` was implemented. `title.nil?` fell to the bare
+arm, PASSED by the permissive default — and then negated to a permanent
+**false**. `query_text.strip` was looked up as a flat field name, missed,
+reported size 0, so `.empty?` answered true and `!` made it false again. All
+four commands were UN-DISPATCHABLE, with any payload. Verified end-to-end
+against the real binary before the fix and after.
+
+**This is the finding that changes the shape of finding 2.** The permissive
+default does not only let unreadable rules through ; under a leading `!` — how
+the corpus writes most presence checks — it silently refuses everything. Both
+verdicts are the interpreter's, not the author's. "Fails open" was half the
+diagnosis.
+
+Fixed : `.strip` and a recursing `.size` receiver in `interp_expr.rs`, `.nil?`
+in `interp_predicate.rs`. Pinned by `rust/tests/nil_strip_predicate_test.rs`,
+which exercises every rule in BOTH directions.
+
+The audit itself is now a GATE — `rust/tests/given_bare_branch_audit_test.rs`
+refuses any bare-arm clause that does not name a declared `Boolean` derivation,
+the one shape the arm can actually judge. Corpus today : 6 judgeable, 0 not.
+A new `given { thing.whatever? }` fails at test time instead of at dispatch.
+
 ## 2. A bare non-Bool given silently passes
 
 `evaluate_given` ends :

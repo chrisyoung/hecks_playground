@@ -61,6 +61,28 @@ pub(super) fn evaluate_given(
     // ollama, r2, storehouse_api) read "must not be blank" and never fired.
     // Negation is handled below, at its correct precedence.
     if !expr.starts_with('!') {
+        // `field.nil?` — Ruby's absence test. Three corpus givens read
+        // `!title.nil? && !title.empty?` ; unimplemented, `title.nil?` fell all
+        // the way to the bare arm, passed by the permissive default, and then
+        // NEGATED to a permanent false — so Feature.PlanAdditions,
+        // Feature.VerifyAdditions and Notification.DismissAlert could not be
+        // dispatched at all, with any payload. The permissive default does not
+        // only fail open ; under `!` it fails CLOSED, and neither is a verdict
+        // the author wrote.
+        //
+        // Resolved by LOOKUP, not resolve_expr : an unknown bare name resolves
+        // to its own spelling there, which is never Null, so every absent field
+        // would answer "not nil". A DOTTED path has no flat entry to find, so it
+        // resolves — the same asymmetry the `.size` receiver makes.
+        if let Some(field) = expr.strip_suffix(".nil?") {
+            let f = field.trim();
+            let val = if f.contains('.') {
+                resolve_expr(f, state, attrs, ctx)
+            } else {
+                attrs.get(f).cloned().unwrap_or_else(|| state.get(f).clone())
+            };
+            return matches!(val, Value::Null);
+        }
         if let Some(field) = expr.strip_suffix(".any?") {
             let val = resolve_expr(&format!("{}.size", field.trim()), state, attrs, ctx);
             return compare_lt(&Value::Int(0), &val);
