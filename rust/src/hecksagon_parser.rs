@@ -582,7 +582,7 @@ fn parse_driving_handler(lines: &[&str]) -> (Option<DrivingHandler>, usize) {
 fn parse_driven_handler(lines: &[&str]) -> (Option<DrivenHandler>, usize) {
     let first = lines[0].trim();
     let event_ref = match between_quotes(first) { Some(e) => e, None => return (None, 1) };
-    let mut handler = DrivenHandler { event_ref, canned: None, dispatches: Vec::new(), runs: Vec::new(), checks: Vec::new() };
+    let mut handler = DrivenHandler { event_ref, canned: None, dispatches: Vec::new(), runs: Vec::new(), checks: Vec::new(), success: String::new(), failure: String::new() };
     let mut i = 1;
     while i < lines.len() {
         let t = lines[i].trim();
@@ -594,6 +594,16 @@ fn parse_driven_handler(lines: &[&str]) -> (Option<DrivenHandler>, usize) {
         // makes this adapter real. The block body is the same k/v shape
         // a hecksagon extension config uses ; `parse_canned_block`
         // collects (key, raw-token) pairs into CannedResponse.values.
+        // The verdict pair. A cross-context dispatch is the one place a domain
+        // cannot see what became of its own act, so `success` / `failure` name
+        // the commands its answer comes back as — the same shape an effect
+        // binding uses. Omit both and the handler stays fire-and-forget.
+        if let Some(rest) = t.strip_prefix("success") {
+            if let Some(v) = between_quotes(rest) { handler.success = v; i += 1; continue; }
+        }
+        if let Some(rest) = t.strip_prefix("failure") {
+            if let Some(v) = between_quotes(rest) { handler.failure = v; i += 1; continue; }
+        }
         if t == "canned do" || t.starts_with("canned do ") || t.starts_with("canned do;") {
             let (canned, consumed) = parse_canned_block(&lines[i..]);
             if let Some(c) = canned { handler.canned = Some(c); }

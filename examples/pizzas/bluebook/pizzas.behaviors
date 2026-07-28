@@ -88,4 +88,29 @@ Hecks.behaviors "Pizzas" do
     expect last_swept_at: "sample_sweptat", emits: ["StaleOrdersExpired"]
   end
 
+  # ── Deposit aggregate (the money from a sale, on its way to the bank) ──
+  # Made from OrderPlaced BEFORE the bank is asked, so a deposit the bank
+  # never answers for is still visible. Clear and Bounce are the verdict pair
+  # the hecksagon rewires the banking edge to.
+
+  test "Make records the money owed to the bank" do
+    tests "Make", on: "Deposit"
+    input  order: "1", amount: 1400
+    expect amount: 1400, status: "pending", emits: ["DepositMade"]
+  end
+
+  test "Clear banks the deposit" do
+    tests "Clear", on: "Deposit"
+    setup  "Make", order: "1", amount: 1400
+    input  deposit: "1"
+    expect status: "cleared", emits: ["DepositCleared"]
+  end
+
+  test "Bounce records the bank's refusal, and why" do
+    tests "Bounce", on: "Deposit"
+    setup  "Make", order: "1", amount: 1400
+    input  deposit: "1", reason: "account closed"
+    expect status: "bounced", reason: "account closed", emits: ["DepositBounced"]
+  end
+
 end

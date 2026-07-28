@@ -170,11 +170,19 @@ impl Runtime {
                 &invocation_id,
                 cascade_outcome.is_ok(),
             );
-            if debug {
-                match &cascade_outcome {
-                    Ok(_)  => eprintln!("[web_tool:debug] cascaded into {} ok", result_into_target),
-                    Err(e) => eprintln!("[web_tool:debug] cascade into {} failed: {:?}", result_into_target, e),
+            match &cascade_outcome {
+                Ok(_) => {
+                    if debug {
+                        eprintln!("[web_tool:debug] cascaded into {} ok", result_into_target);
+                    }
                 }
+                // Always loud : the fetch succeeded and the command that was
+                // supposed to RECORD it refused. Hidden behind an env var,
+                // that reads as a web call nobody ever made.
+                Err(e) => eprintln!(
+                    "  ⚠ [web_tool] cascade into {} REFUSED: {:?}",
+                    result_into_target, e
+                ),
             }
             let _ = cascade_outcome;
         }

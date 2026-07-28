@@ -171,6 +171,88 @@ Hecks.bluebook "Pizzas" do
     end
   end
 
+  aggregate "Deposit" do
+    description "Money from a sale on its way to the bank. The shop's own word for it — you make the deposit, and it either clears or it bounces. One Deposit per sale, made when the order is placed and closed when the bank has answered, which is what makes 'did every sale reach the bank?' a question the domain can answer instead of a line in a log. Deliberately the same word Banking uses for the other side of the same money : in here it is OUR money going out, in there it is a credit landing on an account. One word, two contexts, which is what bounded contexts are for."
+
+    reference_to Order
+    attribute :amount, Amount
+    attribute :reason, Reason
+
+    value_object "Amount" do
+      # Integer cents, like every other money value here.
+      attribute :cents, Integer, default: 0
+      attribute :currency, default: "USD"
+      invariant "must be non-negative" do
+        cents >= 0
+      end
+    end
+
+    value_object "Reason" do
+      # Why the bank would not take it — in the bank's words, carried back
+      # verbatim so the shop can act on it. Empty while the deposit stand.
+      attribute :value, String
+    end
+
+    value_object "DepositStatus" do
+      attribute :value, String
+    end
+
+    # pending until the bank answers. The SAME shape as Order's payment
+    # lifecycle, because it is the same situation seen from the other side :
+    # money in motion, an outside party deciding, and a verdict that comes
+    # back later.
+    attribute :status, DepositStatus, default: "pending" do
+      transition "Clear"  => "cleared"
+      transition "Bounce" => "bounced"
+    end
+
+    command "Make" do
+      role "System"
+      goal "Make the deposit for a sale — money owed to the bank"
+      # Made from the sale itself : the hecksagon hands OrderPlaced here
+      # BEFORE anything is sent anywhere. The deposit exists before the bank
+      # is asked, so a deposit the bank never answers for is still visible —
+      # one that never cleared, rather than nothing at all.
+      reference_to Order
+      attribute :amount, Amount
+      then_set :amount, to: :amount
+      emits "DepositMade"
+    end
+
+    command "Clear" do
+      role "System"
+      goal "The bank took the money — this deposit cleared"
+      # Cascade-internal : the ledger edge dispatches this when the deposit
+      # succeeds. Never called by hand. pending -> cleared.
+      reference_to Deposit
+      emits "DepositCleared"
+    end
+
+    command "Bounce" do
+      role "System"
+      goal "The bank would not take it — record why, and leave the money owed"
+      # The failure half, and the reason this aggregate exists : a refused
+      # deposit becomes a FACT the pizzeria holds, not an error nobody sees.
+      # pending -> bounced.
+      reference_to Deposit
+      attribute :reason, Reason
+      then_set :reason, to: :reason
+      emits "DepositBounced"
+    end
+
+    # ── Queries ──
+
+    query "Outstanding" do
+      description "Deposits the bank has not answered for yet — the end-of-day question : what have we sold that has not reached the bank?"
+      where status: "pending"
+    end
+
+    query "Bounced" do
+      description "Deposits the bank refused, with the reason it gave — the list somebody has to do something about."
+      where status: "bounced"
+    end
+  end
+
   aggregate "Cart" do
     description "A customer's in-progress selection, held IN MEMORY only — the transient staging area before PlaceOrder mints the durable Order. A half-filled or abandoned cart is worth nothing across a restart, so it never touches disk. This is the exemplar EPHEMERAL aggregate : wired `Pizzas::Cart.persisted_by(\"Memory\")` in pizzas.hecksagon, so the runtime keeps it in an in-process HashMap — the discriminating case that proves the memory adapter BITES, sitting beside Pizza / Order on Heki in the same domain."
     reference_to Pizza

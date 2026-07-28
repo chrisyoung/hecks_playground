@@ -92,7 +92,8 @@ fn resolve_driven_adapters_at_depth(rt: &mut Runtime, event: &Event, depth: usiz
     // boundary — the resolver doesn't re-walk the world list per
     // dispatch.
     // (adapter kind, its options, its on_events) — one matched driven adapter.
-    type MatchedAdapter = (String, Vec<(String, String)>, Vec<(String, String)>);
+    // (command, interpolated attrs, wrapped values, success cmd, failure cmd)
+    type MatchedAdapter = (String, Vec<(String, String)>, Vec<(String, String)>, String, String);
     let mut matched: Vec<MatchedAdapter> = Vec::new();
     let mut runs_to_exec: Vec<String> = Vec::new();
     let mut checks_to_run: Vec<(String, String)> = Vec::new();
@@ -133,6 +134,8 @@ fn resolve_driven_adapters_at_depth(rt: &mut Runtime, event: &Event, depth: usiz
                                 dispatch.command.clone(),
                                 interp_attrs,
                                 wrapped.clone(),
+                                handler.success.clone(),
+                                handler.failure.clone(),
                             ));
                         }
                         Some(spec) => {
@@ -148,6 +151,8 @@ fn resolve_driven_adapters_at_depth(rt: &mut Runtime, event: &Event, depth: usiz
                                     dispatch.command.clone(),
                                     interp_attrs,
                                     wrapped.clone(),
+                                    handler.success.clone(),
+                                    handler.failure.clone(),
                                 ));
                             }
                         }
@@ -165,7 +170,7 @@ fn resolve_driven_adapters_at_depth(rt: &mut Runtime, event: &Event, depth: usiz
 
     if matched.is_empty() && runs_to_exec.is_empty() && checks_to_run.is_empty() { return; }
 
-    for (command, declared_attrs, wrapped_values) in matched {
+    for (command, declared_attrs, wrapped_values, on_success, on_failure) in matched {
         // Merge order : wrapped values first, then declared attrs
         // override on key collision. A literal `dispatch "Y", id: "x"`
         // pins `id` regardless of what canned/world declared. The
@@ -184,10 +189,55 @@ fn resolve_driven_adapters_at_depth(rt: &mut Runtime, event: &Event, depth: usiz
             &event.aggregate_type,
             &event.aggregate_id,
         );
-        if debug {
-            match &outcome {
-                Ok(r) => eprintln!("[driven:debug] cascaded into {} ok agg={} id={}", command, r.aggregate_type, r.aggregate_id),
-                Err(e) => eprintln!("[driven:debug] cascade into {} FAILED: {:?}", command, e),
+        // The verdict re-enters the EMITTING domain as a plain command, the
+        // same way a payment gateway's answer comes back as Authorize or
+        // Decline. The upstream aggregate is the subject — a Deposit that
+        // asked the bank learns that it cleared or bounced — so the verdict
+        // carries `<upstream>: <id>` as its reference, plus the refusal's
+        // own words as `reason`.
+        let verdict_ref = crate::parser_helpers::to_snake_case(&event.aggregate_type);
+        match &outcome {
+            // SUCCESS is debug-only — a working cascade is not news.
+            Ok(r) => {
+                if debug {
+                    eprintln!(
+                        "[driven:debug] cascaded into {} ok agg={} id={}",
+                        command, r.aggregate_type, r.aggregate_id
+                    );
+                }
+                if !on_success.is_empty() {
+                    let mut va: HashMap<String, Value> = HashMap::new();
+                    va.insert(verdict_ref.clone(), Value::Str(event.aggregate_id.clone()));
+                    let _ = command_dispatch::dispatch_cascade(
+                        rt, &on_success, va, &event.aggregate_type, &event.aggregate_id,
+                    );
+                }
+            }
+            // FAILURE is always news. This used to be `if debug` too, so a
+            // cross-context dispatch that the far side REFUSED vanished
+            // unless the reader had guessed to set HECKS_DEBUG_DRIVEN — and
+            // a pizza sale silently failed to bank its takings, with the
+            // upstream command reporting success. An error nobody can see
+            // without an env var is an error nobody sees.
+            Err(e) => {
+                eprintln!(
+                    "  ⚠ [driven] {} → {} REFUSED: {:?}",
+                    event.name, command, e
+                );
+                // A refusal the domain declared a home for stops being an
+                // error message and becomes a FACT it holds : a deposit that
+                // bounced, with the bank's own reason on it, answerable by a
+                // query. Without a `failure` command the refusal is still
+                // loud, but only on stderr — which is why the aggregate that
+                // names one exists.
+                if !on_failure.is_empty() {
+                    let mut va: HashMap<String, Value> = HashMap::new();
+                    va.insert(verdict_ref.clone(), Value::Str(event.aggregate_id.clone()));
+                    va.insert("reason".to_string(), Value::Str(format!("{:?}", e)));
+                    let _ = command_dispatch::dispatch_cascade(
+                        rt, &on_failure, va, &event.aggregate_type, &event.aggregate_id,
+                    );
+                }
             }
         }
         // resolver-on-cascade : if the follow-on emitted an event, drive

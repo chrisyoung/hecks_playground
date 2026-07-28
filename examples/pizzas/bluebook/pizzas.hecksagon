@@ -78,28 +78,45 @@ Hecks.hecksagon "Pizzas" do
   # family, no adapter contract : those buy swappability, and there is nothing
   # here to swap.
   #
-  # This line is the only place Pizzas and Banking touch. pizzas.bluebook never
-  # says "Deposit" ; banking.bluebook never says "pizza" ; neither knows the
-  # other exists. A BLUEBOOK may not know another bluebook — a HECKSAGON is
-  # precisely the ring that is allowed to, which is why Stripe sits two lines
-  # above and is not read as an intrusion. Banking is just another outside
+  # These two blocks are the only place Pizzas and Banking touch. Neither
+  # bluebook knows the other exists. A BLUEBOOK may not know another bluebook —
+  # a HECKSAGON is precisely the ring that is allowed to, which is why Stripe
+  # sits above and is not read as an intrusion. Banking is just another outside
   # thing from in here.
   #
-  # The `{field}` forms are the transformation : a sale's `total` becomes a
-  # deposit's `amount`. That rename IS the anti-corruption layer, and it is one
-  # line long because the two languages are close. When they are not, this is
-  # where the distance gets paid for.
-  #
-  # Nothing comes back. A pizzeria that cannot bank its takings has still sold
-  # the pizza, so there is no verdict for Pizzas to act on ; Banking's own
-  # Deposit givens (positive amount, matching currency) refuse and record on
-  # that side, where the money actually lives.
-  adapter "Banking" do
+  # BOTH domains say "deposit", and they mean different things by it : in here
+  # it is OUR money going out, in there it is a credit landing on an account.
+  # One word, two contexts, and the FQN keeps them apart. That is what bounded
+  # contexts are for.
+
+  # A sale MAKES THE DEPOSIT first — money owed to the bank, written down in the
+  # shop's own words before anything is sent anywhere. So a deposit the bank
+  # never answers for is still visible : one that never cleared, rather than
+  # nothing at all. Without this aggregate a refused deposit exists only as a
+  # line on stderr.
+  adapter "Deposit" do
     driven on "Pizzas::Order.OrderPlaced" do |sale|
+      dispatch "Pizzas::Deposit.Make", order: "{id}", amount: "{total}"
+    end
+  end
+
+  # Then the deposit goes to the bank, and the verdict comes back into PIZZAS as
+  # a plain command — Clear or Bounce — exactly as the payment gateway's verdict
+  # re-enters as Authorize or Decline. The domain stays synchronous and knows
+  # nothing of Banking ; it only ever learns that its deposit cleared, or that it
+  # bounced and why.
+  #
+  # `{field}` is the transformation : a deposit's `amount` is what Banking calls
+  # `amount` too, so the rename is short here. When two languages are further
+  # apart, this is where the distance gets paid for.
+  adapter "Banking" do
+    driven on "Pizzas::Deposit.DepositMade" do |deposit|
       dispatch "Banking::Account.Deposit",
                account:     "pizzeria",
-               amount:      "{total}",
+               amount:      "{amount}",
                description: "Pizza sale"
+      success "Pizzas::Deposit.Clear"
+      failure "Pizzas::Deposit.Bounce"
     end
   end
 
