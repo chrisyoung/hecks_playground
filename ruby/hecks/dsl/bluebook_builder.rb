@@ -2,6 +2,7 @@
 # time. Cannot use chapter-driven loading.
 require "hecks/dsl/event_builder"
 require "hecks/dsl/bluebook_builder/strategic_builders"
+require "hecks/dsl/bluebook_builder/elsewhere_words"
 
 module Hecks
   module DSL
@@ -44,8 +45,7 @@ module Hecks
 
       include AttributeCollector
       include Describable
-      include Hecksagon::ExtensionsDSL if defined?(Hecksagon::ExtensionsDSL)
-      include Hecksagon::StrategicDSL if defined?(Hecksagon::StrategicDSL)
+      include ElsewhereWords
 
       # Initialize a new domain builder with the given domain name.
       #
@@ -69,27 +69,10 @@ module Hecks
         @cadences = []
         @block_grammars = []
         @glossary_rules = []
-        @modules = []
-        @tenancy = nil
-        @event_subscribers = []
-        @world_concerns = []
-        @entry_points = []
         @vision = nil
         @subdomain = nil
         @sme = nil
         @glossary_terms = []
-      end
-
-      # Declare world concerns that this domain aspires to uphold.
-      # Concerns activate corresponding validation rules that check domain design
-      # for alignment. Available concerns: :transparency, :consent, :privacy, :security.
-      #
-      #   world_concerns :transparency, :consent, :privacy
-      #
-      # @param concerns [Array<Symbol>] one or more concern names
-      # @return [void]
-      def world_concerns(*concerns)
-        @world_concerns.concat(concerns.map(&:to_sym))
       end
 
       # Set the strategic vision statement for this domain.
@@ -234,24 +217,7 @@ module Hecks
         gb.instance_eval(&block) if block
       end
 
-      # Logical sub-grouping within the domain.
-      #   domain_module "PolicyManagement" do
-      #     aggregate "GovernancePolicy" do ... end
-      #   end
-      def domain_module(name, &block)
-        mod = { name: name, aggregates: [] }
-        if block
-          sub = ModuleBuilder.new(name, self)
-          sub.instance_eval(&block)
-          mod[:aggregates] = sub.aggregate_names
-        end
-        @modules << mod
-      end
 
-      # Set the multi-tenancy strategy for this domain.
-      #
-      # Deprecated: tenancy moved to Hecksagon. Kept as no-op for compatibility.
-      def tenancy(_strategy); end
 
       # Define a domain service with the given name and optional configuration block.
       #
@@ -267,36 +233,7 @@ module Hecks
         @services << builder.build
       end
 
-      # Register a domain-level event subscriber for the given event.
-      #
-      # Domain-level subscribers react to events from any aggregate in the
-      # domain. They are distinct from aggregate-level subscribers which
-      # are scoped to a single aggregate.
-      #
-      # @param event_name [Symbol, String] the event name to subscribe to
-      # @yield block invoked when the event fires
-      # @return [void]
-      def on_event(event_name, &block)
-        @event_subscribers << BluebookModel::SubscriberRegistration.new(
-          event_name: event_name.to_s, block: block
-        )
-      end
 
-      # Load partial domain definitions from a file.
-      #
-      # Reads the given file and evaluates its contents within this builder's
-      # context, allowing domain definitions to be split across multiple files.
-      # The path is resolved relative to +@_source_dir+ (if set) or +Dir.pwd+.
-      #
-      # @param path [String] relative or absolute path to a Ruby file containing DSL definitions
-      # @return [void]
-      #
-      # @example
-      #   load_from "domain/aggregates/models.rb"
-      def load_from(path)
-        full = File.expand_path(path, @_source_dir || Dir.pwd)
-        instance_eval(File.read(full), full, 1)
-      end
 
       # Define an aggregate root; raises on duplicate names.
       #
@@ -358,15 +295,7 @@ module Hecks
         @paragraphs << Structure::Paragraph.new(name: name, aggregates: added)
       end
 
-      # Declare an autoload entry point file for this domain.
-      # Entry points are the top-level .rb files that set up autoloads
-      # and namespace modules (e.g., "hecks_persist", "hecks_mongodb").
-      #
-      #   entry_point "hecks_persist"
-      #
-      def entry_point(name)
-        @entry_points << name.to_s
-      end
+
 
       # Declare the default command for `storehouse run <file>` when the
       # bluebook is marked executable (shebang). Stored on the domain so
@@ -482,29 +411,18 @@ module Hecks
         domain = Structure::Domain.new(
           name: @name, version: @version, aggregates: @aggregates, paragraphs: @paragraphs, policies: @policies,
           services: @services, views: @views, workflows: @workflows,
-          actors: @actors, tenancy: @tenancy,
-          event_subscribers: @event_subscribers,
+          actors: @actors,
           sagas: @sagas, process_managers: @process_managers,
           cadences: @cadences, block_grammars: @block_grammars,
-          glossary_rules: @glossary_rules, modules: @modules,
+          glossary_rules: @glossary_rules,
           glossary_strict: @glossary_strict || false,
-          world_concerns: @world_concerns,
           description: @description,
-          entry_points: @entry_points,
           vision: @vision, subdomain: @subdomain,
           glossary_terms: @glossary_terms,
           sme: @sme,
           category: @category
         )
         classify_references(domain)
-        if domain.respond_to?(:driving_ports=)
-          domain.driving_ports = @driving_ports || []
-          domain.driven_ports = @driven_ports || []
-          domain.shared_kernel = @shared_kernel || false
-          domain.uses_kernels = @uses_kernels || []
-          domain.anti_corruption_layers = @anti_corruption_layers || []
-          domain.published_events = @published_events || []
-        end
         domain
       end
 
