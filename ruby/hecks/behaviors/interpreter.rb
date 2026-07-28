@@ -55,7 +55,14 @@ module Hecks
           v = attrs[a.name.to_s]
           present = v && !(v.respond_to?(:null?) && v.null?) && v.to_display.to_s != ""
           next if present
-          raise GivenFailed.new("#{a.name} is required", "required")
+          # WORDING IS THE CONTRACT. Rust refuses a missing required
+          # attribute at the PAYLOAD GATE, as MissingAttribute — which
+          # renders "missing attribute: project". This said "project is
+          # required", so the same bluebook refused for the same reason
+          # with a different sentence, and every `expect refused:` on a
+          # required attribute passed in one runtime and failed in the
+          # other. Nothing in the corpus asks for the old wording.
+          raise GivenFailed.new("missing attribute: #{a.name}", "required")
         end
       end
 

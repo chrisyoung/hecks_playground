@@ -124,6 +124,28 @@ module Hecks
       # Qualified forms filter by aggregate so colliding command names resolve
       # to the intended aggregate. The `::` head split is what lets cascade
       # policy triggers ("Plan::Story.MarkReady") dispatch at all.
+      # THE AGGREGATE IS THE LAST SEGMENT. Everything before it is context.
+      #
+      #   "Project"                -> [nil,           "Project"]
+      #   "Plan::Project"          -> ["Plan",        "Project"]
+      #   "Hecks::Plan::Project"   -> ["Hecks::Plan", "Project"]
+      #
+      # This was written inline as `head.split("::", 2)`, which splits from the
+      # LEFT and so read `Hecks::Plan::Project` as the aggregate "Plan::Project"
+      # — a name no aggregate has. Every four-segment address failed to resolve,
+      # which silently broke the SETUPS of nine plan behaviours ; the cascade and
+      # lifecycle assertions that then failed looked like three separate runtime
+      # bugs and were one string split. Rust never had it wrong because it says
+      # `ctx_agg.rsplit("::").next()` — the same rule, from the right.
+      #
+      # A rule that decides what an address MEANS deserves a name ; as an inline
+      # split it was indistinguishable from string handling, and nothing pointed
+      # at it when it was wrong.
+      def context_and_aggregate(head)
+        context, _, aggregate = head.rpartition("::")
+        [context.empty? ? nil : context, aggregate]
+      end
+
       def find_command(name)
         s = name.to_s
         unless s.include?(".")
@@ -135,7 +157,7 @@ module Hecks
         end
         head, _, cmd_name = s.rpartition(".")
         if head.include?("::")
-          ctx, agg_name = head.split("::", 2)
+          ctx, agg_name = context_and_aggregate(head)
         elsif head.include?(".")
           ctx, agg_name = head.split(".", 2)
         else

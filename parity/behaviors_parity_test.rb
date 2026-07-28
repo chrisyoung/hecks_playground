@@ -13,19 +13,27 @@
 #
 require "open3"
 
-STOREHOUSE   = ENV.fetch("STOREHOUSE_BIN") { File.expand_path("../rust/target/release/storehouse", __dir__) }
+require_relative "storehouse_bin"
+STOREHOUSE   = Hecks::Parity::StorehouseBin.path
 RUBY_RUNNER  = File.expand_path("../bin/hecks-behaviors", __dir__)
 KNOWN_DRIFT  = File.expand_path("behaviors_known_drift.txt", __dir__)
 
 # A small sample by default so the suite runs in seconds. Pass a glob
 # via ARGV[0] (e.g. "hecks_conception/nursery/**/*.behaviors") to widen.
+# The sample IS the guarantee. It was three small files, so nine tests where
+# the two runners disagreed about plan — policy cascades, lifecycle
+# auto-advance, refusal wording, address resolution — sat green for as long as
+# nobody ran them side by side, and banking's money guards diverged the same
+# way. Every suite listed here is one both runners now answer identically ;
+# adding a suite to this list is how that stays true.
 DEFAULT_SAMPLE = %w[
   hecks_conception/catalog/bluebook/pizzas.behaviors
   hecks_conception/catalog/bluebook/law.behaviors
   examples/pizzas/bluebook/pizzas.behaviors
+  examples/banking/hecks/banking.behaviors
+  hecks_conception/aggregates/plan/bluebook/plan.behaviors
 ].select { |p| File.exist?(File.expand_path("../#{p}", __dir__)) }
 
-abort "storehouse not built" unless File.executable?(STOREHOUSE)
 abort "ruby runner missing"  unless File.executable?(RUBY_RUNNER)
 
 # Parse "X passed, Y failed, Z errored" from a runner's tail output.

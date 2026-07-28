@@ -162,6 +162,13 @@ module Hecks
           # (payload-gate arc closed the un-guarded gap). Mirrors dump.rs :
           # after description, before attributes — same slot as dump_entity.
           "identified_by" => agg.respond_to?(:identified_by) && agg.identified_by ? agg.identified_by.to_s : nil,
+          # The computed identity's ordered parts. Dumped so PARITY can see it :
+          # policy `wheres` and query `reduction` are both honoured by a runtime
+          # and absent from this dump, which is how two runtimes drift with every
+          # gate green. A new field enters the dump on the day it is added.
+          "identity" => (agg.respond_to?(:identity) ? (agg.identity || []) : []).map { |part|
+            part[:literal] ? { "literal" => part[:literal].to_s } : { "field" => part[:field].to_s }
+          },
           "attributes"    => (agg.attributes || []).map { |a| dump_attribute(a) },
           "value_objects" => (agg.value_objects || []).map { |vo| dump_value_object(vo) },
           "entities"      => (agg.entities || []).map { |ent| dump_entity(ent) },

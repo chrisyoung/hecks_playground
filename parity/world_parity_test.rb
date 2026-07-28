@@ -18,7 +18,8 @@ require "open3"
 require "hecks"
 require_relative "canonical_ir"
 
-STOREHOUSE = ENV.fetch("STOREHOUSE_BIN") { File.expand_path("../rust/target/release/storehouse", __dir__) }
+require_relative "storehouse_bin"
+STOREHOUSE = Hecks::Parity::StorehouseBin.path
 REPO_ROOT  = File.expand_path("..", __dir__)
 
 # Cover every `.world` shipped in-tree except node_modules / vendor / git
@@ -32,7 +33,6 @@ WORLD_FILES = (
 
 KNOWN_DRIFT_FILE = File.expand_path("world_known_drift.txt", __dir__)
 
-abort "storehouse not built — run: (cd rust && cargo build --release)" unless File.executable?(STOREHOUSE)
 
 def load_known_drift
   return {} unless File.exist?(KNOWN_DRIFT_FILE)

@@ -15,8 +15,8 @@
 require "open3"
 require "json"
 
-STOREHOUSE = ENV.fetch("STOREHOUSE_BIN") { File.expand_path("../rust/target/release/storehouse", __dir__) }
-abort "storehouse not built" unless File.executable?(STOREHOUSE)
+require_relative "storehouse_bin"
+STOREHOUSE = Hecks::Parity::StorehouseBin.path
 
 require "hecks"
 require "hecks/dsl/fixtures_builder"

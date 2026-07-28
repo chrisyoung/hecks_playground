@@ -21,10 +21,10 @@ require "open3"
 require "tmpdir"
 require "fileutils"
 
-STOREHOUSE  = ENV.fetch("STOREHOUSE_BIN") { File.expand_path("../rust/target/release/storehouse", __dir__) }
+require_relative "storehouse_bin"
+STOREHOUSE  = Hecks::Parity::StorehouseBin.path
 RUBY_RUNNER = File.expand_path("../bin/hecks-behaviors", __dir__)
 
-abort "storehouse not built" unless File.executable?(STOREHOUSE)
 abort "ruby runner missing"  unless File.executable?(RUBY_RUNNER)
 
 BLUEBOOK = <<~BLUEBOOK

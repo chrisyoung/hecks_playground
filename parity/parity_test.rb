@@ -23,7 +23,8 @@ require "open3"
 require "hecks"
 require_relative "canonical_ir"
 
-STOREHOUSE = ENV.fetch("STOREHOUSE_BIN") { File.expand_path("../rust/target/release/storehouse", __dir__) }
+require_relative "storehouse_bin"
+STOREHOUSE = Hecks::Parity::StorehouseBin.path
 SYNTHETIC  = Dir[File.expand_path("bluebooks/*.bluebook", __dir__)].sort
 REAL       = Dir[File.expand_path("../hecks_conception/aggregates/**/*.bluebook", __dir__)].sort
 # i118 Round 3 — capabilities lifted from hecks_conception/capabilities/
@@ -60,7 +61,6 @@ NURSERY    = Dir[File.expand_path("../hecks_conception/nursery/**/*.bluebook", _
 KNOWN_DRIFT_FILE = File.expand_path("known_drift.txt", __dir__)
 REPO_ROOT  = File.expand_path("..", __dir__)
 
-abort "storehouse not built — run: (cd rust && cargo build --release)" unless File.executable?(STOREHOUSE)
 abort "no fixtures in parity/bluebooks/" if SYNTHETIC.empty?
 
 def load_known_drift
