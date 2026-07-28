@@ -55,7 +55,18 @@ pub fn apply_mutations(
                 // runtime REFUSES the dispatch outright ; full refusal here
                 // needs apply() to grow a Result and is the named follow-up
                 // on the banking-exact card.
-                let Some(amount) = val.as_int() else {
+                // A WHOLE number that arrived as text is still a number.
+                // `as_int()` accepts only Value::Int, so `"1400"` skipped while
+                // `"1400.5"` incremented through the float branch above — the
+                // guard refused whole amounts and admitted fractional ones,
+                // which is not the rule it was written to enforce. Every
+                // cross-context dispatch interpolates its fields as strings
+                // (`amount: "{total}"`), so a $14 sale banked $0 while the
+                // ledger row recorded it : books that do not balance.
+                let Some(amount) = numeric_value(&val)
+                    .filter(|f| f.fract() == 0.0)
+                    .map(|f| f as i64)
+                else {
                     eprintln!(
                         "  ⚠ increment of {} needs a number, got {} — mutation skipped",
                         mutation.field, val
@@ -79,7 +90,13 @@ pub fn apply_mutations(
                 // Same rule as increment : a non-numeric amount skips loudly,
                 // never −1. A balance draining by one cent per bad payload is
                 // money disappearing from somewhere.
-                let Some(amount) = val.as_int() else {
+                // Same correction as increment : a whole number that arrived as
+                // text is still a number, and refusing it drained nothing while
+                // the ledger said otherwise.
+                let Some(amount) = numeric_value(&val)
+                    .filter(|f| f.fract() == 0.0)
+                    .map(|f| f as i64)
+                else {
                     eprintln!(
                         "  ⚠ decrement of {} needs a number, got {} — mutation skipped",
                         mutation.field, val

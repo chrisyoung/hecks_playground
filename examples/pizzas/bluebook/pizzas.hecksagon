@@ -72,6 +72,37 @@ Hecks.hecksagon "Pizzas" do
     failure "Order.Decline"
   end
 
+  # ── CROSS-CONTEXT · every sale is banked ────────────────────
+  # One domain's event calling another domain's command, with the translation
+  # written right where the two meet. That is the WHOLE mechanism — no port, no
+  # family, no adapter contract : those buy swappability, and there is nothing
+  # here to swap.
+  #
+  # This line is the only place Pizzas and Banking touch. pizzas.bluebook never
+  # says "Deposit" ; banking.bluebook never says "pizza" ; neither knows the
+  # other exists. A BLUEBOOK may not know another bluebook — a HECKSAGON is
+  # precisely the ring that is allowed to, which is why Stripe sits two lines
+  # above and is not read as an intrusion. Banking is just another outside
+  # thing from in here.
+  #
+  # The `{field}` forms are the transformation : a sale's `total` becomes a
+  # deposit's `amount`. That rename IS the anti-corruption layer, and it is one
+  # line long because the two languages are close. When they are not, this is
+  # where the distance gets paid for.
+  #
+  # Nothing comes back. A pizzeria that cannot bank its takings has still sold
+  # the pizza, so there is no verdict for Pizzas to act on ; Banking's own
+  # Deposit givens (positive amount, matching currency) refuse and record on
+  # that side, where the money actually lives.
+  adapter "Banking" do
+    driven on "Pizzas::Order.OrderPlaced" do |sale|
+      dispatch "Banking::Account.Deposit",
+               account:     "pizzeria",
+               amount:      "{total}",
+               description: "Pizza sale"
+    end
+  end
+
   # ── DRIVING SIDE · the recurring sweep ──────────────────────────
   # Everything above is the DRIVEN side : edges that LEAVE the domain (the
   # domain composes a call, an adapter runs it — persisted_by, charged_by).

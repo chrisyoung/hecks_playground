@@ -20,13 +20,19 @@ Hecks.bluebook "Pizzas" do
     value_object "Topping" do
       attribute :name, String
       attribute :amount, Integer
+      # A topping is $2, the same way a pizza is $10 : the menu is domain
+      # knowledge. `amount` is HOW MUCH of the topping ; `cents` is what it
+      # adds to the bill.
+      attribute :cents, Integer, default: 200
       invariant "amount must be positive" do
         amount > 0
       end
     end
 
     value_object "Price" do
-      attribute :cents, Integer
+      # A pizza is $10. The menu price lives in the domain because it is a
+      # thing the pizzaiolo says out loud, not a deployment setting.
+      attribute :cents, Integer, default: 1000
       attribute :currency, default: "USD"
       invariant "must be non-negative" do
         cents >= 0
@@ -65,6 +71,7 @@ Hecks.bluebook "Pizzas" do
     description "A customer order referencing a pizza with status tracking. Carries the async-boundary pattern : PlaceOrder emits OrderPlaced, the payment_gateway adapter charges asynchronously, and the verdict re-enters as Authorize or Decline."
     attribute :customer_name, CustomerName
     attribute :items, list_of(OrderItem)
+    attribute :total, Total
     reference_to Pizza
 
     # The gateway's charge reference, set by the async verdict commands.
@@ -80,6 +87,15 @@ Hecks.bluebook "Pizzas" do
 
     value_object "PaymentRef" do
       attribute :value, String
+    end
+
+    value_object "Total" do
+      # Integer cents, like every other money value here — no Floats in a till.
+      attribute :cents, Integer, default: 0
+      attribute :currency, default: "USD"
+      invariant "must be non-negative" do
+        cents >= 0
+      end
     end
 
     value_object "OrderItem" do
@@ -105,6 +121,14 @@ Hecks.bluebook "Pizzas" do
       reference_to Pizza
       attribute :customer_name, CustomerName
       attribute :quantity, Quantity
+      # What the order comes to — $10 a pizza plus $2 a topping, times the
+      # quantity. The TILL works it out and hands it over : a mutation cannot
+      # read the referenced Pizza's price (verified — `then_set :total, from:
+      # <ref'd field>` leaves it 0), so the domain cannot compute this for
+      # itself yet. Carried on OrderPlaced because a sale that cannot say what
+      # it was worth cannot be charged OR banked.
+      attribute :total, Total
+      then_set :total, to: :total
       # Record a line item from the quantity, so the OrderItem invariant
       # (quantity > 0) actually guards something — mirrors AddTopping's append.
       then_set :items, append: { quantity: :quantity }
