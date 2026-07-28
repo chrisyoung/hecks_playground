@@ -102,8 +102,79 @@ pub fn attr_value_from_str(raw: &str) -> Value {
         if let Ok(jv) = serde_json::from_str::<serde_json::Value>(t) {
             return json_to_value_recursive(&jv);
         }
+        // A `.behaviors` file is RUBY, so a value object is written the way
+        // Ruby writes a hash — `{ cents: 1400, currency: "USD" }` — which is not
+        // JSON (bare keys, `=>`). Only strict JSON was accepted, so every value
+        // object handed to a behaviour arrived as a STRING and every VO-typed
+        // given (`amount.positive?`, `balance.covers?(amount)`) had no map to
+        // read. That is the whole reason banking ran differently in the two
+        // runtimes : Ruby's permissive default admitted the unreadable guard,
+        // Rust refused it.
+        if let Some(jv) = ruby_hash_to_json(t) {
+            return json_to_value_recursive(&jv);
+        }
     }
     Value::Str(raw.to_string())
+}
+
+/// Ruby hash literal -> JSON. Quotes bare `key:` labels and rewrites `=>`,
+/// leaving quoted spans alone so a value containing a colon or brace survives.
+fn ruby_hash_to_json(src: &str) -> Option<serde_json::Value> {
+    let mut out = String::with_capacity(src.len() + 16);
+    let mut chars = src.char_indices().peekable();
+    let mut in_string = false;
+    while let Some((i, c)) = chars.next() {
+        if c == '"' && !src[..i].ends_with('\\') {
+            in_string = !in_string;
+            out.push(c);
+            continue;
+        }
+        if in_string {
+            out.push(c);
+            continue;
+        }
+        // `key:` at the start of a pair becomes `"key":`
+        if c.is_ascii_alphabetic() || c == '_' {
+            let start = i;
+            let mut end = i + c.len_utf8();
+            while let Some(&(j, n)) = chars.peek() {
+                if n.is_alphanumeric() || n == '_' {
+                    end = j + n.len_utf8();
+                    chars.next();
+                } else {
+                    break;
+                }
+            }
+            let word = &src[start..end];
+            let is_label = matches!(chars.peek(), Some(&(_, ':')));
+            if is_label {
+                out.push('"');
+                out.push_str(word);
+                out.push('"');
+            } else {
+                // a bare token that is not a label — true/false/null pass through,
+                // anything else becomes a string so the parse still succeeds.
+                match word {
+                    "true" | "false" | "null" | "nil" => {
+                        out.push_str(if word == "nil" { "null" } else { word })
+                    }
+                    _ => {
+                        out.push('"');
+                        out.push_str(word);
+                        out.push('"');
+                    }
+                }
+            }
+            continue;
+        }
+        if c == '=' && matches!(chars.peek(), Some(&(_, '>'))) {
+            chars.next();
+            out.push(':');
+            continue;
+        }
+        out.push(c);
+    }
+    serde_json::from_str(&out).ok()
 }
 
 pub(super) fn json_to_value_recursive(v: &serde_json::Value) -> Value {

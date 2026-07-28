@@ -105,6 +105,18 @@ impl Repository {
             if let Some(Value::Str(s)) = attrs.get(key) {
                 return s.clone();
             }
+            // A VALUE-OBJECT identity — `event_id: { value: "e1" }`. Only a bare
+            // Str was recognised, so a VO-valued id fell past this into the
+            // singleton fallback below and the SECOND record overwrote the
+            // first : two appends, one row. Single-value VOs unwrap here the
+            // same way they already do in query matching and state reads.
+            if let Some(Value::Map(m)) = attrs.get(key) {
+                if m.len() == 1 {
+                    if let Some(v) = m.get("value") {
+                        return v.to_string();
+                    }
+                }
+            }
             // Singleton fallback: no id attr but exactly one existing record.
             if self.store.len() == 1 {
                 if let Some(existing) = self.store.values().next() {

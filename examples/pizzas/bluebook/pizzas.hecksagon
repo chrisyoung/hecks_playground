@@ -32,6 +32,10 @@ Hecks.hecksagon "Pizzas" do
   # persistence-family adapter and the domain never notices.
   Pizzas::Pizza.persisted_by("Heki")
   Pizzas::Order.persisted_by("Heki")
+  # Money owed to the bank must survive a restart. A deposit still pending when
+  # the process dies is exactly the record you cannot afford to lose — it is the
+  # only thing that knows a sale's takings never arrived.
+  Pizzas::Deposit.persisted_by("Heki")
 
   # ── REPLY PORT · persistence (MEMORY) ───────────────────────────────
   # The Cart is transient — an in-progress selection discarded on checkout

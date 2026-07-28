@@ -22,6 +22,16 @@ module Hecks
     module Interpreter
       module_function
 
+      # The aggregate whose command is being judged — held for the duration of
+      # a dispatch so a given can reach its value objects' derivations.
+      def with_aggregate(agg)
+        previous = @current_aggregate
+        @current_aggregate = agg
+        yield
+      ensure
+        @current_aggregate = previous
+      end
+
       def check_givens(cmd, state, attrs)
         cmd.givens.each do |g|
           next if evaluate_given(g.expression, state, attrs)
@@ -175,7 +185,107 @@ module Hecks
           when "!=" then return !Value.equal?(left, right)
           end
         end
+        # A RICH VALUE OBJECT's own predicate — `amount.positive?`,
+        # `balance.covers?(amount)`, `amount.same_currency?(balance)`. Not
+        # implemented here at all, these fell to the `true` below and every
+        # money guard in banking silently admitted whatever it was given :
+        # a zero deposit, an overdraft, a withdrawal over the daily limit.
+        # Rust evaluates them (interp_expr::lookup_derivation), so the same
+        # bluebook refused there and passed here — the single largest source
+        # of banking's runtime disagreement.
+        verdict = derivation_verdict(expr, state, attrs)
+        return verdict unless verdict.nil?
+
         true
+      end
+
+      # Evaluate `receiver.method(args...)` when `method` names a `derive`
+      # on the receiver's value object. Ruby keeps the derivation as a PROC,
+      # so it is CALLED with the receiver's fields in scope rather than
+      # re-parsed — the body says `cents >= other.cents` and means it.
+      # Returns nil when this is not a derivation, so the caller falls
+      # through unchanged.
+      def derivation_verdict(expr, state, attrs)
+        agg = @current_aggregate
+        return nil unless agg && expr.end_with?(")") || (agg && expr.end_with?("?"))
+
+        head, arg_src = if expr.end_with?(")")
+                          i = expr.index("(")
+                          return nil unless i
+                          [expr[0...i], expr[(i + 1)..-2]]
+                        else
+                          [expr, nil]
+                        end
+        dot = head.rindex(".")
+        return nil unless dot
+
+        receiver_name = head[0...dot].strip
+        method_name   = head[(dot + 1)..].strip
+        return nil if receiver_name.empty? || receiver_name.include?(".")
+
+        receiver = attrs[receiver_name] || attrs[receiver_name.to_sym] || state.get(receiver_name)
+        return nil unless receiver.respond_to?(:kind) && receiver.kind == :map
+
+        vo = agg.value_objects.find { |v|
+          v.respond_to?(:derivations) &&
+            v.derivations.any? { |d| d.name.to_s == method_name } &&
+            v.attributes.all? { |a| receiver.raw.key?(a.name.to_s) }
+        }
+        deriv = vo&.derivations&.find { |d| d.name.to_s == method_name }
+        return nil unless deriv&.respond_to?(:block) && deriv.block
+
+        args = (arg_src.to_s.empty? ? [] : split_top_level_commas(arg_src)).map { |a|
+          wrap_for_derivation(resolve_expr(a.strip, state, attrs))
+        }
+        !!VOScope.new(receiver.raw).instance_exec(*args, &deriv.block)
+      rescue StandardError
+        # A derivation that cannot be evaluated is not a silent pass — let
+        # the caller's own default decide, and keep the failure visible.
+        nil
+      end
+
+      def wrap_for_derivation(value)
+        return VOScope.new(value.raw) if value.respond_to?(:kind) && value.kind == :map
+
+        value.respond_to?(:raw) ? value.raw : value
+      end
+
+      def split_top_level_commas(src)
+        parts = []
+        depth = 0
+        buf = +""
+        src.each_char do |c|
+          case c
+          when "(", "{", "[" then depth += 1
+          when ")", "}", "]" then depth -= 1
+          end
+          if c == "," && depth.zero?
+            parts << buf
+            buf = +""
+          else
+            buf << c
+          end
+        end
+        parts << buf unless buf.strip.empty?
+        parts
+      end
+
+      # The `self` a derivation body runs against : the value object's own
+      # fields, answered as plain Ruby so `cents >= other.cents` compares
+      # numbers, and nested value objects answered as another scope so
+      # `currency.code` keeps walking.
+      class VOScope
+        def initialize(fields) = @fields = fields
+
+        def method_missing(name, *_args)
+          key = name.to_s
+          return super unless @fields.key?(key)
+
+          v = @fields[key]
+          v.respond_to?(:kind) && v.kind == :map ? VOScope.new(v.raw) : (v.respond_to?(:raw) ? v.raw : v)
+        end
+
+        def respond_to_missing?(name, _priv = false) = @fields.key?(name.to_s)
       end
 
       def split_top_level(expr, op)

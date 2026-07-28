@@ -461,8 +461,9 @@ fn run_one(
         // Plain attribute equality. Compare the field's display form to
         // the expected source-token string — both parsers stringify
         // the same way, so this is the canonical comparison.
-        let actual = state.get(key).to_string();
-        if actual != *expected {
+        let actual_value = state.get(key);
+        let actual = actual_value.to_string();
+        if actual != *expected && !composite_matches(actual_value, expected) {
             return TestRun::fail(&test.description,
                 format!("expected {}: {:?}, got {:?}", key, expected, actual));
         }
@@ -769,10 +770,42 @@ fn to_snake(s: &str) -> String {
     out
 }
 
+/// A composite field compared STRUCTURALLY against a written-out expectation.
+///
+/// `expect last_inbound_at: "{ value: \"2026-05-24T09:00:00Z\" }"` reads as the
+/// value object it is. While a VO was stored as an opaque string that matched
+/// by accident — the expectation echoed the input text. Once a VO is a real map
+/// the display is `"{1 fields}"`, and 167 corpus behaviours that had been
+/// asserting something real would have had to be rewritten into something
+/// weaker.
+///
+/// So the expectation is parsed the same way an input is, and the two are
+/// compared as VALUES. Asserting INTO a value object now works, which is what
+/// those tests were always trying to say.
+fn composite_matches(actual: &Value, expected: &str) -> bool {
+    if !matches!(actual, Value::Map(_) | Value::List(_)) {
+        return false;
+    }
+    let t = expected.trim();
+    if !((t.starts_with('{') && t.ends_with('}')) || (t.starts_with('[') && t.ends_with(']'))) {
+        return false;
+    }
+    &crate::runtime::attr_value_from_str(t) == actual
+}
+
 fn parse_value(s: &str) -> Value {
     if let Ok(n) = s.parse::<i64>() { return Value::Int(n); }
     if s == "true" { return Value::Bool(true); }
     if s == "false" { return Value::Bool(false); }
+    // A VALUE OBJECT written the way a `.behaviors` file writes one —
+    // `amount: { cents: 1400, currency: "USD" }`. Flattened to a Str, every
+    // Money-typed given in banking (`amount.positive?`, `balance.covers?`)
+    // had no map to read, and the two runtimes disagreed about what that
+    // meant : Ruby admitted it, Rust refused it. Same text, two answers.
+    let t = s.trim();
+    if (t.starts_with('{') && t.ends_with('}')) || (t.starts_with('[') && t.ends_with(']')) {
+        return crate::runtime::attr_value_from_str(t);
+    }
     Value::Str(s.to_string())
 }
 

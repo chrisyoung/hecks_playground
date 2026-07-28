@@ -74,8 +74,10 @@ module Hecks
 
         Interpreter.check_required(cmd, attrs)
         CrossAggregateGate.resolve(self, cmd, state, attrs)
-        Interpreter.check_givens(cmd, state, attrs)
-        Interpreter.apply_mutations(cmd, state, attrs)
+        Interpreter.with_aggregate(agg) do
+          Interpreter.check_givens(cmd, state, attrs)
+          Interpreter.apply_mutations(cmd, state, attrs)
+        end
         StateResolver.apply_lifecycle_transition(agg, cmd, state)
         # f4 — invariants on the RESULTING state reject like a failed given.
         Interpreter.check_invariants(agg, state, attrs)
