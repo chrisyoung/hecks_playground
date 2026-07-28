@@ -1,0 +1,212 @@
+Hecks.behaviors "Banking" do
+  vision "A day at the branch. Every test is an ordinary retail-banking transaction — the deposit / withdrawal / transfer triad every account statement is made of, plus the lending and lifecycle events that surround them. Written from the outside in : what a teller, an ATM, a payroll file, or a collections officer actually does, not what the aggregates happen to expose. Half the tests are REFUSALS, because a bank is mostly the transactions it declines : the overdraft, the daily-limit breach, the self-transfer, the overpayment, the closing of an account that still holds money."
+
+  # ================================================================
+  # ACCOUNT OPENING — the relationship before the money
+  # ================================================================
+
+  test "a new customer is registered at the branch" do
+    tests "RegisterCustomer", on: "Customer"
+    input  name: "Ada Lovelace", email: "ada@example.com"
+    expect name: "Ada Lovelace", email: "ada@example.com", status: "active"
+  end
+
+  test "registering a customer announces it to the bank" do
+    tests "RegisterCustomer", on: "Customer"
+    input  name: "Grace Hopper", email: "grace@example.com"
+    expect emits: ["CustomerRegistered"]
+  end
+
+  test "a checking account is opened for that customer" do
+    tests "OpenAccount", on: "Account"
+    setup  "RegisterCustomer", name: "Ada Lovelace", email: "ada@example.com"
+    input  customer: "1", account_type: "checking", daily_limit: 50000, opening_currency: "USD"
+    expect account_type: "checking", status: "open", emits: ["AccountOpened"]
+  end
+
+  # ================================================================
+  # DEPOSITS — money in
+  # ================================================================
+
+  test "payroll direct deposit credits the account" do
+    tests "Deposit", on: "Account"
+    setup  "RegisterCustomer", name: "Ada Lovelace", email: "ada@example.com"
+    setup  "OpenAccount", customer: "1", account_type: "checking", daily_limit: 50000, opening_currency: "USD"
+    input  account: "1", amount: 250000, description: "ACME payroll"
+    expect balance: 250000, ledger_size: 1, emits: ["Deposited"]
+  end
+
+  test "a cash deposit at the teller window appends a credit to the ledger" do
+    tests "Deposit", on: "Account"
+    setup  "RegisterCustomer", name: "Ada Lovelace", email: "ada@example.com"
+    setup  "OpenAccount", customer: "1", account_type: "checking", daily_limit: 50000, opening_currency: "USD"
+    setup  "Deposit", account: "1", amount: 250000, description: "ACME payroll"
+    input  account: "1", amount: 10000, description: "Cash deposit"
+    expect balance: 260000, ledger_size: 2
+  end
+
+  test "a zero deposit is refused — nothing moved" do
+    tests "Deposit", on: "Account"
+    setup  "RegisterCustomer", name: "Ada Lovelace", email: "ada@example.com"
+    setup  "OpenAccount", customer: "1", account_type: "checking", daily_limit: 50000, opening_currency: "USD"
+    input  account: "1", amount: 0, description: "Empty envelope"
+    expect refused: "amount.positive?"
+  end
+
+  # ================================================================
+  # WITHDRAWALS — money out, and the two gates that stop it
+  # ================================================================
+
+  test "an ATM cash withdrawal debits the account" do
+    tests "Withdraw", on: "Account"
+    setup  "RegisterCustomer", name: "Ada Lovelace", email: "ada@example.com"
+    setup  "OpenAccount", customer: "1", account_type: "checking", daily_limit: 50000, opening_currency: "USD"
+    setup  "Deposit", account: "1", amount: 250000, description: "ACME payroll"
+    input  account: "1", amount: 20000, description: "ATM withdrawal"
+    expect balance: 230000, ledger_size: 2, emits: ["Withdrawn"]
+  end
+
+  test "an overdraft is refused — the balance must cover the withdrawal" do
+    tests "Withdraw", on: "Account"
+    setup  "RegisterCustomer", name: "Ada Lovelace", email: "ada@example.com"
+    setup  "OpenAccount", customer: "1", account_type: "checking", daily_limit: 50000, opening_currency: "USD"
+    setup  "Deposit", account: "1", amount: 10000, description: "Small deposit"
+    input  account: "1", amount: 20000, description: "Overdraft attempt"
+    expect refused: "balance.covers?(amount)"
+  end
+
+  test "a withdrawal over the daily limit is refused" do
+    tests "Withdraw", on: "Account"
+    setup  "RegisterCustomer", name: "Ada Lovelace", email: "ada@example.com"
+    setup  "OpenAccount", customer: "1", account_type: "checking", daily_limit: 50000, opening_currency: "USD"
+    setup  "Deposit", account: "1", amount: 900000, description: "Bonus"
+    input  account: "1", amount: 600000, description: "Over the limit"
+    expect refused: "daily_limit.covers?(amount)"
+  end
+
+  # ================================================================
+  # TRANSFERS — the saga : initiated → debited → credited → completed
+  # ================================================================
+
+  test "a transfer between two accounts is initiated" do
+    tests "InitiateTransfer", on: "Transfer"
+    setup  "RegisterCustomer", name: "Ada Lovelace", email: "ada@example.com"
+    setup  "OpenAccount", customer: "1", account_type: "checking", daily_limit: 50000, opening_currency: "USD"
+    input  source: "1", destination: "2", amount: 5000, memo: "Rent", initiated_at: "2026-07-28T09:00:00"
+    expect status: "pending", steps_size: 1, emits: ["TransferInitiated"]
+  end
+
+  test "a transfer to the same account is refused" do
+    tests "InitiateTransfer", on: "Transfer"
+    setup  "RegisterCustomer", name: "Ada Lovelace", email: "ada@example.com"
+    setup  "OpenAccount", customer: "1", account_type: "checking", daily_limit: 50000, opening_currency: "USD"
+    input  source: "1", destination: "1", amount: 5000, memo: "To myself", initiated_at: "2026-07-28T09:00:00"
+    expect refused: "source != destination"
+  end
+
+  test "a settled transfer completes" do
+    tests "CompleteTransfer", on: "Transfer"
+    setup  "InitiateTransfer", source: "1", destination: "2", amount: 5000, memo: "Rent", initiated_at: "2026-07-28T09:00:00"
+    input  transfer: "1", completed_at: "2026-07-28T09:00:05"
+    expect status: "completed", emits: ["TransferCompleted"]
+  end
+
+  test "a failed transfer is rejected with a reason" do
+    tests "RejectTransfer", on: "Transfer"
+    setup  "InitiateTransfer", source: "1", destination: "2", amount: 5000, memo: "Rent", initiated_at: "2026-07-28T09:00:00"
+    input  transfer: "1", reason: "Insufficient funds at source", rejected_at: "2026-07-28T09:00:05"
+    expect status: "rejected", emits: ["TransferRejected"]
+  end
+
+  # ================================================================
+  # LENDING — issue, service, close or default
+  # ================================================================
+
+  test "a loan is issued against an account" do
+    tests "IssueLoan", on: "Loan"
+    setup  "RegisterCustomer", name: "Ada Lovelace", email: "ada@example.com"
+    setup  "OpenAccount", customer: "1", account_type: "checking", daily_limit: 50000, opening_currency: "USD"
+    input  account: "1", principal: 1000000, rate: 525, term: 60
+    expect status: "active", remaining_balance: 1000000, emits: ["LoanIssued"]
+  end
+
+  test "a monthly loan payment reduces the remaining balance" do
+    tests "MakePayment", on: "Loan"
+    setup  "IssueLoan", account: "1", principal: 1000000, rate: 525, term: 60
+    input  loan: "1", amount: 200000, paid_at: "2026-07-28T09:00:00"
+    expect remaining_balance: 800000, payments_size: 1, emits: ["LoanPaymentMade"]
+  end
+
+  test "paying more than is owed is refused" do
+    tests "MakePayment", on: "Loan"
+    setup  "IssueLoan", account: "1", principal: 1000000, rate: 525, term: 60
+    input  loan: "1", amount: 1500000, paid_at: "2026-07-28T09:00:00"
+    expect refused: "amount.cents <= remaining_balance.cents"
+  end
+
+  test "a loan in arrears is put into default" do
+    tests "DefaultLoan", on: "Loan"
+    setup  "IssueLoan", account: "1", principal: 1000000, rate: 525, term: 60
+    input  loan: "1", reason: "90 days past due"
+    expect status: "defaulted", emits: ["LoanDefaulted"]
+  end
+
+  # ================================================================
+  # ACCOUNT LIFECYCLE — suspension, reinstatement, closing
+  # ================================================================
+
+  test "a customer is suspended after a default" do
+    tests "SuspendCustomer", on: "Customer"
+    setup  "RegisterCustomer", name: "Ada Lovelace", email: "ada@example.com"
+    input  customer: "1"
+    expect status: "suspended", emits: ["CustomerSuspended"]
+  end
+
+  test "a suspended customer is reinstated once cleared" do
+    tests "ReinstateCustomer", on: "Customer"
+    setup  "RegisterCustomer", name: "Ada Lovelace", email: "ada@example.com"
+    setup  "SuspendCustomer", customer: "1"
+    input  customer: "1"
+    expect status: "active", emits: ["CustomerReinstated"]
+  end
+
+  test "an account holding money cannot be closed" do
+    tests "CloseAccount", on: "Account"
+    setup  "RegisterCustomer", name: "Ada Lovelace", email: "ada@example.com"
+    setup  "OpenAccount", customer: "1", account_type: "checking", daily_limit: 50000, opening_currency: "USD"
+    setup  "Deposit", account: "1", amount: 10000, description: "Payroll"
+    input  account: "1"
+    expect refused: "balance.cents == 0"
+  end
+
+  test "an emptied account closes" do
+    tests "CloseAccount", on: "Account"
+    setup  "RegisterCustomer", name: "Ada Lovelace", email: "ada@example.com"
+    setup  "OpenAccount", customer: "1", account_type: "checking", daily_limit: 50000, opening_currency: "USD"
+    input  account: "1"
+    expect status: "closed", emits: ["AccountClosed"]
+  end
+
+  # ================================================================
+  # THE READS — what the branch looks at
+  # ================================================================
+
+  test "the open-accounts roll lists the account just opened" do
+    tests "OpenAccounts", on: "Account", kind: :query
+    setup  "RegisterCustomer", name: "Ada Lovelace", email: "ada@example.com"
+    setup  "OpenAccount", customer: "1", account_type: "checking", daily_limit: 50000, opening_currency: "USD"
+    expect count: 1
+  end
+
+  test "the pending-transfers queue holds the transfer just initiated" do
+    tests "PendingTransfers", on: "Transfer", kind: :query
+    setup  "InitiateTransfer", source: "1", destination: "2", amount: 5000, memo: "Rent", initiated_at: "2026-07-28T09:00:00"
+    expect count: 1
+  end
+
+  test "the active-loans servicing view holds the loan just issued" do
+    tests "ActiveLoans", on: "Loan", kind: :query
+    setup  "IssueLoan", account: "1", principal: 1000000, rate: 525, term: 60
+    expect count: 1
+  end
+end

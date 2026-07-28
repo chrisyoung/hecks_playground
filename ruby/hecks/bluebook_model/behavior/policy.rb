@@ -45,7 +45,13 @@ module Hecks
       #   event and must return truthy for the policy to fire
       # @return [Hash{Symbol => Object}] default values for command attributes not present
       #   on the event when a reactive policy fires
-      attr_reader :name, :event_name, :trigger_command, :target_domain, :async, :block, :attribute_map, :condition, :defaults, :translate, :description
+      # @return [Array<Hash>] data-guard clauses read off the TRIGGERING
+      #   EVENT before the policy fires — `where transfer: { ne: "" }` keeps a
+      #   cascade to the events that carry a transfer, so a manual deposit
+      #   never mints a phantom Transfer. Each clause is
+      #   `{ field:, op:, value: }` with op one of :eq :ne :gt :gte :lt :lte
+      #   :in, mirroring rust ir::WhereClause / WhereOp.
+      attr_reader :name, :event_name, :trigger_command, :target_domain, :async, :block, :attribute_map, :condition, :defaults, :translate, :description, :wheres
 
       # Creates a new Policy IR node.
       #
@@ -65,7 +71,7 @@ module Hecks
       #   receives the event and returns a Hash of attributes for the triggered
       #   command, bypassing the normal extract/map/defaults pipeline.
       # @return [Policy]
-      def initialize(name:, event_name: nil, trigger_command: nil, target_domain: nil, async: false, block: nil, attribute_map: {}, condition: nil, defaults: {}, translate: nil, description: nil)
+      def initialize(name:, event_name: nil, trigger_command: nil, target_domain: nil, async: false, block: nil, attribute_map: {}, condition: nil, defaults: {}, translate: nil, description: nil, wheres: [])
         @name = name
         @event_name = event_name && Names.event_name(event_name)
         @trigger_command = trigger_command && Names.command_name(trigger_command)
@@ -77,6 +83,7 @@ module Hecks
         @defaults = defaults
         @translate = translate
         @description = description
+        @wheres = wheres
       end
 
       # Returns whether this policy is a guard policy (has a validation block).
