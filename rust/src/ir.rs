@@ -337,7 +337,24 @@ pub struct UnknownKeyword {
     pub suggestion: String,
 }
 
+/// One element of a COMPUTED identity (`identified_by do customer ; number end`).
+/// A Field takes its value from the command's attrs ; a Literal is the value
+/// itself, which is how a singleton says "there is one of me" without inventing
+/// a key. Order is declaration order, because the identity IS the join.
+///
+/// Identity deliberately does NOT include the aggregate's FQN : the FQN is the
+/// part that gets renamed (Takings -> Deposit, this very session), and an
+/// identity that moves when the model is renamed is not an identity. The
+/// aggregate is already carried beside the id at every layer anyway - state,
+/// store file, dispatch address.
+#[derive(Debug, Clone, PartialEq)]
+pub enum IdentityPart {
+    Field(String),
+    Literal(String),
+}
+
 #[derive(Debug, Clone)]
+
 pub struct Aggregate {
     pub name: String,
     pub description: Option<String>,
@@ -382,6 +399,13 @@ pub struct Aggregate {
     /// just an aggregate identified by an attribute with one canonical
     /// value, no special case.
     pub identified_by: Option<String>,
+
+    /// COMPUTED identity - the ordered parts an id is derived from. Empty
+    /// when nothing is declared (the runtime counter-mints). A single Field
+    /// is exactly what `identified_by :name` always meant ; more than one, or
+    /// any Literal, is the block form. Derived, never minted, so the same
+    /// facts always name the same record.
+    pub identity: Vec<IdentityPart>,
     pub attributes: Vec<Attribute>,
     pub factories: Vec<Factory>,
     pub commands: Vec<Command>,

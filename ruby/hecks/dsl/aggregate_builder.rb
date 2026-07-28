@@ -153,20 +153,54 @@ module Hecks
       #
       #   identified_by :name
       #
-      def identified_by(field)
-        # A bare CONSTANT (`identified_by ServiceName`) is not an identity
-        # field — it names a type, and Rust's parser records identified_by
-        # as None for that form. Ruby called `.to_sym` on the Module and
-        # raised, so the file would not load at all. Ignored here so both
-        # runtimes read the same nothing.
-        #
-        # The form is arguably a mistake in the bluebooks that carry it
-        # (identity by a value-object TYPE rather than a field), but that
-        # is a domain question ; the parser's job is to agree with itself
-        # across runtimes, and silently disagreeing was the actual defect.
+      # `identified_by :number` names the field an id is taken from.
+      #
+      # `identified_by do customer ; number end` COMPUTES the id from
+      # ordered parts : a bare word is a field read from the command's
+      # attrs, a quoted string is a literal (a singleton saying there is
+      # one of it). Same facts, same id, every run — derived, never minted.
+      #
+      # A bare CONSTANT (`identified_by ServiceName`) names a TYPE, not a
+      # field ; Rust records nothing for it, so Ruby does too rather than
+      # raising and making the whole file unreadable.
+      def identified_by(field = nil, &block)
+        if block
+          @identity = IdentityCollector.collect(&block)
+          @identified_by = case @identity
+                           in [{ field: f }] then f
+                           in [] then nil
+                           else :id
+                           end
+          return
+        end
         return unless field.respond_to?(:to_sym)
 
         @identified_by = field.to_sym
+        @identity = [{ field: field.to_sym }]
+      end
+
+      # Collects the block's bare words as fields and its strings as
+      # literals, in declaration order — the order IS the identity.
+      class IdentityCollector
+        def self.collect(&block)
+          c = new
+          last = c.instance_eval(&block)
+          # A bare string is just a String — it never reaches method_missing —
+          # so a block that IS one literal is caught by its return value.
+          # `literal "x"` stays available for a mixed identity.
+          c.parts << { literal: last.to_s } if c.parts.empty? && last.is_a?(String)
+          c.parts
+        end
+
+        attr_reader :parts
+
+        def initialize = @parts = []
+
+        def literal(value) = @parts << { literal: value.to_s }
+
+        def method_missing(name, *_args) = @parts << { field: name.to_sym }
+
+        def respond_to_missing?(_name, _priv = false) = true
       end
 
       # Declare a relationship to another type.
@@ -456,6 +490,7 @@ module Hecks
           metadata: @metadata, references: @references,
           factories: @factories, identity_fields: @identity_fields,
           identified_by: @identified_by,
+          identity: @identity || [],
           description: @description,
           namespace: @namespace, superclass: @superclass, mixins: @mixins,
           views: @views

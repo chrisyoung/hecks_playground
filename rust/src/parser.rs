@@ -365,7 +365,7 @@ fn parse_aggregate(lines: &[&str]) -> (Aggregate, Vec<Policy>, usize) {
         factories: vec![], // births — first-class Factory nodes (2026-06-12)
         commands: vec![], queries: vec![], value_objects: vec![],
         entities: vec![],
-        references: vec![], lifecycle: None, identified_by: None,
+        references: vec![], lifecycle: None, identified_by: None, identity: vec![],
         invariants: vec![],
         views: vec![],
         unknown_keywords: vec![],
@@ -460,7 +460,43 @@ fn parse_aggregate(lines: &[&str]) -> (Aggregate, Vec<Policy>, usize) {
                 i += consumed;
                 continue;
             } else if line.starts_with("identified_by") {
+                // BLOCK form - `identified_by do ... end` - the computed
+                // identity. Each body line is one part, in declaration order :
+                // a bare word is a FIELD read from the command's attrs, a
+                // quoted string is a LITERAL (how a singleton says there is one
+                // of it). The derived id is the parts joined by ':', so the same
+                // facts always name the same record and nothing is minted.
+                if ends_with_do_block(line) {
+                    let mut j = i + 1;
+                    while j < lines.len() {
+                        let b = lines[j].trim();
+                        if b == "end" { break; }
+                        if !b.is_empty() && !b.starts_with('#') {
+                            if let Some(lit) = extract_string(b) {
+                                agg.identity.push(crate::ir::IdentityPart::Literal(lit));
+                            } else {
+                                let field = b.trim_start_matches(':').trim().to_string();
+                                if !field.is_empty() {
+                                    agg.identity.push(crate::ir::IdentityPart::Field(field));
+                                }
+                            }
+                        }
+                        j += 1;
+                    }
+                    // A single plain field is exactly the old form, so it keeps
+                    // the old key ; anything richer is derived and keys off `id`.
+                    match agg.identity.as_slice() {
+                        [crate::ir::IdentityPart::Field(f)] => agg.identified_by = Some(f.clone()),
+                        [] => {}
+                        _ => agg.identified_by = Some("id".to_string()),
+                    }
+                    i = j + 1;
+                    continue;
+                }
                 agg.identified_by = extract_symbol(line);
+                if let Some(f) = &agg.identified_by {
+                    agg.identity = vec![crate::ir::IdentityPart::Field(f.clone())];
+                }
             } else if line.starts_with("view") && ends_with_do_block(line) {
                 // i254 — `view "for_customer" do show :a, :b end` declares
                 // a named projection. parse_view returns the View IR + the

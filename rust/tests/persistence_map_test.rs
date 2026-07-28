@@ -20,7 +20,7 @@ fn agg(name: &str, ctx: &str) -> Aggregate {
         category: None,
         bluebook_version: None,
         realm_path: None,
-        identified_by: None,
+        identified_by: None, identity: vec![],
         attributes: vec![],
         factories: vec![],
         commands: vec![],

@@ -189,6 +189,40 @@ fn dispatch_inner(
     // caller passed it. Command default wins ; else the aggregate's. No-op when the
     // key is already supplied or carries no default (non-singleton aggregates).
     let mut attrs = attrs;
+
+    // COMPUTED IDENTITY. `identified_by do customer ; number end` derives the
+    // id from declared parts instead of minting one : a Field reads the
+    // command's attrs, a Literal is itself (a singleton saying there is one
+    // of it), joined in declaration order. Same facts, same id, every run —
+    // which is what lets a hecksagon NAME the record it means instead of
+    // guessing at whatever the counter handed out.
+    //
+    // A single plain Field is the old form and keys off its own attribute,
+    // so nothing here fires for the 285 aggregates that already say
+    // `identified_by :name`.
+    let identity = rt.domain.aggregates[agg_idx].identity.clone();
+    let computed = identity.len() > 1
+        || matches!(identity.as_slice(), [crate::ir::IdentityPart::Literal(_)]);
+    if computed {
+        let mut parts: Vec<String> = Vec::new();
+        let mut resolvable = true;
+        for part in &identity {
+            match part {
+                crate::ir::IdentityPart::Literal(v) => parts.push(v.clone()),
+                crate::ir::IdentityPart::Field(f) => match attrs.get(f) {
+                    Some(v) => parts.push(v.to_string()),
+                    // A missing identity field cannot be guessed at. Leave the
+                    // id unset and let the usual path answer ; refusing here
+                    // would break the singleton-by-existing-record fallback.
+                    None => resolvable = false,
+                },
+            }
+        }
+        if resolvable {
+            attrs.insert("id".to_string(), Value::Str(parts.join(":")));
+        }
+    }
+
     if let Some(key) = rt.domain.aggregates[agg_idx].identified_by.clone() {
         if !attrs.contains_key(&key) {
             let cmd = cmd_for(rt, res);

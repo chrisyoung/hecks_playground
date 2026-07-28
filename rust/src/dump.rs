@@ -130,6 +130,15 @@ fn dump_aggregate(agg: &Aggregate) -> Value {
         // (it was un-guarded by parity until the payload-gate arc).
         // Same slot as dump_entity's : after description, before attributes.
         "identified_by": agg.identified_by,
+        // The computed identity's ordered parts. Dumped so PARITY can see them :
+        // policy `wheres` and query `reduction` are both honoured by this runtime
+        // and absent from this dump, which is exactly how two runtimes drift
+        // without any gate noticing. A new field goes in the dump on the day it
+        // is added, or it never does.
+        "identity": agg.identity.iter().map(|p| match p {
+            crate::ir::IdentityPart::Field(f)   => serde_json::json!({"field": f}),
+            crate::ir::IdentityPart::Literal(v) => serde_json::json!({"literal": v}),
+        }).collect::<Vec<_>>(),
         "attributes": agg.attributes.iter().map(dump_attribute).collect::<Vec<_>>(),
         "value_objects": agg.value_objects.iter().map(dump_value_object).collect::<Vec<_>>(),
         "entities": agg.entities.iter().map(dump_entity).collect::<Vec<_>>(),

@@ -101,6 +101,11 @@ module Hecks
       #   into the canonical IR JSON so parity stays byte-identical.
       attr_reader :identified_by
 
+      # @return [Array<Hash>] the COMPUTED identity's ordered parts —
+      #   { field: :customer } / { literal: "lexicon" }. Mirrors the Rust IR
+      #   `Aggregate.identity` ; both dumps carry it so parity can see it.
+      attr_reader :identity
+
       # @return [Array<View>] named role-scoped projections of this aggregate
       #   (i254). Portals consume views by name (`record.view("for_customer")`)
       #   so role-scoped renderers all pull from the same single source of
@@ -134,7 +139,7 @@ module Hecks
                      factories: [], computed_attributes: [],
                      projections: [],
                      lifecycle: nil, metadata: {}, origin_domain: nil,
-                     identity_fields: nil, identified_by: nil, description: nil,
+                     identity_fields: nil, identified_by: nil, identity: [], description: nil,
                      namespace: nil, superclass: nil, mixins: [],
                      context: nil, views: [])
         @name = Names.aggregate_name(name)
@@ -160,6 +165,7 @@ module Hecks
         @origin_domain = origin_domain
         @identity_fields = identity_fields
         @identified_by = identified_by
+        @identity = identity || []
         @description = description || @metadata[:description]
         @namespace = namespace
         @superclass = superclass
