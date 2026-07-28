@@ -37,8 +37,8 @@ Hecks.bluebook "Dispatch", version: "2026.05.10.1" do
 
     value_object "ServiceName" do
       attribute :value, String
-      rule "must be the singleton 'dispatch'" do
-        requires { value == "dispatch" }
+      invariant "must be the singleton 'dispatch'" do
+        value == "dispatch"
       end
     end
 
@@ -51,8 +51,8 @@ Hecks.bluebook "Dispatch", version: "2026.05.10.1" do
       # sub-folder grouping ; `Aggregate` and `Command` come from
       # the bluebook itself. Same shape as Lexicon.Phrase.
       attribute :value, String
-      rule "must be app::domain::Aggregate::Command (4 non-empty segments)" do
-        requires { value.split("::").length == 4 && value.split("::").all? { |s| s.length > 0 } }
+      invariant "must be app::domain::Aggregate::Command (4 non-empty segments)" do
+        value.split("::").length == 4 && value.split("::").all? { |s| s.length > 0 }
       end
     end
 
@@ -62,8 +62,8 @@ Hecks.bluebook "Dispatch", version: "2026.05.10.1" do
       # validation time ; the bluebook layer keeps it opaque so any
       # command's attribute set fits the same Route signature.
       attribute :value, String
-      rule "must be a JSON object" do
-        requires { value.start_with?("{") && value.end_with?("}") }
+      invariant "must be a JSON object" do
+        value.start_with?("{") && value.end_with?("}")
       end
     end
 
@@ -76,9 +76,13 @@ Hecks.bluebook "Dispatch", version: "2026.05.10.1" do
       description "Resolve the phrase via Lexicon.Lookup, validate params against the target command's attributes, dispatch through the per-bluebook runtime path, capture the emitted event, and re-emit it as Dispatched. On validation failure the command never runs ; runtime errors surface to the caller."
       attribute Phrase, as: :phrase
       attribute Params, as: :params
-      expects "phrase resolves in the lexicon" do
-        Lexicon.Lookup(phrase: phrase).present?
-      end
+      # PRECONDITION, stated and NOT machine-checked : phrase resolves in the lexicon.
+      #   Lexicon.Lookup(phrase: phrase).present?
+      # The expression floor cannot evaluate this — cross-aggregate lookups,
+      # .start_with?/.split/.match? are not words the interpreter speaks. It
+      # was written as `expects`, which BOTH runtimes ignored ; as a `given`
+      # it would refuse every dispatch, since an unreadable predicate is now
+      # a refusal. Prose until the floor can judge it.
       emits "Dispatched"
     end
   end

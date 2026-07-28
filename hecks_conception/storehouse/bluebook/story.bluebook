@@ -77,8 +77,8 @@ Hecks.bluebook "Story", version: "2026.05.23.1" do
       # The card_ref this Story references AND its own identity — one
       # Story per card. Form is the inbox card slug ("i724", "i528").
       attribute :value, String
-      rule "must be non-empty" do
-        requires { !value.empty? }
+      invariant "must be non-empty" do
+        !value.empty?
       end
     end
 
@@ -87,8 +87,8 @@ Hecks.bluebook "Story", version: "2026.05.23.1" do
       # Mirrors the card's title ; duplicated here so the Story reads
       # standalone without re-opening the card.
       attribute :value, String
-      rule "must be non-empty" do
-        requires { !value.empty? }
+      invariant "must be non-empty" do
+        !value.empty?
       end
     end
 
@@ -103,8 +103,8 @@ Hecks.bluebook "Story", version: "2026.05.23.1" do
       # downstream reactor (voicing, tracing) knows the sequence length
       # without re-reading the steps list.
       attribute :value, Integer
-      rule "must be non-negative" do
-        requires { value >= 0 }
+      invariant "must be non-negative" do
+        value >= 0
       end
     end
 
@@ -113,8 +113,8 @@ Hecks.bluebook "Story", version: "2026.05.23.1" do
       # identity-by-position : the runner sorts by this before
       # dispatching.
       attribute :value, Integer
-      rule "must be non-negative" do
-        requires { value >= 0 }
+      invariant "must be non-negative" do
+        value >= 0
       end
     end
 
@@ -124,8 +124,8 @@ Hecks.bluebook "Story", version: "2026.05.23.1" do
       # storehouse_resolve accepts. Same role as Dispatch.Phrase ; the
       # runner feeds it straight into storehouse_resolve.
       attribute :value, String
-      rule "must be non-empty" do
-        requires { !value.empty? }
+      invariant "must be non-empty" do
+        !value.empty?
       end
     end
 
@@ -135,8 +135,8 @@ Hecks.bluebook "Story", version: "2026.05.23.1" do
       # time. Same opaque-JSON convention as Dispatch.Params — keeps any
       # command's attribute set fitting one append shape.
       attribute :value, String
-      rule "must be a JSON object" do
-        requires { value.start_with?("{") && value.end_with?("}") }
+      invariant "must be a JSON object" do
+        value.start_with?("{") && value.end_with?("}")
       end
     end
 

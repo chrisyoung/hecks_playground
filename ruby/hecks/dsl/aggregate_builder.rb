@@ -32,9 +32,6 @@ module Hecks
     #   agg = builder.build
     #
     class AggregateBuilder
-      # Words the Rust parser walks past — rule / requires / delivery.
-      include UnhonouredWords
-
       Structure = BluebookModel::Structure
       Behavior  = BluebookModel::Behavior
 

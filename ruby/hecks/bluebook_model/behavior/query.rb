@@ -36,8 +36,16 @@ module Hecks
       # @return [String] PascalCase query name (e.g. "Classics", "RecentOrders")
       # @return [Proc] block evaluated in the query DSL context at runtime;
       #   can call +where+, +order+, +limit+, and other query methods
+      # reduction / group_by / scope_to mirror the same-named fields on rust
+      # ir::Query. That runtime PARSES AND HONOURS them — the deciderate
+      # dashboard tests assert a tally, a leaderboard and a per-actor scope —
+      # but the canonical IR dump serialises none of the three, so the parity
+      # harness has never compared them. The same blind spot policy `wheres`
+      # sat in : honoured by one runtime, invisible to the gate that is
+      # supposed to notice the difference.
       attr_reader :name, :block, :description,
-                  :attributes, :wheres, :order_by, :limit
+                  :attributes, :wheres, :order_by, :limit,
+                  :reduction, :group_by, :scope_to
 
       # Creates a new Query IR node.
       #
@@ -54,6 +62,9 @@ module Hecks
         @wheres = []
         @order_by = nil
         @limit = nil
+        @reduction = nil
+        @group_by = nil
+        @scope_to = nil
         record_block_structure! if block
       end
 
@@ -82,6 +93,9 @@ module Hecks
         @wheres      = recorder.wheres
         @order_by    = recorder.recorded_order_by
         @limit       = recorder.recorded_limit
+        @reduction   = recorder.recorded_reduction
+        @group_by    = recorder.recorded_group_by
+        @scope_to    = recorder.recorded_scope_to
       rescue StandardError, ScriptError => e
         # A query body the recorder cannot read is a DEFECT, not an empty
         # query. This used to swallow — "best-effort, fall back to opaque
@@ -132,6 +146,9 @@ module Hecks
       # take args, so a bare attr_reader would shadow them and raise
       # ArgumentError when the host code reads the ivar).
       def recorded_description; @description; end
+      def recorded_reduction;   @reduction;   end
+      def recorded_group_by;    @group_by;    end
+      def recorded_scope_to;    @scope_to;    end
       def recorded_order_by;    @order_by;    end
       def recorded_limit;       @limit;       end
 
@@ -222,6 +239,29 @@ module Hecks
       # pattern as where-clause values.
       def limit(value)
         @limit = LimitSpec.new(value: format_value(value))
+        self
+      end
+
+      # `count` — the query answers HOW MANY rather than which rows. rust
+      # parse_blocks records it as a Reduction, and the deciderate dashboard
+      # tests assert the tally, so this is a live feature. Ruby dropped it on
+      # the floor : a leaderboard query returned rows where the author asked
+      # for a number.
+      def count(*_args)
+        @reduction = :count
+        self
+      end
+
+      # `group_by :player` — one tally per distinct value of the field.
+      def group_by(field)
+        @group_by = field.to_s
+        self
+      end
+
+      # `scope_to :player` — restrict the read to the acting actor's own
+      # rows : the read-side twin of a command's role gate.
+      def scope_to(field)
+        @scope_to = field.to_s
         self
       end
 

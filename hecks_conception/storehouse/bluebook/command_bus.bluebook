@@ -53,8 +53,8 @@ Hecks.bluebook "CommandBus", version: "2026.05.10.1" do
       # this bus accepts. Inferred at compile time from where the
       # bluebooks live ; never declared in source.
       attribute :value, String
-      rule "must be non-empty" do
-        requires { !value.empty? }
+      invariant "must be non-empty" do
+        !value.empty?
       end
     end
 
@@ -63,8 +63,8 @@ Hecks.bluebook "CommandBus", version: "2026.05.10.1" do
       # bus enforces its own scope rule (the first segment must
       # match self.app) before delegating downstream.
       attribute :value, String
-      rule "must be app::domain::Aggregate::Command_or_query (4 non-empty segments)" do
-        requires { value.split("::").length == 4 && value.split("::").all? { |s| s.length > 0 } }
+      invariant "must be app::domain::Aggregate::Command_or_query (4 non-empty segments)" do
+        value.split("::").length == 4 && value.split("::").all? { |s| s.length > 0 }
       end
     end
 
@@ -73,8 +73,8 @@ Hecks.bluebook "CommandBus", version: "2026.05.10.1" do
       # as Dispatch.Params ; the runtime parses into the target's
       # typed attributes (or query parameters) at validation time.
       attribute :value, String
-      rule "must be a JSON object" do
-        requires { value.start_with?("{") && value.end_with?("}") }
+      invariant "must be a JSON object" do
+        value.start_with?("{") && value.end_with?("}")
       end
     end
 
@@ -89,8 +89,8 @@ Hecks.bluebook "CommandBus", version: "2026.05.10.1" do
 
     value_object "RouteCount" do
       attribute :value, Integer
-      rule "must be non-negative" do
-        requires { value >= 0 }
+      invariant "must be non-negative" do
+        value >= 0
       end
     end
 
@@ -101,8 +101,8 @@ Hecks.bluebook "CommandBus", version: "2026.05.10.1" do
       # declares the I/O for each value ; the world file picks one
       # and supplies its credentials.
       attribute :value, String
-      rule "must be one of :fs, :r2, :in_memory" do
-        requires { %w[fs r2 in_memory].include?(value) }
+      invariant "must be one of :fs, :r2, :in_memory" do
+        %w[fs r2 in_memory].include?(value)
       end
     end
 
@@ -111,8 +111,8 @@ Hecks.bluebook "CommandBus", version: "2026.05.10.1" do
       # target ; cli is the laptop ; aws_lambda + axum_local are
       # filed for later iterations.
       attribute :value, String
-      rule "must be one of :cf_worker, :aws_lambda, :cli, :axum_local" do
-        requires { %w[cf_worker aws_lambda cli axum_local].include?(value) }
+      invariant "must be one of :cf_worker, :aws_lambda, :cli, :axum_local" do
+        %w[cf_worker aws_lambda cli axum_local].include?(value)
       end
     end
 
@@ -122,8 +122,8 @@ Hecks.bluebook "CommandBus", version: "2026.05.10.1" do
       # tenant / user scopes for portal-originated traffic ; :none
       # for local CLI hosts that don't authenticate.
       attribute :value, String
-      rule "must be one of :bearer, :jwt, :oauth, :none" do
-        requires { %w[bearer jwt oauth none].include?(value) }
+      invariant "must be one of :bearer, :jwt, :oauth, :none" do
+        %w[bearer jwt oauth none].include?(value)
       end
     end
 
@@ -161,12 +161,20 @@ Hecks.bluebook "CommandBus", version: "2026.05.10.1" do
       description "Filtered Dispatch.Route. Asserts the phrase's first segment matches self.app ; out-of-scope phrases surface as a runtime error before any dispatch. On accept, delegates to Dispatch.Route and re-emits the resulting Dispatched event as Routed. Binds to the HTTP route POST /route. Only PascalCase fourth segments accepted here — snake_case phrases (queries) route through Query.Run via the same HTTP surface but a different handler."
       attribute Phrase, as: :phrase
       attribute Params, as: :params
-      expects "phrase is in this bus's scope" do
-        phrase.start_with?(app.value + "::")
-      end
-      expects "phrase fourth segment is PascalCase (a command, not a query)" do
-        phrase.split("::").last.match?(/\A[A-Z]/)
-      end
+      # PRECONDITION, stated and NOT machine-checked : phrase is in this bus's scope.
+      #   phrase.start_with?(app.value + "::")
+      # The expression floor cannot evaluate this — cross-aggregate lookups,
+      # .start_with?/.split/.match? are not words the interpreter speaks. It
+      # was written as `expects`, which BOTH runtimes ignored ; as a `given`
+      # it would refuse every dispatch, since an unreadable predicate is now
+      # a refusal. Prose until the floor can judge it.
+      # PRECONDITION, stated and NOT machine-checked : phrase fourth segment is PascalCase (a command, not a query).
+      #   phrase.split("::").last.match?(/\A[A-Z]/)
+      # The expression floor cannot evaluate this — cross-aggregate lookups,
+      # .start_with?/.split/.match? are not words the interpreter speaks. It
+      # was written as `expects`, which BOTH runtimes ignored ; as a `given`
+      # it would refuse every dispatch, since an unreadable predicate is now
+      # a refusal. Prose until the floor can judge it.
       emits "Routed"
     end
 

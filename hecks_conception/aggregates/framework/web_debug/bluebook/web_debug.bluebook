@@ -63,6 +63,7 @@ Hecks.bluebook "WebDebug" do
 
     # How many frames are buffered.
     query "Count" do
+      count
     end
   end
 end

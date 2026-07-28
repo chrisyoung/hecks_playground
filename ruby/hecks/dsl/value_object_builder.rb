@@ -33,9 +33,6 @@ module Hecks
     # Includes AttributeCollector for the +attribute+, +list_of+, and
     # +reference_to+ DSL methods.
     class ValueObjectBuilder
-      # Words the Rust parser walks past — rule / requires / delivery.
-      include UnhonouredWords
-
       Structure = BluebookModel::Structure
 
       include AttributeCollector

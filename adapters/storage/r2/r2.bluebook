@@ -61,8 +61,8 @@ Hecks.bluebook "R2Adapter", version: "2026.05.10.1" do
       # (e.g. "Heartbeat", "Consciousness"). Same shape as the
       # third segment of a four-segment phrase.
       attribute :value, String
-      rule "must be non-empty" do
-        requires { !value.empty? }
+      invariant "must be non-empty" do
+        !value.empty?
       end
     end
 
@@ -73,8 +73,8 @@ Hecks.bluebook "R2Adapter", version: "2026.05.10.1" do
       # portability across storage backends (a heki-format binary
       # blob in R2 looks the same as one on the filesystem).
       attribute :value, String
-      rule "must be non-empty" do
-        requires { !value.empty? }
+      invariant "must be non-empty" do
+        !value.empty?
       end
     end
 
@@ -83,8 +83,8 @@ Hecks.bluebook "R2Adapter", version: "2026.05.10.1" do
       # strategy — the kernel generates a UUID per record when it
       # upserts ; the bluebook never sees the id.
       attribute :value, String
-      rule "must be 'uuid'" do
-        requires { value == "uuid" }
+      invariant "must be 'uuid'" do
+        value == "uuid"
       end
     end
 
@@ -93,8 +93,8 @@ Hecks.bluebook "R2Adapter", version: "2026.05.10.1" do
       # :upsert strategy — every aggregate is a singleton, one
       # object per aggregate, overwrites replace.
       attribute :value, String
-      rule "must be 'upsert'" do
-        requires { value == "upsert" }
+      invariant "must be 'upsert'" do
+        value == "upsert"
       end
     end
 
@@ -122,8 +122,8 @@ Hecks.bluebook "R2Adapter", version: "2026.05.10.1" do
       # reference_to declaration (e.g. "Notification" referencing
       # a "Plan").
       attribute :value, String
-      rule "must be non-empty" do
-        requires { !value.empty? }
+      invariant "must be non-empty" do
+        !value.empty?
       end
     end
 
@@ -131,8 +131,8 @@ Hecks.bluebook "R2Adapter", version: "2026.05.10.1" do
       # The PascalCase name of the referenced aggregate (e.g.
       # "Plan" in a reference_to(Plan) declaration on "Notification").
       attribute :value, String
-      rule "must be non-empty" do
-        requires { !value.empty? }
+      invariant "must be non-empty" do
+        !value.empty?
       end
     end
 
@@ -141,8 +141,8 @@ Hecks.bluebook "R2Adapter", version: "2026.05.10.1" do
       # resolution — reference_to(Plan) means "the plan" (the one
       # singleton object), not "plan id X".
       attribute :value, String
-      rule "must be 'singleton'" do
-        requires { value == "singleton" }
+      invariant "must be 'singleton'" do
+        value == "singleton"
       end
     end
 
