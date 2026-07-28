@@ -10,7 +10,7 @@
 //! that moves when the model is renamed is not an identity.
 
 use std::collections::HashMap;
-use storehouse::runtime::{Runtime, Value};
+use storehouse::runtime::{Runtime, RuntimeError, Value};
 use storehouse::parser;
 
 fn s(v: &str) -> Value {
@@ -117,6 +117,70 @@ fn different_facts_are_different_records() {
     let mut ids: Vec<String> = rt.all("Account").iter().map(|r| r.id.clone()).collect();
     ids.sort();
     assert_eq!(ids, vec!["ada:4021", "grace:4021"], "same number, different customer");
+}
+
+/// An identity fact is never CHANGED, because it cannot be : the id is a
+/// function of the facts, so different facts name a different entity. There is
+/// no operation that moves `ada:4021` to `ada:4099` — the second is simply
+/// somebody else. That is what makes derived identity safe to reference from an
+/// immutable event log : nothing it points at can ever move out from under it.
+///
+/// The hazard it leaves is the opposite one, pinned by the next test : a TYPO in
+/// an identity fact does not fail, it addresses a record that does not exist.
+#[test]
+fn different_identity_facts_are_a_different_entity_not_a_moved_one() {
+    let mut rt = booted();
+    rt.dispatch(
+        "Bank::Account.Open",
+        attrs(&[("customer", s("ada")), ("number", s("4021"))]),
+    )
+    .expect("open");
+    rt.dispatch(
+        "Bank::Account.Deposit",
+        attrs(&[("customer", s("ada")), ("number", s("4021")), ("amount", Value::Int(1400))]),
+    )
+    .expect("deposit into the account that exists");
+
+    // A different number is a different account, and the original is untouched.
+    rt.dispatch(
+        "Bank::Account.Deposit",
+        attrs(&[("customer", s("ada")), ("number", s("4099")), ("amount", Value::Int(100))]),
+    )
+    .expect("dispatch");
+
+    let original = rt.all("Account").into_iter().find(|r| r.id == "ada:4021").expect("4021");
+    assert_eq!(
+        original.fields.get("balance").map(|v| v.to_string()).as_deref(),
+        Some("1400"),
+        "the original account must be untouched by a command naming other facts"
+    );
+}
+
+#[test]
+fn re_stating_the_same_identity_facts_is_not_a_change() {
+    let mut rt = booted();
+    rt.dispatch(
+        "Bank::Account.Open",
+        attrs(&[("customer", s("ada")), ("number", s("4021"))]),
+    )
+    .expect("open");
+
+    // Every later command carries the identity facts — that is HOW it finds the
+    // record. Saying the same thing again must never read as moving it.
+    rt.dispatch(
+        "Bank::Account.Deposit",
+        attrs(&[
+            ("customer", s("ada")),
+            ("number", s("4021")),
+            ("amount", Value::Int(1400)),
+        ]),
+    )
+    .expect("the same facts are not a change");
+
+    assert_eq!(
+        rt.all("Account")[0].fields.get("balance").map(|v| v.to_string()).as_deref(),
+        Some("1400")
+    );
 }
 
 #[test]
