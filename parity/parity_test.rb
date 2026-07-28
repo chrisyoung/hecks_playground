@@ -43,6 +43,12 @@ CAPS       = (Dir[File.expand_path("../hecks_conception/capabilities/**/*.bluebo
               Dir[File.expand_path("../tools/**/*.bluebook",        __dir__)] +
               Dir[File.expand_path("../bluebook/**/*.bluebook",     __dir__)] +
               Dir[File.expand_path("../chapters/**/*.bluebook",     __dir__)]).sort
+# The EXAMPLES are the canon every other bluebook is written against — pizzas
+# is the shape the docs and this project's own prose reference, and banking is
+# the money domain. Neither was in any parity set : the two flagship domains
+# were the ones nothing checked. They agree today (banking : 4 aggregates, 14
+# commands, 16 queries, byte-equal) ; this is what keeps them agreeing.
+EXAMPLES   = Dir[File.expand_path("../examples/**/*.bluebook", __dir__)].sort
 CATALOG    = Dir[File.expand_path("../hecks_conception/catalog/**/*.bluebook", __dir__)].sort
 # i117 Round 4 — Miette's anatomy moved to chrisyoung/miette (sibling
 # repo). Both parsers must read it identically when the sibling is
@@ -185,15 +191,16 @@ s_total, s_block, s_expected, s_unx = section("Synthetic fixtures", SYNTHETIC, m
 r_total, r_block, r_expected, r_unx = section("Real bluebooks (aggregates/)", REAL, max_diff_lines: 8)
 c_total, c_block, c_expected, c_unx = section("Framework bluebooks (capabilities + buckets + chapters + bluebook)", CAPS, max_diff_lines: 8)
 k_total, k_block, k_expected, k_unx = section("Catalog bluebooks (catalog/)", CATALOG, max_diff_lines: 8)
+e_total, e_block, e_expected, e_unx = section("Example bluebooks (examples/)", EXAMPLES, max_diff_lines: 8)
 mi_total, mi_block, mi_expected, mi_unx = section("Miette bluebooks (../miette + ../miette_family)", MIETTE, max_diff_lines: 8)
 m_total, m_block, m_expected, m_unx = section("Misc bluebooks (family/applications/actions/chris)", MISC, max_diff_lines: 8)
 n_total, n_block, n_expected, n_unx = section("Nursery bluebooks (nursery/)", NURSERY, max_diff_lines: 4, soft: true)
 
-total       = s_total + r_total + c_total + k_total + mi_total + m_total + n_total
-blocking    = s_block + r_block + c_block + k_block + mi_block + m_block
+total       = s_total + r_total + c_total + k_total + e_total + mi_total + m_total + n_total
+blocking    = s_block + r_block + c_block + k_block + e_block + mi_block + m_block
 soft_fail   = n_block
-expected    = s_expected + r_expected + c_expected + k_expected + mi_expected + m_expected + n_expected
-unx_passes  = s_unx + r_unx + c_unx + k_unx + mi_unx + m_unx + n_unx
+expected    = s_expected + r_expected + c_expected + k_expected + e_expected + mi_expected + m_expected + n_expected
+unx_passes  = s_unx + r_unx + c_unx + k_unx + e_unx + mi_unx + m_unx + n_unx
 passed      = total - blocking - soft_fail - expected - unx_passes.size
 
 puts ""
@@ -202,6 +209,7 @@ puts "  synthetic #{s_total - s_block - s_expected}/#{s_total}"
 puts "  real (aggregates) #{r_total - r_block - r_expected}/#{r_total}"
 puts "  capabilities + framework #{c_total - c_block - c_expected}/#{c_total}"
 puts "  catalog #{k_total - k_block - k_expected}/#{k_total}"
+puts "  examples #{e_total - e_block - e_expected}/#{e_total}"
 puts "  miette #{mi_total - mi_block - mi_expected}/#{mi_total}"
 puts "  misc #{m_total - m_block - m_expected}/#{m_total}"
 puts "  nursery (soft) #{n_total - n_block - n_expected}/#{n_total}"
