@@ -3,7 +3,6 @@ Hecks.bluebook "VinDiction", version: "2026.05.18.1" do
   category "service"
 
   aggregate "Product", "A BAVSound catalog fitment row — one upgrade product paired with one vehicle configuration it fits (make/model/body/chassis/year-range/factory-audio-system). Identified by RowId, a deterministic digest of the fitment-defining fields ; shopifyId is the cart / VIN join key Tom named but is many-to-one over fitment rows (one product fits up to ~80 vehicle configs in the BAVSound export)." do
-    identified_by RowId
 
     value_object "RowId" do
       # Deterministic identity of one fitment row : a stable digest of

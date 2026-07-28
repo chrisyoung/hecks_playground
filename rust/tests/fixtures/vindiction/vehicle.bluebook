@@ -3,7 +3,6 @@ Hecks.bluebook "VinDiction", version: "2026.05.18.1" do
   category "service"
 
   aggregate "Vehicle", "A customer's vehicle, decoded from a VIN — the i3 output contract. Identified by VIN. Carries the dimensions the BAVSound catalog match (i4) filters on: make, model, chassis, body, year, and the factory audio system." do
-    identified_by Vin
 
     value_object "Vin" do
       attribute :value, String

@@ -32,6 +32,9 @@ module Hecks
     #   agg = builder.build
     #
     class AggregateBuilder
+      # Words the Rust parser walks past — rule / requires / delivery.
+      include UnhonouredWords
+
       Structure = BluebookModel::Structure
       Behavior  = BluebookModel::Behavior
 
@@ -154,6 +157,18 @@ module Hecks
       #   identified_by :name
       #
       def identified_by(field)
+        # A bare CONSTANT (`identified_by ServiceName`) is not an identity
+        # field — it names a type, and Rust's parser records identified_by
+        # as None for that form. Ruby called `.to_sym` on the Module and
+        # raised, so the file would not load at all. Ignored here so both
+        # runtimes read the same nothing.
+        #
+        # The form is arguably a mistake in the bluebooks that carry it
+        # (identity by a value-object TYPE rather than a field), but that
+        # is a domain question ; the parser's job is to agree with itself
+        # across runtimes, and silently disagreeing was the actual defect.
+        return unless field.respond_to?(:to_sym)
+
         @identified_by = field.to_sym
       end
 

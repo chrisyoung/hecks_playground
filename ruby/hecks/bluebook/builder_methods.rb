@@ -29,6 +29,17 @@ module Hecks
       model(name, version: version, grammar: :bluebook, &block)
     end
 
+    # `Hecks.domain "Todo" do` — the older spelling of the same opener,
+    # still carried by three deployment bluebooks. Rust never noticed the
+    # difference (it line-scans for the aggregates and ignores the opener
+    # entirely, so those files parse fine there) ; Ruby EVALUATES the file,
+    # so the word was a NoMethodError and the domain was unreadable on this
+    # side. Same entry point, same IR — the name of the door is not the
+    # domain.
+    def domain(name = nil, version: nil, &block)
+      bluebook(name, version: version, &block)
+    end
+
     # Define a behavioral test suite for a domain. The companion-file
     # convention is `<source>_behavioral_tests.bluebook`. Tests are
     # in-memory by definition: the runner instantiates the source

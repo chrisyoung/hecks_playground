@@ -34,7 +34,6 @@ Hecks.bluebook "Dispatch", version: "2026.05.10.1" do
   # full storehouse arc and the four-segment phrase convention.
 
   aggregate "Dispatch", "Singleton command bus over the conception" do
-    identified_by ServiceName
 
     value_object "ServiceName" do
       attribute :value, String

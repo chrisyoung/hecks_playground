@@ -57,7 +57,6 @@ Hecks.bluebook "Query", version: "2026.05.10.1" do
   # arc and the four-segment convention.
 
   aggregate "Query", "Singleton read bus over the conception" do
-    identified_by ServiceName
 
     value_object "ServiceName" do
       attribute :value, String

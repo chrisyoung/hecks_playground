@@ -82,11 +82,18 @@ module Hecks
         @wheres      = recorder.wheres
         @order_by    = recorder.recorded_order_by
         @limit       = recorder.recorded_limit
-      rescue StandardError, ScriptError
-        # Best-effort — leave fields empty, fall back to opaque block.
-        @wheres   = []
-        @order_by = nil
-        @limit    = nil
+      rescue StandardError, ScriptError => e
+        # A query body the recorder cannot read is a DEFECT, not an empty
+        # query. This used to swallow — "best-effort, fall back to opaque
+        # block" — and the cost was total : one unreadable word inside the
+        # block discarded the description, the wheres, the order and the
+        # limit, while the query kept its name and looked entirely fine.
+        # `attribute Vin` did exactly that to VinDiction's by_vin, and
+        # nothing could see it, because a query that filters on nothing is
+        # indistinguishable from a query that was written to filter on
+        # nothing.
+        raise Hecks::BluebookLoadError,
+              "query #{@name.inspect} could not be read : #{e.class} — #{e.message}"
       end
     end
 
@@ -140,7 +147,16 @@ module Hecks
       # list on both sides. Without this the declaration fell through to
       # method_missing and silently no-op'd, dropping the attribute the Rust
       # parser kept (voice_latency / storehouse_log drift).
-      def attribute(name, type = nil, **_opts)
+      def attribute(name, type = nil, **opts)
+        # `attribute Vin` — the same bare-constant shorthand the aggregate
+        # body allows, which a query body may also use. Ruby raised on the
+        # Module here, and because recording is wrapped in a blanket rescue
+        # the failure took the WHOLE query with it : description, wheres and
+        # limit all vanished while the query kept its name and looked fine.
+        if type.nil? && DSL::TypeName.bare_constant?(name)
+          type = name
+          name = opts.delete(:as) || DSL::TypeName.field_name(name)
+        end
         @attributes << BluebookModel::Structure::Attribute.new(name: name, type: type)
         self
       end
@@ -211,12 +227,21 @@ module Hecks
 
       # Best-effort fallthrough — silently no-op so chained calls don't
       # raise (e.g. `where(...).order(:name)` when `order` isn't recognized).
-      def method_missing(_name, *_args, **_kwargs, &_block)
-        self
+      # A word the recorder does not know is a DEFECT in the query, not a
+      # no-op. This returned `self` for anything at all — "gracefully no-op so
+      # chains keep flowing" — which meant a query block could say ANYTHING and
+      # be obeyed by nothing : a typo'd `where`, a filter word that never
+      # existed, a clause moved and misspelled. The query kept its name, lost
+      # its meaning, and read as correct in every tool.
+      def method_missing(name, *_args, **_kwargs, &_block)
+        raise NoMethodError,
+              "unknown word `#{name}` in a query block — the recorder speaks " \
+              "description / attribute / where / order_by / limit"
       end
 
-      def respond_to_missing?(_name, _include_private = false)
-        true
+      # Answering `true` to everything was the same lie told to `respond_to?`.
+      def respond_to_missing?(name, include_private = false)
+        super
       end
 
       private

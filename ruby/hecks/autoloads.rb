@@ -91,6 +91,7 @@ module Hecks
   # and by the +Hecks.build+ entry point.
   module DSL
     autoload :AttributeCollector, "hecks/dsl/attribute_collector"
+    autoload :UnhonouredWords,      "hecks/dsl/unhonoured_words"
     autoload :BluebookBuilder,    "hecks/dsl/bluebook_builder"
     autoload :AggregateBuilder,   "hecks/dsl/aggregate_builder"
     autoload :ValueObjectBuilder, "hecks/dsl/value_object_builder"

@@ -47,7 +47,6 @@ Hecks.bluebook "CommandBus", version: "2026.05.10.1" do
   # the full arc and the four-segment phrase convention.
 
   aggregate "CommandBus", "An app-scoped slice of the universal bus" do
-    identified_by App
 
     value_object "App" do
       # The project folder name — the first segment of every phrase

@@ -36,6 +36,9 @@ module Hecks
     # Includes AttributeCollector for the +attribute+, +list_of+, and
     # +reference_to+ DSL methods.
     class CommandBuilder
+      # Words the Rust parser walks past — rule / requires / delivery.
+      include UnhonouredWords
+
       Structure = BluebookModel::Structure
       Behavior  = BluebookModel::Behavior
 

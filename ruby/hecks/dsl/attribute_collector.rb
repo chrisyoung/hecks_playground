@@ -55,6 +55,27 @@ module Hecks
       #   (e.g. +default:+, +optional:+, +enum:+)
       # @return [void]
       def attribute(name = nil, type = nil, **options, &block)
+        # `attribute ServiceName` — the attribute NAMED BY ITS VALUE OBJECT.
+        # A bare constant in the name slot is both : the field is the
+        # constant snake_cased, the type is the constant itself. Rust has
+        # read it this way all along (`attribute ServiceName` dumps as
+        # `service_name : ServiceName`) ; Ruby called `.to_sym` on a Module
+        # and raised, so ten corpus bluebooks — every storehouse chapter
+        # among them — could not be loaded on this side at all.
+        #
+        # Only when the type slot is EMPTY : `attribute :value, String` and
+        # `attribute :price, Money` are unaffected, and a name that responds
+        # to to_sym is never touched.
+        if type.nil? && TypeName.bare_constant?(name)
+          type = name
+          # `as:` names the field explicitly — `attribute SourceSet, as:
+          # :source_set`. Rust reads both spellings to the same pair
+          # (source_set : SourceSet), so the alias is a courtesy to the
+          # reader rather than a different declaration. Without `as:` the
+          # field is the constant snake_cased, which is the same answer.
+          name = options.delete(:as) || TypeName.field_name(name)
+        end
+
         if name.nil?
           name = :unnamed
           type ||= String

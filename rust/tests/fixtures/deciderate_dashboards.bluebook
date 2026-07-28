@@ -25,11 +25,8 @@ Hecks.bluebook "Deciderate" do
       attribute :estimate, Estimate
     end
     query "Mine" do
-      scope_to :player
-      count
     end
     query "PerPlayer" do
-      group_by :player
     end
   end
   aggregate "Bubble" do
@@ -86,7 +83,6 @@ Hecks.bluebook "Deciderate" do
     end
     query "WinsByOption" do |bracket|
       where bracket: :bracket, status: "resolved"
-      group_by :winner_ref
     end
   end
 end
