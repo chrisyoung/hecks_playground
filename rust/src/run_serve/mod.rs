@@ -143,12 +143,14 @@ pub(crate) fn handle_request(
                 "command": command,
             }));
         }
-        // JSON-aware (same as the cold embed door) : a nested-object arg
-        // decodes to a Map so a value object passed as a command INPUT is not
-        // flattened to a string the arithmetic + given evaluators can't read.
-        let mut rt_attrs: HashMap<String, Value> = attrs_pairs.iter()
-            .map(|(k, v)| (k.clone(), crate::runtime::attr_value_from_str(v)))
-            .collect();
+        // JSON-aware AND schema-aware (same as the cold embed door) : a
+        // nested-object arg decodes to a Map so a value object passed as a
+        // command INPUT is not flattened to a string the arithmetic + given
+        // evaluators can't read, while an attribute declared as TEXT keeps its
+        // text — this is the DEFAULT MCP path, and it is the one that was
+        // writing `{N fields}` over every JSON file. See attr_decode.
+        let mut rt_attrs: HashMap<String, Value> =
+            crate::attr_decode::decode_attrs(&rt.domain, &command, attr_map);
         // RBAC gate (warm door): stamp the caller principal from the
         // environment; dispatch() runs the before-gates + strips the reserved keys.
         crate::runtime::acl_readmodel::stamp_principal_from_env(&mut rt_attrs);
