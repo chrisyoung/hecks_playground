@@ -23,12 +23,31 @@
 
 import { spawn } from "node:child_process";
 
-const STOREHOUSE_BIN = process.env.STOREHOUSE_BIN || "storehouse";
+// REWRITTEN for hecksagain (migration plan Part 5): HECKSAGAIN_CLI
+// replaces STOREHOUSE_BIN as the pointed-at binary -- a Ruby script over
+// hecksagain_runtime, not the retired Rust `storehouse` binary. The
+// runCli/toMcpResponse/toMcpResponsePretty SHAPE stays because it's
+// already generic (a subprocess spawner + response wrapper, not opinionated
+// about the old binary's specific subcommands) -- only the target changes.
+// Migration plan task 5 (Task 5 verification pass, 2026-08-11): this was
+// `../../hecksagain_runtime/...` -- two levels up from
+// tooling/storehouse-mcp/src/ lands at tooling/, not the migration root,
+// so every tool routed through this shared helper (catalog/describe_
+// aggregate/list_aggregates/state/validate/behaviors) spawned a
+// nonexistent tooling/hecksagain_runtime/bin/hecksagain-cli and failed
+// with ENOENT -- caught live by actually running the worktree's own
+// `npm run smoke` end-to-end test, not by reading the code. dispatch.mjs/
+// query.mjs compute their own path independently (5 levels, correctly)
+// and were unaffected -- this file needed a THIRD `../` to reach the
+// same migration root they do.
+const HECKSAGAIN_CLI =
+  process.env.HECKSAGAIN_CLI ||
+  new URL("../../../hecksagain_runtime/bin/hecksagain-cli", import.meta.url).pathname;
 
 export async function runCli(subcommand, args = [], opts = {}) {
   const fullArgs = [subcommand, ...args];
   return await new Promise((resolve, reject) => {
-    const child = spawn(STOREHOUSE_BIN, fullArgs, {
+    const child = spawn(HECKSAGAIN_CLI, fullArgs, {
       env: { ...process.env, ...(opts.env || {}) },
       stdio: opts.stdin ? ["pipe", "pipe", "pipe"] : ["ignore", "pipe", "pipe"],
     });

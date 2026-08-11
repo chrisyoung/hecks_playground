@@ -1,65 +1,44 @@
 // describe_aggregate.mjs — storehouse__describe_aggregate
 //
-// Emits the canonical-IR JSON for ONE aggregate inside a bluebook — the
-// structured shape produced by dump::dump_aggregate. Use to look up an
-// aggregate's commands, queries, attributes, references, and value objects
-// before constructing a dispatch verb. For the full domain catalog, use
-// storehouse__catalog.
+// REWRITTEN for hecksagain (migration plan Part 5): the old version had
+// no dedicated `describe` CLI subcommand, so it fetched the WHOLE domain
+// dump and filtered client-side. hecksagain-cli exposes `describe`
+// natively (HecksagainRuntime.describe_aggregate) — a real simplification,
+// not just parity: one call instead of fetch-then-filter, and the "which
+// names exist" miss message comes from the same place catalog's data does.
+// Also matches the corpus-root contract every other rewritten tool now
+// uses -- `bluebook_path` (a single file) is gone; `aggregates_dir` (a
+// corpus root or single domain directory) plus a fully-qualified
+// Domain::Aggregate name is what hecksagain-cli describe actually takes.
 //
-// There is no `storehouse describe` CLI subcommand ; this tool shells
-// `storehouse dump <bluebook>` (the whole-domain canonical IR) and filters
-// to the named aggregate in-process. A miss returns isError with the list
-// of available aggregate names so the caller can correct the spelling.
+// Emits the IR for ONE aggregate inside a domain — commands, queries,
+// attributes, references, value objects — before constructing a dispatch
+// verb. For the full domain, use storehouse__catalog.
 
 import { z } from "zod";
-import { runCli } from "../../cli_dispatch.mjs";
+import { runCli, toMcpResponsePretty } from "../../cli_dispatch.mjs";
 
 export default {
   name: "storehouse__describe_aggregate",
   title: "Describe One Aggregate",
   description:
-    "Emit the canonical-IR JSON for one aggregate inside a bluebook. Shows commands, queries, attributes, references, value_objects, lifecycle states, and entities. Shells `storehouse dump <bluebook>` and filters to the named aggregate. Use as a focused discovery probe before storehouse__dispatch ; for the whole domain use storehouse__catalog.",
+    "Emit the IR for one aggregate loaded from an aggregates root. Shows commands, queries, attributes, references, value_objects, lifecycle states. Runs hecksagain-cli describe <aggregates_dir> <Domain::Aggregate>. Use as a focused discovery probe before storehouse__dispatch ; for the whole domain use storehouse__catalog.",
   inputSchema: {
-    bluebook_path: z
+    aggregates_dir: z
       .string()
       .min(1)
-      .describe("Absolute path to a .bluebook file."),
+      .describe(
+        "Absolute path to the aggregates root, or a single domain's own directory (containing a bluebook/ subdir). NOT a single .bluebook file.",
+      ),
     aggregate_name: z
       .string()
       .min(1)
       .describe(
-        "Exact aggregate name (case-sensitive). Get the available list from storehouse__list_aggregates.",
+        "Fully-qualified aggregate name, Domain::Aggregate (case-sensitive). Get the available list from storehouse__list_aggregates.",
       ),
   },
   async run(args) {
-    const result = await runCli("dump", [args.bluebook_path]);
-    if (!result.ok) {
-      return {
-        content: [{ type: "text", text: result.stderr || result.stdout || `exit=${result.exit_code}` }],
-        isError: true,
-      };
-    }
-    let domain;
-    try {
-      domain = JSON.parse(result.stdout.trim());
-    } catch (err) {
-      return {
-        content: [{ type: "text", text: `could not parse dump output as JSON: ${err.message}` }],
-        isError: true,
-      };
-    }
-    const aggregates = Array.isArray(domain.aggregates) ? domain.aggregates : [];
-    const match = aggregates.find((a) => a.name === args.aggregate_name);
-    if (!match) {
-      const available = aggregates.map((a) => a.name).join(", ");
-      return {
-        content: [{ type: "text", text: `aggregate "${args.aggregate_name}" not found. available: [${available}]` }],
-        isError: true,
-      };
-    }
-    return {
-      content: [{ type: "text", text: JSON.stringify(match, null, 2) }],
-      isError: false,
-    };
+    const result = await runCli("describe", [args.aggregates_dir, args.aggregate_name]);
+    return toMcpResponsePretty(result);
   },
 };

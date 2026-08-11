@@ -18,19 +18,44 @@ import { tmpdir } from "node:os";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SERVER = path.join(__dirname, "..", "src", "server.mjs");
-const HECKS_ROOT = "/Users/christopheryoung/Projects/hecks";
-// Stable known-good bluebook + behaviors for smoke discovery probes.
-// Picked post-reorg : RestartPrompt is a small single-aggregate bluebook,
-// its companion behaviors file runs clean. Replaces the retired world.bluebook
-// + sandbox.behaviors pairing.
-const SMOKE_BLUEBOOK = path.join(
-  HECKS_ROOT,
-  "hecks_conception/aggregates/framework/restart_prompt/bluebook/restart_prompt.bluebook",
-);
+// Migration plan task 5: this pointed at the MAIN hecks repo, still on
+// the old dialect and deliberately untouched until Task 6's cutover --
+// hecksagain-cli correctly refuses it ("no such domain directory").
+// This smoke test's whole job is verifying the PRE-cutover migration
+// worktree's own rewritten hecks_conception, so it needs to point at
+// the worktree, not the not-yet-cut-over main repo. Caught live by
+// actually running `npm run smoke`, not by reading the code.
+const HECKS_ROOT = "/Users/christopheryoung/Projects/hecks-hecksagain-migration";
+// Migration plan Part 5 "correction" pass: hecksagain-cli's validate /
+// catalog / describe / list / macrophage subcommands only ever accept a
+// CORPUS ROOT directory, never a single .bluebook file (confirmed against
+// every real invocation this whole migration has made) -- SMOKE_ROOT
+// replaces the old SMOKE_BLUEBOOK single-file target for those probes.
+// RestartPrompt (a small single-aggregate bluebook under this root) is
+// still the known-good aggregate the discovery probes look for.
+const SMOKE_ROOT = path.join(HECKS_ROOT, "hecks_conception");
 const SMOKE_BEHAVIORS = path.join(
   HECKS_ROOT,
   "hecks_conception/aggregates/framework/restart_prompt/bluebook/restart_prompt.behaviors",
 );
+// Found live this pass (migration plan Part 5 "correction" pass, running
+// the ACTUAL MCP tool surface for the first time rather than
+// hecksagain-cli directly): Tools::ShellTool moved onto `event_sourced`
+// sugar (Heki-backed, durable) in an earlier pass this session -- the
+// smoke test's own prior comment block ("a tool invocation's CURRENT
+// STATE is deliberately ephemeral... Memory-backed... does not outlive
+// its process") describes a PRIOR corpus state, not the current one.
+// Confirmed directly: `hecksagain-cli dispatch ... id=cli-smoke-bash`
+// after any earlier run now fails `AlreadyExists` (Bash is a creates-only
+// command per the corpus-wide `creates?` finding -- Part 3a's own
+// dedicated, deliberately-unfixed section) because the id genuinely
+// persists across process boundaries. A fixed literal id therefore made
+// this whole smoke test non-idempotent -- green once, then red on every
+// subsequent run, forever, until someone deleted the staged tmp corpus by
+// hand. RUN_ID makes every dispatch id in this file unique per run so the
+// suite stays repeatable, and the state assertions below now test the
+// REAL current (durable) behaviour instead of a stale assumption.
+const RUN_ID = Date.now();
 
 let failed = 0;
 function ok(label) { process.stderr.write(`ok   ${label}\n`); }
@@ -108,18 +133,18 @@ async function main() {
   const uris = resources.resources.map((r) => r.uri);
   truthy(uris.includes("storehouse://events"), "resources/list has storehouse://events");
 
-  // -- storehouse__validate on a known-good bluebook
+  // -- storehouse__validate on the known-good corpus root
   const validateRes = await client.callTool({
     name: "storehouse__validate",
-    arguments: { bluebook_path: SMOKE_BLUEBOOK },
+    arguments: { aggregates_dir: SMOKE_ROOT },
   });
   eq(validateRes.isError, false, "validate isError=false");
-  contains(validateRes.content[0].text, "VALID", "validate stdout VALID");
+  contains(validateRes.content[0].text, '"valid":true', "validate reports valid:true");
 
   // -- storehouse__catalog returns the full IR (JSON, pretty-printed)
   const catalogRes = await client.callTool({
     name: "storehouse__catalog",
-    arguments: { bluebook_path: SMOKE_BLUEBOOK },
+    arguments: { aggregates_dir: SMOKE_ROOT },
   });
   eq(catalogRes.isError, false, "catalog isError=false");
   contains(catalogRes.content[0].text, '"aggregates"', "catalog stdout has aggregates key");
@@ -129,7 +154,7 @@ async function main() {
   // -- storehouse__describe_aggregate emits one aggregate's IR
   const describeRes = await client.callTool({
     name: "storehouse__describe_aggregate",
-    arguments: { bluebook_path: SMOKE_BLUEBOOK, aggregate_name: "RestartPrompt" },
+    arguments: { aggregates_dir: SMOKE_ROOT, aggregate_name: "RestartPrompt::RestartPrompt" },
   });
   eq(describeRes.isError, false, "describe_aggregate isError=false");
   contains(describeRes.content[0].text, '"name": "RestartPrompt"', "describe_aggregate names RestartPrompt");
@@ -137,15 +162,15 @@ async function main() {
   // -- describe_aggregate on a missing name surfaces the available list
   const describeMissRes = await client.callTool({
     name: "storehouse__describe_aggregate",
-    arguments: { bluebook_path: SMOKE_BLUEBOOK, aggregate_name: "DoesNotExist" },
+    arguments: { aggregates_dir: SMOKE_ROOT, aggregate_name: "RestartPrompt::DoesNotExist" },
   });
   eq(describeMissRes.isError, true, "describe_aggregate miss isError=true");
   contains(describeMissRes.content[0].text, "available", "describe_aggregate miss lists available names");
 
-  // -- storehouse__list_aggregates (parse) returns RestartPrompt
+  // -- storehouse__list_aggregates returns RestartPrompt
   const listAggRes = await client.callTool({
     name: "storehouse__list_aggregates",
-    arguments: { bluebook_path: SMOKE_BLUEBOOK },
+    arguments: { aggregates_dir: SMOKE_ROOT },
   });
   eq(listAggRes.isError, false, "list_aggregates isError=false");
   contains(listAggRes.content[0].text, "RestartPrompt", "list_aggregates mentions RestartPrompt");
@@ -154,7 +179,7 @@ async function main() {
   const queryShapeRes = await client.callTool({
     name: "storehouse__query",
     arguments: {
-      aggregates_dir: path.join(HECKS_ROOT, "hecks_conception"),
+      aggregates_dir: SMOKE_ROOT,
       verb: "Tools::ShellTool.Bash",
       summary: "intentionally wrong shape to test query verb guard",
     },
@@ -166,9 +191,9 @@ async function main() {
   const dispatchNoSummaryRes = await client.callTool({
     name: "storehouse__dispatch",
     arguments: {
-      aggregates_dir: path.join(HECKS_ROOT, "hecks_conception"),
+      aggregates_dir: SMOKE_ROOT,
       command: "Tools::ShellTool.Bash",
-      args: { id: "cli-smoke-no-summary", shell_command: "echo nope" },
+      args: { id: `cli-smoke-no-summary-${RUN_ID}`, shell_command: "echo nope" },
       summary: "",
     },
   });
@@ -177,37 +202,42 @@ async function main() {
 
   // -- storehouse__dispatch — universal door. Dispatch ShellTool.Bash
   // and assert ok=true + state carries the captured shell command.
+  const SMOKE_BASH_ID = `cli-smoke-bash-${RUN_ID}`;
   const dispatchRes = await client.callTool({
     name: "storehouse__dispatch",
     arguments: {
-      aggregates_dir: path.join(HECKS_ROOT, "hecks_conception"),
+      aggregates_dir: SMOKE_ROOT,
       command: "Tools::ShellTool.Bash",
-      args: { id: "cli-smoke-bash", shell_command: "echo smoke", description: "cli smoke" },
+      args: { id: SMOKE_BASH_ID, shell_command: "echo smoke", description: "cli smoke" },
       summary: "cli smoke dispatch for storehouse-mcp test",
     },
   });
   eq(dispatchRes.isError, false, "dispatch ShellTool.Bash isError=false");
-  // i654 — content[0].text is now the rich rendering (headline +
-  // timeline + state + auto_summary). Raw stdout still lives verbatim
-  // in structuredContent.stdout, asserted further down.
-  contains(dispatchRes.content[0].text, "✓ Tools::ShellTool.Bash", "dispatch text has success headline");
-  contains(dispatchRes.content[0].text, "Timeline", "dispatch text has timeline section");
-  // i697 — the dispatch tool deliberately returns ONLY the rich content
-  // rendering (no structuredContent ; it surfaced as an unreadable JSON blob
-  // in the conversation). The events / invocation id / auto_summary are
-  // rendered INTO the content text, so assert them there.
+  // REWRITTEN for hecksagain (migration plan Part 5, dispatch.mjs's own
+  // rewrite -- see its header): the i654/i697-era rich timeline/
+  // invocation-id/"exit N" rendering scraped the retired Rust binary's
+  // human-readable stdout ; hecksagain-cli emits clean {ok, state,
+  // events} JSON directly and dispatch.mjs's render() renders exactly
+  // that shape (headline, an "Events:" section listing each event's
+  // name + aggregate#id, a "State:" section with the record's JSON) --
+  // no timeline text, no per-tool "exit N" line, no "Aggregate.Command#"
+  // invocation marker. These assertions were stale against the CURRENT
+  // dispatch.mjs (found live running the real MCP surface, not by
+  // reading code) ; updated to check the rendering that actually exists.
   const dispatchText = dispatchRes.content[0].text;
-  contains(dispatchText, "exit 0", "dispatch text reports exit 0");
-  contains(dispatchText, "ShellTool.Bash#", "dispatch timeline carries an invocation marker");
-  contains(dispatchText, "Tools::ShellTool.Bash", "dispatch auto_summary names the verb");
+  contains(dispatchText, "✓ Tools::ShellTool.Bash", "dispatch text has success headline");
+  contains(dispatchText, "Events:", "dispatch text has an Events section");
+  contains(dispatchText, "BashRan", "dispatch events section names the emitted event");
+  contains(dispatchText, `Tools::ShellTool#${SMOKE_BASH_ID}`, "dispatch events section carries the aggregate#id");
+  contains(dispatchText, "State:", "dispatch text has a State section");
 
   // -- multi-line output renders as real newlines, not escaped \\n (i607)
   const multiLineRes = await client.callTool({
     name: "storehouse__dispatch",
     arguments: {
-      aggregates_dir: path.join(HECKS_ROOT, "hecks_conception"),
+      aggregates_dir: SMOKE_ROOT,
       command: "Tools::ShellTool.Bash",
-      args: { id: "cli-smoke-multiline", shell_command: "printf 'line1\\nline2\\nline3\\n'", description: "multiline test" },
+      args: { id: `cli-smoke-multiline-${RUN_ID}`, shell_command: "printf 'line1\\nline2\\nline3\\n'", description: "multiline test" },
       summary: "verify multi-line stdout renders without escape sequences",
     },
   });
@@ -216,66 +246,72 @@ async function main() {
   const escapedNewlines = (multiLineText.match(/\\n/g) || []).length;
   truthy(realNewlines > escapedNewlines, "multi-line output has real newlines, not escaped \\n");
 
-  // -- storehouse__state — a tool invocation's CURRENT STATE is deliberately
-  // ephemeral, and this pins that decision rather than lamenting it.
-  //
-  // `Tools::ShellTool.persisted_by("Memory")` is correct : a tool call is an
-  // EVENT, not an entity. It has no lifecycle and nothing to update, so "the
-  // current state of ShellTool#cli-smoke-bash" is meaningless, and persisting it
-  // would grow a write-once, never-read table forever. The DURABLE record is the
-  // Log — `Tools::ShellTool.event_sourced` carries the invocation with its actor,
-  // verdict and hash chain (rust/tests/tools_event_sourced_test.rs proves it).
-  //
-  // This assertion used to expect the record to SURVIVE into this second process,
-  // and passed only because `adapter :memory` was inert and tools fell through to
-  // the implicit heki default. When i728 made :memory actually select
-  // Backend::Memory — honouring a declaration that had been there all along — the
-  // assertion went red. It had encoded observed behaviour rather than declared
-  // intent. What the door must guarantee is that the read ANSWERS CLEANLY, not
-  // that ephemeral state outlives its process.
+  // -- storehouse__state — reads back the record storehouse__dispatch just
+  // wrote, by its fully-qualified Domain::Aggregate name (hecksagain-cli's
+  // `state` subcommand splits the FQN on "::" -- a bare aggregate name like
+  // the old Rust-CLI-era "ShellTool" no longer resolves). Tools::ShellTool
+  // now durably persists (see RUN_ID's own comment above) so this reads as
+  // a genuine hit, not a "does not outlive its process" miss the way an
+  // earlier version of this test expected under a since-changed corpus
+  // binding.
   const stateRes = await client.callTool({
     name: "storehouse__state",
     arguments: {
-      aggregates_dir: path.join(HECKS_ROOT, "hecks_conception"),
-      aggregate_name: "ShellTool",
-      id: "cli-smoke-bash",
-      summary: "verify a memory-backed tool record does not outlive its process",
+      aggregates_dir: SMOKE_ROOT,
+      aggregate_name: "Tools::ShellTool",
+      id: SMOKE_BASH_ID,
+      summary: "verify the ShellTool record dispatch just wrote reads back correctly",
     },
   });
   eq(stateRes.isError, false, "state read isError=false");
-  contains(stateRes.content[0].text, '"ok":false', "memory-backed tool state does not survive the process");
-  contains(stateRes.content[0].text, '"aggregate":"ShellTool"', "state answer still names the aggregate asked for");
+  contains(stateRes.content[0].text, '"ok":true', "state read finds the just-dispatched record");
+  contains(stateRes.content[0].text, '"aggregate":"Tools::ShellTool"', "state answer names the FQN aggregate asked for");
 
   // -- storehouse__state on a missing id returns ok=false (not error).
   const stateMissRes = await client.callTool({
     name: "storehouse__state",
     arguments: {
-      aggregates_dir: path.join(HECKS_ROOT, "hecks_conception"),
-      aggregate_name: "ShellTool",
-      id: "no-such-id-cli-smoke",
+      aggregates_dir: SMOKE_ROOT,
+      aggregate_name: "Tools::ShellTool",
+      id: `no-such-id-cli-smoke-${RUN_ID}`,
       summary: "confirm missing id returns ok=false gracefully",
     },
   });
   eq(stateMissRes.isError, false, "state miss isError=false (ok answer)");
   contains(stateMissRes.content[0].text, '"ok":false', "state miss ok=false");
 
-  // -- storehouse__macrophage_check on a non-bluebook surfaces a complaint
+  // -- storehouse__macrophage_check on a non-bluebook surfaces a complaint.
+  // aggregates_dir is a real, new-under-this-rewrite required param (the
+  // Macrophage domain needs to know WHERE to dispatch its Record*Edit
+  // command against) -- see macrophage_check.mjs's own header.
   const macroRes = await client.callTool({
     name: "storehouse__macrophage_check",
-    arguments: { bluebook_path: "/tmp/not-a-bluebook.rs" },
+    arguments: { aggregates_dir: SMOKE_ROOT, bluebook_path: "/tmp/not-a-bluebook.rs" },
   });
   truthy(macroRes.content[0].text.length > 0, "macrophage_check returned output");
 
-  // -- storehouse__behaviors on the smoke behaviors file
+  // -- storehouse__behaviors -- NOT YET SUPPORTED under hecksagain (Part 1
+  // item 5). Confirms the tool answers honestly (isError, names the gap)
+  // instead of crashing or silently no-opping, rather than asserting a
+  // 'passed' count that no interpreter exists to produce.
   if (existsSync(SMOKE_BEHAVIORS)) {
     const behaviorsRes = await client.callTool({
       name: "storehouse__behaviors",
       arguments: { behaviors_path: SMOKE_BEHAVIORS },
     });
-    contains(behaviorsRes.content[0].text, "passed", "behaviors output mentions 'passed'");
+    eq(behaviorsRes.isError, true, "behaviors isError=true (not yet supported)");
+    contains(behaviorsRes.content[0].text, "supported", "behaviors output names the unsupported gap");
   } else {
     process.stderr.write(`skip behaviors (no restart_prompt.behaviors)\n`);
   }
+
+  // -- storehouse__conceive_behaviors -- same NOT YET SUPPORTED contract.
+  const conceiveBehaviorsRes = await client.callTool({
+    name: "storehouse__conceive_behaviors",
+    arguments: { bluebook_path: SMOKE_ROOT },
+  });
+  eq(conceiveBehaviorsRes.isError, true, "conceive_behaviors isError=true (not yet supported)");
+  contains(conceiveBehaviorsRes.content[0].text, "supported", "conceive_behaviors output names the unsupported gap");
 
   // -- events resource read returns the file contents
   const eventsRead = await client.readResource({ uri: "storehouse://events" });
