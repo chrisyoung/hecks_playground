@@ -72,7 +72,10 @@ module Hecksagain
         # one dispatch. Symmetric with `increment`/`decrement`, which
         # already read `instance[mutation.target]` as part of their own
         # arithmetic — appending was the one mutation op that couldn't
-        # see the record it was appending TO.
+        # see the record it was appending TO. `args.key?`, not a
+        # truthiness check on the value — an explicitly-nil argument
+        # still counts as "the caller named it," same distinction
+        # `assign_creation_attributes` already draws.
         def resolve_append_source(source, instance, args)
           return source unless source.is_a?(Symbol)
           return args[source] if args.key?(source)
