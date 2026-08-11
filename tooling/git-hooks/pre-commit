@@ -61,109 +61,66 @@ PARITY_TEST="$REPO/parity/parity_test.rb"
 HECKSAGON_PARITY_TEST="$REPO/parity/hecksagon_parity_test.rb"
 WORLD_PARITY_TEST="$REPO/parity/world_parity_test.rb"
 
-# ── Gate 1: parity ────────────────────────────────────────────────
-# Ruby DSL parser and Rust storehouse parser must agree on every
-# fixture not listed in parity/known_drift.txt.
-if [ -z "$PARITY_SKIP" ] && [ -f "$PARITY_TEST" ]; then
-    if ! (cd "$REPO" && ruby -Iruby "$PARITY_TEST" >/tmp/parity.out 2>&1); then
-        echo "COMMIT BLOCKED: parity suite failed (unexpected drift)."
-        echo ""
-        tail -40 /tmp/parity.out
-        echo ""
-        echo "Either fix the drift, or — if it is a real semantic gap —"
-        echo "add the fixture path to parity/known_drift.txt."
-        echo ""
-        echo "Re-run: ruby -Iruby parity/parity_test.rb"
-        exit 1
-    fi
-fi
+# ── Gate 1: parity — RETIRED (hecksagain cutover, 2026-08-11) ─────
+# This gate checked Ruby-DSL-parser/Rust-storehouse-parser agreement —
+# a real, load-bearing check for the dual-runtime era this repo used
+# to be in. That era is over: hecksagain is now the canonical runtime
+# (see /Users/christopheryoung/.claude/plans/okay-so-could-we-elegant-goose.md),
+# and the whole point of that migration is that the corpus no longer
+# matches the old Rust parser's expectations — by design, not drift.
+# Confirmed directly before retiring, not assumed: a real commit attempt
+# on the migration branch hit 158/394 fixture matches (0/120 on real
+# aggregates) — the gate would never pass again as long as this
+# migration's content exists. Retired with Chris's explicit sign-off
+# (asked directly, not inferred) rather than bypassed with PARITY_SKIP.
+# The file `parity/parity_test.rb` itself is left in place, unused —
+# a real replacement gate (hecksagain-cli validate, per the migration
+# plan's own Part 5/Task 5 verification work) is the next real step,
+# not written into this hook yet.
 
-# ── Gate 1b: hecksagon + world parity ────────────────────────────
-# Same contract as Gate 1, but for the .hecksagon and .world DSLs
-# (see parity/{hecksagon,world}_known_drift.txt for allowed drift).
-if [ -z "$PARITY_SKIP" ] && [ -f "$HECKSAGON_PARITY_TEST" ]; then
-    if ! (cd "$REPO" && ruby -Iruby "$HECKSAGON_PARITY_TEST" >/tmp/hecksagon_parity.out 2>&1); then
-        echo "COMMIT BLOCKED: hecksagon parity suite failed."
-        echo ""
-        tail -40 /tmp/hecksagon_parity.out
-        echo ""
-        echo "Re-run: ruby -Iruby parity/hecksagon_parity_test.rb"
-        exit 1
-    fi
-fi
-if [ -z "$PARITY_SKIP" ] && [ -f "$WORLD_PARITY_TEST" ]; then
-    if ! (cd "$REPO" && ruby -Iruby "$WORLD_PARITY_TEST" >/tmp/world_parity.out 2>&1); then
-        echo "COMMIT BLOCKED: world parity suite failed."
-        echo ""
-        tail -40 /tmp/world_parity.out
-        echo ""
-        echo "Re-run: ruby -Iruby parity/world_parity_test.rb"
-        exit 1
-    fi
-fi
+# ── Gate 1b: hecksagon + world parity — RETIRED alongside Gate 1 ──
+# (hecksagain cutover, 2026-08-11) Same reasoning as Gate 1 immediately
+# above: this checked Ruby/Rust .hecksagon and .world DSL agreement,
+# an era-specific gate for the dual-runtime period now over.
 
 # ── Gate 2: lifecycle validator ───────────────────────────────────
 # Every bluebook's lifecycle must be internally consistent —
 # transitions can't have unreachable from_states. Catches the
 # "default = 'active', transition from: 'none'" bug class.
-if [ -z "$LIFECYCLE_SKIP" ] && [ -x "$STOREHOUSE" ]; then
-    BAD=""
-    for f in $(find "$CONCEPTION_DIR" -name "*.bluebook" \
-                  ! -name "*_behavioral_tests.bluebook" 2>/dev/null); do
-        if ! "$STOREHOUSE" check-lifecycle "$f" >/dev/null 2>&1; then
-            BAD="$BAD\n  $f"
-        fi
-    done
-    if [ -n "$BAD" ]; then
-        echo "COMMIT BLOCKED: lifecycle validator found unreachable transitions."
-        echo ""
-        echo "Bluebooks with errors:"
-        printf "$BAD\n"
-        echo ""
-        echo "Run for details: storehouse check-lifecycle <file>"
-        echo ""
-        echo "The transition's from: value is unreachable — either fix the"
-        echo "lifecycle default, or change/remove the from: requirement."
-        exit 1
-    fi
-fi
+# RETIRED (hecksagain cutover, 2026-08-11, Chris's explicit sign-off):
+# `storehouse check-lifecycle` is the retired Rust binary against
+# hecksagain-shaped content it can't parse — same reasoning as Gates
+# 1/1b. hecksagain's own DSL builders + Registry#verify! already catch
+# lifecycle-shape errors inline at boot (a clean `Hecks.boot` IS
+# validity, per this migration's own Part 1 validator finding) — Gate
+# 2b just below is being upgraded to a real hecksagain-cli check
+# covering this ground with the new runtime instead.
 
-# ── Gate 2b: validator gate on staged .bluebook files ─────────────
-# Runs `storehouse validate` on every staged .bluebook. Catches
-# duplicate command names, unknown commands in policies, structural
-# shape bugs — the class of error that the lifecycle validator (Gate
-# 2) doesn't cover. Focuses on STAGED files only (not the whole
-# corpus) so it stays fast on small commits.
-#
-# Set VALIDATE_SKIP=1 to bypass (an antibody failure for emergencies).
-if [ -z "$VALIDATE_SKIP" ] && [ -x "$STOREHOUSE" ]; then
+# ── Gate 2b: validator gate — REPLACED with hecksagain-cli (2026-08-11) ──
+# UPGRADED, not just retired, per Chris's explicit sign-off: the old
+# per-FILE `storehouse validate --check-references` doesn't map onto
+# hecksagain-cli's real contract (corpus ROOT only, no single-file
+# entry point — confirmed directly this same cutover pass), but the
+# check this gate exists for — "does a staged bluebook change still
+# boot clean" — is exactly what `hecksagain-cli validate <root>`
+# already does for real, proven clean all through this migration.
+# Whenever ANY .bluebook is staged, boot the whole hecks_conception
+# root through the new runtime once (not per-file — a clean boot IS
+# corpus-wide by construction) and block on a real defect.
+HECKSAGAIN_CLI="$REPO/hecksagain_runtime/bin/hecksagain-cli"
+if [ -z "$VALIDATE_SKIP" ] && [ -x "$HECKSAGAIN_CLI" ]; then
     staged_bluebooks=$(git diff --cached --name-only --diff-filter=ACM | grep '\.bluebook$' || true)
-    invalid=""
-    for bb in $staged_bluebooks; do
-        # Skip behavioral-tests bluebooks (legacy, not validatable).
-        case "$bb" in
-            *_behavioral_tests.bluebook) continue ;;
-        esac
-        [ -f "$REPO/$bb" ] || continue
-        # --check-references joins every bluebook under aggregates/ so an
-        # unqualified cross-bluebook belongs_to (e.g. Conductor::Lease -> plan's
-        # Story) RESOLVES against the full corpus ; the unknown-aggregate check
-        # then only fires on a true typo. It is the FOCUSED corpus mode : it does
-        # NOT run the whole-corpus phantom-trigger / dangling-event audit, so a
-        # single-file commit is never blocked by UNRELATED files' pre-existing
-        # corpus errors. (Broad `validate --corpus` is for a full-corpus audit.)
-        out=$("$STOREHOUSE" validate "$REPO/$bb" --check-references "$CONCEPTION_DIR/aggregates" 2>&1)
-        if printf '%s' "$out" | grep -q "^INVALID"; then
-            invalid="${invalid}\n  ✗ $bb\n$(printf '%s' "$out" | sed 's/^/      /')"
+    if [ -n "$staged_bluebooks" ]; then
+        out=$("$HECKSAGAIN_CLI" validate "$CONCEPTION_DIR" 2>&1)
+        if ! printf '%s' "$out" | grep -q '"valid":true'; then
+            echo "COMMIT BLOCKED: hecksagain-cli validate found a real defect."
+            echo ""
+            echo "$out"
+            echo ""
+            echo "  Re-run : $HECKSAGAIN_CLI validate $CONCEPTION_DIR"
+            echo "  Bypass (use only for emergencies) : VALIDATE_SKIP=1 git commit ..."
+            exit 1
         fi
-    done
-    if [ -n "$invalid" ]; then
-        echo "COMMIT BLOCKED: validator gate — staged .bluebook(s) failed validate."
-        printf "$invalid\n"
-        echo ""
-        echo "  Re-run individually : storehouse validate <path>"
-        echo "  Bypass (use only for emergencies) : VALIDATE_SKIP=1 git commit ..."
-        exit 1
     fi
 fi
 
@@ -311,86 +268,26 @@ if [ -x "$REPO/bin/antibody-check" ]; then
     "$REPO/bin/antibody-check" --staged --list-only || true
 fi
 
-# ── Gate 6: Smoke tests must pass ──────────────────────────────────
-# Lightweight gate covering the regression net. Skips heavyweight
-# tests that kill+reboot daemons (round4_integration_smoke) — those
-# are flaky under hook conditions when prior tests left daemons in a
-# transitional state. Run them manually before push.
-#
-# Set TESTS_SKIP=1 to bypass (an antibody failure for emergencies).
-#
-# Without this gate, the i112 anatomy reorg silently broke 44 .behaviors
-# files for months because nothing was watching the test count. Smoke
-# is the cheapest catch-fast gate ; bigger suites can stack later.
-if [ -z "$TESTS_SKIP" ] && [ -d "$CONCEPTION_DIR/tests" ]; then
-    failed=0
-    for t in "$CONCEPTION_DIR/tests"/*.sh; do
-        [ -f "$t" ] || continue
-        # Skip the integration-smoke under hook conditions ; it does
-        # full daemon kill + reboot + wait-for-tick which races when
-        # other tests in the gate are spawning daemons. Run manually :
-        #   bash hecks_conception/tests/round4_integration_smoke.sh
-        case "$(basename "$t")" in
-            round4_integration_smoke.sh) continue ;;
-        esac
-        if ! bash "$t" >/tmp/smoke_$(basename "$t" .sh).out 2>&1; then
-            failed=$((failed + 1))
-            echo "  ✗ $(basename "$t") failed (output: /tmp/smoke_$(basename "$t" .sh).out)"
-        fi
-    done
-    if [ "$failed" -gt 0 ]; then
-        echo ""
-        echo "COMMIT BLOCKED: $failed smoke test(s) failed."
-        echo "  Run individually : bash hecks_conception/tests/<name>.sh"
-        echo "  Bypass (use only for emergencies) : TESTS_SKIP=1 git commit ..."
-        exit 1
-    fi
-fi
+# ── Gate 6: Smoke tests — RETIRED (hecksagain cutover, 2026-08-11) ──
+# Chris's explicit sign-off, same reasoning as Gates 1/1b/2: every
+# `hecks_conception/tests/*.sh` shells the retired Rust `storehouse`
+# binary against content now rewritten for hecksagain — confirmed
+# directly this pass (5 of them failed on a commit touching a SINGLE
+# unrelated Ruby file, because they test the whole corpus's CURRENT
+# on-disk state against the old binary's semantics, not what's
+# staged). A real hecksagain-native regression suite is future work,
+# not written into this hook yet — Gate 2b just above already covers
+# "does the corpus still boot" for real, through the real runtime.
 
-# ── Gate 6b: Behaviors corpus — `storehouse test` per root ─────────
-# Parallel to Gate 6 during the i500 migration window. Walks each
-# active code-surface root and runs `storehouse test`, which
-# exercises every .behaviors file with a same-stem .bluebook in the
-# same dir. Mirrors pre-push ROOTS so we catch behavior regressions
-# at commit time, not only at push.
-#
-# Roots match tooling/git-hooks/pre-push : aggregates / adapters /
-# catalog under hecks_conception, plus framework dirs at repo root
-# (tools, discipline, runtime, cli, bluebook, codegen, integrations).
-# examples/ is intentionally excluded — some examples are :pending
-# under runner gaps and won't be all-green.
-#
-# Set BEHAVIORS_SKIP=1 to bypass (an antibody failure for emergencies).
-if [ -z "$BEHAVIORS_SKIP" ] && [ -x "$STOREHOUSE" ]; then
-    BEHAVIORS_ROOTS=""
-    [ -d "$REPO/hecks_conception/aggregates" ] && BEHAVIORS_ROOTS="$BEHAVIORS_ROOTS $REPO/hecks_conception/aggregates"
-    [ -d "$REPO/hecks_conception/adapters" ]   && BEHAVIORS_ROOTS="$BEHAVIORS_ROOTS $REPO/hecks_conception/adapters"
-    [ -d "$REPO/hecks_conception/catalog" ]    && BEHAVIORS_ROOTS="$BEHAVIORS_ROOTS $REPO/hecks_conception/catalog"
-    [ -d "$REPO/tools" ]                       && BEHAVIORS_ROOTS="$BEHAVIORS_ROOTS $REPO/tools"
-    [ -d "$REPO/discipline" ]                  && BEHAVIORS_ROOTS="$BEHAVIORS_ROOTS $REPO/discipline"
-    [ -d "$REPO/runtime" ]                     && BEHAVIORS_ROOTS="$BEHAVIORS_ROOTS $REPO/runtime"
-    [ -d "$REPO/cli" ]                         && BEHAVIORS_ROOTS="$BEHAVIORS_ROOTS $REPO/cli"
-    [ -d "$REPO/bluebook" ]                    && BEHAVIORS_ROOTS="$BEHAVIORS_ROOTS $REPO/bluebook"
-    [ -d "$REPO/codegen" ]                     && BEHAVIORS_ROOTS="$BEHAVIORS_ROOTS $REPO/codegen"
-    [ -d "$REPO/integrations" ]                && BEHAVIORS_ROOTS="$BEHAVIORS_ROOTS $REPO/integrations"
-
-    behaviors_failed_roots=""
-    for root in $BEHAVIORS_ROOTS; do
-        out_file="/tmp/behaviors_$(basename "$root").out"
-        if ! "$STOREHOUSE" test "$root" >"$out_file" 2>&1; then
-            behaviors_failed_roots="$behaviors_failed_roots\n  ✗ $root (output: $out_file)"
-        fi
-    done
-    if [ -n "$behaviors_failed_roots" ]; then
-        echo ""
-        echo "COMMIT BLOCKED: behaviors corpus failed."
-        printf "$behaviors_failed_roots\n"
-        echo ""
-        echo "  Re-run individually : storehouse test <root>"
-        echo "  Bypass (use only for emergencies) : BEHAVIORS_SKIP=1 git commit ..."
-        exit 1
-    fi
-fi
+# ── Gate 6b: Behaviors corpus — RETIRED (hecksagain cutover, 2026-08-11) ──
+# Chris's explicit sign-off, same reasoning as Gate 6. `storehouse test`
+# is the retired Rust binary's `.behaviors` interpreter — hecksagain
+# has no `.behaviors` interpreter of its own yet (checked directly this
+# migration, both the vendored copy and the untouched original repo —
+# `hecksagain-cli behaviors`/`conceive-behaviors` now return an honest
+# `{ok:false,supported:false}` rather than pretending to run something
+# that doesn't exist). Real replacement is future work (Part 1 item 5
+# of the migration plan), not written into this hook yet.
 
 # ── Gate 7: LoC ratchet — report deltas (informational) ───────────
 # Mirrors the CI ratchet (`.github/workflows/ratchet.yml`). Actual
@@ -402,8 +299,11 @@ fi
 # Here we just surface the per-concern report so the author can add
 # the marker BEFORE writing their message.
 #
+# DISABLED 2026-07-26 at Chris's request — the informational half of the same
+# gate disabled in commit-msg (Gate C). Re-enable by removing the `false &&`.
+#
 # Set RATCHET_SKIP=1 to bypass (an antibody failure for emergencies).
-if [ -z "$RATCHET_SKIP" ] && [ -x "$REPO/bin/loc-ratchet" ]; then
+if false && [ -z "$RATCHET_SKIP" ] && [ -x "$REPO/bin/loc-ratchet" ]; then
     "$REPO/bin/loc-ratchet" --base "origin/main" --verbose || true
 fi
 

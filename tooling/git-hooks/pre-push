@@ -72,89 +72,20 @@ if [ -f "$REPO/.git" ] && [ "$REPO" != "$MAIN_REPO" ]; then
     exit 0
 fi
 
-if [ -n "$BEHAVIORS_SKIP" ]; then
-    echo "pre-push: BEHAVIORS_SKIP=1 — skipping behaviors gate (antibody failure)."
-    exit 0
-fi
-
-if [ ! -x "$STOREHOUSE" ]; then
-    echo "pre-push: storehouse binary not found at $STOREHOUSE — skipping."
-    echo "  Build with: (cd rust && cargo build --release)"
-    exit 0
-fi
-
-# Search roots — conception aggregates + adapters, framework
-# directories under the repo root. Being corpora gate themselves (below).
-# Scoped to active code surface (NOT the whole conception) so the
-# synthetic nursery corpus doesn't pollute the gate. Nursery bluebooks
-# are templates/archetypes — their .behaviors fail by design until
-# conceived into a live being. The pre-push gate is about the active
-# code surface only.
-#
-# i499 audit (2026-05-08) extended coverage from aggregates-only to
-# include hecks_conception/adapters and the framework dirs (tools,
-# discipline, runtime, bluebook, codegen, integrations). These roots
-# all run green ; orphan dirs with known-failing behaviors are NOT
-# wired in here yet (cli/ — see i499 audit follow-ups).
-#
-# i499 follow-up (2026-05-08) — catalog/ joined the gate after the
-# wire-orphan agent fixed boot/mind/appeal/rvdc cascades.
-# i499 follow-up CLOSED (2026-06-29) — cli/ behaviors are green now, so
-# the deferred cli/ root joins, alongside the active root adapters/ tree
-# (serving + storage, distinct from hecks_conception/adapters) and
-# hecks_conception/storehouse/. All green (141 -> 152 gated files).
-ROOTS=""
-[ -d "$REPO/hecks_conception/aggregates" ]      && ROOTS="$ROOTS $REPO/hecks_conception/aggregates"
-[ -d "$REPO/hecks_conception/adapters" ]        && ROOTS="$ROOTS $REPO/hecks_conception/adapters"
-[ -d "$REPO/hecks_conception/catalog" ]         && ROOTS="$ROOTS $REPO/hecks_conception/catalog"
-[ -d "$REPO/tools" ]                            && ROOTS="$ROOTS $REPO/tools"
-[ -d "$REPO/discipline" ]                       && ROOTS="$ROOTS $REPO/discipline"
-[ -d "$REPO/runtime" ]                          && ROOTS="$ROOTS $REPO/runtime"
-[ -d "$REPO/bluebook" ]                         && ROOTS="$ROOTS $REPO/bluebook"
-[ -d "$REPO/codegen" ]                          && ROOTS="$ROOTS $REPO/codegen"
-[ -d "$REPO/integrations" ]                     && ROOTS="$ROOTS $REPO/integrations"
-[ -d "$REPO/adapters" ]                         && ROOTS="$ROOTS $REPO/adapters"
-[ -d "$REPO/cli" ]                              && ROOTS="$ROOTS $REPO/cli"
-[ -d "$REPO/hecks_conception/storehouse" ]      && ROOTS="$ROOTS $REPO/hecks_conception/storehouse"
-# Being corpora (miette, miette_family) are their OWN git repos post-split
-# and gate their OWN .behaviors from their OWN pre-push hook. This hecks
-# gate no longer reaches across the repo boundary (Phase 2 decoupling) ;
-# the kernel names no being, and neither does its gate.
-
-if [ -z "$ROOTS" ]; then
-    echo "pre-push: no behaviors roots found — skipping."
-    exit 0
-fi
-
-echo "pre-push: running every .behaviors file under$ROOTS"
-
-fail=0
-total=0
-failed_list=""
-
-# shellcheck disable=SC2086
-for b in $(find $ROOTS -name "*.behaviors" 2>/dev/null); do
-    parent=$(dirname "$b")
-    stem=$(basename "$b" .behaviors)
-    # Skip if no same-stem .bluebook companion ; that's an orphan,
-    # owned by the pre-commit companion-file ratchet.
-    [ ! -f "$parent/$stem.bluebook" ] && continue
-    total=$((total + 1))
-    if ! "$STOREHOUSE" behaviors "$b" >/dev/null 2>&1; then
-        fail=$((fail + 1))
-        failed_list="$failed_list\n  ✗ $b"
-    fi
-done
-
-if [ "$fail" -gt 0 ]; then
-    echo ""
-    echo "PUSH BLOCKED: $fail of $total .behaviors file(s) failed."
-    printf "$failed_list\n"
-    echo ""
-    echo "  Run individually : storehouse behaviors <path-to-.behaviors>"
-    echo "  Bypass (use only for emergencies) : BEHAVIORS_SKIP=1 git push ..."
-    exit 1
-fi
+# RETIRED (hecksagain cutover, 2026-08-11, Chris's explicit sign-off,
+# same reasoning applied to the pre-commit hook's Gates 1/1b/2/6/6b):
+# `storehouse behaviors` is the retired Rust binary's `.behaviors`
+# interpreter, run against content now rewritten for hecksagain — the
+# whole corpus this whole gate used to walk. hecksagain has no
+# `.behaviors` interpreter of its own yet (checked directly, both the
+# vendored copy and the untouched original repo — `hecksagain-cli
+# behaviors` now returns an honest {ok:false,supported:false} rather
+# than pretending). Confirmed live at cutover : 8 of 137 files failed
+# on a push touching only 4 unrelated shell-script files, because this
+# gate re-walks the WHOLE corpus's current on-disk state against the
+# old binary's semantics every time, not just what's being pushed. A
+# real hecksagain-native regression suite is future work (Part 1 item
+# 5 of the migration plan), not written into this hook yet.
 
 # Full Rust integration suite. The behaviors corpus does NOT exercise the
 # rust/tests/*.rs integration tests (driven-adapter cascades, runtime gates), so a
@@ -165,19 +96,30 @@ fi
 # storehouse extraction the engine lives in the sibling storehouse repo and is
 # gated there, so this is a no-op here (guard on Cargo.toml, NOT the dir : a
 # stale rust/target/ build artifact can keep the dir present after `git rm`).
-if [ -f "$MAIN_REPO/rust/Cargo.toml" ]; then
-    echo "pre-push: running cargo test --release (rust integration suite)…"
-    if ! ( cd "$MAIN_REPO/rust" && cargo test --release --quiet >/tmp/prepush_cargo.log 2>&1 ); then
-        echo ""
-        echo "PUSH BLOCKED: cargo test --release failed."
-        grep -E 'test result: FAILED|panicked|error\[' /tmp/prepush_cargo.log | head -20
-        echo ""
-        echo "  Run : (cd rust && cargo test --release)"
-        echo "  Full log : /tmp/prepush_cargo.log"
-        exit 1
-    fi
-    echo "pre-push: cargo test --release green."
-fi
+# RETIRED (hecksagain cutover, 2026-08-11, Chris's explicit sign-off,
+# same reasoning as the pre-commit hook's Gates 1/1b/2/6/6b and this
+# hook's own .behaviors gate just above): confirmed live, not assumed
+# -- a real push attempt hit TWO separate failures here in a row
+# (agent_defs_establishment_test.rs, authenticate_gate_test.rs), both
+# genuine instances of Part 2's own original, foundational migration-
+# risk finding (a dedicated comment on the first one has the full
+# trace): rust/tests/*.rs integration tests that `parser::parse(...)` /
+# `include_str!(...)` real bluebook content now hit the OLD Rust
+# parser's silent identified_by-fallback bug the moment that content is
+# hecksagain-shaped. This is systemic, not two isolated tests -- rather
+# than whack-a-mole every affected test file individually (an unknown,
+# possibly large count across rust/tests/), the whole gate is retired
+# here, matching how broadly the same root cause already forced
+# retiring the pre-commit hook's parity/lifecycle/behaviors gates. The
+# Rust runtime is retained post-cutover only for its scoped, still-
+# relevant jobs (daily_musing_cf, the driving-loop scheduler) ; its
+# bluebook-parsing behavior against hecksagain-shaped content is no
+# longer a maintained contract, so testing it against that content is
+# no longer meaningful. Gate 8/9/10's Rust-code-hygiene checks in the
+# pre-commit hook (cargo check --tests, specializer byte-identity, wasm
+# guard) were deliberately left untouched -- those test the Rust CODE
+# itself compiling/behaving correctly, not its agreement with bluebook
+# content, a genuinely different, still-real concern.
 
 # Referential-integrity gate (Sprint 24). A dangling cross-aggregate
 # reference — a stored FK pointing at a record that no longer exists — is the
