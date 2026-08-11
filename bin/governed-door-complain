@@ -21,7 +21,16 @@ import json, sys, subprocess, datetime, os
 if os.environ.get('HECKS_GOVERNANCE_OFF'):
     sys.exit(0)
 
-BIN = '/Users/christopheryoung/Projects/hecks/rust/target/release/storehouse'
+# REPOINTED (hecksagain cutover, 2026-08-11, Chris's explicit sign-off):
+# was the retired Rust `storehouse` binary's `query ... lookup_door`
+# call ; hecksagain-cli has a dedicated `governed-door` subcommand
+# returning a flat {ok, door, door_equivalent, door_args} JSON answer
+# directly (no `.state` wrapper the old query response carried), and
+# `door_args` is a real JSON array of argument names now, not a
+# pre-formatted string, so it's joined here for the same rendered
+# message shape. The Record dispatch needs the explicit `dispatch`
+# keyword hecksagain-cli requires (the old binary defaulted to it).
+BIN = '/Users/christopheryoung/Projects/hecks/hecksagain_runtime/bin/hecksagain-cli'
 ROOT = '/Users/christopheryoung/Projects/hecks/hecks_conception'
 
 try:
@@ -32,24 +41,25 @@ t = d.get('tool_name', '')
 if not t or not os.path.exists(BIN):
     sys.exit(0)
 
-# Look the tool up in the registry — the SAME query the PreToolUse hook runs.
+# Look the tool up in the registry — the SAME lookup the PreToolUse hook runs.
 try:
     out = subprocess.run(
-        [BIN, 'query', ROOT, 'Macrophage::GovernedDoor.lookup_door', 'tool=' + t],
+        [BIN, 'governed-door', ROOT, t],
         capture_output=True, text=True, timeout=5).stdout
-    state = json.loads(out).get('state', {}) or {}
+    state = json.loads(out) or {}
 except Exception:
     sys.exit(0)  # fail-open
 
 door = state.get('door_equivalent', '')
 if not door:
     sys.exit(0)  # control-plane / mcp__storehouse__* / unknown tool — not governed
-args = state.get('door_args', '')
+raw_args = state.get('door_args', '')
+args = ', '.join(raw_args) if isinstance(raw_args, list) else raw_args
 
 ts = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 try:
     subprocess.Popen(
-        [BIN, ROOT, 'Macrophage::GovernedDoor.Record', 'id=' + t + '-' + ts, 'tool_name=' + t,
+        [BIN, 'dispatch', ROOT, 'Macrophage::GovernedDoor.Record', 'id=' + t + '-' + ts, 'tool_name=' + t,
              'door=' + door, 'reason=native ' + t + ' makes no bus event', 'occurred_at=' + ts],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL,
         start_new_session=True)

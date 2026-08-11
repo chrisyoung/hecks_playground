@@ -18,14 +18,11 @@ import { tmpdir } from "node:os";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SERVER = path.join(__dirname, "..", "src", "server.mjs");
-// Migration plan task 5: this pointed at the MAIN hecks repo, still on
-// the old dialect and deliberately untouched until Task 6's cutover --
-// hecksagain-cli correctly refuses it ("no such domain directory").
-// This smoke test's whole job is verifying the PRE-cutover migration
-// worktree's own rewritten hecks_conception, so it needs to point at
-// the worktree, not the not-yet-cut-over main repo. Caught live by
-// actually running `npm run smoke`, not by reading the code.
-const HECKS_ROOT = "/Users/christopheryoung/Projects/hecks-hecksagain-migration";
+// Task 6 (atomic cutover, 2026-08-11): the migration branch merged into
+// main, so the rewritten hecks_conception + hecksagain_runtime now live
+// natively at the main repo root -- the migration worktree this constant
+// pointed at during pre-cutover verification is redundant now.
+const HECKS_ROOT = "/Users/christopheryoung/Projects/hecks";
 // Migration plan Part 5 "correction" pass: hecksagain-cli's validate /
 // catalog / describe / list / macrophage subcommands only ever accept a
 // CORPUS ROOT directory, never a single .bluebook file (confirmed against

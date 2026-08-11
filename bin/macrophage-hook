@@ -39,10 +39,15 @@ set -e
 INPUT=$(cat)
 [ -z "$INPUT" ] && exit 0
 
-STOREHOUSE_BIN="/Users/christopheryoung/Projects/hecks/rust/target/release/storehouse"
+# REPOINTED (hecksagain cutover, 2026-08-11, Chris's explicit sign-off):
+# was the retired Rust `storehouse macrophage` (no root argument — an
+# implicit/default corpus). hecksagain-cli's `macrophage` subcommand
+# requires an explicit root positionally ; hecks_conception is the
+# only corpus this hook has ever meant.
+STOREHOUSE_BIN="/Users/christopheryoung/Projects/hecks/hecksagain_runtime/bin/hecksagain-cli"
 [ -x "$STOREHOUSE_BIN" ] || exit 0
 
-OUT=$(printf '%s' "$INPUT" | "$STOREHOUSE_BIN" macrophage 2>/dev/null || true)
+OUT=$(printf '%s' "$INPUT" | "$STOREHOUSE_BIN" macrophage /Users/christopheryoung/Projects/hecks/hecks_conception 2>/dev/null || true)
 [ -z "$OUT" ] && exit 0
 
 COMPLAINT=$(printf '%s' "$OUT" | jq -r '.state.last_complaint // ""' 2>/dev/null)

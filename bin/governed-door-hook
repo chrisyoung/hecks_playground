@@ -28,18 +28,28 @@
 # to disable all blocking — for an upgrade that needs native tools, or recovery.
 # Re-lock by restarting without it. There is no in-band allowlist; the governed
 # agent cannot disable its own governance mid-session.
+# REPOINTED (hecksagain cutover, 2026-08-11, Chris's explicit sign-off):
+# was the retired Rust `storehouse` binary's `query ... lookup_door`
+# call ; hecksagain-cli has a dedicated `governed-door` subcommand for
+# exactly this (a flat {door, door_equivalent, door_args} JSON answer,
+# no `..` recursive-descent needed the way the old nested query shape
+# did — kept it anyway, harmless on a flat object, one less thing to
+# get wrong swapping binaries). The Record dispatch below now needs the
+# explicit `dispatch` keyword hecksagain-cli requires (the old binary
+# defaulted to it when the second positional arg wasn't a known
+# subcommand).
 [ -n "$HECKS_GOVERNANCE_OFF" ] && exit 0
 tool=$(jq -r '.tool_name // empty' 2>/dev/null || true)
 [ -z "$tool" ] && exit 0
-SH=/Users/christopheryoung/Projects/hecks/rust/target/release/storehouse
+SH=/Users/christopheryoung/Projects/hecks/hecksagain_runtime/bin/hecksagain-cli
 ROOT=/Users/christopheryoung/Projects/hecks/hecks_conception
-result=$("$SH" query "$ROOT" Macrophage::GovernedDoor.lookup_door tool="$tool" 2>/dev/null)
+result=$("$SH" governed-door "$ROOT" "$tool" 2>/dev/null)
 qexit=$?
 door=$(echo "$result" | jq -r '.. | .door_equivalent? // empty' 2>/dev/null | head -1 || true)
-args=$(echo "$result" | jq -r '.. | .door_args? // empty' 2>/dev/null | head -1 || true)
+args=$(echo "$result" | jq -r '(.. | .door_args? // empty) | if type=="array" then join(", ") else . end' 2>/dev/null | head -1 || true)
 if [ -n "$door" ]; then
   ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-  "$SH" "$ROOT" Macrophage::GovernedDoor.Record id="$tool-$ts" tool_name="$tool" door="$door" reason="native $tool makes no bus event" occurred_at="$ts" >/dev/null 2>&1 || true
+  "$SH" dispatch "$ROOT" Macrophage::GovernedDoor.Record id="$tool-$ts" tool_name="$tool" door="$door" reason="native $tool makes no bus event" occurred_at="$ts" >/dev/null 2>&1 || true
   {
     echo "GOVERNANCE (barrier): native $tool makes no bus event — it is ungoverned."
     echo "Route through the storehouse door. The door tool is DEFERRED, so two steps:"
