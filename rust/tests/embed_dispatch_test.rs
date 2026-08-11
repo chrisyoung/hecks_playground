@@ -27,7 +27,7 @@ use storehouse::runtime::{Runtime, Value};
 const GATING: &str =
     include_str!("../../hecks_conception/aggregates/storehouse/bluebook/storehouse.bluebook");
 const AUTHZ: &str =
-    include_str!("../../hecks_conception/aggregates/framework/authorization/authorization.bluebook");
+    include_str!("../../hecks_conception/aggregates/framework/authorization/bluebook/authorization.bluebook");
 const PIZZAS: &str = include_str!("fixtures/pizzas_authz.bluebook");
 
 /// Value attrs for the direct-runtime seeding dispatches (System origin).

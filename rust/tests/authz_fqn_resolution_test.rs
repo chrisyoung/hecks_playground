@@ -25,7 +25,7 @@ use storehouse::runtime::{Runtime, RuntimeError, Value};
 const GATING: &str =
     include_str!("../../hecks_conception/aggregates/storehouse/bluebook/storehouse.bluebook");
 const AUTHZ: &str =
-    include_str!("../../hecks_conception/aggregates/framework/authorization/authorization.bluebook");
+    include_str!("../../hecks_conception/aggregates/framework/authorization/bluebook/authorization.bluebook");
 const PIZZAS: &str = include_str!("fixtures/pizzas_authz.bluebook");
 
 fn a(p: &[(&str, &str)]) -> HashMap<String, Value> {

@@ -25,7 +25,7 @@ use std::process::Command;
 const BOOT_BLUEBOOK: &str = include_str!("../../../runtime/boot/bluebook/boot.bluebook");
 const BOOT_HECKSAGON: &str = include_str!("../../../runtime/boot/bluebook/boot.hecksagon");
 const AUTHZ: &str = include_str!(
-    "../../../hecks_conception/aggregates/framework/authorization/authorization.bluebook"
+    "../../../hecks_conception/aggregates/framework/authorization/bluebook/authorization.bluebook"
 );
 /// The REAL CascadeRun chapter — its presence flips the runtime onto the
 /// persistent transactional-outbox path (record_cascade_run + pump_outbox),
