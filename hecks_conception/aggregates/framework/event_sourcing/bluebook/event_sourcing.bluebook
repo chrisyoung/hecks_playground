@@ -21,7 +21,7 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
   # the Log is append-only by construction (no mutating command exists).
 
   aggregate "Event", "The immutable atom of the substrate. Carries BOTH the command (intent + inputs) and the resulting delta (the fact of what changed), plus the lineage ids (causation_id / correlation_id), the acting party, the monotonic sequence, and the recorded_at stamp. Identified by event_id. Append is the only writer ; the Log is append-only because no mutating command exists." do
-    identified_by :event_id
+    identified_by { event_id.value }
 
     attribute :event_id,       EventId
     attribute :aggregate_name, AggregateName
@@ -342,11 +342,11 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
   # projections with their own fold. Both are the same machine.
 
   aggregate "Projection", "A view derived by folding event deltas. Identified by name. Apply folds one delta (incrementing events_applied, appending the derived row) ; Rebuild empties it for a fresh replay. Current-state is the trivial per-aggregate projection ; read models are named projections — the same fold machine." do
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name,           ProjectionName
-    attribute :events_applied, AppliedCount, default: 0
-    attribute :last_sequence,  Sequence,     default: 0
+    attribute :events_applied, AppliedCount, default: { value: 0 }
+    attribute :last_sequence,  Sequence,     default: { value: 0 }
     attribute :view,           list_of(Row)
 
     value_object "ProjectionName" do
@@ -438,7 +438,7 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
   # generalisation.
 
   aggregate "Snapshot", "A cached fold of a projection at a sequence watermark. Identified by projection_name. Capture records the folded state + watermark ; on read (ReadForward) the runtime SEEKS the Log tail from watermark+1 to head via the Event-Log sequence-range index and folds those deltas forward, so a snapshot is never wrong, only stale, and the read is O(tail) not O(whole-log). The SQL backend also pushes numeric ranges on INTEGER columns (CAST AS INTEGER). Threshold/on-demand cadence, not time-based." do
-    identified_by :projection_name
+    identified_by { projection_name.value }
 
     attribute :projection_name, ProjectionName
     attribute :watermark,       Watermark
@@ -507,16 +507,16 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
   # that fires on every race is one everybody learns to ignore.
 
   aggregate "Verification", "A singleton standing verdict on derivability : does fold(Log) still reconstruct the live store? One record, keyed \"projection\". Verify is the trigger a Driver fires on an interval ; the runtime performs the fold+compare (kernel-floor, sibling of the consolidation merge) and dispatches Record with the outcome. Persistent drift means the Log and the store genuinely disagree — an unlogged write or a fold bug. Transient drift is the liveness race of reading two stores that cannot be snapshotted atomically, and is counted, not alarmed on." do
-    identified_by :verification_id
+    identified_by { verification_id.value }
 
     attribute :verification_id, VerificationId
-    attribute :status,          Status,     default: "unknown"
-    attribute :checked_at,      CheckedAt,  default: "-"
-    attribute :drift_fields,    DriftFields, default: "0"
-    attribute :transient,       Transient,  default: "0"
-    attribute :fields_checked,  FieldsChecked, default: "0"
-    attribute :missing_rows,    MissingRows, default: "0"
-    attribute :detail,          Detail,     default: "-"
+    attribute :status,          Status,     default: { value: "unknown" }
+    attribute :checked_at,      CheckedAt,  default: { value: "-" }
+    attribute :drift_fields,    DriftFields, default: { value: "0" }
+    attribute :transient,       Transient,  default: { value: "0" }
+    attribute :fields_checked,  FieldsChecked, default: { value: "0" }
+    attribute :missing_rows,    MissingRows, default: { value: "0" }
+    attribute :detail,          Detail,     default: { value: "-" }
 
     value_object "VerificationId" do
       # The singleton key — "projection".
@@ -613,12 +613,12 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
   # is what retires the hand-written run_merge daemon.
 
   aggregate "Consolidation", "A singleton marker that the per-process Event shards were folded into the global ordered Log AND the fully-folded shards of dead processes reclaimed. The fold and the reclaim are both kernel-floor persistence IO (event_merge.rs, sibling of heki.rs) ; this aggregate is the DOMAIN trigger for them — one record, keyed \"log\", touched by each Consolidate. Reclamation matters because every dispatch process single-writes its own shard then exits, so without GC the shard directory grows without bound ; a shard is reclaimed only once the merge has folded it whole AND its owning process is dead (a live owner holds the file open, so unlinking it would lose its future appends). Fired by a driving-on-interval Driver, replacing the run_merge daemon." do
-    identified_by :consolidation_id
+    identified_by { consolidation_id.value }
 
     # Singleton key : defaults to "log" so a no-arg Consolidate keys the one
     # record. The driver dispatches Consolidate with no domain attrs, so the
     # default is what identifies the singleton.
-    attribute :consolidation_id, ConsolidationId, default: "log"
+    attribute :consolidation_id, ConsolidationId, default: { value: "log" }
 
     value_object "ConsolidationId" do
       attribute :value, String

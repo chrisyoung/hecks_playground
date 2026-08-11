@@ -34,7 +34,7 @@ Hecks.bluebook "Fibroblast", version: "2026.05.16.1" do
   #   i629 — :exec adapter family (runtime arm, deferred)
 
   aggregate "Fibroblast", "One healing attempt — reads a discipline-cell signal, composes the fix, dispatches it; declines gracefully when ambiguous" do
-    identified_by :signal_id
+    identified_by { signal_id.value }
 
     attribute :signal_id,        SignalId
     attribute :signal_source,    SignalSource

@@ -50,7 +50,7 @@ Hecks.bluebook "IdentifierService", version: "2026.05.14.1" do
 
   # ── IdentifierService : the substrate ──
   aggregate "IdentifierService", "The runtime substrate for i611 identity. Mints UUID defaults when an aggregate has no identified_by, derives natural-key addresses by concatenating identified_by field values (with optional ULID suffix on roots and parent-prefix scoping on entities), and autonomically rewrites IdentityStrings when an aggregate's identified_by rule changes — prepending the new form to the existing string so the persistence key carries its full migration history (new/old, or newest/middle/oldest for repeated migrations). Lookup by any historical segment resolves the current record through string matching ; no separate repository column or side-table. Effectively a singleton — i611 phase 1 will move this to a singleton-flagged aggregate ; for now it follows the conventional identified_by :name shape." do
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name, Name
 
@@ -168,6 +168,7 @@ Hecks.bluebook "IdentifierService", version: "2026.05.14.1" do
     # ── Entity — migration audit trail ──
 
     entity "MigrationRecord" do
+      identified_by { subject.value }
       description "Audit record for one autonomic identity rewrite. When the IdentifierService detects an identified_by rule change and rewrites an entity's IdentityString in place (prepending the new form as a slash-separated prefix), it creates one MigrationRecord capturing the subject, the old IdentityString, the new IdentityString, the reason, and the timestamp. The rewritten IdentityString itself is the live operational form — lookups by any historical segment succeed through string matching against the key, with no separate repository column. The MigrationRecord is the inspection and audit surface : it answers 'when did this rewrite happen and why' without affecting how lookup works. Chains accumulate naturally for repeated migrations of the same subject."
       attribute :subject,       EntityRef
       attribute :old_identity,  IdentityString
@@ -232,7 +233,7 @@ Hecks.bluebook "IdentifierService", version: "2026.05.14.1" do
 
   # ── IdentityPetition : Shape α — petition as bluebook command ──
   aggregate "IdentityPetition", "Formal request to change an aggregate's identity rules. Each petition is one record carrying the subject (which aggregate / entity), the proposed new rule (the identified_by line, suffix kind, singleton flag), the reason, and a state machine (submitted → under_review → applied OR rejected) with audit fields per transition. Implements Shape α from i614 — the bluebook-explicit governance route. If Chris picks Shape β or γ later, this aggregate collapses ; for now it makes the workflow first-class on the bus." do
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name, Name
 

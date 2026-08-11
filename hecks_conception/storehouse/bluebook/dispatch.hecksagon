@@ -56,6 +56,4 @@ Hecks.hecksagon "Dispatch" do
     args: ["run", "{{target.bluebook_path}}", "entrypoint={{phrase}}"],
     output_format: :text,
     timeout: 60
-
-  Dispatch::Dispatch.persisted_by("Memory")
 end

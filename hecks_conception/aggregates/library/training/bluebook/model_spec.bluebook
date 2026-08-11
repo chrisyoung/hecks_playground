@@ -5,7 +5,7 @@ Hecks.bluebook "ModelSpec", version: "2026.04.28.1" do
   # Lifted out of training_corpus.bluebook in i112 split.
 
   aggregate "ModelSpec", "What the trained model should be able to do" do
-    identified_by :name
+    identified_by { name.value }
     attribute :name,          Name
     attribute :capabilities,  list_of(Capability)
     attribute :input_format,  Format

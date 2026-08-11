@@ -23,7 +23,7 @@ Hecks.bluebook "Immunity", version: "2026.05.12.1" do
   # is not String.
 
   aggregate "Immunity", "Miette's defense against malformed domains — innate rules, verb morphology, and learned antibodies" do
-    identified_by :name
+    identified_by { name.value }
     attribute :name,                 Name
     attribute :innate_rules,         list_of(InnateRule)
     attribute :noun_suffixes,        list_of(VerbSuffix)

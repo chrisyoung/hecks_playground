@@ -74,7 +74,7 @@ Hecks.bluebook "DispatchAudit", version: "2026.05.12.1" do
   # the row.
 
   aggregate "AuditEntry", "One row in the dispatch audit log — phrase, agent attribution, timestamp." do
-    identified_by :id
+    identified_by { id.value }
 
     # phrase        — dotted Aggregate.Command from Lexicon.
     # agent_name    — the Agent who originated the dispatch.
@@ -123,7 +123,12 @@ Hecks.bluebook "DispatchAudit", version: "2026.05.12.1" do
       # The recorder runs as System : the audit log records itself
       # automatically, never on behalf of a human Agent. The kind:
       # filter narrows future parser-level enforcement.
-      role Role, as: Agent, kind: "system"
+      # Migration plan task 4: was `role Role, as: Agent, kind: "system"` --
+      # not a form `role` supports anywhere (it takes one plain string,
+      # `role "System"`, the same as every other command in this corpus).
+      # The comment right below already says the intent plainly: "runs as
+      # System."
+      role "System"
       description "Record one Dispatched event in the audit log. Inputs : the entry id, the dotted phrase that was dispatched, the Agent who originated it, the Role the Agent filled, and the timestamp. Idempotent on id."
       attribute :id,             Id
       attribute :phrase,         Phrase
@@ -153,7 +158,7 @@ Hecks.bluebook "DispatchAudit", version: "2026.05.12.1" do
   # role-string version would say `role "Reader"` or similar.
 
   aggregate "AuditQuery", "Read-side view over the audit log — answers 'what did this Agent dispatch ?'" do
-    identified_by :id
+    identified_by { id.value }
 
     # since — ISO 8601 UTC ; entries on or after this timestamp.
     attribute :id,         Id

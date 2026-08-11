@@ -10,7 +10,7 @@ Hecks.bluebook "LocalModel", version: "2026.04.28.1" do
   # moved to language/ : context_window, few_shot, prompt.
 
   aggregate "LocalModel", "The locally-running model that receives the context" do
-    identified_by :name
+    identified_by { name.value }
     attribute :name,           Name
     attribute :context_length, ContextLength
     attribute :serving,        ServingState

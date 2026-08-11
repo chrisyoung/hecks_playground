@@ -40,7 +40,7 @@ Hecks.bluebook "OutboundEvent", version: "2026.06.16.1" do
   # reimplements NOTHING — subscribe/dispatch plumbing lives here once.
 
   aggregate "OutboundEvent", "A durable record of an event the core announced to a separate-program adapter edge, awaiting a standalone host's action. Identified by delivery_id. Lifecycle: pending -> claimed -> delivered | failed." do
-    identified_by :delivery_id
+    identified_by { delivery_id.value }
 
     attribute :delivery_id,     DeliveryId
     attribute :adapter,         AdapterName
@@ -50,7 +50,7 @@ Hecks.bluebook "OutboundEvent", version: "2026.06.16.1" do
     attribute :payload,         Payload
     attribute :success_command, CommandRef
     attribute :failure_command, CommandRef
-    attribute :status,          Status, default: "pending"
+    attribute :status,          Status, default: { value: "pending" }
     attribute :attempts,        Attempts
     attribute :last_error,      ErrorMessage
 
@@ -174,6 +174,7 @@ Hecks.bluebook "OutboundEvent", version: "2026.06.16.1" do
     # ── Queries ──────────────────────────────────────────────
 
     query "Pending" do
+      attribute :adapter, AdapterName
       description "The host's poll — every delivery still pending for a given adapter. Pass adapter: <name> (e.g. Stripe). The shared host loops this query, Claims each result, runs the thin handler off-core, dispatches the success_command or failure_command back through the command port, then MarkDelivered. Filtering status == pending makes consumption idempotent : a claimed/delivered row never reappears."
       where adapter: :adapter
       where status:  "pending"

@@ -28,15 +28,15 @@ Hecks.bluebook "Relationship", version: "2026.06.18.2" do
   # is not a String, a Scope is not a String — each carries its concept.
 
   aggregate "Relationship", "One relationship declaration on an owner aggregate, read in English : the verb that names it (list_of / reference_to inside ; has_one / has_many / belongs_to across) carries both the boundary and the cardinality, and the leaf it targets. Keyed by the phrase that authors it." do
-    identified_by :phrase
+    identified_by { phrase.value }
 
     attribute :phrase,      Phrase
     attribute :owner,       AggregateName
     attribute :verb,        Verb
     attribute :leaf,        LeafName
-    attribute :scope,       Scope,       default: "unresolved"
-    attribute :nature,      Nature,      default: "unresolved"
-    attribute :cardinality, Cardinality, default: "unresolved"
+    attribute :scope,       Scope,       default: { value: "unresolved" }
+    attribute :nature,      Nature,      default: { value: "unresolved" }
+    attribute :cardinality, Cardinality, default: { value: "unresolved" }
 
     # ── Value-objects : the relationship's vocabulary ──
 

@@ -13,7 +13,7 @@ Hecks.bluebook "LazyIndex", version: "2026.05.16.1" do
   # policies bind to this index.
 
   aggregate "LazyIndex", "Load domain entries on demand — not all at boot" do
-    identified_by :name
+    identified_by { name.value }
     attribute :name,             IndexName
     attribute :total_indexed,    TotalIndexed
     attribute :loaded_in_memory, LoadedInMemory

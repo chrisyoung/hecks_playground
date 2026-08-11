@@ -3,12 +3,12 @@ Hecks.bluebook "AiTurn", version: "2026.05.25.1" do
   category "framework"
 
   aggregate "AiTurn", "A single conversational turn within a session. Identified by id (the turn's stable key, minted by the hook). Start opens the turn (user prompt submitted) ; Finish closes it (Miette's response complete). The TurnStarted / TurnFinished events let policies and inject adapters fan out from the turn edge — the bus boundary where session-to-Miette adapters attach." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id, TurnId
     attribute :started_at, Timestamp
     attribute :finished_at, Timestamp
-    attribute :state, State, default: "open"
+    attribute :state, State, default: { value: "open" }
 
     value_object "TurnId" do
       # Stable turn key, minted by the turn-edge hook before dispatch.

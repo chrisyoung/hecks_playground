@@ -12,7 +12,7 @@ Hecks.bluebook "AgentInstrumentation", version: "2026.06.21.1" do
   # policies below (fixtures→policies, 2026-07-26) ; Register is the
   # command they project through, upserting on identified_by :name.
   aggregate "AgentDefinition", "One custom subagent — projected into .claude/agents/<name>.md as frontmatter + shared door fragment + authored role body" do
-    identified_by :name
+    identified_by { name.value }
     attribute :name,        AgentName
     attribute :description, Description
     attribute :model,       Model

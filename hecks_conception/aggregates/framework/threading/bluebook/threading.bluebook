@@ -40,12 +40,12 @@ Hecks.bluebook "Threading", version: "2026.05.31.1" do
   # deliberately deferred.
 
   aggregate "Thread", "One runtime-managed concurrent unit. Identity is name. kind selects the substrate (tokio | std) ; runtime_handle is the adapter's opaque token (a tokio Handle id or std::thread name) the rust side parked the real spawn behind. Lifecycle walks idle → running → joined ; a panicked thread moves to poisoned (terminal) so per-actor failure isolation is observable from the bluebook." do
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name,           Name
-    attribute :kind,           Kind,          default: "tokio"
-    attribute :runtime_handle, RuntimeHandle, default: ""
-    attribute :state,          State,         default: "idle"
+    attribute :kind,           Kind,          default: { value: "tokio" }
+    attribute :runtime_handle, RuntimeHandle, default: { value: "" }
+    attribute :state,          State,         default: { value: "idle" }
 
     # ── Value objects ──────────────────────────────────────────
 
@@ -141,6 +141,7 @@ Hecks.bluebook "Threading", version: "2026.05.31.1" do
     # ── Queries ───────────────────────────────────────────────
 
     query "ByKind" do
+      attribute :kind, Kind
       description "All threads of a given substrate. Pass kind: tokio | std to filter."
       where kind: :kind
     end
@@ -152,12 +153,12 @@ Hecks.bluebook "Threading", version: "2026.05.31.1" do
   end
 
   aggregate "Mailbox", "Per-actor FIFO addressed by (aggregate_type, aggregate_id). Promoted from rust/src/runtime/actor/mailbox.rs sprint 14 (threading-bluebook) so the substrate is bluebook-declared. Identity is name (conventionally <AggregateType>:<aggregate_id>, e.g. Sprint:14). owner_aggregate records the (type, id) the mailbox serves. State walks idle → draining → idle ; poisoned is terminal for panic isolation." do
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name,             Name
-    attribute :owner_aggregate,  OwnerAggregate, default: ""
-    attribute :state,            State,          default: "idle"
-    attribute :pending,          Pending,        default: 0
+    attribute :owner_aggregate,  OwnerAggregate, default: { value: "" }
+    attribute :state,            State,          default: { value: "idle" }
+    attribute :pending,          Pending,        default: { value: 0 }
 
     # ── Value objects ──────────────────────────────────────────
 
@@ -255,6 +256,7 @@ Hecks.bluebook "Threading", version: "2026.05.31.1" do
     # ── Queries ───────────────────────────────────────────────
 
     query "ForOwner" do
+      attribute :owner_aggregate, OwnerAggregate
       description "The mailbox serving a given (type, id) owner. Pass owner_aggregate: <type>:<id> to filter."
       where owner_aggregate: :owner_aggregate
     end

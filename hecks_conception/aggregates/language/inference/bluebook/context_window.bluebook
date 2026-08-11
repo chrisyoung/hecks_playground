@@ -12,7 +12,7 @@ Hecks.bluebook "ContextWindow", version: "2026.04.28.1" do
   # (ValidateOutput) into prompt.bluebook.
 
   aggregate "ContextWindow", "Everything stuffed into the prompt — grammar, organs, examples" do
-    identified_by :name
+    identified_by { name.value }
     attribute :name,            Name
     attribute :system_prompt,   SystemPrompt
     attribute :grammar_tokens,  TokenCount

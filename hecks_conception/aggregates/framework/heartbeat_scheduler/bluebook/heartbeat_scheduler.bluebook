@@ -42,7 +42,7 @@ Hecks.bluebook "HeartbeatScheduler", version: "2026.05.14.1" do
   # everything else stays in the existing dispatch path.
 
   aggregate "HeartbeatScheduler", "The rhythmic command dispatcher. Holds the tick counter and the Schedule entity collection ; each Tick advances the counter and dispatches every schedule whose cadence matches. Effectively a singleton — i611 phase 1 will convert this to a singleton-flagged aggregate." do
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name, Name
 
@@ -194,6 +194,7 @@ Hecks.bluebook "HeartbeatScheduler", version: "2026.05.14.1" do
     # ── Entities — child records living inside the scheduler ──
 
     entity "Schedule" do
+      identified_by { id.value }
       description "One registered cadence binding. Says : every `cadence.ticks` ticks, dispatch `command` against `targets`. The scheduler walks every Schedule on each Tick and fires Dispatch for the ones whose `(current_tick - last_dispatched_tick) >= cadence.ticks`."
       attribute :id,                    ScheduleId
       attribute :command,               ScheduledCommand

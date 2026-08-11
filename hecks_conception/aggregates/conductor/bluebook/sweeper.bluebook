@@ -3,10 +3,10 @@ Hecks.bluebook "Conductor", version: "2026.06.02.2" do
   category "framework"
 
   aggregate "Sweeper", "The fleet liveness clock. A singleton (identified by a fixed sweeper_id) whose Tick command emits Ticked — the real command event the LivenessSweep driven adapter consumes to sweep stale workers. Holds no liveness state itself ; it is the honest carrier of a cadence beat into the driven-adapter fan-out path." do
-    identified_by :sweeper_id
+    identified_by { sweeper_id.value }
 
     attribute :sweeper_id,  SweeperId
-    attribute :ticks,       Ticks,        default: 0
+    attribute :ticks,       Ticks,        default: { value: 0 }
 
     value_object "SweeperId" do
       attribute :value, String

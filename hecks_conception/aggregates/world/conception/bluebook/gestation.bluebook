@@ -10,7 +10,7 @@ Hecks.bluebook "Gestation", version: "2026.05.12.1" do
   # no-primitive-envy discipline.
 
   aggregate "Gestation", "Multi-domain project growing — each bounded context gets its own bluebook" do
-    identified_by :project_name
+    identified_by { project_name.value }
     attribute :project_name, ProjectName
     attribute :nursery_path, NurseryPath
     attribute :bounded_contexts, list_of(BoundedContextName)

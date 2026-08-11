@@ -59,10 +59,10 @@ Hecks.bluebook "TerraformProjection", version: "2026.05.21.1" do
   # a different physical representation of the same declarative wiring.
 
   aggregate "TerraformProjector", "Project a Hecksagon IR + matching World values to Terraform HCL." do
-    identified_by :name
+    identified_by { name.value }
 
-    attribute :name,            ProjectorName,    default: "terraform"
-    attribute :last_projection, ProjectionResult, default: "—"
+    attribute :name,            ProjectorName,    default: { value: "terraform" }
+    attribute :last_projection, ProjectionResult, default: { value: "—" }
 
     # ── Value-objects : the domain's language ──
 

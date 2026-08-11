@@ -23,7 +23,7 @@ Hecks.bluebook "NavSitemapParity", version: "2026.05.16.1" do
   #   i629 — :exec adapter family (runtime arm, deferred)
 
   aggregate "NavSitemapParity", "One watched site — holds the drift record between its nav modules and its sitemap.xml" do
-    identified_by :site_root
+    identified_by { site_root.value }
 
     attribute :site_root,        SiteRoot
     attribute :nav_modules,      list_of(NavModulePath)

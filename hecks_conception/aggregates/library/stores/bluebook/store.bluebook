@@ -15,7 +15,7 @@ Hecks.bluebook "Store", version: "2026.04.28.1" do
   # body/sleep/ (consolidation).
 
   aggregate "Store", "A long-term memory entry — one record per stored signal" do
-    identified_by :ref
+    identified_by { ref.value }
     attribute :ref,        Ref
     attribute :kind,       Kind
     attribute :payload,    Payload

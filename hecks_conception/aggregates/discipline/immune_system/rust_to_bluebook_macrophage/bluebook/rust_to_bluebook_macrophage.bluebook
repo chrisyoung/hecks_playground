@@ -61,15 +61,15 @@ Hecks.bluebook "RustToBluebookMacrophage", version: "2026.05.21.1" do
   #          different lifecycle moment)
 
   aggregate "RustToBluebookMacrophage", "Singleton-shaped macrophage that watches *.rs edits and queues bluebook-conversion sidequests. RegisterTouch enqueues a file on pending_conversions ; Sweep is the recurring tick that drains pending into LaunchConversion dispatches ; LaunchConversion moves a file from pending to in_flight ; CompleteConversion moves a file from in_flight to completed when the sidequest reports back with a PR URL. The aggregate root identifier is :name ; under i611 phase 1 (`singleton: true`) the name VO disappears." do
-    identified_by :name
+    identified_by { name.value }
 
     # Singleton-shaped via identified_by :name + default name.
     # Under i611 phase 1 (when `singleton: true` lands) the name
     # attribute + VO disappear and this becomes a true singleton.
-    attribute :name, Name, default: "rust_to_bluebook_macrophage"
+    attribute :name, Name, default: { value: "rust_to_bluebook_macrophage" }
 
     # Session metadata
-    attribute :session_started_at, Timestamp, default: "—"
+    attribute :session_started_at, Timestamp, default: { value: "—" }
 
     # Configuration — which path roots the macrophage cares about.
     # Empty means "every *.rs file the hook surfaces" ; populated
@@ -86,16 +86,16 @@ Hecks.bluebook "RustToBluebookMacrophage", version: "2026.05.21.1" do
     attribute :completed,           list_of(RustFilePath)
 
     # Tally facet — running counts since session start.
-    attribute :touches_recorded,       TouchCount, default: 0
-    attribute :sweeps_run,             SweepCount, default: 0
-    attribute :conversions_launched,   ConversionCount, default: 0
-    attribute :conversions_completed,  ConversionCount, default: 0
+    attribute :touches_recorded,       TouchCount, default: { value: 0 }
+    attribute :sweeps_run,             SweepCount, default: { value: 0 }
+    attribute :conversions_launched,   ConversionCount, default: { value: 0 }
+    attribute :conversions_completed,  ConversionCount, default: { value: 0 }
 
     # Latest-surface — quick read for the statusline / dashboards.
-    attribute :last_touched_at,     Timestamp, default: "—"
+    attribute :last_touched_at,     Timestamp, default: { value: "—" }
     attribute :last_touched_file,   RustFilePath
-    attribute :last_touched_by,     Agent,     default: "—"
-    attribute :last_sweep_at,       Timestamp, default: "—"
+    attribute :last_touched_by,     Agent,     default: { value: "—" }
+    attribute :last_sweep_at,       Timestamp, default: { value: "—" }
     attribute :last_launched_file,  RustFilePath
     attribute :last_completed_file, RustFilePath
     attribute :last_completed_pr,   PrUrl

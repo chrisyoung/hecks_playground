@@ -14,7 +14,7 @@ Hecks.bluebook "Sentence", version: "2026.05.12.1" do
   # no-primitive-envy discipline.
 
   aggregate "Sentence", "One thing a being can say that maps to a command" do
-    identified_by :phrase
+    identified_by { phrase.value }
     attribute :phrase, Phrase
     attribute :realm, RealmName
     attribute :subrealms, list_of(SubrealmName)

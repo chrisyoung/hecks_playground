@@ -19,11 +19,11 @@ Hecks.bluebook "DomainCell", version: "2026.04.28.1" do
   # DomainCell.PassCheckpoint).
 
   aggregate "DomainCell", "A domain's lifecycle from conception through maturity or death" do
-    identified_by :domain_name
+    identified_by { domain_name.value }
     attribute :domain_name,        DomainName
     attribute :maturity,           MaturityLevel
     attribute :checkpoints_passed, list_of(CheckpointName)
-    attribute :alive,              Alive, default: true
+    attribute :alive,              Alive, default: { value: true }
 
     value_object "DomainName" do
       # Identifier of the domain whose lifecycle this cell tracks.

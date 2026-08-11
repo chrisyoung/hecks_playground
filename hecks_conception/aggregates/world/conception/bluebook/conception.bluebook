@@ -8,14 +8,14 @@ Hecks.bluebook "Conception", version: "2026.04.16.1" do
   # and others across bluebook boundaries.
 
   aggregate "Conception", "The spark — always multi-domain, never a monolith" do
-    identified_by :name
+    identified_by { name.value }
     attribute :name,             Name
     attribute :vision,           Vision
     attribute :requested_by,     RequestedBy
     attribute :source,           Source
     attribute :bounded_contexts, list_of(BoundedContextName)
     attribute :category,         Category
-    attribute :status,           Status, default: "spark"
+    attribute :status,           Status, default: { value: "spark" }
 
     value_object "Name" do
       # Identifier of the conceived domain (Hecks.bluebook "<Name>").

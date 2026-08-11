@@ -14,7 +14,7 @@ Hecks.bluebook "ChangeTracker", version: "2026.05.16.1" do
   # completes elsewhere.
 
   aggregate "ChangeTracker", "Track what changed since last beat — only process the delta" do
-    identified_by :name
+    identified_by { name.value }
     attribute :name,               TrackerName
     attribute :tracked_files,      FileCount
     attribute :changed_since_last, ChangeCount

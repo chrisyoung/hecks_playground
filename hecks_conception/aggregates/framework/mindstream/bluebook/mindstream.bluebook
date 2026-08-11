@@ -20,7 +20,7 @@ Hecks.bluebook "Mindstream", version: "2026.05.12.1" do
   # not just a String, a Description is not just a String.
 
   aggregate "Mindstream", "A named group of processes overmind supervises together. One Mindstream = one Procfile + one .overmind.env. The :overmind capability emits both files into the mindstream's directory." do
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name,        Name
     attribute :description, Description
@@ -92,7 +92,7 @@ Hecks.bluebook "Mindstream", version: "2026.05.12.1" do
   # OVERMIND_CAN_DIE list based on its lifespan.
 
   aggregate "MindstreamMember", "One Procfile entry — a single process flowing in the mindstream. Belongs to one Mindstream (references-not-ids : a stored Mindstream FK synthesised by belongs_to)." do
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name,     Name
     attribute :command,  ShellCommand

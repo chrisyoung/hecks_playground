@@ -33,15 +33,24 @@ Hecks.bluebook "AgentDiscipline", version: "2026.05.31.1" do
   #    on.
   #
   aggregate "AgentDiscipline", "The two structural agent-bypass kinds (skip_env_var, ignored_isolation), their justification requirements, and the audit tally of each detection. The bluebook of record for what bin/agent-discipline-check enforces." do
-    identified_by :kind
+    identified_by { kind.value }
 
     attribute :kind,                ViolationKind
-    attribute :requires_justification, Severity,        default: "true"
-    attribute :severity,            Severity,            default: "block"
-    attribute :detected_count,      DetectedCount,       default: 0
+    attribute :requires_justification, RequiresJustification, default: { value: "true" }
+    attribute :severity,            Severity,            default: { value: "block" }
+    attribute :detected_count,      DetectedCount,       default: { value: 0 }
     attribute :last_detected_at,    Timestamp
     attribute :last_agent_id,       AgentId
     attribute :last_justification,  Justification
+
+    value_object "RequiresJustification" do
+      # "true" | "false" -- extracted from the old bare-scalar attribute
+      # during hecksagain migration (task 3): hecksagain requires an
+      # aggregate-level attribute's type to be a declared value_object,
+      # never a bare Ruby primitive class -- this was the one place in
+      # this file that violated that convention.
+      attribute :value, String
+    end
 
     value_object "ViolationKind" do
       # Closed set : "skip_env_var" | "ignored_isolation".
@@ -126,6 +135,7 @@ Hecks.bluebook "AgentDiscipline", version: "2026.05.31.1" do
     end
 
     query "ForKind" do
+      attribute :kind, ViolationKind
       description "Look up the registry record for one violation kind by name. Returns the AgentDiscipline record (with detected_count + last_detected_at) when registered, or empty when the kind is not enforced."
       where kind: :kind
     end

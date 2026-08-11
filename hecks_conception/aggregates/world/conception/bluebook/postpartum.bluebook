@@ -7,7 +7,7 @@ Hecks.bluebook "Postpartum", version: "2026.04.16.1" do
   # Postpartum.CheckHealth).
 
   aggregate "Postpartum", "After birth — the domain's first days in the nursery" do
-    identified_by :domain_name
+    identified_by { domain_name.value }
     attribute :domain_name,    DomainName
     attribute :healthy,        HealthStatus
     attribute :first_pulse_at, Timestamp

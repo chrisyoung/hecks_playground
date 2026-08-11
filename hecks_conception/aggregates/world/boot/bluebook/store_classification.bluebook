@@ -12,7 +12,7 @@ Hecks.bluebook "StoreClassification", version: "2026.05.12.1" do
   # boot siblings is fine, the discipline is per-aggregate VO sets.
 
   aggregate "StoreClassification", "Classify .heki stores as linked or private" do
-    identified_by :name
+    identified_by { name.value }
     attribute :name,    Name
     attribute :linked,  list_of(StorePath)
     attribute :private, list_of(StorePath)

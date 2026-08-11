@@ -48,7 +48,7 @@ Hecks.bluebook "Capabilities", version: "2026.05.12.1" do
   # aggregate enforces these transitions ; the runtime walks them.
 
   aggregate "Capability", "A registered ability — what a being can do, how it's wired, and where its dispatch surface lives. Each Capability record names one capability (tools, voice, chat_agent, …) and points at the bluebook that hosts its dispatch surface." do
-    identified_by :name
+    identified_by { name.value }
 
     # ── Attributes (all wrapped in per-aggregate VOs) ──
 
@@ -56,7 +56,7 @@ Hecks.bluebook "Capabilities", version: "2026.05.12.1" do
     attribute :kind,          CapabilityKind
     attribute :registered_at, Timestamp
     attribute :source,        CapabilityProvider
-    attribute :state,         State, default: "nursery"
+    attribute :state,         State, default: { value: "nursery" }
     attribute :providers,     list_of(Provider)
 
     # ── Value-objects : the domain's language ──
@@ -141,6 +141,7 @@ Hecks.bluebook "Capabilities", version: "2026.05.12.1" do
     # aggregate ; for multi-aggregate, one Provider per aggregate.
 
     entity "Provider" do
+      identified_by { aggregate_name.value }
       description "One bluebook aggregate this capability exposes as a dispatch surface. A capability like 'tools' that spans multiple aggregates (ShellTool, FileTool, …) carries one Provider per aggregate ; a capability like 'chat_agent' that lives in a single aggregate carries exactly one Provider. The boot sequence walks providers to enumerate the dispatch surface a being inherits when the capability is on."
       attribute :aggregate_name, AggregateName
     end

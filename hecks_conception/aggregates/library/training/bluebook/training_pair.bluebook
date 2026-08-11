@@ -9,7 +9,7 @@ Hecks.bluebook "TrainingPairCorpus", version: "2026.04.28.1" do
   # parsed independently. Pattern follows NurseryCorpus / Corpus.
 
   aggregate "TrainingPair", "A single training example — bluebook source + parsed IR + validation result" do
-    identified_by :ref
+    identified_by { ref.value }
     attribute :ref,             Ref
     attribute :bluebook_source, BluebookSource
     attribute :ir_json,         IrJson

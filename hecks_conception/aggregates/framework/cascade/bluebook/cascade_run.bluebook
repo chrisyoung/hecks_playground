@@ -32,15 +32,15 @@ Hecks.bluebook "CascadeRun", version: "2026.05.25.1" do
   # adapter (runtime or agent) is what writes to it.
 
   aggregate "CascadeRun", "An explicit, ordered pipeline of step-commands with per-step status, failure capture, and retry. Identified by run_id. Lifecycle: running → completed | failed." do
-    identified_by :run_id
+    identified_by { run_id.value }
 
     attribute :run_id,        RunId
     attribute :trigger_event, TriggerEvent
     attribute :steps,         list_of(Step)
     attribute :retry_policy,  RetryPolicy
-    attribute :status,        Status, default: "running"
+    attribute :status,        Status, default: { value: "running" }
     attribute :failure_reason, FailureReason
-    attribute :causation,     Causation, default: ""
+    attribute :causation,     Causation, default: { value: "" }
 
     # ── Value objects ──────────────────────────────────────────────
 
@@ -209,6 +209,7 @@ Hecks.bluebook "CascadeRun", version: "2026.05.25.1" do
     end
 
     query "ByTrigger" do
+      attribute :trigger_event, TriggerEvent
       description "Cascade runs that were triggered by a specific event. Pass trigger_event: <event_name> to filter."
       where trigger_event: :trigger_event
     end

@@ -3,7 +3,7 @@ Hecks.bluebook "Demo", version: "2026.05.28.1" do
   category "demo"
 
   aggregate "Demo", "The act of showing shipped work. Tied to a Story ; slides walk through what landed. Each slide carries title + optional body ; slides MAY also name a source bluebook + diagram surface, in which case the runtime renders the diagram + validating sentences fresh on display. Navigation via Next / Back / GoTo." do
-    identified_by :name
+    identified_by { name.value }
 
     # ---- Identity ----
     attribute :name,                 Name
@@ -13,16 +13,26 @@ Hecks.bluebook "Demo", version: "2026.05.28.1" do
     attribute :description,          Description
 
     # ---- Navigation ----
-    attribute :current_slide_number, SlideNumber, default: 1
+    attribute :current_slide_number, SlideNumber, default: { value: 1 }
 
     # ---- The work being demoed (cross-bluebook reference) ----
     # Demo lives BESIDE Plan and references a Story by identity. The
-    # qualified Plan::Story routes through belongs_to so the unidir
-    # discipline (owner-side declaration, identity-string carrying) is
-    # honored. The previous `attribute Story` shape erred in Ruby
-    # (`undefined method to_sym for module Story`) ; bare-constant
-    # attribute is not a supported DSL form for cross-bluebook refs.
-    belongs_to Story, from: Plan
+    # Migration plan task 4: was `belongs_to Story, from: Plan` --
+    # hecksagain's belongs_to/has_one/reference_to have no cross-domain
+    # form at all (`from:` isn't a real kwarg anywhere in
+    # AggregateBuilder ; confirmed by reading it, not guessed) -- every
+    # structural reference resolves ONLY within the declaring aggregate's
+    # own domain (see conductor/lease.bluebook's own comment on the same
+    # finding). The corpus's OWN established cross-domain pattern
+    # (Conductor::Claim, Conductor::Lease) is a plain LOCAL VO-wrapped
+    # identity string, not a structural reference -- so `from: Plan` was
+    # never expressible either way, old attempt or new. Matches that
+    # pattern here too.
+    attribute :story, Story
+
+    value_object "Story" do
+      attribute :value, String
+    end
 
     # ---- Composition ----
     # Slides are OWNED entities (no identity outside this Demo).
@@ -65,7 +75,7 @@ Hecks.bluebook "Demo", version: "2026.05.28.1" do
     end
 
     value_object "DiagramSurface" do
-      # Optional : which mermaid surface from Bluebook::Diagram to render
+      # Optional : which mermaid surface from BluebookDiagram::Diagram to render
       # alongside the source bluebook — structure | behavior | flow |
       # slice | ports. Empty when no diagram is wanted. Validating
       # sentences are always rendered when source_path is present ; the
@@ -82,11 +92,12 @@ Hecks.bluebook "Demo", version: "2026.05.28.1" do
     # that mermaid surface. Slides without source_path are pure prose.
 
     entity "Slide" do
+      identified_by { number.value }
       attribute :number,          SlideNumber
       attribute :title,           Title
-      attribute :body,            SlideBody,      default: ""
-      attribute :source_path,     SourcePath,     default: ""
-      attribute :diagram_surface, DiagramSurface, default: ""
+      attribute :body,            SlideBody,      default: { value: "" }
+      attribute :source_path,     SourcePath,     default: { value: "" }
+      attribute :diagram_surface, DiagramSurface, default: { value: "" }
     end
 
     # ── Commands ─────────────────────────────────────────
@@ -110,9 +121,9 @@ Hecks.bluebook "Demo", version: "2026.05.28.1" do
       reference_to(Demo)
       attribute :number,          SlideNumber
       attribute :title,           Title
-      attribute :body,            SlideBody,      default: ""
-      attribute :source_path,     SourcePath,     default: ""
-      attribute :diagram_surface, DiagramSurface, default: ""
+      attribute :body,            SlideBody,      default: { value: "" }
+      attribute :source_path,     SourcePath,     default: { value: "" }
+      attribute :diagram_surface, DiagramSurface, default: { value: "" }
       then_set :slides, append: { number: :number, title: :title, body: :body, source_path: :source_path, diagram_surface: :diagram_surface }
       emits "SlideAdded"
     end

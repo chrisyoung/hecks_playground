@@ -48,9 +48,19 @@ Hecks.bluebook "Extraction", version: "2026.06.13.1" do
   # GRAMMAR — root : the whole declarative parse grammar
   # ============================================================
   aggregate "Grammar", "The whole declarative parse grammar — every block keyword's extraction rule, aggregated. The single source a kernel interpreter reads to parse any bluebook (including this one)." do
-    identified_by :name
+    identified_by { name.value }
     attribute :name, GrammarName
-    has_many BlockRule
+
+    # Migration plan task 4: was `has_many BlockRule` here AND `belongs_to
+    # Grammar` on BlockRule below — hecksagain refuses a bidirectional
+    # aggregate reference ("decide which one owns the relationship, let
+    # the other side be found through a query instead of a reference
+    # pointing back"). BlockRule's own `belongs_to Grammar` stays as the
+    # authoritative direction (matches the corpus's own dominant idiom —
+    # a child stores its parent's id, the parent's view is a query, e.g.
+    # hecksagain's own reaction.bluebook Handler/Dispatch — DeclaredIn,
+    # not a stored has_many list). `BlockRule.ByGrammar` below is that
+    # query.
 
     value_object "GrammarName" do
       # "canonical_bluebook", "canonical_behaviors" — a named grammar, the
@@ -71,7 +81,7 @@ Hecks.bluebook "Extraction", version: "2026.06.13.1" do
   # BLOCKRULE — one keyword's extraction rule (recursive)
   # ============================================================
   aggregate "BlockRule", "One keyword's extraction rule : the IR node it produces, whether it opens a do/end body, the child keywords legal in that body (the recursion), and the FieldRules that read its own scalar fields. Belongs to a Grammar." do
-    identified_by :keyword
+    identified_by { keyword.value }
     belongs_to Grammar
     attribute :keyword, Keyword
     attribute :produces, IrNode
@@ -80,7 +90,12 @@ Hecks.bluebook "Extraction", version: "2026.06.13.1" do
     # the recursion — command contains attribute / given / then_set / emits.
     # Empty for a leaf rule like attribute.
     attribute :contains, list_of(Keyword)
-    has_many FieldRule
+
+    # Migration plan task 4: was `has_many FieldRule` here AND `belongs_to
+    # BlockRule` on FieldRule below — the same bidirectional refusal as
+    # Grammar/BlockRule above, same fix : FieldRule's `belongs_to
+    # BlockRule` is authoritative, `FieldRule.ByBlockRule` below is the
+    # query.
 
     value_object "Keyword" do
       # The leading DSL keyword — "attribute", "command", "vision".
@@ -106,13 +121,19 @@ Hecks.bluebook "Extraction", version: "2026.06.13.1" do
       then_set :produces, to: :produces
       then_set :opens_block, to: :opens_block
     end
+
+    query "ByGrammar" do
+      description "Every BlockRule declared for one Grammar — the query-side counterpart to the has_many this aggregate used to carry structurally (see this aggregate's own comment on the bidirectional-reference fix)."
+      attribute :grammar, Grammar
+      where grammar: :grammar
+    end
   end
 
   # ============================================================
   # FIELDRULE — how ONE field is read from a block's source
   # ============================================================
   aggregate "FieldRule", "How one IR field is read from a block's source lines : the field name and the ReadStrategy that extracts it. Belongs to a BlockRule. The string_spanning and nested_block strategies are what the multi-line-vision and nested-command hard cases forced into the model." do
-    identified_by :field
+    identified_by { field.value }
     belongs_to BlockRule
     attribute :field, FieldName
     attribute :strategy, ReadStrategy
@@ -153,6 +174,12 @@ Hecks.bluebook "Extraction", version: "2026.06.13.1" do
       then_set :field, to: :field
       then_set :strategy, to: :strategy
       then_set :source_token, to: :source_token
+    end
+
+    query "ByBlockRule" do
+      description "Every FieldRule declared for one BlockRule — the query-side counterpart to the has_many this aggregate used to carry structurally (see BlockRule's own comment on the bidirectional-reference fix)."
+      attribute :block_rule, BlockRule
+      where block_rule: :block_rule
     end
   end
 end

@@ -3,21 +3,40 @@ Hecks.bluebook "Conductor", version: "2026.06.02.2" do
   category "framework"
 
   aggregate "Lease", "A worktree allocation. Identified by worktree_path — at most one active Lease per path (invariant). Belongs to the Story being worked and the Worker holding it. Carries an expiry timestamp and a lifecycle state." do
-    identified_by :worktree_path
+    identified_by { worktree_path.value }
 
     attribute :worktree_path,  WorktreePath
     attribute :expires_at,     ExpiresAt
-    attribute :state,          State,        default: "active"
+    attribute :state,          State,        default: { value: "active" }
 
-    belongs_to Story
+    # Migration plan task 4: was `belongs_to Story` -- a STRUCTURAL cross-
+    # aggregate reference, but "Story" is not an aggregate in the
+    # Conductor domain (has_many/has_one/belongs_to/reference_to only
+    # ever resolve WITHIN the declaring aggregate's own domain -- see
+    # merge_queue.bluebook's own comment on the same finding). Sibling
+    # aggregate `Claim` (claim.bluebook, same Conductor domain) already
+    # carries Story cross-domain correctly -- a plain VO-wrapped identity
+    # string, never a structural reference -- and this file's own `Grant`
+    # command already writes `story` that same way
+    # (`attribute :story, Story` / `then_set :story, to: :story`). Only
+    # the aggregate-level declaration was still the old structural form.
+    attribute :story, Story
     belongs_to Worker
+
+    value_object "Story" do
+      attribute :value, String
+    end
 
     value_object "WorktreePath" do
       attribute :value, String
     end
 
     value_object "ExpiresAt" do
-      attribute :value, String
+      # Migration plan task 4: was an ISO-8601 UTC string -- see
+      # worker.bluebook's StaleAfter, the same fix for the same reason
+      # (hecksagain refuses an ordered where-clause comparator on
+      # anything but a numeric field). Unix epoch seconds instead.
+      attribute :value, Integer
     end
 
     value_object "State" do
@@ -81,12 +100,14 @@ Hecks.bluebook "Conductor", version: "2026.06.02.2" do
 
     query "HeldByWorker" do
       description "All ACTIVE leases held by a given worker. SEMANTIC : worker == :worker AND state == active. The driving read for SEAM 3 (worker-died reclaim) : when a Worker dies, the ReclaimOnWorkerDied driven adapter sweeps this query (where worker == the dead worker_id) and fires Lease.Reclaim once per matching active lease. Now that belongs_to Worker synthesises a STORED worker FK (references-not-ids), the worker filter is a plain same-aggregate where — no cross-aggregate join needed."
+      attribute :worker, Worker
       where worker: :worker
       where state: "active"
     end
 
     query "PastTtl" do
-      description "All ACTIVE leases whose TTL has elapsed — orphaned worktrees to reclaim. SEMANTIC : state == active AND expires_at < :now. The driving read for the expiry sweep : a cadence Tick fans Conductor::Lease.Expire out over this query (fed :now via the {now} clock primitive), which cascades through ReclaimOnExpire to reclaim each worktree path and return it to the pool — independent of worker liveness (a lease can outlive its TTL even while its worker still heartbeats ; the worker-death side is Worker.Stale). expires_at is an ISO-8601 instant, so the lt comparison is a plain chronological string compare. Twin of Worker.Stale on the lease-TTL side of the same clock-driven reclaim."
+      description "All ACTIVE leases whose TTL has elapsed — orphaned worktrees to reclaim. SEMANTIC : state == active AND expires_at < :now. The driving read for the expiry sweep : a cadence Tick fans Conductor::Lease.Expire out over this query, passing now: as an ordinary ask-time parameter (see Worker.Stale's own comment — the '{now} clock primitive' predates hecksagain and never had a real magic-injection mechanism; an explicit parameter is the honest equivalent), which cascades through ReclaimOnExpire to reclaim each worktree path and return it to the pool — independent of worker liveness (a lease can outlive its TTL even while its worker still heartbeats ; the worker-death side is Worker.Stale). expires_at is now Unix epoch seconds (see ExpiresAt's own comment), so the lt comparison is a plain numeric compare. Twin of Worker.Stale on the lease-TTL side of the same clock-driven reclaim."
+      attribute :now, ExpiresAt
       where state: "active"
       where expires_at: { lt: :now }
     end

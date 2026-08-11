@@ -21,7 +21,7 @@ Hecks.bluebook "KnowledgeStore", version: "2026.04.28.1" do
   # This is just infrastructure.
 
   aggregate "KnowledgeStore", "A .heki store both beings can access — a shared bookshelf" do
-    identified_by :store_name
+    identified_by { store_name.value }
     attribute :store_name,      StoreName
     attribute :record_count,    RecordCount
     attribute :last_written_by, BeingName

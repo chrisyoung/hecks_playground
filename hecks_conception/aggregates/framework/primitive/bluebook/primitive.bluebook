@@ -63,7 +63,7 @@ Hecks.bluebook "Primitive", version: "2026.05.22.1" do
   # invocation by id, exactly as the retired :exec resolver did.
 
   aggregate "Process", "One process-spawn side-effect. Runs a literal program to completion, captures (ok, output, exit_code), records an audit row, and the primitive hook chains the outcome into result_into (typically Cascade.RecordResult), joinable by id." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id,        Id
     attribute :cmd,       Cmd
@@ -127,7 +127,7 @@ Hecks.bluebook "Primitive", version: "2026.05.22.1" do
   end
 
   aggregate "Compute", "One local compute-function side-effect — the pure-local sibling of Process. Invoke resolves a named function from the runtime's compute_functions registry, runs it against the caller-supplied attrs (+ data_dir), records an audit row, and the primitive hook chains the returned text into response_into_target(response_into_attr) joinable by id. The :compute hecksagon adapter family is SUGAR over this primitive (reaction.rs resolve_compute_adapters synthesizes Invoke per matched binding), exactly as :exec is sugar over Process.Spawn — this declaration retires the bespoke resolve_compute_adapters_with_excluded resolver that lived in runtime/mod.rs. Name + signature match the seeded Storehouse::Primitive record Compute.Invoke (kind compute, impl compute_dispatcher)." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id,            Id
     attribute :function_name, FunctionName
@@ -175,7 +175,7 @@ Hecks.bluebook "Primitive", version: "2026.05.22.1" do
   end
 
   aggregate "McpTool", "One MCP tool-call side-effect — the remote-protocol sibling of Process and Compute. Invoke resolves the named server (a .world-declared server routes as an mcp_dispatch_requested event to the harness-side transport ; a locally-spawnable server runs through the stdio MCP session), calls the tool with the FINAL substituted arguments JSON, records an audit row, and the primitive hook chains (id, tool, output, exit_code, ok) into result_into. The :mcp hecksagon adapter family is SUGAR over this primitive (reaction.rs resolve_mcp_adapters substitutes {attr} placeholders from upstream state + dispatch attrs, then synthesizes Invoke per matched binding) — this declaration retires the bespoke resolve_mcp_adapters resolver that lived in runtime/mod.rs. Name + signature match the seeded Storehouse::Primitive record McpTool.Invoke (kind mcp_tool, impl mcp_dispatcher)." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id,     Id
     attribute :server, Server
@@ -232,7 +232,7 @@ Hecks.bluebook "Primitive", version: "2026.05.22.1" do
   end
 
   aggregate "ClaudeTool", "One native tool-call side-effect — shell / edit / read / write / grep / glob, the Tools.* primitives. Invoke runs the named tool against the caller-supplied attrs (shell_command, file_path, …), records an audit row, and the primitive hook chains (id, tool, output, exit_code, ok) into result_into. The :claude_tool hecksagon adapter family is SUGAR over this primitive (reaction.rs resolve_claude_tool_adapters builds the attrs from upstream state + dispatch overlay, then synthesizes Invoke per matched binding) — this declaration retires the bespoke resolve_claude_tool_adapters resolver that lived in runtime/mod.rs. Name + signature match the seeded Storehouse::Primitive record ClaudeTool.Invoke (kind claude_tool, impl claude_tool_dispatcher)." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id,   Id
     attribute :tool, Tool
@@ -271,7 +271,7 @@ Hecks.bluebook "Primitive", version: "2026.05.22.1" do
   end
 
   aggregate "Llm", "One LLM completion side-effect — the language-model sibling of Process / Compute / McpTool / ClaudeTool. Invoke resolves the backend provider, runs the FINAL prompt to completion, records an audit row, and the primitive hook chains the response text into response_into_target(response_into_attr). The :llm hecksagon adapter family is SUGAR over this primitive (reaction.rs resolve_llm_adapters composes — cross-aggregate {{placeholder}} substitution via the adapter's prompt_template — then invokes ; the keystone effect-binding switch and the fired-set chain recursion live in the sugar) — this declaration retires the bespoke resolve_llm_adapters_with_excluded resolver that lived in runtime/mod.rs. Name + signature match the seeded Storehouse::Primitive record Llm.Invoke (kind llm, impl llm_dispatcher)." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id,      Id
     attribute :backend, Backend

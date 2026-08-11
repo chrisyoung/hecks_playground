@@ -8,7 +8,7 @@ Hecks.bluebook "Delivery", version: "2026.04.16.1" do
   # Delivery.RegisterBirth).
 
   aggregate "Delivery", "The domain leaves the womb and enters the nursery — born, valid, healthy" do
-    identified_by :domain_name
+    identified_by { domain_name.value }
     attribute :domain_name,     DomainName
     attribute :path,            Path
     attribute :aggregate_count, ElementCount

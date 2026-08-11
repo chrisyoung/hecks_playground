@@ -45,7 +45,7 @@ Hecks.bluebook "HandlerRegistry", version: "2026.05.14.1" do
 
   # ── HandlerRegistry : the substrate ──
   aggregate "HandlerRegistry", "The runtime substrate for i619 handlers. Records named (command_fqn, handler_kind, handler_args) tuples at boot ; resolves handlers by command FQN before dispatch ; invokes the resolved handler with the command's input attrs ; records per-invocation audit on the Invocation entity collection. The handler's return value lands in the event payload (per i618's ResponseEmitted, per i613's envelope). Effectively a singleton — there is one registry per Hecks runtime. Sister to IdentifierService (i614). i613 names the dispatch pipeline (StoreHouse wraps every command at the bluebook level) ; HandlerRegistry names the substrate that pipeline invokes." do
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name, Name
 
@@ -173,6 +173,7 @@ Hecks.bluebook "HandlerRegistry", version: "2026.05.14.1" do
     # ── Entity — per-invocation audit trail ──
 
     entity "Invocation" do
+      identified_by { handler_name.value }
       description "Audit record for one handler firing. When the runtime invokes a registered handler, it creates one Invocation row capturing the command FQN, the handler kind, when dispatch began, when the handler completed, the outcome (ok / error / timeout), and a short payload summary. The full handler return payload lives on the envelope-wrapped event on the StoreHouse meta-bus (i613) ; the Invocation entity is the fast-query inspection surface that ties handler-firing back to the registry's tally. Per-invocation detail accumulates over time and across sessions ; the per-session tallies on the parent aggregate reset at StartSession."
       attribute :handler_name,    HandlerName
       attribute :command,         CommandRef

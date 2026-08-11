@@ -3,16 +3,16 @@ Hecks.bluebook "Authorization", version: "2026.06.27.1" do
   category "framework"
 
   aggregate "Policy", "One Cedar-shaped authorization rule owned by the PDP : effect (permit|forbid), principal, action, resource, an optional `when` condition, an optional expiry. The gate hydrates the active set and evaluates allow/deny in-process (deny-by-default, forbid-override). Domains reference none of this ; policy lives and changes here alone." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id,         Id
     attribute :effect,     Effect
     attribute :principal,  Principal
     attribute :action,     Action
     attribute :resource,   Resource
-    attribute :condition,  Condition,  default: "-"
-    attribute :expires_at, ExpiresAt,  default: "-"
-    attribute :status,     Status,     default: "active"
+    attribute :condition,  Condition,  default: { value: "-" }
+    attribute :expires_at, ExpiresAt,  default: { value: "-" }
+    attribute :status,     Status,     default: { value: "active" }
 
     value_object "Id" do
       # Stable natural key for the rule (e.g. "editor-edit-doc"). The PDP keys by this ; Permit/Forbid upsert on it.
@@ -111,11 +111,11 @@ Hecks.bluebook "Authorization", version: "2026.06.27.1" do
   end
 
   aggregate "RoleAssignment", "RBAC's identity→role, owned by the authorization context — never by a domain aggregate. One record per auth identity (identified_by :auth_identity_id ; Assign upserts on it). The gate's AclReadModel hydrates auth_identity_id → role_name from the active set, then exact-matches the role against Policy principals. This is where the Agent domain's auth surface moved in the Phase 4 decouple (2026-07-02) : a principal — client-app user, API key, agent — holds a role without any domain carrying auth." do
-    identified_by :auth_identity_id
+    identified_by { auth_identity_id.value }
 
     attribute :auth_identity_id, AuthIdentityId
     attribute :role_name,        RoleName
-    attribute :status,           Status, default: "active"
+    attribute :status,           Status, default: { value: "active" }
 
     value_object "AuthIdentityId" do
       # The principal's stable identity — an OIDC sub, an agent's stamped

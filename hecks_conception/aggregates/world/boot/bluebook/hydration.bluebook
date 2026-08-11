@@ -11,7 +11,7 @@ Hecks.bluebook "Hydration", version: "2026.05.12.1" do
   # boot siblings is fine, the discipline is per-aggregate VO sets.
 
   aggregate "Hydration", "Load all .heki stores from information/" do
-    identified_by :name
+    identified_by { name.value }
     attribute :name,          Name
     attribute :store_count,   StoreCount
     attribute :total_records, RecordCount

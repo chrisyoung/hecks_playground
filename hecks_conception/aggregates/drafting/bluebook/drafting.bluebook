@@ -3,12 +3,12 @@ Hecks.bluebook "Drafting", version: "2026.05.24.1" do
   category "drafting"
 
   aggregate "Document", "A document we are drafting together — its markdown main file and its revision history" do
-    identified_by :ref
+    identified_by { ref.value }
 
     attribute :ref,       Ref
     attribute :title,     Title
     attribute :main_file, MainFile
-    attribute :revision,  RevisionNumber, default: 0
+    attribute :revision,  RevisionNumber, default: { value: 0 }
     attribute :revisions, list_of(Revision)
 
     value_object "Ref" do
@@ -44,6 +44,7 @@ Hecks.bluebook "Drafting", version: "2026.05.24.1" do
     end
 
     entity "Revision" do
+      identified_by { number.value }
       attribute :number,  RevisionNumber
       attribute :summary, Summary
       attribute :diff,    Diff

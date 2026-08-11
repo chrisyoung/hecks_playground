@@ -59,7 +59,7 @@ Hecks.bluebook "Role", version: "2026.05.12.1" do
   #                  every permission through Lexicon.Lookup.
 
   aggregate "Role", "The type an Agent fills in a command's scope. Carries a name, a description, an optional parent role for composition, and a permissions list of dotted phrases." do
-    identified_by :name
+    identified_by { name.value }
 
     # ── Value-objects : the domain's language ──
     #
@@ -129,7 +129,9 @@ Hecks.bluebook "Role", version: "2026.05.12.1" do
     # "active" on Define ; Retire transitions it to "retired". The
     # authorization read-model skips retired roles. Mirrors the Pizzas
     # Order.status transition-in-attribute form.
-    attribute :status, Status, default: "active" do
+    attribute :status, Status, default: { value: "active" }
+
+    lifecycle :status, default: "active" do
       transition "Retire" => "retired"
     end
 

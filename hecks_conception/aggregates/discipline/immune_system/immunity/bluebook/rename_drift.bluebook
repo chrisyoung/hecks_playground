@@ -58,11 +58,11 @@ Hecks.bluebook "RenameDrift", version: "2026.05.12.1" do
   # value_object — the domain reads as itself.
 
   aggregate "RenameDriftCheck", "One pass of the rename-drift validator over a repo root" do
-    identified_by :ref
+    identified_by { ref.value }
     attribute :ref,             CheckRef
     attribute :repo_root,       RepoRoot
-    attribute :status,          Status, default: "idle"
-    attribute :violation_count, ViolationCount, default: "0"
+    attribute :status,          Status, default: { value: "idle" }
+    attribute :violation_count, ViolationCount, default: { value: "0" }
     attribute :findings,        list_of(Finding)
 
     # ── Value-objects : the domain's language ──
@@ -137,6 +137,7 @@ Hecks.bluebook "RenameDrift", version: "2026.05.12.1" do
     # decide which lifecycle leg to walk.
 
     entity "Finding" do
+      identified_by { file_path.value }
       description "One stale reference detected during a rename-drift scan. Captured by RecordFinding when Tools.Grep + catalog comparison spots a reference whose target no longer resolves. Carries enough context (file_path, line_no, reference_kind, reference_target) for downstream surfaces to point Chris at the exact line."
       attribute :file_path,        FilePath
       attribute :line_no,          LineNo

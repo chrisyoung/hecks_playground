@@ -11,7 +11,7 @@ Hecks.bluebook "CapabilityIndex", version: "2026.05.12.1" do
   # boot siblings is fine, the discipline is per-aggregate VO sets.
 
   aggregate "CapabilityIndex", "Scan capabilities/ and index what this being can do" do
-    identified_by :name
+    identified_by { name.value }
     attribute :name,             Name
     attribute :capabilities,     list_of(CapabilityName)
     attribute :capability_count, CapabilityCount

@@ -57,14 +57,14 @@ Hecks.bluebook "ArtifactClaim", version: "2026.06.16.1" do
   # is identical to how it would look behind any other driver.
 
   aggregate "ArtifactClaim", "One artifact path a bluebook claims to exist, the source that claims it, and the macrophage's current verdict on whether the promise is kept. The bluebook of record for the no-promises check ; keyed by (source, claimed_path) so re-scans upsert." do
-    identified_by :claim_id
+    identified_by { claim_id.value }
 
     attribute :claim_id,        ClaimId
     attribute :source,          SourceRef
     attribute :claimed_path,    ArtifactPath
     attribute :context,         ClaimContext
-    attribute :verdict,         Verdict,    default: "unverified"
-    attribute :severity,        Severity,   default: "warn"
+    attribute :verdict,         Verdict,    default: { value: "unverified" }
+    attribute :severity,        Severity,   default: { value: "warn" }
     attribute :last_scanned_at, Timestamp
     attribute :last_verified_at, Timestamp
 
@@ -182,6 +182,7 @@ Hecks.bluebook "ArtifactClaim", version: "2026.06.16.1" do
     end
 
     query "ForSource" do
+      attribute :source, SourceRef
       description "Every claim made by one bluebook source — the scanner reads this to reconcile a re-scan and Retract claims no longer present."
       where source: :source
     end
@@ -209,12 +210,12 @@ Hecks.bluebook "ArtifactClaim", version: "2026.06.16.1" do
   # cascades into Cascade.RecordResult.
 
   aggregate "NoPromisesSweep", "The singleton no-promises driver. Holds the scan root + last-run timestamps ; Scan and Verify are the two recurring verbs whose emitted events fire the Process.Spawn policies that run the discovery + verification leaves. One per being." do
-    identified_by :name
+    identified_by { name.value }
 
-    attribute :name,             SweepName,  default: "no_promises"
-    attribute :scan_root,        ScanRoot,   default: "aggregates"
-    attribute :last_scanned_at,  Timestamp,  default: "—"
-    attribute :last_verified_at, Timestamp,  default: "—"
+    attribute :name,             SweepName,  default: { value: "no_promises" }
+    attribute :scan_root,        ScanRoot,   default: { value: "aggregates" }
+    attribute :last_scanned_at,  Timestamp,  default: { value: "—" }
+    attribute :last_verified_at, Timestamp,  default: { value: "—" }
 
     value_object "SweepName" do
       # Singleton key — there is one NoPromisesSweep per being.

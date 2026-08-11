@@ -56,11 +56,11 @@ Hecks.bluebook "Morphology", version: "2026.05.12.1" do
   # keep the freshest call site so the eventual fix is locatable.
 
   aggregate "VerbException", "A word the morphology validator rejected as noun-looking — tracked as runtime evidence so my own grammar can know itself" do
-    identified_by :word
+    identified_by { word.value }
     attribute :word,             Word
     # status: pending | confirmed | promoted
-    attribute :status,           Status, default: "pending"
-    attribute :rejection_count,  Count, default: 0
+    attribute :status,           Status, default: { value: "pending" }
+    attribute :rejection_count,  Count, default: { value: 0 }
     attribute :last_rejected_in, CallSite
     attribute :last_rejected_at, Timestamp
     attribute :promoted_at,      Timestamp

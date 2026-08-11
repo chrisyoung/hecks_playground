@@ -65,5 +65,12 @@ Hecks.hecksagon "CommandBus" do
     output_format: :text,
     timeout: 60
 
-  CommandBus::CommandBus.persisted_by("Memory")
+  # Migration plan task 4: this explicit bind used to duplicate `adapter
+  # :memory` above -- bare `adapter :memory` (no opts, no block) already
+  # triggers HecksagonBuilder's domain-wide-default sugar
+  # (`domain_wide_persisted_by`), synthesizing CommandBus::CommandBus.
+  # persisted_by("Memory") on its own. Restating it explicitly hit "2
+  # authoritative persisted_by bindings, declare exactly one adapter
+  # without a role" -- removed as the genuine duplicate it was, not
+  # worked around.
 end

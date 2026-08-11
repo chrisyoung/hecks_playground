@@ -12,7 +12,7 @@ Hecks.bluebook "Acl", version: "2026.04.28.1" do
   # lexicon.bluebook.
 
   aggregate "Acl", "A phrase book entry — who can say what, and how they say it" do
-    identified_by :canonical_phrase
+    identified_by { canonical_phrase.value }
     attribute :actor,            Actor
     attribute :canonical_phrase, CanonicalPhrase
     attribute :command_path,     list_of(CommandPathSegment)

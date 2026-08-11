@@ -69,7 +69,7 @@ Hecks.bluebook "Tools", version: "2026.05.14.1" do
 
   # ── ShellTool : Bash (shell exec) ──
   aggregate "ShellTool", "Shell-command invocations as first-class dispatched commands. Carries the verbatim shell command plus a one-line description ; the :claude_tool kernel hook executes it and chains the outcome into Cascade.RecordResult." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id, Id
     attribute :shell_command, ShellCommand
@@ -116,7 +116,7 @@ Hecks.bluebook "Tools", version: "2026.05.14.1" do
 
   # ── FileTool : Read, Edit, Update (file I/O) ──
   aggregate "FileTool", "File-I/O tool invocations as first-class dispatched commands. Read is pure observation ; Edit applies a substring substitution ; Update writes content. State carries the file_path + description ; large payloads (old/new strings, full content) ride in the event payload only so persistence stays small." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id, Id
     attribute :file_path, FilePath
@@ -305,7 +305,7 @@ Hecks.bluebook "Tools", version: "2026.05.14.1" do
 
   # ── SearchTool : Grep, Glob (filesystem search) ──
   aggregate "SearchTool", "Filesystem-search tool invocations as first-class dispatched commands. Grep finds regex matches ; Glob enumerates paths against a filesystem pattern. State carries what was searched for and where ; match results ride in the event payload." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id, Id
     attribute :pattern, Pattern
@@ -377,7 +377,7 @@ Hecks.bluebook "Tools", version: "2026.05.14.1" do
 
   # ── WebTool : WebFetch, WebSearch (HTTP / search engine) ──
   aggregate "WebTool", "Web tool invocations as first-class dispatched commands. WebFetch retrieves a URL and processes it with a prompt ; WebSearch runs a query against a search engine. State carries the url/prompt/query + description ; fetched content + result listings ride in the event payload." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id, Id
     attribute :url, Url
@@ -487,12 +487,12 @@ Hecks.bluebook "Tools", version: "2026.05.14.1" do
   # path is filed as `agent-tool-runtime-resume-api` (sprint 15).
 
   aggregate "AgentTool", "Agent-control tool invocations as first-class dispatched commands. SendMessage delivers a Message to a named AgentId ; preserve_context selects whether the recipient continues its current transcript or boots fresh. Carries the message + recipient + preserve flag ; the :agent_tool adapter family (sibling hecksagon) routes the AgentMessageSent event to the runtime's resume surface and cascades the outcome into Cascade.RecordResult." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id,                Id
     attribute :to,                AgentId
     attribute :message,           Message
-    attribute :preserve_context,  PreserveContext, default: true
+    attribute :preserve_context,  PreserveContext, default: { value: true }
     attribute :description,       Description
 
     value_object "Id" do
@@ -576,7 +576,7 @@ Hecks.bluebook "Tools", version: "2026.05.14.1" do
   # NOT modelled here : there is no SendDraft command. Sending is
   # the operator's act ; Miette composes, the operator approves.
   aggregate "EmailTool", "Gmail tool invocations as first-class dispatched commands. SearchThreads queries the inbox ; GetThread retrieves one thread's full content ; CreateDraft composes a reply ; ListDrafts enumerates pending outbound drafts. State carries the thread_id + recipient + subject + description ; bodies and full thread content ride in the event payload." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id, Id
     attribute :thread_id, ThreadId
@@ -732,7 +732,7 @@ Hecks.bluebook "Tools", version: "2026.05.14.1" do
   # to task lifecycle events the same way it reacts to file or
   # shell events.
   aggregate "TaskTool", "Task-registry tool invocations as first-class dispatched commands. Create mints a task ; Get / List / Output observe ; Stop terminates ; Update mutates. State carries the task identifier plus the most recent subject / status / description ; large payloads (prompts, output, metadata) ride in the event payload." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id, Id
     attribute :task_id, TaskId
@@ -898,7 +898,7 @@ Hecks.bluebook "Tools", version: "2026.05.14.1" do
   # transcript lands through Cascade.RecordResult with
   # tool_kind "sidequest".
   aggregate "Sidequest", "Sub-agent dispatches as first-class dispatched commands. One Sidequest record per dispatch ; the agent's transcript rides through Cascade.RecordResult. State carries the description, subagent_type, and prompt — the prompt persists to state (i707) so the RunSidequestOnDispatch policy's spawn leaf (bin/sidequest_run.mjs) can read it back from the heki and actually run the agent." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id, Id
     attribute :subagent_type, SubagentType
@@ -1012,7 +1012,7 @@ Hecks.bluebook "Tools", version: "2026.05.14.1" do
   # N seconds and prompt me with X". Used for follow-up checks,
   # polling, and time-based reactions.
   aggregate "WakeupTool", "Scheduled future self-dispatch invocations. Schedule queues a deferred prompt to be delivered to the being after delay_seconds elapses ; the runtime substrate handles the timer and re-dispatch. State carries the delay and reason ; the prompt rides in the event payload." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id, Id
     attribute :delay_seconds, DelaySeconds
@@ -1073,7 +1073,7 @@ Hecks.bluebook "Tools", version: "2026.05.14.1" do
   # remote agents that fire on a schedule. Create / List / Delete
   # mirror the harness's CronCreate / CronList / CronDelete tools.
   aggregate "CronTool", "Recurring scheduled-agent invocations as first-class dispatched commands. Create registers a cron job with a schedule + prompt ; List enumerates the registry ; Delete removes a job. State carries the cron_id plus the most recent schedule + prompt summary." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id, Id
     attribute :cron_id, CronId
@@ -1165,7 +1165,7 @@ Hecks.bluebook "Tools", version: "2026.05.14.1" do
   # state records what was subscribed to ; payload rides through
   # Cascade.
   aggregate "MonitorTool", "Streaming-subscription invocations as first-class dispatched commands. Stream subscribes to a target (a background-process id, a log path, a tool id) ; stream lines flow back through Cascade.RecordResult one line at a time. State carries the target + filters." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id, Id
     attribute :target, StreamTarget
@@ -1224,7 +1224,7 @@ Hecks.bluebook "Tools", version: "2026.05.14.1" do
   # NotifyTool wraps Claude Code's PushNotification surface — a
   # one-shot push to the operator's notification channel.
   aggregate "NotifyTool", "Push-notification invocations as first-class dispatched commands. Push sends a title + body to the operator's notification channel. State carries the title + channel ; the body rides in the event payload (may be longer than a statusline-safe line)." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id, Id
     attribute :title, NotificationTitle
@@ -1285,7 +1285,7 @@ Hecks.bluebook "Tools", version: "2026.05.14.1" do
   # to distinguish active / abandoned / completed plans, a
   # PlanSession entity inside PlanTool would be the right move.
   aggregate "PlanTool", "Plan-mode invocations as first-class dispatched commands. Enter records the plan text and opens plan mode ; Exit closes it. State carries the most recent plan ; the full plan rides in the event payload if it's large." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id, Id
     attribute :plan, PlanText
@@ -1339,7 +1339,7 @@ Hecks.bluebook "Tools", version: "2026.05.14.1" do
   # — isolated working directories for sub-agent runs and risky
   # operations. Enter mints a fresh worktree ; Exit cleans it up.
   aggregate "WorktreeTool", "Worktree-isolation invocations as first-class dispatched commands. Enter creates an isolated working directory (optionally on a named branch) ; Exit cleans it up. State carries the branch + path." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id, Id
     attribute :branch, BranchName
@@ -1415,7 +1415,7 @@ Hecks.bluebook "Tools", version: "2026.05.14.1" do
   # override — the bluebook is the contract whether or not the
   # :claude_tool :ask_user adapter is live today.
   aggregate "AskTool", "Interactive operator-question invocations as first-class dispatched commands. AskUser poses a question to the operator (optionally with a header and a list of selectable options) and records what was asked. The operator's answers flow through the UserAnswered event payload ; aggregate state carries only the question, header, option labels, and the multi_select flag." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id, Id
     attribute :question, Question
@@ -1507,7 +1507,7 @@ Hecks.bluebook "Tools", version: "2026.05.14.1" do
   # skill is a packaged capability (e.g. "bluebook", "navigate",
   # "boot-spring") that the harness can execute on demand.
   aggregate "SkillTool", "Skill-invocation tool dispatches as first-class commands. Invoke runs a named skill, optionally with arguments. State carries the skill name ; arguments ride in the event payload." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id, Id
     attribute :skill, SkillName
@@ -1556,7 +1556,7 @@ Hecks.bluebook "Tools", version: "2026.05.14.1" do
   # navigation, hover info, references, etc., scoped to a file
   # path and optional position.
   aggregate "LspTool", "Language-server tool invocations as first-class dispatched commands. Query asks the LSP for information at a file path and optional position. State carries the file path ; the query result rides through Cascade.RecordResult." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id, Id
     attribute :file_path, FilePath
@@ -1606,7 +1606,7 @@ Hecks.bluebook "Tools", version: "2026.05.14.1" do
   # the harness's deferred-tool registry. Used to discover and
   # load tool schemas on demand.
   aggregate "MetaTool", "Tool-discovery dispatches as first-class commands. ToolSearch matches a query against the deferred-tool list and returns matching tool schemas. State carries the query ; the result schemas ride in the event payload." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id, Id
     attribute :query, SearchQuery
@@ -1655,7 +1655,7 @@ Hecks.bluebook "Tools", version: "2026.05.14.1" do
   # an external integration, or a registered remote-agent
   # endpoint — with an optional payload.
   aggregate "RemoteTriggerTool", "Remote-trigger invocations as first-class dispatched commands. Trigger fires a named external endpoint with an optional payload. State carries the target name ; payload rides in the event payload." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id, Id
     attribute :target, TriggerTarget
@@ -1732,7 +1732,7 @@ Hecks.bluebook "Tools", version: "2026.05.14.1" do
   # the exec dispatcher lands, these commands are a declared contract —
   # same posture as the EmailTool :mcp bindings and Sidequest.SendMessage.
   aggregate "GitTool", "Local git porcelain invocations as first-class dispatched commands. Every command carries repo — the working directory — so directory context is a typed dispatch parameter, never a shell cd. The :exec adapter runs git in repo and chains the outcome into Cascade.RecordResult. Safety is structural : add -A, --amend, --no-verify, and force-push are simply not representable." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id, Id
     attribute :repo, RepoPath
@@ -1887,10 +1887,17 @@ Hecks.bluebook "Tools", version: "2026.05.14.1" do
   # Same phase-2 substrate note as GitTool : the contract is live now,
   # the :gh exec arm wires execution later.
   aggregate "GitHubTool", "GitHub (gh CLI) invocations as first-class dispatched commands. RepoView/RepoRename act on a repo slug ; PrCreate/PrView act within a repo working directory. The :exec adapter runs gh and chains the outcome into Cascade.RecordResult." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id, Id
     attribute :repo_slug, RepoSlug
+    # Migration plan task 4: was missing -- PrCreate/PrView already wrote
+    # `then_set :repo, to: :repo`, and the aggregate's own vision line
+    # already distinguishes it from repo_slug ("RepoView/RepoRename act
+    # on a repo slug ; PrCreate/PrView act within a repo working
+    # directory") -- a genuinely separate field, not a rename, simply
+    # never declared even though its RepoPath VO already existed below.
+    attribute :repo, RepoPath
     attribute :description, Description
 
     value_object "Id" do

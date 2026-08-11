@@ -5,7 +5,7 @@ Hecks.bluebook "InstructionPair", version: "2026.04.28.1" do
   # Lifted out of training_pipeline.bluebook in i112 split.
 
   aggregate "InstructionPair", "A single training example — instruction + expected response" do
-    identified_by :ref
+    identified_by { ref.value }
     attribute :ref,         Ref
     attribute :instruction, Instruction
     attribute :response,    Response

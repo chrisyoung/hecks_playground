@@ -11,7 +11,7 @@ Hecks.bluebook "MindstreamDaemon", version: "2026.05.12.1" do
   # boot siblings is fine, the discipline is per-aggregate VO sets.
 
   aggregate "MindstreamDaemon", "Background daemon — awareness between prompts" do
-    identified_by :name
+    identified_by { name.value }
     attribute :name,    Name
     attribute :pid,     Pid
     attribute :running, Running

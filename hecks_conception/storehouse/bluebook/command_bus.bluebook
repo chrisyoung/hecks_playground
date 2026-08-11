@@ -101,8 +101,19 @@ Hecks.bluebook "CommandBus", version: "2026.05.10.1" do
       # declares the I/O for each value ; the world file picks one
       # and supplies its credentials.
       attribute :value, String
-      invariant "must be one of :fs, :r2, :in_memory" do
-        %w[fs r2 in_memory].include?(value)
+      # Migration plan task 4/5: was an ad-hoc `invariant do %w[...].
+      # include?(value) end` -- hecksagain's own canonical-expression
+      # evaluator has no support for a %w[] array literal (raises
+      # "cannot resolve ... no such attribute or argument" the moment a
+      # real dispatch actually evaluates it, not just at parse time), and
+      # hecksagain already has a proper, first-class closed-set construct
+      # for exactly this shape (member value: "x", the same MutationOp/
+      # QueryComparator idiom this migration already extended earlier).
+      # Re-expressed, not worked around.
+      one_of do
+        member value: "fs"
+        member value: "r2"
+        member value: "in_memory"
       end
     end
 
@@ -111,8 +122,11 @@ Hecks.bluebook "CommandBus", version: "2026.05.10.1" do
       # target ; cli is the laptop ; aws_lambda + axum_local are
       # filed for later iterations.
       attribute :value, String
-      invariant "must be one of :cf_worker, :aws_lambda, :cli, :axum_local" do
-        %w[cf_worker aws_lambda cli axum_local].include?(value)
+      one_of do
+        member value: "cf_worker"
+        member value: "aws_lambda"
+        member value: "cli"
+        member value: "axum_local"
       end
     end
 
@@ -122,8 +136,11 @@ Hecks.bluebook "CommandBus", version: "2026.05.10.1" do
       # tenant / user scopes for portal-originated traffic ; :none
       # for local CLI hosts that don't authenticate.
       attribute :value, String
-      invariant "must be one of :bearer, :jwt, :oauth, :none" do
-        %w[bearer jwt oauth none].include?(value)
+      one_of do
+        member value: "bearer"
+        member value: "jwt"
+        member value: "oauth"
+        member value: "none"
       end
     end
 

@@ -43,7 +43,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   # Timestamp isn't a String. Each carries its concept.
 
   aggregate "Macrophage", "Live bluebook-first watcher — engulfs imperative edits as they happen ; holds the registered checks, violation history, and complaint history as child entities" do
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name, Name
 
@@ -128,6 +128,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entities — child records living inside the macrophage ──
 
     entity "Check" do
+      identified_by { id.value }
       description "A registered enforcement rule. The macrophage kernel scans live file operations and triggers a matching check when its pattern_kind matches. Folded into Macrophage in the 2026-05-12 dense-domain pass — was its own MacrophageCheck aggregate."
       attribute :id,              CheckId
       attribute :pattern_kind,    PatternKind
@@ -137,6 +138,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     end
 
     entity "Violation" do
+      identified_by { check_id.value }
       description "A specific offending file recorded against a Check — the evidence trail. Kept separate from Check so the rule definition stays clean while the activations accrete."
       attribute :check_id,    CheckId
       attribute :file_path,   FilePath
@@ -144,6 +146,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     end
 
     entity "Complaint" do
+      identified_by { complained_at.value }
       description "One historical complaint event. When the macrophage detected an imperative edit, what file, what the complaint text said. The latest_* scalars on the aggregate root mirror the most recent entry ; this collection holds the audit trail."
       attribute :complained_at,  Timestamp
       attribute :file_path,      FilePath
@@ -151,6 +154,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     end
 
     entity "FixturesViolation" do
+      identified_by { file_path.value }
       description "One historical fixtures-loaded-at-runtime event. .fixtures files are TEST data only ; any runtime load is an architectural violation that gets logged here so the dashboard can surface the pattern."
       attribute :file_path,   FilePath
       attribute :violated_at, Timestamp
@@ -307,7 +311,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   # aggregate is a sibling. Migration step 2 of the i595 plan.
 
   aggregate "BluebookFirst", "Per-rule macrophage for the bluebook-first enforcement — tracks imperative edits, exempted edits, and the complaint history for this rule alone" do
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name, Name
 
@@ -360,6 +364,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — complaint audit trail ──
 
     entity "Complaint" do
+      identified_by { complained_at.value }
       description "One historical complaint event for the bluebook-first rule. Records which file triggered the complaint, what the complaint text said, and when. The last_complaint / last_complaint_at scalars on the root mirror the most recent entry; this collection holds the full audit trail."
       attribute :complained_at,  Timestamp
       attribute :file_path,      FilePath
@@ -443,7 +448,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   # aggregate is a sibling. Migration step 2 of the i595 plan.
 
   aggregate "FixturesRuntime", "Per-rule macrophage for the fixtures-at-runtime enforcement — tracks .fixtures file accesses, violations, and the complaint history for this rule alone" do
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name, Name
 
@@ -497,6 +502,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — violation audit trail ──
 
     entity "FixturesViolation" do
+      identified_by { violated_at.value }
       description "One historical violation event for the fixtures-at-runtime rule. Records which .fixtures file was loaded, who loaded it, what the violation text said, and when. The last_violation / last_violation_at / last_violation_file_path scalars on the root mirror the most recent entry; this collection holds the full audit trail."
       attribute :violated_at,     Timestamp
       attribute :file_path,       FilePath
@@ -576,7 +582,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   # aggregate is a sibling. i595 decomposition #3 of 7.
 
   aggregate "AntibodyExemption", "Per-rule macrophage for the antibody-exemption-marker well-formedness enforcement — tracks all exemption markers seen, classifies them as well-formed or malformed, and maintains the complaint history for this rule alone" do
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name, Name
 
@@ -645,6 +651,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — malformed-exemption audit trail ──
 
     entity "MalformedExemption" do
+      identified_by { recorded_at.value }
       description "One historical record of a malformed or pre-emptive [antibody-exempt: ...] marker. Records the file where the marker appeared, the verbatim marker text, and the reason the macrophage judged it malformed. The last_complaint / last_complaint_at scalars on the root mirror the most recent complaint; this collection holds the full audit trail."
       attribute :recorded_at,           Timestamp
       attribute :file_path,             FilePath
@@ -742,7 +749,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   # violation surfaced by Complain.
 
   aggregate "Warnings", "Per-rule macrophage for the zero-warning-build enforcement — tracks compiler, test, and lint warnings plus explicit suppression markers and the complaint history for this rule alone" do
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name, Name
 
@@ -816,6 +823,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — warning audit trail ──
 
     entity "Warning" do
+      identified_by { recorded_at.value }
       description "One historical warning event. Records which file triggered the warning, the source tool, the raw warning text, and when it was recorded. The total_warnings / compiler_warnings / test_warnings / lint_warnings scalars on the root mirror live counts; this collection holds the full audit trail so individual warnings remain queryable after the session."
       attribute :recorded_at,   Timestamp
       attribute :file_path,     FilePath
@@ -912,7 +920,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   # aggregate is a sibling. Migration step 5 of the i595 plan.
 
   aggregate "LinearReference", "Per-rule macrophage for the retired-tool-reference enforcement — tracks which tools are being watched, records detected references, and maintains the complaint history for this rule alone" do
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name, Name
 
@@ -983,6 +991,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — retired-tool registry ──
 
     entity "TrackedRetiredTool" do
+      identified_by { tool_name.value }
       description "One tool that has been retired and whose references should be flagged. Adding a new entry via TrackRetiredTool is the only change required when a new tool is retired — the detection loop iterates this collection at runtime, so the set is data, not code."
       attribute :tool_name,    ToolName
       attribute :retired_at,   Timestamp
@@ -993,6 +1002,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — reference audit trail ──
 
     entity "RetiredReference" do
+      identified_by { recorded_at.value }
       description "One detected reference to a tracked retired tool. Records when it was seen, which file contained it, which tool was referenced, the line number, and the verbatim snippet. The last_offending_file / last_offending_tool scalars on the root mirror the most recent entry; this collection holds the full audit trail."
       attribute :recorded_at,      Timestamp
       attribute :file_path,        FilePath
@@ -1095,7 +1105,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   #   OversizedFile — at or over limit (a rule violation)
 
   aggregate "LineCount", "Per-rule macrophage for the 200-line file limit — tracks checked files, records warning and over-limit files as distinct entities, and surfaces a complaint for every violation" do
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name, Name
 
@@ -1165,6 +1175,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — oversized-file audit trail ──
 
     entity "OversizedFile" do
+      identified_by { recorded_at.value }
       description "One file that crossed the line-count limit. Recorded when RecordLineCount routes to over-limit, or when RecordOversizedFile is dispatched directly. The exceeded_by field makes the delta legible without subtraction — how many lines over the limit the file sits."
       attribute :recorded_at,  Timestamp
       attribute :file_path,    FilePath
@@ -1176,6 +1187,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — warning-file audit trail ──
 
     entity "WarningFile" do
+      identified_by { recorded_at.value }
       description "One file that sits between warning_threshold_lines and limit_lines — approaching the limit but not yet over it. Distinct from OversizedFile so urgency reads at a glance: WarningFile = act soon, OversizedFile = rule violated. The lines_to_limit field shows the remaining headroom."
       attribute :recorded_at,    Timestamp
       attribute :file_path,      FilePath
@@ -1295,7 +1307,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   # aggregate is a sibling. Migration step 7 of the i595 plan.
 
   aggregate "TestSpeed", "Per-rule macrophage for the tests-under-1-second enforcement — tracks suite durations, threshold breaches, and named exemptions for this rule alone" do
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name, Name
 
@@ -1385,6 +1397,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — slow run audit trail ──
 
     entity "SlowTestRun" do
+      identified_by { recorded_at.value }
       description "One recorded test run that exceeded the warning or error threshold. Appended by the Complain command. Provides the full audit trail of slow runs this session — the last_offending_suite / last_complaint_at scalars on the root mirror the most recent entry for fast reads, but this collection holds everything."
       attribute :recorded_at,   Timestamp
       attribute :suite_name,    SuiteName
@@ -1396,6 +1409,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — named exemptions ──
 
     entity "ExemptedSlowTest" do
+      identified_by { suite_name.value }
       description "A suite whose slowness is officially exempted with a named, case-by-case reason. Registered via ExemptSlowTest. The macrophage will not issue a complaint for a suite that appears in this collection — but the exemption must carry a non-empty reason, enforcing the same discipline as antibody markers. Exemptions are never pre-emptive; they are registered after the hook has complained and the team has decided."
       attribute :suite_name, SuiteName
       attribute :reason,     ExemptionReason
@@ -1490,7 +1504,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   # aggregate is a sibling. Migration step 8 of the i595 plan.
 
   aggregate "CardLock", "Per-rule macrophage for the card-lock enforcement — tracks edits against locked card scopes and maintains the full violation history for this rule alone" do
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name,                    Name
 
@@ -1569,6 +1583,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — violation audit trail ──
 
     entity "LockComplaint" do
+      identified_by { recorded_at.value }
       description "One historical lock-violation event. Records which file triggered the complaint, which card's signoff covers that path, who signed off and at which commit, and the full complaint text. The last_complaint / last_complaint_at / last_offending_* scalars on the root mirror the most recent entry; this collection holds the full audit trail."
       attribute :recorded_at,       Timestamp
       attribute :file_path,         FilePath
@@ -1667,7 +1682,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   # NOT retired here — this aggregate is a sibling.
 
   aggregate "BidirectionalAssociation", "Per-rule macrophage for the unidirectional-association enforcement — scans bluebook attribute declarations for mutual aggregate references and maintains the full violation history for this rule alone" do
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name, Name
 
@@ -1747,6 +1762,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — violation audit trail ──
 
     entity "PairViolation" do
+      identified_by { recorded_at.value }
       description "One historical bidirectionality violation event. Records which two aggregates form the offending pair, in which bluebooks the two offending attributes were found, the full complaint text, and when the check ran. The last_complaint / last_complaint_at / last_offending_pair scalars on the root mirror the most recent entry; this collection holds the full audit trail."
       attribute :recorded_at,      Timestamp
       attribute :aggregate_a,      AggregateName
@@ -1759,6 +1775,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — named exemptions ──
 
     entity "Exemption" do
+      identified_by { pair.value }
       description "An explicitly named exemption for an aggregate pair that is allowed to hold mutual references despite the rule. Exemptions must name a concrete per-pair reason — a vague rationale ('legacy', 'ok', 'skip') is itself a macrophage violation. The runtime check skips pairs that appear in this collection."
       attribute :pair,            AggregatePair
       attribute :reason,          ExemptionReason
@@ -1832,12 +1849,23 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   # `value_object "Id"` triad is the surrogate-key lie ; this
   # macrophage hunts it.
   #
+  # SYNTAX NOTE (2026-08-11, hecksagain migration) : the corpus-wide
+  # DSL rewrite retired the bare-symbol `identified_by :field` form
+  # entirely — hecksagain's builders only accept the computed-identity
+  # block form `identified_by { field.value }`. The surrogate-key smell
+  # this rule hunts therefore now surfaces as `identified_by { id.value }`,
+  # not the old `identified_by :id` — same smell (identity resolves to
+  # the bare `id` field), new surface syntax. Confirmed 48 occurrences
+  # corpus-wide post-rewrite, consistent with this rule's original
+  # ~46-file baseline (see the migration plan's "sixth execution pass").
+  #
   # Four structural checks (each a hard violation) :
   #
   #   * id_attribute       — any `attribute :id, Id` declaration
   #                          (in aggregate body, command body, or
   #                          entity body) is forbidden.
-  #   * identified_by_id   — `identified_by :id` is forbidden ;
+  #   * identified_by_id   — `identified_by { id.value }` (formerly
+  #                          bare `identified_by :id`) is forbidden ;
   #                          identity must name a natural-key field
   #                          (or fields), or the aggregate must be
   #                          flagged `singleton: true`.
@@ -1871,7 +1899,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   # command, exemption support.
 
   aggregate "IdentityDiscipline", "Per-rule macrophage for the i611 natural-key-identity enforcement — tracks bluebook structural violations of the no-surrogate-id contract (four hard checks : id_attribute, identified_by_id, id_value_object, dangling_identity) and maintains the complaint history. Missing identified_by is NOT a violation — the runtime defaults to UUID when absent (2026-05-14 UUID-default softening)." do
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name, Name
 
@@ -1936,7 +1964,10 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     value_object "ViolationKind" do
       # The check that fired. One of the four hard checks :
       #   "id_attribute"       — `attribute :id, Id`
-      #   "identified_by_id"   — `identified_by :id`
+      #   "identified_by_id"   — `identified_by { id.value }` (post-
+      #                          hecksagain-migration syntax ; formerly
+      #                          bare `identified_by :id` before the
+      #                          2026-08 DSL rewrite retired that form)
       #   "id_value_object"    — `value_object "Id"`
       #   "dangling_identity"  — identified_by names a non-attribute field
       # Note : "missing_identity" and "missing_entity_id" are NOT valid
@@ -1982,6 +2013,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — violation audit trail ──
 
     entity "IdentityViolation" do
+      identified_by { recorded_at.value }
       description "One historical violation event for the identity-discipline rule. Records the bluebook file, the offending aggregate / entity name, the field that triggered the violation, the kind of check that fired, the line number, and when it was recorded. The last_complaint / last_offending_* scalars on the root mirror the most recent entry; this collection holds the full audit trail."
       attribute :recorded_at,    Timestamp
       attribute :file_path,      FilePath
@@ -1994,6 +2026,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — named exemptions ──
 
     entity "ExemptedAggregate" do
+      identified_by { aggregate_name.value }
       description "An aggregate (or aggregate.entity pair) whose identity-discipline violation is officially exempted with a named, case-by-case reason. Registered via ExemptAggregate. The macrophage will not issue a complaint for a violation against an entry in this collection — but the exemption must carry a non-empty ReasonText, mirroring the AntibodyExemption discipline. Exemptions are never pre-emptive; they are registered after the macrophage has complained and the team has decided the conversion is queued, not skipped."
       attribute :aggregate_name, AggregateName
       attribute :kind,           ViolationKind
@@ -2012,7 +2045,29 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     end
 
     # ── Primary scan command ──
-
+    #
+    # RUNTIME GAP (confirmed 2026-08-11, hecksagain migration, Task 5 /
+    # Open Question 6) : this command's description below is the
+    # SPECIFICATION of what a scan should do — it has never had a real
+    # implementation in either the old Rust runtime (grepped exhaustively
+    # for "IdentityDiscipline"/"i611"/"surrogate"/"identified_by_id" across
+    # rust/src + rust/cli/src : zero hits, the closest relative is
+    # validator_corpus.rs's identified_by_warnings, which checks the
+    # OPPOSITE condition — MISSING identified_by, not a bare :id one) or
+    # the new Ruby port (hecksagain_runtime/lib/hecksagain_runtime/
+    # macrophage_bridge.rb only classifies file kind and dispatches the
+    # SINGLETON Macrophage::Macrophage.Record*Edit commands — it never
+    # reads a bluebook file's content and never touches
+    # Macrophage::IdentityDiscipline at all). No policy in this file wires
+    # any event to Check either. Verified directly, not just by reading
+    # code : dispatching Check by hand against a real 20-violation file
+    # (tools.bluebook) leaves bluebooks_checked/total_violations null and
+    # appends no IdentityViolation entities — this command is a structural
+    # no-op beyond `emits "BluebookChecked"` ; nothing has ever driven it
+    # automatically. The bare-:id vs block-form `{ id.value }` question
+    # this gap was originally opened to resolve is therefore moot until a
+    # real scanner exists to have an opinion about syntax at all — see the
+    # migration plan's dedicated dated section for the full trace.
     command "Check" do
       role "Hook"
       description "Scan one bluebook file for identity-discipline violations. Increments bluebooks_checked. Internally walks every aggregate, command, entity, and value_object declaration ; for each of the four hard checks (id_attribute, identified_by_id, id_value_object, dangling_identity), dispatches RecordViolation when the pattern matches. Missing identified_by is NOT checked — aggregates without it are valid under the UUID-default fallback. The hook calls this once per .bluebook write ; the macrophage decides what fired. No complaint is issued here — Complain is the surface command."
@@ -2126,7 +2181,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   # support keyed by named draft.
 
   aggregate "WritingDiscipline", "Per-rule macrophage for the i623 writing-style enforcement. Runs registered rule checks against composed draft text (em_dash, we_dont_we_do, ...) and maintains the complaint history for this rule alone. Scoped to Writing.Compose / Writing.Revise dispatches ; bluebook files and imperative files are out of scope." do
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name, Name
 
@@ -2257,6 +2312,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity : violation audit trail ──
 
     entity "WritingViolation" do
+      identified_by { recorded_at.value }
       description "One historical writing-rule violation event. Records the draft id, the rule kind that fired, the exact excerpt that matched, the byte offset of the match, the complaint text issued, and when the check ran. The last_offending_* scalars on the root mirror the most recent entry ; this collection holds the full audit trail."
       attribute :recorded_at,    Timestamp
       attribute :draft_id,       DraftId
@@ -2269,6 +2325,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity : named exemptions ──
 
     entity "ExemptedDraft" do
+      identified_by { draft_id.value }
       description "A specific draft (by id) whose violation of a specific rule kind is officially exempted with a named, case-by-case reason. Registered via ExemptDraft. The macrophage will not issue a complaint for a violation against an entry in this collection, but the exemption must carry a non-empty ReasonText, mirroring the AntibodyExemption discipline. Exemptions are never pre-emptive ; they are registered after the macrophage has complained and Chris has decided the prose stays."
       attribute :draft_id,     DraftId
       attribute :kind,         ViolationKind
@@ -2413,7 +2470,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   # additionalContext channel.
 
   aggregate "CorrespondenceDiscipline", "Per-rule macrophage for the i624 correspondence-flow enforcement. Watches the bus for dispatches to AI-generated correspondence surfaces (EmailTool.CreateDraft, native Gmail create_draft, etc.) and fires when no preceding Writing.Compose dispatch with matching content was observed within the configured window. Maintains the watched-surface list, the flow-violation audit trail, per-surface exemptions, and the complaint history." do
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name, Name
 
@@ -2558,6 +2615,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity - flow-violation audit trail ──
 
     entity "FlowViolation" do
+      identified_by { recorded_at.value }
       description "One historical flow-violation event for the correspondence-discipline rule. Records the offending command FQN, the invocation id, the offending body snippet, the kind of check that fired, the window that was searched, and when it was recorded. The last_complaint / last_offending_* scalars on the root mirror the most recent entry ; this collection holds the full audit trail."
       attribute :recorded_at,   Timestamp
       attribute :command_fqn,   CommandFqn
@@ -2571,6 +2629,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity - registered watched surfaces ──
 
     entity "RegisteredSurface" do
+      identified_by { surface.value }
       description "A correspondence surface FQN the macrophage actively observes. Registered via WatchSurface ; retired via UnwatchSurface. The seed list ships pre-registered with the live EmailTool commands and the native Gmail MCP tool names. A dispatch to an FQN not in this collection is invisible to this rule."
       attribute :surface,     WatchedSurface
       attribute :match_kind,  MatchKind
@@ -2580,6 +2639,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity - named per-surface exemptions ──
 
     entity "ExemptedSurface" do
+      identified_by { surface.value }
       description "A correspondence surface whose flow-violation is officially exempted with a named, case-by-case reason. Registered via ExemptSurface. The macrophage will not issue a complaint for a violation against an entry in this collection ; the FlowViolation row is still recorded for the audit trail. Exemptions must carry a non-empty ReasonText, mirroring the AntibodyExemption and IdentityDiscipline disciplines. Exemptions are never pre-emptive ; they are registered after the macrophage has complained and the team has decided this surface is an audited bypass (e.g. transactional notifications with no discretionary prose)."
       attribute :surface,     WatchedSurface
       attribute :reason,      ReasonText
@@ -2732,7 +2792,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   # here — this aggregate is a sibling.
 
   aggregate "AdapterLocation", "Per-rule macrophage for the adapter-location enforcement — adapters must live at <bluebook>/hecksagons/<service>.hecksagon so the convention-discovery contract can find them. Tracks scanned files, records misplaced declarations, and maintains the complaint history for this rule alone." do
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name, Name
 
@@ -2799,6 +2859,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — violation audit trail ──
 
     entity "LocationViolation" do
+      identified_by { recorded_at.value }
       description "One historical adapter-location violation event. Records the offending file path, the adapter name declared inside, the expected canonical path, and the full complaint text. The last_complaint / last_complaint_at / last_offending_* scalars on the root mirror the most recent entry; this collection holds the full audit trail."
       attribute :recorded_at,    Timestamp
       attribute :file_path,      FilePath
@@ -2810,6 +2871,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — named exemptions ──
 
     entity "Exemption" do
+      identified_by { file_path.value }
       description "An explicitly named exemption for an adapter declaration that is legitimately allowed to live outside the canonical hecksagons/ directory (typically the legacy framework/adapter_families/ shims during the sprint-14 migration). Exemptions must name a concrete rationale; a vague reason is itself a macrophage violation."
       attribute :file_path,   FilePath
       attribute :reason,      ExemptionReason
@@ -2916,7 +2978,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   # here — this aggregate is a sibling.
 
   aggregate "SuccessFailurePairing", "Per-rule macrophage for the success-failure-pairing enforcement — every driven adapter body must dispatch both a success and a failure event. Tracks scanned adapters, records pairing violations, and maintains the complaint history for this rule alone." do
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name, Name
 
@@ -3002,6 +3064,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — violation audit trail ──
 
     entity "PairingViolation" do
+      identified_by { recorded_at.value }
       description "One historical pairing-violation event. Records which adapter in which file lacks a complete success/failure dispatch pair, what was found (verbatim FoundPair text), and the full complaint text. The last_complaint / last_complaint_at / last_offending_* scalars on the root mirror the most recent entry; this collection holds the full audit trail."
       attribute :recorded_at,    Timestamp
       attribute :file_path,      FilePath
@@ -3013,6 +3076,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — named exemptions ──
 
     entity "Exemption" do
+      identified_by { file_path.value }
       description "An explicitly named exemption for an adapter that is legitimately allowed to dispatch only one outcome — e.g. a fire-and-forget broadcast adapter, or an adapter wrapping an operation that cannot fail by construction. Exemptions must name a concrete rationale; a vague reason is itself a macrophage violation."
       attribute :file_path,    FilePath
       attribute :adapter_name, AdapterName
@@ -3122,7 +3186,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   # here — this aggregate is a sibling.
 
   aggregate "InvocationPrinciple", "Per-rule macrophage for the no-callback-to-bus-from-adapter-body enforcement — adapter bodies must not synchronously query the bus. Tracks scanned adapters, records callback violations, and maintains the complaint history for this rule alone." do
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name, Name
 
@@ -3203,6 +3267,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — violation audit trail ──
 
     entity "CallbackViolation" do
+      identified_by { recorded_at.value }
       description "One historical callback-violation event. Records which adapter in which file made a forbidden synchronous bus query, the verbatim forbidden-call text, the line number, and the full complaint text. The last_complaint / last_complaint_at / last_offending_* scalars on the root mirror the most recent entry; this collection holds the full audit trail."
       attribute :recorded_at,    Timestamp
       attribute :file_path,      FilePath
@@ -3215,6 +3280,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — named exemptions ──
 
     entity "Exemption" do
+      identified_by { file_path.value }
       description "An explicitly named exemption for an adapter that is legitimately allowed to synchronously query the bus (typically migration shims that wrap legacy synchronous-query call sites during the sprint-14 cutover). Exemptions must name a concrete rationale; a vague reason is itself a macrophage violation."
       attribute :file_path,    FilePath
       attribute :adapter_name, AdapterName
@@ -3329,7 +3395,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   # here — this aggregate is a sibling.
 
   aggregate "IdempotentByConstruction", "Per-rule macrophage for the runtime-universal-idempotency lock — bans user-space idempotency opt-in in .hecksagon and .bluebook source so the runtime's universal event-id dedup remains the single mechanism. Tracks scanned files, records opt-in violations, and maintains the complaint history for this rule alone." do
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name, Name
 
@@ -3403,6 +3469,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — violation audit trail ──
 
     entity "OptInViolation" do
+      identified_by { recorded_at.value }
       description "One historical idempotency-opt-in violation event. Records which file attempted to opt into idempotency, the verbatim forbidden-pattern text, the line number, and the full complaint text. The last_complaint / last_complaint_at / last_offending_* scalars on the root mirror the most recent entry; this collection holds the full audit trail."
       attribute :recorded_at,       Timestamp
       attribute :file_path,         FilePath
@@ -3414,6 +3481,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — named exemptions ──
 
     entity "Exemption" do
+      identified_by { file_path.value }
       description "An explicitly named exemption for a file that is legitimately allowed to use idempotency-opt-in vocabulary in non-architectural contexts (typically documentation files describing the runtime mechanism, or test fixtures negative-testing the macrophage itself). Exemptions must name a concrete rationale; a vague reason is itself a macrophage violation."
       attribute :file_path,   FilePath
       attribute :reason,      ExemptionReason
@@ -3530,7 +3598,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   # File kinds checked : .bluebook and .hecksagon only. i595 family member.
 
   aggregate "RelationshipDiscipline", "Per-rule macrophage for the relationship-grammar surface enforcement — the verb carries the boundary, in English. Tracks three structural checks against .bluebook / .hecksagon source (codey_double_colon : `::` in a cross-reference target ; cross_verb_at_value_object : a cross verb pointing at a VO/entity, already caught by the validator ; inside_verb_at_root : an inside verb pointing at another root, needs a corpus pass) and maintains the complaint history for this rule alone. CONCEPTION ONLY — live codey_double_colon detection is gated on the upsert-on-identity merge that lands the English `from <Context>` parser, because until then `::` is the only working cross-context remedy the AmbiguousCrossReferenceErrors validator can suggest." do
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name, Name
 
@@ -3620,6 +3688,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — violation audit trail ──
 
     entity "NotationViolation" do
+      identified_by { recorded_at.value }
       description "One historical relationship-discipline violation event. Records the file, the aggregate/VO whose declaration carried the offending line, the verbatim reference line, which check fired, the line number, the full complaint text, and when it was recorded. The last_complaint / last_offending_* scalars on the root mirror the most recent entry ; this collection holds the full audit trail."
       attribute :recorded_at,    Timestamp
       attribute :file_path,      FilePath
@@ -3633,6 +3702,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — named exemptions ──
 
     entity "ExemptedReference" do
+      identified_by { registered_at.value }
       description "A specific relationship line whose violation is officially exempted with a named, case-by-case reason. Registered via ExemptReference AFTER the macrophage has complained and the team has decided the conversion is queued, not skipped — never pre-emptively. The reason must be non-empty. Check skips a matching file + reference_line + kind silently on future runs."
       attribute :registered_at,  Timestamp
       attribute :file_path,      FilePath

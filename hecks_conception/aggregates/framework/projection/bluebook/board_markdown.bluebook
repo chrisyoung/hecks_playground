@@ -3,11 +3,11 @@ Hecks.bluebook "BoardMarkdownProjector", version: "2026.05.25.1" do
   category "framework"
 
   aggregate "BoardMarkdownProjector", "Projects board records to a markdown table + a state-count footer. Columns declare the table shape (header -> record field) ; RenderBoard records the emitted markdown on last_render. Pure projection : records in (fed via the bus query), markdown out, no file I/O." do
-    identified_by :name
+    identified_by { name.value }
 
-    attribute :name, ProjectorName, default: "board_markdown"
+    attribute :name, ProjectorName, default: { value: "board_markdown" }
     attribute :columns, list_of(Column)
-    attribute :last_render, RenderResult, default: "—"
+    attribute :last_render, RenderResult, default: { value: "—" }
 
     value_object "ProjectorName" do
       # Natural key. One projector instance per render shape.

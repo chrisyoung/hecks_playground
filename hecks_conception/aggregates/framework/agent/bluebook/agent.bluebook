@@ -85,7 +85,7 @@ Hecks.bluebook "Agent", version: "2026.07.02.1" do
   #                        event payload to carry `dispatched_by: Agent`.
 
   aggregate "Agent", "A being that dispatches — human, system, daemon, bot, or ai. The typed actor whose intent flows through every command. Pure identity + provenance : authorization lives in the Authorization context, never here." do
-    identified_by :name
+    identified_by { name.value }
 
     # ── Value-objects : the domain's language ──
     #
@@ -130,7 +130,9 @@ Hecks.bluebook "Agent", version: "2026.07.02.1" do
 
     # status : lifecycle state. Defaults to "active" on Birth ; Retire
     # transitions it to "retired".
-    attribute :status, Status, default: "active" do
+    attribute :status, Status, default: { value: "active" }
+
+    lifecycle :status, default: "active" do
       transition "Retire" => "retired"
     end
 

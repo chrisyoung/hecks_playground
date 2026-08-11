@@ -44,7 +44,7 @@ Hecks.bluebook "Cascade", version: "2026.05.14.1" do
   # payload for downstream policies that need to react to tool
   # outcomes (success / failure / non-zero exit / interesting output).
   aggregate "Cascade", "Kernel-hook outcome chain. After a ShellTool / FileTool / SearchTool / WebTool dispatch runs through its adapter, the adapter chains Cascade.RecordResult carrying the captured outcome (tool, output, exit_code, ok). The Cascade record shares the originating invocation id so the join is straightforward." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id, Id
     attribute :tool_kind, ToolKind

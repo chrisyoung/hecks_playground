@@ -5,7 +5,7 @@ Hecks.bluebook "Deployment", version: "2026.04.28.1" do
   # Lifted out of training_pipeline.bluebook in i112 split.
 
   aggregate "Deployment", "Replace Claude with Miette's own model" do
-    identified_by :name
+    identified_by { name.value }
     attribute :name,           Name
     attribute :model_path,     ModelPath
     attribute :serving_method, ServingMethod

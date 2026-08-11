@@ -3,7 +3,7 @@ Hecks.bluebook "Sidequest", version: "2026.05.22.1" do
   category "framework"
 
   aggregate "Sidequest", "One unit of interruptive work, captured as a domain record. Identified by its id. Carries what to do (description), who raised it (source : operator / worker-watch / self-volunteer), its lifecycle status, the worker that claimed it, and the result. Workers subscribe to SidequestProposed, Volunteer to claim, and Complete/Fail when done." do
-    identified_by :id
+    identified_by { id.value }
 
     value_object "SidequestId" do
       # Stable identifier for this unit of work.

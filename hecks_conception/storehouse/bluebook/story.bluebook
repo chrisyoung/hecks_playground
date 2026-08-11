@@ -71,7 +71,7 @@ Hecks.bluebook "Story", version: "2026.05.23.1" do
   # and command_bus.bluebook (the app-scoped surface).
 
   aggregate "Story", "An inbox card mapped to an ordered, runnable command sequence" do
-    identified_by :id
+    identified_by { id.value }
 
     value_object "StoryId" do
       # The card_ref this Story references AND its own identity — one
@@ -144,6 +144,7 @@ Hecks.bluebook "Story", version: "2026.05.23.1" do
     # Identity + order + a command phrase + args ⇒ entity (i724's
     # CascadeNode reasoning). The list is ordered ; `order` is identity.
     entity "Step" do
+      identified_by { order.value }
       attribute :order,  StepOrder
       attribute :phrase, Phrase
       attribute :args,   Args
@@ -151,7 +152,7 @@ Hecks.bluebook "Story", version: "2026.05.23.1" do
 
     attribute :id,     StoryId
     attribute :title,  Title
-    attribute :status, Status, default: "draft"
+    attribute :status, Status, default: { value: "draft" }
     attribute :steps,  list_of(Step)
 
     # ── Commands ──

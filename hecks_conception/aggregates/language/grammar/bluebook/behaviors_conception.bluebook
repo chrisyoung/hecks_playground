@@ -63,11 +63,20 @@ Hecks.bluebook "BehaviorsConception", version: "2026.06.13.1" do
   # TESTSUITE — root : the whole conceived behaviors file
   # ============================================================
   aggregate "TestSuite", "The behaviors file conceived from one domain — its vision line, any suite-level gate-flag warnings, and one Behavior per command, cascade, and query. The single artifact `storehouse conceive-behaviors` prints. Identified by the domain it was conceived from." do
-    identified_by :domain_name
+    identified_by { domain_name.value }
     attribute :domain_name, DomainName
     attribute :vision, Vision
     attribute :gate_flag_warnings, list_of(GateFlagWarning)
-    has_many Behavior
+    # REMOVED during hecksagain migration (task 4): `has_many Behavior`
+    # here plus `belongs_to TestSuite` on Behavior below is a genuine
+    # bidirectional aggregate reference -- hecksagain's boot-time
+    # validate_no_bidirectional_references! refuses it outright ("let
+    # the other side be found through a query instead"), where the old
+    # Rust runtime never enforced this. Behavior already owns the
+    # one-directional reference (belongs_to TestSuite); enumerate a
+    # TestSuite's own Behaviors via a query instead, e.g.
+    # `query "Behaviors" do where test_suite_id: :test_suite_id end`
+    # (not yet added -- no caller needed it structurally for this pass).
 
     value_object "DomainName" do
       # The source domain's name — "Pizzas". Drives the suite header and vision.
@@ -100,7 +109,7 @@ Hecks.bluebook "BehaviorsConception", version: "2026.06.13.1" do
   # BEHAVIOR — one conceived test (command | cascade | query)
   # ============================================================
   aggregate "Behavior", "One conceived test : the target it exercises, the aggregate it runs on, its kind, the setup chain that brings the aggregate to the required state, the input the target receives, and the expectation. Belongs to a TestSuite. The three kinds differ only in how expect is built — state assertion (command), emits assertion (cascade), count assertion (query)." do
-    identified_by :title
+    identified_by { title.value }
     belongs_to TestSuite
     attribute :title, Title
     attribute :tests, TargetName
@@ -162,7 +171,7 @@ Hecks.bluebook "BehaviorsConception", version: "2026.06.13.1" do
   # PRECONDITION — the taxonomy : how a `given` becomes a setup need
   # ============================================================
   aggregate "Precondition", "One thing a command requires of aggregate state before it runs, parsed from a `given` expression. The taxonomy IS the data heart of the conception : each kind carries the source SHAPE it is parsed from and the STRATEGY that satisfies it. A given that matches no kind is unparseable, and the command's test is skipped. Belongs to nothing — it is a catalog of kinds, the closed set the planner knows." do
-    identified_by :kind
+    identified_by { kind.value }
     attribute :kind, PreconditionKind
     attribute :parse_shape, ParseShape
     attribute :satisfy_via, ProducerSeek
@@ -242,7 +251,7 @@ Hecks.bluebook "BehaviorsConception", version: "2026.06.13.1" do
   # SAMPLEVALUERULE — the trivial table : type -> literal
   # ============================================================
   aggregate "SampleValueRule", "How a type becomes a placeholder literal in synthesized input, setup kwargs, and expect. Pure lookup — the simplest proof that the DATA layer is real and projectable today : a flat table, no algorithm. (sample_value.)" do
-    identified_by :type_name
+    identified_by { type_name.value }
     attribute :type_name, TypeName
     attribute :sample, SampleLiteral
 
@@ -273,7 +282,7 @@ Hecks.bluebook "BehaviorsConception", version: "2026.06.13.1" do
   # SETUPPLAN — the ALGORITHM : the part that forces the interpreter
   # ============================================================
   aggregate "SetupPlan", "The recursive, depth-capped planner that turns a command's preconditions into an ordered setup chain — or declares the command Unsatisfiable so its test is skipped. This is the conception's fault line made explicit : it is NOT a data table. It recurses (a producer may carry its own given), threads a ProducedState through the recursion (to subtract already-produced facts and stop double-seeding a min_size_list), and filters cascade-triggered producers that would advance state past the cascade's from_state. A section-concatenating specializer cannot project it ; only a kernel interpreter that EXECUTES these rules can. Modeled here so the interpreter arc has a contract to read, NOT so a specializer can chop it. (plan_setup_chain, plan_setup_chain_filtered, ProducedState.)" do
-    identified_by :target_command
+    identified_by { target_command.value }
     attribute :target_command, TargetName
     attribute :depth_cap, DepthCap
     attribute :outcome, PlanOutcome

@@ -7,7 +7,7 @@ Hecks.bluebook "Evaluation", version: "2026.04.28.1" do
   # EvaluateModel here. Policy lives with the trigger target.
 
   aggregate "Evaluation", "Test the trained model against known-good outputs" do
-    identified_by :name
+    identified_by { name.value }
     attribute :name,                 Name
     attribute :bluebook_accuracy,    Score
     attribute :conversation_quality, Score

@@ -36,7 +36,7 @@ Hecks.bluebook "StorehouseDeploy", version: "2026.05.25.1" do
   #   (failed is a terminal state; start a fresh Deploy to retry)
 
   aggregate "Deploy", "One storehouse warm-runtime deploy attempt. Tracks the binary + aggregates root + heki stores from build through verified-live. Identified by id for audit-trail across attempts." do
-    identified_by :id
+    identified_by { id.value }
 
     # ── Value-objects ──
 

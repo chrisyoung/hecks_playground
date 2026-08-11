@@ -25,7 +25,7 @@ Hecks.bluebook "TrainingExtraction", version: "2026.05.12.1" do
   # exactly which features the extractor forgot.
 
   aggregate "TrainingPair", "One JSONL line — prompt + completion from a domain" do
-    identified_by :domain_name
+    identified_by { domain_name.value }
     attribute :domain_name, DomainName
     attribute :vision, VisionText
     attribute :prompt, PromptText
@@ -40,7 +40,7 @@ Hecks.bluebook "TrainingExtraction", version: "2026.05.12.1" do
     attribute :reference_edges, Count
     # coverage_status : pending | audited | gaps_found | clean. Drives
     # the lifecycle below.
-    attribute :coverage_status, Status, default: "pending"
+    attribute :coverage_status, Status, default: { value: "pending" }
     # coverage_gaps : list of trait identifiers (command names, policy
     # names, reference_to edges) that were declared in source but did
     # not land in completion. Populated by CoverageCheck.

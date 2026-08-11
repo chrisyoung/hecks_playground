@@ -61,13 +61,13 @@ Hecks.bluebook "Correspondence", version: "2026.05.24.1" do
   #        the text and its style discipline.
 
   aggregate "Correspondent", "One person Miette corresponds with. Holds the full history of drafted and sent letters as a Letter entity collection. The draft_status root attribute is the quick-read surface for the dedup check: none (no draft in flight), drafting (an active un-sent draft exists), sent (last correspondence was sent), discarded (last draft was discarded). The awaiting_reply flag is set by ReceiveInbound and cleared by MarkSent — it drives the NeedingResponse query that the operator reads before triggering drafts." do
-    identified_by :person
+    identified_by { person.value }
 
     attribute :person,          Person
     attribute :draft_status,    DraftStatus
     attribute :last_draft_at,   Timestamp
     attribute :last_sent_at,    Timestamp
-    attribute :awaiting_reply,  AwaitingReply,  default: false
+    attribute :awaiting_reply,  AwaitingReply,  default: { value: false }
     attribute :last_inbound_at, Timestamp
 
     # ── Value-objects : the correspondence vocabulary ──
@@ -135,6 +135,7 @@ Hecks.bluebook "Correspondence", version: "2026.05.24.1" do
     # ── Entities : the per-person letter history ──
 
     entity "Letter" do
+      identified_by { letter_id.value }
       description "One piece of correspondence — a drafted, sent, or discarded letter. Accumulates as the audit trail for a correspondent. The latest Letter with status draft is the active outstanding draft that AlreadyDrafted surfaces."
       attribute :letter_id,    LetterId
       attribute :subject,      Subject
@@ -211,6 +212,7 @@ Hecks.bluebook "Correspondence", version: "2026.05.24.1" do
     end
 
     query "ForPerson" do
+      attribute :person, Person
       description "Full draft and sent history for one correspondent. Returns the Correspondent aggregate (including all Letter entities) for the given person handle. Use for a complete audit view of what has been drafted and sent."
       where person: :person
     end
