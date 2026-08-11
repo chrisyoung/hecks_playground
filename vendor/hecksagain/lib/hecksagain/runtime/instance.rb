@@ -65,12 +65,13 @@ module Hecksagain
         @state.key?(name) || super
       end
 
-      # IDENTITY WINS THE MERGE, not whatever's in state — the same fix
-      # `Handle#to_h`/`query_interpreter.rb`'s own row-building needed:
-      # an aggregate whose identity field is ALSO a regular declared
-      # attribute (Item.id, say) would otherwise have its clean scalar
-      # id silently clobbered by state's own (possibly VO-wrapped) copy,
-      # `{id: X}.merge(state)` losing to whatever `state[:id]` held.
+      # `id: @id` LAST, not first — see Facade::Handle#to_h's own comment
+      # for the full story (the same fix, landed there first): an
+      # aggregate free to declare its own attribute literally named `id`
+      # (BurningManPrep's `Item`, `attribute :id, ItemId`) has that
+      # attribute's own wrapped value object sitting in `@state[:id]` —
+      # merging `@state` on top of `{ id: @id }` let it silently clobber
+      # the correct bare identity. `@id` merged last always wins.
       def to_h = @state.merge(id: @id)
 
       # A COPY A MUTATION MAY TOUCH. Every adapter but Memory hands `find`

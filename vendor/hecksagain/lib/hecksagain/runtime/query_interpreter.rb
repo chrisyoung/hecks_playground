@@ -86,15 +86,13 @@ module Hecksagain
 
         if (native = Ports::Query.execute(repository, declared, args, context: { domain: domain, aggregate: aggregate }))
           records = native
-          # `id:` LAST — an aggregate whose identity field is ALSO a
-          # regular declared attribute (Item's own `attribute :id,
-          # ItemId`, not just its `identified_by`) means `record.state`
-          # already carries its own `:id` key, VO-wrapped, not the
-          # clean scalar `record.id` already resolved. `{id:
-          # record.id}.merge(record.state)` let that duplicate silently
-          # win instead — the same fix `Facade::Handle#to_h` needed.
-          # `interpret`/`reference_interpret`, below, had the identical
-          # bug.
+          # `record.state.merge(id: record.id)` — id LAST, not first. See
+          # Instance#to_h's own comment: an aggregate free to declare its
+          # own attribute literally named `id` has that attribute's own
+          # wrapped value sitting in `record.state[:id]` already; merging
+          # it OVER a `{id:}.merge(state)` used to let it silently
+          # clobber the correct bare identity this row is supposed to
+          # carry.
           return records.map { |record| record.state.merge(id: record.id) }
         end
 
@@ -139,6 +137,8 @@ module Hecksagain
         ordered = ordered(matched, declared.order_by, declared.null_semantics)
         capped  = declared.limit ? ordered.first(resolve_query_value(declared.limit.value, args).to_i) : ordered
 
+        # id LAST — see the native-path comment above; same clobbering
+        # risk for the in-memory reference interpreter's own rows.
         capped.map { |r| r.state.merge(id: r.id) }
       end
 
@@ -153,6 +153,7 @@ module Hecksagain
         ordered = ordered(matched, declared.order_by, declared.null_semantics)
         capped  = declared.limit ? ordered.first(resolve_query_value(declared.limit.value, args).to_i) : ordered
 
+        # id LAST — same reasoning, same fix, as interpret's own rows.
         capped.map { |r| r.state.merge(id: r.id) }
       end
 
