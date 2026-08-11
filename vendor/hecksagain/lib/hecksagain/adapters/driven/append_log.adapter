@@ -1,0 +1,16 @@
+# Vendored addition, not (yet) upstream hecksagain (migration plan task
+# 4): "AppendLog" -- an append-only event-log persistence backend
+# (framework/event_sourcing/bluebook/event_sourcing.hecksagon: "each
+# Event.Append save persists ONE immutable record to this process's
+# private shard, which the merge daemon folds into the global ordered
+# event.heki"). Heki (heki.rb, this same directory) already implements
+# an append-only journal internally (`include Journal`, requiring
+# `ports/persistence/append_only`) -- AppendLog reuses that Ruby class
+# directly (append_log.rb, an alias, not a new implementation) rather
+# than duplicating it, since the semantics genuinely are Heki's own
+# append-only path, just under the name this domain's own vocabulary
+# uses. Same `dir` field as Heki for the same reason.
+Hecks.adapter "AppendLog" do
+  port   "persistence"
+  field  :dir
+end

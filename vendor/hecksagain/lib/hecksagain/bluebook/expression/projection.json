@@ -1,0 +1,146 @@
+{
+  "operators": [
+    {
+      "symbol": "||",
+      "category": "logical",
+      "precedence": 1,
+      "arity": 2
+    },
+    {
+      "symbol": "&&",
+      "category": "logical",
+      "precedence": 2,
+      "arity": 2
+    },
+    {
+      "symbol": ".include?",
+      "category": "membership",
+      "precedence": 3,
+      "arity": 2
+    },
+    {
+      "symbol": ">=",
+      "category": "comparison",
+      "precedence": 4,
+      "arity": 2,
+      "compares_less_than": true,
+      "compares_equal": false,
+      "negated": true
+    },
+    {
+      "symbol": "<=",
+      "category": "comparison",
+      "precedence": 4,
+      "arity": 2,
+      "compares_less_than": true,
+      "compares_equal": true,
+      "negated": false
+    },
+    {
+      "symbol": "<",
+      "category": "comparison",
+      "precedence": 4,
+      "arity": 2,
+      "compares_less_than": true,
+      "compares_equal": false,
+      "negated": false
+    },
+    {
+      "symbol": ">",
+      "category": "comparison",
+      "precedence": 4,
+      "arity": 2,
+      "compares_less_than": true,
+      "compares_equal": true,
+      "negated": true
+    },
+    {
+      "symbol": "==",
+      "category": "comparison",
+      "precedence": 4,
+      "arity": 2,
+      "compares_less_than": false,
+      "compares_equal": true,
+      "negated": false
+    },
+    {
+      "symbol": "!=",
+      "category": "comparison",
+      "precedence": 4,
+      "arity": 2,
+      "compares_less_than": false,
+      "compares_equal": true,
+      "negated": true
+    },
+    {
+      "symbol": "!",
+      "category": "logical",
+      "precedence": 5,
+      "arity": 1
+    },
+    {
+      "symbol": "+",
+      "category": "arithmetic",
+      "precedence": 6,
+      "arity": 2
+    },
+    {
+      "symbol": ".modulo",
+      "category": "arithmetic",
+      "precedence": 6,
+      "arity": 2
+    },
+    {
+      "symbol": ".positive?",
+      "category": "sign_test",
+      "precedence": 7,
+      "arity": 1
+    },
+    {
+      "symbol": ".negative?",
+      "category": "sign_test",
+      "precedence": 7,
+      "arity": 1
+    },
+    {
+      "symbol": ".zero?",
+      "category": "sign_test",
+      "precedence": 7,
+      "arity": 1
+    },
+    {
+      "symbol": ".empty?",
+      "category": "sized",
+      "precedence": 8,
+      "arity": 1
+    },
+    {
+      "symbol": ".to_s",
+      "category": "to_string",
+      "precedence": 9,
+      "arity": 1
+    },
+    {
+      "symbol": ".size",
+      "category": "sized",
+      "precedence": 8,
+      "arity": 1
+    }
+  ],
+  "normalisations": [
+    {
+      "strategy": "collapse_whitespace",
+      "source_token": "",
+      "replacement": "",
+      "boundary": "none",
+      "position": 1
+    },
+    {
+      "strategy": "replace",
+      "source_token": ".length",
+      "replacement": ".size",
+      "boundary": "word",
+      "position": 2
+    }
+  ]
+}

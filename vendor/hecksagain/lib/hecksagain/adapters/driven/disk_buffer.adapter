@@ -1,0 +1,13 @@
+# Vendored addition, not (yet) upstream hecksagain (migration plan task
+# 4): "DiskBuffer" -- the out-of-process handler web_debug.hecksagon's
+# `Screenshot.buffered_by("DiskBuffer", on: "FrameCaptured")` names.
+# Registers the adapter so wiring resolves ; the actual handler process
+# (writing frames to disk, pruning old ones) is real, external, off-core
+# machinery this bind only DECLARES the contract for -- same as the
+# still-unimplemented success/failure verdict re-entry the whole
+# effect-family subsystem needs (see screenshot_buffer.port's own
+# comment). No fields : the buffer's own path convention is handler-side
+# config, not a bluebook-declared value.
+Hecks.adapter "DiskBuffer" do
+  port "screenshot_buffer"
+end
