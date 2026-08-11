@@ -27,6 +27,26 @@ use crate::ir::Domain;
 /// real keyword.
 pub fn unknown_keyword_errors(domain: &Domain) -> Vec<String> {
     let mut errors = vec![];
+    // Domain-level : an unknown TOP-LEVEL block opener (fixtures→policies,
+    // 2026-07-27). Unlike the aggregate near-miss rule below, this reports
+    // FAR words too — Ruby raises NoMethodError on any of them, and before
+    // this rule the Rust parser silently swallowed the whole block (a
+    // leftover `fixture` block simply vanished). With a near-miss the
+    // message carries the `did you mean` hint ; without one it names the
+    // construct as outside the language.
+    for uk in &domain.unknown_keywords {
+        if uk.suggestion.is_empty() {
+            errors.push(format!(
+                "unknown top-level keyword `{}` opens a block — not part of the bluebook language ; the whole block is ignored",
+                uk.keyword
+            ));
+        } else {
+            errors.push(format!(
+                "unknown top-level keyword `{}` opens a block — did you mean `{}` ? the whole block is ignored",
+                uk.keyword, uk.suggestion
+            ));
+        }
+    }
     for agg in &domain.aggregates {
         for uk in &agg.unknown_keywords {
             errors.push(format!(

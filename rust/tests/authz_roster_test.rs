@@ -28,7 +28,7 @@ use storehouse::runtime::Value;
 
 /// The REAL authorization context — Policy + RoleAssignment + the roster.
 const AUTHZ: &str = include_str!(
-    "../../hecks_conception/aggregates/framework/authorization/authorization.bluebook"
+    "../../hecks_conception/aggregates/framework/authorization/bluebook/authorization.bluebook"
 );
 
 // A minimal boot domain : the sole thing that matters is `CompleteBoot`

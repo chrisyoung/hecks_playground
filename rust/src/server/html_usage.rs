@@ -186,14 +186,7 @@ fn step_from(cmd: &Command, agg: &Aggregate, domain: &Domain) -> WorkflowStep {
             .find(|p| p.on_event == *event)
             .map(|p| p.trigger_command.clone())
     });
-    let example: Vec<(String, String)> = domain.fixtures.iter()
-        .find(|f| f.aggregate_name == agg.name)
-        .map(|f| f.attributes.iter()
-            .take(3)
-            .map(|(k, v)| (k.clone(), v.clone()))
-            .collect()
-        )
-        .unwrap_or_default();
+    let example: Vec<(String, String)> = Vec::new();
 
     WorkflowStep {
         command: cmd.name.clone(),

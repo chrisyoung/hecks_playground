@@ -44,7 +44,7 @@
 
 use std::cell::RefCell;
 
-use crate::runtime::storehouse_log;
+pub use super::dispatch_scope::DispatchScope;
 
 // ── ANSI palette ────────────────────────────────────────────────────
 
@@ -113,14 +113,14 @@ pub struct EventTrace {
 }
 
 thread_local! {
-    static COLLECTOR: RefCell<Option<Vec<EventTrace>>> = const { RefCell::new(None) };
+    pub(super) static COLLECTOR: RefCell<Option<Vec<EventTrace>>> = const { RefCell::new(None) };
     /// Holds the event timeline from the most-recently-completed dispatch
     /// scope. Written by `DispatchScope::drop` immediately after the
     /// thread-local collector is drained. Callers (e.g. the warm serve
     /// path) call `take_last_events()` after `Runtime::dispatch` returns to
     /// retrieve the events for inclusion in the wire reply. A subsequent
     /// dispatch overwrites it ; `take_last_events` clears it on read.
-    static LAST_EVENTS: RefCell<Vec<EventTrace>> = const { RefCell::new(Vec::new()) };
+    pub(super) static LAST_EVENTS: RefCell<Vec<EventTrace>> = const { RefCell::new(Vec::new()) };
 }
 
 /// True when a `DispatchScope` is currently open on this thread.
@@ -154,7 +154,7 @@ pub fn take_last_events() -> Vec<EventTrace> {
 /// Resolve the source_tag from the dispatch context. Honors an explicit
 /// `STOREHOUSE_SOURCE_TAG` env var ; else `HECKS_DAEMON=1` →
 /// `process-manager` ; else `operator` (manual CLI + MCP default).
-fn resolve_source_tag() -> String {
+pub(super) fn resolve_source_tag() -> String {
     if let Ok(v) = std::env::var("STOREHOUSE_SOURCE_TAG") {
         if !v.is_empty() {
             return v;
@@ -164,102 +164,6 @@ fn resolve_source_tag() -> String {
         return "process-manager".to_string();
     }
     "operator".to_string()
-}
-
-/// Open per-`Runtime::dispatch` scope. Built as the first line of
-/// `dispatch` ; fed the outcome/result fields as they become known ;
-/// emits the rich block on drop (so the `?` error path is still
-/// captured).
-pub struct DispatchScope {
-    invocation_id: String,
-    command: String,
-    args_json: String,
-    source_tag: String,
-    dispatched_at: String,
-    started: std::time::Duration,
-    outcome: String,
-    result_state: String,
-    armed: bool,
-}
-
-impl DispatchScope {
-    /// Begin a scope. Installs a fresh thread-local event collector and
-    /// captures invocation_id, command, args, source_tag and the
-    /// wall-clock start — everything the JSONL envelope needs.
-    pub fn begin(invocation_id: &str, command: &str, args_json: String) -> Self {
-        COLLECTOR.with(|c| *c.borrow_mut() = Some(Vec::new()));
-        DispatchScope {
-            invocation_id: invocation_id.to_string(),
-            command: command.to_string(),
-            args_json,
-            source_tag: resolve_source_tag(),
-            dispatched_at: storehouse_log::now_iso8601(),
-            started: crate::clock::now_duration(),
-            outcome: "ok".to_string(),
-            result_state: String::new(),
-            armed: true,
-        }
-    }
-
-    /// Record the dispatch outcome (`ok` | `error`) + the result-state
-    /// JSON (or the error message). Fed by `Runtime::dispatch` before the
-    /// scope drops.
-    pub fn finish(&mut self, outcome: &str, result_state: String) {
-        self.outcome = outcome.to_string();
-        self.result_state = result_state;
-    }
-}
-
-impl Drop for DispatchScope {
-    fn drop(&mut self) {
-        if !self.armed {
-            return;
-        }
-        let events = COLLECTOR.with(|c| c.borrow_mut().take()).unwrap_or_default();
-        // Snapshot the events for the warm serve path BEFORE serialising
-        // the file block. `take_last_events()` drains this after dispatch.
-        LAST_EVENTS.with(|s| *s.borrow_mut() = events.clone());
-        let elapsed_ms = crate::clock::now_duration()
-            .saturating_sub(self.started)
-            .as_millis() as u64;
-        // JSONL event stream : one self-contained JSON object per emitted
-        // event, one per line. The dispatch event carries `args` ; the
-        // final `done` event carries outcome + elapsed_ms + event_count +
-        // result. The watcher (`storehouse follow`) parses one object per
-        // line and renders terse by default or raw with --json. One line =
-        // one object, so there is never a multi-line block to re-assemble.
-        let args: serde_json::Value =
-            serde_json::from_str(&self.args_json).unwrap_or(serde_json::Value::Null);
-        for (i, ev) in events.iter().enumerate() {
-            let mut obj = serde_json::json!({
-                "ts": self.dispatched_at,
-                "invocation_id": self.invocation_id,
-                "command": self.command,
-                "kind": ev.kind,
-                "verb": ev.verb,
-                "ok": ev.ok,
-                "source": self.source_tag,
-            });
-            if i == 0 && ev.kind == "dispatch" && !args.is_null() {
-                obj["args"] = args.clone();
-            }
-            storehouse_log::emit_file(&obj.to_string());
-        }
-        let result: serde_json::Value = serde_json::from_str(&self.result_state)
-            .unwrap_or_else(|_| serde_json::Value::String(self.result_state.clone()));
-        let done = serde_json::json!({
-            "ts": self.dispatched_at,
-            "invocation_id": self.invocation_id,
-            "command": self.command,
-            "kind": "done",
-            "outcome": self.outcome,
-            "elapsed_ms": elapsed_ms,
-            "event_count": events.len(),
-            "result": result,
-            "source": self.source_tag,
-        });
-        storehouse_log::emit_file(&done.to_string());
-    }
 }
 
 /// Parse a dispatched FQN into its `[Domain Aggregate Command]` parts.
@@ -304,111 +208,4 @@ pub fn header_line(fqn: &str) -> String {
         parts.push(format!("{}{}{}", CYAN, command, RESET));
     }
     format!("{}[{}{}{}]{}", DIM, RESET, parts.join(" "), DIM, RESET)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn strip_ansi_removes_colour_codes() {
-        let coloured = format!("{}hello{} world", CYAN, RESET);
-        assert_eq!(strip_ansi(&coloured), "hello world");
-    }
-
-    #[test]
-    fn strip_ansi_leaves_plain_text() {
-        assert_eq!(strip_ansi("no codes here"), "no codes here");
-    }
-
-    #[test]
-    fn colour_for_cascade_fail_is_red() {
-        assert_eq!(colour_for("cascade", false), RED);
-        assert_eq!(colour_for("cascade", true), GREEN);
-    }
-
-    #[test]
-    fn colour_for_adapter_ok_is_magenta() {
-        assert_eq!(colour_for("adapter", true), MAGENTA);
-    }
-
-    #[test]
-    fn record_event_noop_without_scope() {
-        // No scope open : record_event must not panic and must not
-        // leave a collector behind.
-        record_event("dispatch", "Foo.Bar", true);
-        assert!(!is_in_scope());
-    }
-
-    #[test]
-    fn parse_fqn_three_parts() {
-        assert_eq!(
-            parse_fqn("Voice::Voice.Speak"),
-            ("Voice".to_string(), "Voice".to_string(), "Speak".to_string())
-        );
-        assert_eq!(
-            parse_fqn("Tools::ShellTool.Bash"),
-            ("Tools".to_string(), "ShellTool".to_string(), "Bash".to_string())
-        );
-    }
-
-    #[test]
-    fn parse_fqn_domainless() {
-        assert_eq!(
-            parse_fqn("Heart.Beat"),
-            (String::new(), "Heart".to_string(), "Beat".to_string())
-        );
-    }
-
-    #[test]
-    fn header_line_renders_three_bracketed_parts() {
-        let plain = strip_ansi(&header_line("Voice::Voice.Speak"));
-        assert_eq!(plain, "[Voice Voice Speak]");
-    }
-
-    #[test]
-    fn header_line_domainless_has_no_empty_slot() {
-        let plain = strip_ansi(&header_line("Heart.Beat"));
-        assert_eq!(plain, "[Heart Beat]");
-    }
-
-    #[test]
-    fn header_line_shows_every_realm_segment() {
-        // A deep canonical FQN brackets ALL :: segments — realm + subrealms +
-        // domain + aggregate + command — not just Domain::Aggregate.command.
-        let plain = strip_ansi(&header_line("Hecks::Framework::Tools::FileTool.Edit"));
-        assert_eq!(plain, "[Hecks Framework Tools FileTool Edit]");
-    }
-
-    #[test]
-    fn scope_collects_events_into_timeline() {
-        let mut scope = DispatchScope::begin("inv_t", "Foo::Bar.Baz", "{}".to_string());
-        assert!(is_in_scope());
-        record_event("dispatch", "Foo::Bar.Baz", true);
-        record_event("event", "Bar.Bazzed", true);
-        scope.finish("ok", "{}".to_string());
-        let events = COLLECTOR.with(|c| c.borrow().clone()).unwrap();
-        assert_eq!(events.len(), 2);
-        assert_eq!(events[0].kind, "dispatch");
-        // Disarm so Drop doesn't emit to the real log during the test.
-        scope.armed = false;
-        COLLECTOR.with(|c| *c.borrow_mut() = None);
-    }
-
-    #[test]
-    fn take_last_events_returns_events_after_scope_drop() {
-        // Verify LAST_EVENTS is populated by Drop and drained by
-        // take_last_events() — the i718 warm-serve fix.
-        let mut scope = DispatchScope::begin("inv_u", "A::B.C", "{}".to_string());
-        record_event("dispatch", "A::B.C", true);
-        record_event("event", "B.Cd", true);
-        scope.finish("ok", "{}".to_string());
-        drop(scope); // triggers LAST_EVENTS write
-        let taken = take_last_events();
-        assert_eq!(taken.len(), 2);
-        assert_eq!(taken[0].kind, "dispatch");
-        assert_eq!(taken[1].kind, "event");
-        // Second call must drain (idempotent — returns empty Vec).
-        assert!(take_last_events().is_empty());
-    }
 }

@@ -34,7 +34,11 @@ module Hecks
         when FalseClass then new(:bool, false)
         when nil        then new(:null, nil)
         when Array      then new(:list, obj.map { |x| from(x) })
-        when Hash       then new(:map,  obj.transform_values { |v| from(v) })
+        # Keys are STRINGIFIED : rust's Value::Map is keyed by String, and a
+        # `.behaviors` hash arrives with symbol keys (`amount: { cents: 1400 }`).
+        # Left as symbols, `amount.cents` looked up "cents" and found nothing,
+        # so a value object crossed into the runtime unreadable.
+        when Hash       then new(:map,  obj.to_h { |k, v| [k.to_s, from(v)] })
         else
           # Strings + symbols + everything else: coerce to display form.
           str = obj.to_s
@@ -69,8 +73,19 @@ module Hecks
         when :bool then @raw ? "true" : "false"
         when :null then ""
         when :str  then @raw
-        when :list then "[#{@raw.map(&:to_display).join(", ")}]"
-        when :map  then "{#{@raw.map { |k, v| "#{k}: #{v.to_display}" }.join(", ")}}"
+        # Composite display MIRRORS rust value_convert.rs : "[N items]" /
+        # "{N fields}", not the contents. The header above claimed both runners
+        # produced identical strings ; for lists and maps they never did, so a
+        # Money-valued balance rendered as `{cents: 250000, currency: {code: USD}}`
+        # here and `{2 fields}` there — the same state, two answers, and every
+        # behaviour asserting on a composite disagreed by construction.
+        #
+        # The opaque form is the weaker one to assert against (you cannot check
+        # a Money's cents through it) — but it is the one the corpus is written
+        # against, and agreement comes first. Asserting INTO a composite wants a
+        # structured expectation, not a richer string.
+        when :list then "[#{@raw.length} items]"
+        when :map  then "{#{@raw.length} fields}"
         end
       end
 

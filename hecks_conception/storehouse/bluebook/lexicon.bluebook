@@ -45,12 +45,11 @@ Hecks.bluebook "Lexicon", version: "2026.05.10.1" do
   # convention.
 
   aggregate "Lexicon", "Singleton index of every callable phrase across the conception" do
-    identified_by ServiceName
 
     value_object "ServiceName" do
       attribute :value, String
-      rule "must be the singleton 'lexicon'" do
-        requires { value == "lexicon" }
+      invariant "must be the singleton 'lexicon'" do
+        value == "lexicon"
       end
     end
 
@@ -63,8 +62,8 @@ Hecks.bluebook "Lexicon", version: "2026.05.10.1" do
       # sub-folder grouping ; `Aggregate` and `Command` come from
       # the bluebook itself. Same shape as Dispatch.Phrase.
       attribute :value, String
-      rule "must be app::domain::Aggregate::Command (4 non-empty segments)" do
-        requires { value.split("::").length == 4 && value.split("::").all? { |s| s.length > 0 } }
+      invariant "must be app::domain::Aggregate::Command (4 non-empty segments)" do
+        value.split("::").length == 4 && value.split("::").all? { |s| s.length > 0 }
       end
     end
 
@@ -82,22 +81,22 @@ Hecks.bluebook "Lexicon", version: "2026.05.10.1" do
       # Adding a new source target is one adapter member, not a
       # bluebook change.
       attribute :value, String
-      rule "must be non-empty" do
-        requires { !value.empty? }
+      invariant "must be non-empty" do
+        !value.empty?
       end
     end
 
     value_object "CompiledAt" do
       attribute :value, String
-      rule "must be ISO 8601 UTC" do
-        requires { value.match?(/\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/) }
+      invariant "must be ISO 8601 UTC" do
+        value.match?(/\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)
       end
     end
 
     value_object "PhraseCount" do
       attribute :value, Integer
-      rule "must be non-negative" do
-        requires { value >= 0 }
+      invariant "must be non-negative" do
+        value >= 0
       end
     end
 
@@ -125,9 +124,9 @@ Hecks.bluebook "Lexicon", version: "2026.05.10.1" do
       attribute SourceSet,   as: :source_set
       attribute CompiledAt,  as: :compiled_at
       attribute PhraseCount, as: :phrase_count
-      guarantees "phrase_count reflects the new total" do
-        phrase_count >= 0
-      end
+      # The postcondition this command used to state as `guarantees
+      # "phrase_count reflects the new total"` is already kept by
+      # PhraseCount's own invariant (non-negative), judged at the door.
       emits "LexiconCompiled"
     end
 

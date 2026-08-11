@@ -188,7 +188,11 @@ pub fn complete_over_checked(
 /// need a corpus adapter) exist today. Lifting the cli-only `load_all_hecksagons`
 /// into `corpus_loader` so the completion runtime wires every adapter is a
 /// separate follow-up.
-pub fn complete_boot(boot_domain: Domain, hecksagons: Vec<Hecksagon>, being: &str) {
+/// Returns the corpus runtime on success so post-completion projections
+/// (agent defs, i.e. anything reading ESTABLISHED records) can run over it ;
+/// None when completion failed (callers skip their projection loudly and
+/// the previous boot's generated artifacts stay on disk).
+pub fn complete_boot(boot_domain: Domain, hecksagons: Vec<Hecksagon>, being: &str) -> Option<Runtime> {
     let root = crate::storehouse_router::conception_root();
     let corpus = load_combined_domain(&root);
     // Persist establishment writes to the same world heki dir the dispatch
@@ -204,10 +208,14 @@ pub fn complete_boot(boot_domain: Domain, hecksagons: Vec<Hecksagon>, being: &st
              `dir :default` in a `heki` block of a .world under the root."
         );
     }
-    let (_, outcome) =
+    let (rt, outcome) =
         complete_over_checked(boot_domain, corpus, data_dir, hecksagons, Some(root), being);
-    if let Err(e) = outcome {
-        eprintln!("[boot-completion] {e}");
+    match outcome {
+        Ok(()) => Some(rt),
+        Err(e) => {
+            eprintln!("[boot-completion] {e}");
+            None
+        }
     }
 }
 

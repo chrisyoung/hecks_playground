@@ -49,19 +49,19 @@ Hecks.bluebook "Storehouse", version: "2026.06.27.1" do
   # record survives for audit). No re-conceive — retired is terminal.
 
   aggregate "Primitive", "One imperative runtime leaf as a first-class bluebook record. Declares the dispatch name (Process.Spawn / ClaudeTool.Invoke / etc.), the dispatcher kind, the command signature, and the Rust handler the runtime registry consults. PrimitiveRegistry walks these at boot ; the macrophage enforces one declaration per [antibody-exempt] kernel-floor leaf." do
-    identified_by :name
+    identified_by { name.value }
 
     # ---- Identity ----
     attribute :name,           Name
 
     # ---- Declaration ----
     attribute :kind,           Kind
-    attribute :signature,      Signature,      default: ""
+    attribute :signature,      Signature,      default: { value: "" }
     attribute :implementation, Implementation
 
     # ---- Lifecycle ----
     # status: active | retired
-    attribute :status,         Status,         default: "active"
+    attribute :status,         Status,         default: { value: "active" }
 
     # ── Value objects ─────────────────────────────────────────
 
@@ -161,6 +161,7 @@ Hecks.bluebook "Storehouse", version: "2026.06.27.1" do
     # ── Queries ───────────────────────────────────────────────────
 
     query "ByKind" do
+      attribute :kind, Kind
       description "Every Primitive of a given dispatcher family — the lookup the macrophage uses to map declarations to *_dispatcher.rs source files."
       where kind: :kind
     end
@@ -220,7 +221,7 @@ Hecks.bluebook "Storehouse", version: "2026.06.27.1" do
   #   domains the authorize check's role read-model is built from.
 
   aggregate "Gate", "One inbound wrapper across a domain's dispatches : the phase it runs in (before|after the aggregate handler), the check the runtime resolves to an in-process verdict function, the match pattern selecting which dispatches it wraps, and the order it runs in. Keyed by name (e.g. 'authorize', 'authenticate'). Declared through the storehouse door via Gate.Declare — no DSL, no hexagon form. A before-Gate is VETOING (Deny aborts + records a Violation) ; an after-Gate observes. The inverse of a Driver : a Driver names its own inbound schedule and runs out-of-process ; a Gate names its own inbound check and runs in-process, synchronous, blocking the dispatch it gates." do
-    identified_by :name
+    identified_by { name.value }
 
     # ---- Identity ----
     attribute :name,    GateName
@@ -228,11 +229,11 @@ Hecks.bluebook "Storehouse", version: "2026.06.27.1" do
     # ---- Declaration ----
     attribute :phase,   Phase
     attribute :check,   Check
-    attribute :pattern, Pattern, default: "*"
-    attribute :order,   Order,   default: 100
+    attribute :pattern, Pattern, default: { value: "*" }
+    attribute :order,   Order,   default: { value: 100 }
 
     # ---- Lifecycle ----
-    attribute :status,  Status,  default: "active"
+    attribute :status,  Status,  default: { value: "active" }
 
     # ── Value objects ─────────────────────────────────────────
 

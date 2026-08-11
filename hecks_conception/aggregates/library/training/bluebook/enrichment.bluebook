@@ -8,7 +8,7 @@ Hecks.bluebook "Enrichment", version: "2026.04.28.1" do
   # with the trigger target.
 
   aggregate "Enrichment", "Add complexity to template domains — make them training-worthy" do
-    identified_by :name
+    identified_by { name.value }
     attribute :name,             Name
     attribute :strategy,         Strategy
     attribute :domains_enriched, DomainCount

@@ -4,10 +4,10 @@ Hecks.bluebook "WebDebug" do
 
   aggregate "Screenshot" do
     description "One captured frame of a running UI. State records only WHAT was captured + WHEN + WHERE it landed (frame_id, captured_at, path) ; the base64 JPEG bytes are an event-only payload that rides FrameCaptured to the screenshot_buffer adapter. The buffer is circular (capacity 100) : the adapter writes frame_NNNN.jpg + refreshes latest.jpg + prunes the oldest, so the heki never grows with image bytes."
-    identified_by :frame_id
+    identified_by { frame_id.value }
     attribute :frame_id, FrameId
     attribute :captured_at, CapturedAt
-    attribute :path, FramePath, default: "—"
+    attribute :path, FramePath, default: { value: "—" }
 
     value_object "FrameId" do
       # Monotonic frame id minted by the caller (the serve endpoint) ; the

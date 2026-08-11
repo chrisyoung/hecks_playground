@@ -153,8 +153,54 @@ module Hecks
       #
       #   identified_by :name
       #
-      def identified_by(field)
+      # `identified_by :number` names the field an id is taken from.
+      #
+      # `identified_by do customer ; number end` COMPUTES the id from
+      # ordered parts : a bare word is a field read from the command's
+      # attrs, a quoted string is a literal (a singleton saying there is
+      # one of it). Same facts, same id, every run — derived, never minted.
+      #
+      # A bare CONSTANT (`identified_by ServiceName`) names a TYPE, not a
+      # field ; Rust records nothing for it, so Ruby does too rather than
+      # raising and making the whole file unreadable.
+      def identified_by(field = nil, &block)
+        if block
+          @identity = IdentityCollector.collect(&block)
+          @identified_by = case @identity
+                           in [{ field: f }] then f
+                           in [] then nil
+                           else :id
+                           end
+          return
+        end
+        return unless field.respond_to?(:to_sym)
+
         @identified_by = field.to_sym
+        @identity = [{ field: field.to_sym }]
+      end
+
+      # Collects the block's bare words as fields and its strings as
+      # literals, in declaration order — the order IS the identity.
+      class IdentityCollector
+        def self.collect(&block)
+          c = new
+          last = c.instance_eval(&block)
+          # A bare string is just a String — it never reaches method_missing —
+          # so a block that IS one literal is caught by its return value.
+          # `literal "x"` stays available for a mixed identity.
+          c.parts << { literal: last.to_s } if c.parts.empty? && last.is_a?(String)
+          c.parts
+        end
+
+        attr_reader :parts
+
+        def initialize = @parts = []
+
+        def literal(value) = @parts << { literal: value.to_s }
+
+        def method_missing(name, *_args) = @parts << { field: name.to_sym }
+
+        def respond_to_missing?(_name, _priv = false) = true
       end
 
       # Declare a relationship to another type.
@@ -424,19 +470,6 @@ module Hecks
         @crud = true
       end
 
-      # Accept-and-ignore: legacy nursery bluebooks inline `fixture` calls
-      # inside `aggregate` blocks. The canonical location is a sibling
-      # `.fixtures` file (see `Hecks.fixtures` DSL). Rust's line-scanner
-      # silently skips these — this matches that behavior so parity passes
-      # while migration continues. The `io_validator` surfaces stragglers.
-      #
-      #   aggregate "Pizza" do
-      #     fixture "Margherita", name: "Margherita"   # no-op here
-      #   end
-      def fixture(*_args, **_kwargs, &_block)
-        # no-op — canonical home is a `.fixtures` file
-      end
-
       # Build the Aggregate IR object, inferring events from commands.
       #
       # @return [BluebookModel::Structure::Aggregate]
@@ -457,6 +490,7 @@ module Hecks
           metadata: @metadata, references: @references,
           factories: @factories, identity_fields: @identity_fields,
           identified_by: @identified_by,
+          identity: @identity || [],
           description: @description,
           namespace: @namespace, superclass: @superclass, mixins: @mixins,
           views: @views

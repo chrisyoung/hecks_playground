@@ -16,7 +16,7 @@ Hecks.bluebook "Vocabulary", version: "2026.06.14.1" do
   # trigger Compile, so they live alongside the trigger target.
 
   aggregate "Vocabulary", "The compiled vocabulary — all sentences, compositions, and ACLs indexed for matching" do
-    identified_by :name
+    identified_by { name.value }
     attribute :name,              Name
     attribute :sentence_count,    EntryCount
     attribute :composition_count, EntryCount

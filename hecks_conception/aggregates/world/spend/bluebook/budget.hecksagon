@@ -18,6 +18,4 @@ Hecks.hecksagon "Budget" do
   gate "Budget", :chris do
     allow :SetBudget, :OverrideBudget, :ClearOverride
   end
-
-  Budget::Budget.persisted_by("Memory")
 end

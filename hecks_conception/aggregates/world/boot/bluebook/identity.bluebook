@@ -20,7 +20,7 @@ Hecks.bluebook "Identity", version: "2026.05.12.1" do
   # pronouns, system prompt) — no structural change, only type swap.
 
   aggregate "Identity", "Who is waking up — name, birthday, pronouns, links" do
-    identified_by :name
+    identified_by { name.value }
     attribute :name,            Name
     attribute :born,            Born
     attribute :pronouns,        Pronouns

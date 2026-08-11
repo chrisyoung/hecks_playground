@@ -21,6 +21,15 @@ pub enum RuntimeError {
     /// to heki ; the message carries the loud reason recorded at boot.
     PersistenceRefused(String),
     GivenFailed { message: String, expression: String },
+    /// The given gate could not READ a predicate : some leaf of it resolved to
+    /// a value that is neither true nor false — an unknown name, a typo'd
+    /// attribute, a Ruby method outside the interpreter's subset. Distinct from
+    /// GivenFailed, which means the author's rule WAS read and was not
+    /// satisfied. This one says the rule itself is broken, so it is a defect
+    /// report, not a refusal the caller can fix by sending a better payload.
+    /// `expression` is the whole given ; `clause` is the leaf that could not be
+    /// read, which is rarely the whole thing.
+    UnjudgeableGiven { expression: String, clause: String },
     /// f4 — an aggregate-level invariant's `holds_when` predicate was false
     /// on the resulting state after a command's mutations. The command is
     /// rejected with 0 events, the same shape as a failed `given`. `name`
@@ -86,6 +95,11 @@ impl std::fmt::Display for RuntimeError {
             RuntimeError::UnknownAggregate(a) => write!(f, "unknown aggregate: {}", a),
             RuntimeError::PersistenceRefused(m) => write!(f, "{}", m),
             RuntimeError::GivenFailed { message, .. } => write!(f, "given failed: {}", message),
+            RuntimeError::UnjudgeableGiven { expression, clause } => write!(
+                f,
+                "given `{}` could not be judged — `{}` is neither true nor false",
+                expression, clause
+            ),
             RuntimeError::InvariantViolation { name, .. } => write!(f, "invariant violation: {}", name),
             RuntimeError::PayloadInvariantViolation { name, field, value, .. } => {
                 write!(f, "{} — {} = {}", name, field, value)

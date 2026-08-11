@@ -1,0 +1,8 @@
+# Vendored addition, not (yet) upstream hecksagain (migration plan task
+# 4): "DreamImage" -- registers the adapter dream.hecksagon's `imaged_by`
+# bind names, so wiring resolves. The actual image-generation call is
+# real, external, off-core handler machinery this bind only declares the
+# contract for -- see dream_image.port's own comment.
+Hecks.adapter "DreamImage" do
+  port "dream_image"
+end

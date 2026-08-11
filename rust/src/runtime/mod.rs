@@ -139,7 +139,63 @@
 
 mod aggregate_state;
 pub mod acl_readmodel;
+mod bulk_dispatch;
+mod bulk_specs;
+mod reaction_claude_tool;
+mod reaction_compute;
+mod reaction_io_shared;
+mod reaction_llm;
+mod driven_adapter_args;
+mod driven_adapter_enumerate;
+#[cfg(test)]
+mod driven_adapter_tests;
+#[cfg(test)]
+mod pm_engine_tests;
+mod persistence_apply;
+mod persistence_force_memory;
+mod pm_persistence;
+mod reaction_outbox;
+mod registry_kernel_hooks;
+mod web_search_parse;
+mod web_tool_requests;
+#[cfg(test)]
+mod web_tool_tests;
+#[cfg(not(target_arch = "wasm32"))]
+mod reaction_outbound;
+mod reaction_mcp;
+mod canonical_naming;
 pub(crate) mod command_dispatch;
+mod dispatch_diagnostics;
+mod es_append_meta;
+mod es_chain;
+mod es_log_migration;
+mod es_replay;
+mod es_verification;
+mod family_file_parse;
+#[cfg(test)]
+mod framework_registry_tests;
+mod fqn_address;
+mod fqn_resolution;
+mod interp_expr;
+mod interp_expr_ops;
+mod interp_givens;
+mod interp_idioms;
+mod interp_predicate;
+#[cfg(test)]
+mod interp_givens_tests;
+mod interp_mutations;
+#[cfg(test)]
+mod fqn_tests;
+mod lazy_backend;
+mod lazy_repo_ops;
+mod lifecycle_defaults;
+mod log_sink;
+mod log_time;
+#[cfg(test)]
+mod loop_driver_tests;
+mod loop_tick;
+#[cfg(test)]
+mod storehouse_log_tests;
 pub mod payload_gate;
 mod event_bus;
 pub mod loop_driver;
@@ -161,6 +217,7 @@ mod event_driving;
 pub mod adapter_env;
 mod reaction;
 mod query;
+mod query_event_fields;
 /// Framework substrate — the collaborator holding the kernel's own aggregates
 /// (the event Log, the veto audit, the outbox), so the runtime never depends on
 /// a user's domain having merged them.
@@ -226,27 +283,53 @@ pub mod driven_adapter_resolver;
 pub mod actor;
 pub mod driving_adapter_resolver;
 pub mod drive_scheduler;
+mod policy_react;
 pub mod cron_schedule;
+#[cfg(test)]
+mod cron_schedule_tests;
+mod repo_hydrate;
 pub mod event_shard;
+mod shard_sink;
+#[cfg(test)]
+mod event_shard_tests;
 pub mod projection_fold;
+mod projection_measure;
+#[cfg(test)]
+mod projection_fold_tests;
 pub mod event_log;
 pub mod event_log_query;
+#[cfg(test)]
+mod event_log_query_tests;
 pub mod event_log_index;
+#[cfg(test)]
+mod event_log_index_tests;
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod causation_trace_tests;
 #[cfg(all(test, not(target_arch = "wasm32")))]
+mod causation_e2e_tests;
+#[cfg(all(test, not(target_arch = "wasm32")))]
 mod consequence_tree_tests;
 pub mod event_merge;
+#[cfg(test)]
+mod event_merge_tests;
 pub mod compute_functions;
 pub mod framework_registry;
+mod payload_gate_terms;
+mod runtime_support_types;
 pub mod primitive_registry;
+#[cfg(test)]
+mod primitive_registry_tests;
 pub mod storehouse_log;
 pub mod dispatch_detail;
+
+mod dispatch_scope;
+#[cfg(test)]
+mod dispatch_detail_tests;
 
 pub use aggregate_state::AggregateState;
 pub use command_dispatch::CommandResult;
 #[cfg(not(target_arch = "wasm32"))]
-pub(crate) use command_dispatch::apply_lifecycle_default;
+pub(crate) use lifecycle_defaults::apply_lifecycle_default;
 pub use event_bus::{Event, EventBus};
 pub use middleware::{MiddlewareEntry, MiddlewareStack, Phase};
 pub use policy_engine::{PolicyEngine, PolicyTrigger};

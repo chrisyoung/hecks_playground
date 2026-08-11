@@ -3,10 +3,10 @@ Hecks.bluebook "Conductor", version: "2026.06.02.2" do
   category "framework"
 
   aggregate "Worker", "A named, living execution unit. Registers to the fleet, sends periodic heartbeats, is declared dead on liveness timeout. Its current claim and active worktree are DERIVED via queries on Claim and Lease — not stored back-refs." do
-    identified_by :worker_id
+    identified_by { worker_id.value }
 
     attribute :worker_id,     WorkerId
-    attribute :status,        Status,      default: "alive"
+    attribute :status,        Status,      default: { value: "alive" }
     attribute :heartbeat_at,  HeartbeatAt
     # Liveness deadline (the clock). An ISO-8601 UTC instant : while the
     # worker keeps beating, Register/Heartbeat push stale_after forward
@@ -29,9 +29,16 @@ Hecks.bluebook "Conductor", version: "2026.06.02.2" do
     end
 
     value_object "StaleAfter" do
-      # ISO-8601 UTC deadline — sorts chronologically, so `stale_after < now`
-      # is a plain lexical comparison.
-      attribute :value, String
+      # Migration plan task 4: was an ISO-8601 UTC string ("sorts
+      # chronologically, so stale_after < now is a plain lexical
+      # comparison") -- correct under the old runtime, but hecksagain's
+      # meta-validator refuses an ordered (lt/gt) where-clause comparator
+      # on anything but a numeric field categorically ("over anything
+      # else the adapters answer differently or not at all" -- a real,
+      # deliberate cross-adapter-consistency principle, not a bug to
+      # route around). Unix epoch seconds instead : still sorts
+      # chronologically, now genuinely numeric under every adapter.
+      attribute :value, Integer
     end
 
     command "Register" do
@@ -79,7 +86,8 @@ Hecks.bluebook "Conductor", version: "2026.06.02.2" do
     end
 
     query "Stale" do
-      description "All ALIVE workers whose liveness deadline has elapsed. SEMANTIC : status == alive AND stale_after < :now. The driving read for the liveness sweep : a cadence Tick fans Worker.MarkDead out over this query (fed `:now` via the `{now}` clock primitive), which cascades through worker_died_reclaim to reclaim the dead worker's lease and expire its claim — returning the story to the pool. stale_after is an ISO-8601 instant, so the `lt` comparison is a plain chronological string compare."
+      description "All ALIVE workers whose liveness deadline has elapsed. SEMANTIC : status == alive AND stale_after < :now. The driving read for the liveness sweep : a cadence Tick fans Worker.MarkDead out over this query, passing now: as an ordinary ask-time parameter (the caller's own current epoch — the '{now} clock primitive' language predates hecksagain and never had a real magic-injection mechanism even under the old runtime; an explicitly-declared parameter is the honest equivalent, matching how every other query in this corpus already takes its ask-time inputs), which cascades through worker_died_reclaim to reclaim the dead worker's lease and expire its claim — returning the story to the pool. stale_after is now Unix epoch seconds (see StaleAfter's own comment), so the lt comparison is a plain numeric compare."
+      attribute :now, StaleAfter
       where status: "alive"
       where stale_after: { lt: :now }
     end

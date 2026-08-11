@@ -17,6 +17,16 @@ use std::fmt;
 #[derive(Debug, Clone)]
 pub struct Domain {
     pub name: String,
+    /// Unknown TOP-LEVEL block-opening keywords (e.g. a leftover `fixture`
+    /// block after fixtures→policies, 2026-07-27). Ruby's builder RAISES
+    /// NoMethodError on these, so a file carrying one is unreadable on the
+    /// Ruby side ; the Rust parser records the keyword, consumes the whole
+    /// block (its inner lines must not be claimed as top-level declarations —
+    /// Ruby never evaluates an unknown method's block), and
+    /// `validator_keywords::unknown_keyword_errors` reports each. NOT dumped —
+    /// dump.rs emits no such field, so the parity dump is byte-unchanged.
+    /// Empty for every well-formed bluebook.
+    pub unknown_keywords: Vec<UnknownKeyword>,
     /// The bluebook's declared `version:` from its header
     /// (`Hecks.bluebook "X", version: "2026.06.27.1"`). Provenance : stamped
     /// onto each aggregate (`Aggregate.bluebook_version`) and thence into every
@@ -29,7 +39,6 @@ pub struct Domain {
     pub vision: Option<String>,
     pub aggregates: Vec<Aggregate>,
     pub policies: Vec<Policy>,
-    pub fixtures: Vec<Fixture>,
     /// Optional top-level `entrypoint "CommandName"` — the command that
     /// `storehouse run <file>` dispatches when invoked as an executable.
     /// None for library-style bluebooks with no default command.
@@ -123,7 +132,6 @@ pub enum BlockParser {
     ProcessManager,
     Cadence,
     Section,
-    Fixture,
 }
 
 impl BlockParser {
@@ -138,7 +146,6 @@ impl BlockParser {
             "parse_process_manager" => Some(Self::ProcessManager),
             "parse_cadence" => Some(Self::Cadence),
             "parse_section" => Some(Self::Section),
-            "parse_fixture" => Some(Self::Fixture),
             _ => None,
         }
     }
@@ -153,7 +160,6 @@ impl BlockParser {
             Self::ProcessManager => "parse_process_manager",
             Self::Cadence => "parse_cadence",
             Self::Section => "parse_section",
-            Self::Fixture => "parse_fixture",
         }
     }
 }
@@ -175,7 +181,6 @@ impl BlockGrammar {
                 entry("policy", BlockParser::Policy),
                 entry("process_manager", BlockParser::ProcessManager),
                 entry("cadence", BlockParser::Cadence),
-                entry("fixture", BlockParser::Fixture),
             ],
         }
     }
@@ -332,7 +337,24 @@ pub struct UnknownKeyword {
     pub suggestion: String,
 }
 
+/// One element of a COMPUTED identity (`identified_by do customer ; number end`).
+/// A Field takes its value from the command's attrs ; a Literal is the value
+/// itself, which is how a singleton says "there is one of me" without inventing
+/// a key. Order is declaration order, because the identity IS the join.
+///
+/// Identity deliberately does NOT include the aggregate's FQN : the FQN is the
+/// part that gets renamed (Takings -> Deposit, this very session), and an
+/// identity that moves when the model is renamed is not an identity. The
+/// aggregate is already carried beside the id at every layer anyway - state,
+/// store file, dispatch address.
+#[derive(Debug, Clone, PartialEq)]
+pub enum IdentityPart {
+    Field(String),
+    Literal(String),
+}
+
 #[derive(Debug, Clone)]
+
 pub struct Aggregate {
     pub name: String,
     pub description: Option<String>,
@@ -377,6 +399,13 @@ pub struct Aggregate {
     /// just an aggregate identified by an attribute with one canonical
     /// value, no special case.
     pub identified_by: Option<String>,
+
+    /// COMPUTED identity - the ordered parts an id is derived from. Empty
+    /// when nothing is declared (the runtime counter-mints). A single Field
+    /// is exactly what `identified_by :name` always meant ; more than one, or
+    /// any Literal, is the block form. Derived, never minted, so the same
+    /// facts always name the same record.
+    pub identity: Vec<IdentityPart>,
     pub attributes: Vec<Attribute>,
     pub factories: Vec<Factory>,
     pub commands: Vec<Command>,

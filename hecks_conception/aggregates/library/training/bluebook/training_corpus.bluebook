@@ -11,7 +11,7 @@ Hecks.bluebook "TrainingCorpus", version: "2026.04.28.1" do
   # since policies follow the trigger target.
 
   aggregate "Corpus", "The full training dataset — bluebooks plus parsed IR" do
-    identified_by :name
+    identified_by { name.value }
     attribute :name,          Name
     attribute :total_domains, DomainCount
     attribute :total_tokens,  TokenCount

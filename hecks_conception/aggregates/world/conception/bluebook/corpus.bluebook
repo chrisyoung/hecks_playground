@@ -14,7 +14,7 @@ Hecks.bluebook "NurseryCorpus", version: "2026.04.16.1" do
   # QueryNearest).
 
   aggregate "Corpus", "The nursery vector space — every domain's shape, indexed for similarity search" do
-    identified_by :name
+    identified_by { name.value }
     attribute :name,            Name
     attribute :domain_count,    DomainCount
     attribute :total_vectors,   VectorCount

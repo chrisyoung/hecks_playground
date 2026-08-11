@@ -1,3 +1,8 @@
-Hecks.hecksagon "Bluebook" do
-  Bluebook::Domain.persisted_by("Heki")
+# Migration plan task 4: same stale-rename mismatch as dream.hecksagon /
+# library/stores/bluebook/inbox.hecksagon -- this file's own bluebook
+# domain-renamed "Bluebook" -> "BluebookGrammar" (colliding with
+# hecksagain's own reserved "Bluebook" self-hosted-grammar domain name),
+# but the hecksagon's OWN declared name was never updated to match.
+Hecks.hecksagon "BluebookGrammar" do
+  BluebookGrammar::Domain.persisted_by("Heki")
 end

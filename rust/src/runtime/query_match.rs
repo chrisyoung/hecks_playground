@@ -138,9 +138,28 @@ pub(super) fn resolve_where_value(
     attrs: &std::collections::HashMap<String, String>,
 ) -> String {
     if let Some(kwarg) = value.strip_prefix(':') {
-        return attrs.get(kwarg).cloned().unwrap_or_default();
+        return unwrap_single_value_vo(&attrs.get(kwarg).cloned().unwrap_or_default());
     }
-    value.to_string()
+    unwrap_single_value_vo(value)
+}
+
+/// The SAME single-value unwrap `resolve_state_field` applies, on the other
+/// side of the comparison. A query is filtered with the value object the caller
+/// holds — `where person: :person` given `person: { value: "ada@example.com" }` —
+/// and the record's side is already unwrapped to its inner value. Unwrapping
+/// only one side made a VO-valued filter match nothing at all.
+fn unwrap_single_value_vo(raw: &str) -> String {
+    let t = raw.trim();
+    if !(t.starts_with('{') && t.ends_with('}')) {
+        return raw.to_string();
+    }
+    match crate::runtime::attr_value_from_str(t) {
+        crate::runtime::Value::Map(m) if m.len() == 1 => m
+            .get("value")
+            .map(|v| v.to_string())
+            .unwrap_or_else(|| raw.to_string()),
+        _ => raw.to_string(),
+    }
 }
 
 /// Resolve a limit value : `:foo` reads `attrs["foo"]` and parses as

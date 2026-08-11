@@ -26,15 +26,17 @@ fn vindiction_by_make_model_returns_products() {
     let mut domain = parser::parse(&prod);
     let vehd = parser::parse(&veh);
     domain.aggregates.extend(vehd.aggregates);
+    // Domain carries no fixtures (fixtures→policies, 2026-07-26) — the parsed
+    // .fixtures slice stays test vocabulary, seeded below exactly as the
+    // worker seeds its own parsed slice.
     let ff = fixtures_parser::parse(&fixsrc);
-    domain.fixtures.extend(ff.fixtures);
 
     eprintln!("-- aggregates (name : context : identified_by) --");
     for a in &domain.aggregates {
         eprintln!("   {} : {:?} : {:?}", a.name, a.context, a.identified_by);
     }
-    eprintln!("-- domain.fixtures : {} --", domain.fixtures.len());
-    if let Some(f) = domain.fixtures.first() {
+    eprintln!("-- parsed fixtures : {} --", ff.fixtures.len());
+    if let Some(f) = ff.fixtures.first() {
         eprintln!("   first: agg={} name={:?} attrs={}", f.aggregate_name, f.name, f.attributes.len());
     }
 
@@ -45,7 +47,7 @@ fn vindiction_by_make_model_returns_products() {
     // Replicate worker seed_fixtures exactly.
     let identified_by: HashMap<String, Option<String>> = rt.domain.aggregates.iter()
         .map(|a| (a.name.clone(), a.identified_by.clone())).collect();
-    let fixtures = rt.domain.fixtures.clone();
+    let fixtures = ff.fixtures;
     let mut seeded = 0usize; let mut skipped = 0usize;
     for fix in &fixtures {
         let Some(rk) = repo_lookup_key(&rt.repositories, &fix.aggregate_name) else { skipped += 1; continue };

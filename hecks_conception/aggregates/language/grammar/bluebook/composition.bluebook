@@ -18,16 +18,16 @@ Hecks.bluebook "Composition", version: "2026.05.12.1" do
   # itself : a Phrase is not a String, a DomainName is not a String.
 
   aggregate "Composition", "Two commands chained — the output of one feeds the input of the next" do
-    identified_by :phrase
+    identified_by { phrase.value }
     attribute :phrase,        Phrase
     attribute :from_domain,   DomainName
     attribute :from_command,  CommandName
     attribute :to_domain,     DomainName
     attribute :to_command,    CommandName
     attribute :bridge_type,   BridgeType
-    attribute :connector,     Connector, default: "then"
+    attribute :connector,     Connector, default: { value: "then" }
     attribute :translations,  list_of(Translation)
-    attribute :valid,         Validity, default: "true"
+    attribute :valid,         Validity, default: { value: "true" }
 
     # ── Value-objects : the composition's vocabulary ──
 

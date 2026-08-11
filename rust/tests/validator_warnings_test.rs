@@ -38,7 +38,7 @@ fn agg(name: &str, refs: Vec<Reference>) -> Aggregate {
         value_objects: vec![], entities: vec![], context: None, category: None, realm_path: None, bluebook_version: None,
         references: refs,
         lifecycle: None, invariants: vec![],
-        identified_by: None,
+        identified_by: None, identity: vec![],
         views: vec![],
         unknown_keywords: vec![],
     }
@@ -61,11 +61,11 @@ fn empty_domain(name: &str, aggregates: Vec<Aggregate>) -> Domain {
         aggregates,
         process_managers: vec![],
         policies: vec![],
-        fixtures: vec![],
         entrypoint: None,
         sections: vec![],
         cadences: vec![],
         block_grammars: vec![],
+        unknown_keywords: vec![],
     }
 }
 

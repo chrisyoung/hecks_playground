@@ -373,3 +373,62 @@ fn unmarked_attr_stays_optional() {
         .expect("unmarked :note may be omitted");
     assert_eq!(rt.all("Tool").len(), 1);
 }
+
+// --- the FQN arm : every test above dispatches a SHORT command name ---
+
+// Every gate test written before this one dispatches by SHORT name
+// ("AddTool"), but the CLI — and therefore every live dispatch, the MCP
+// door included — is REQUIRED to pass the fully-qualified
+// `Domain::Aggregate.Command`. A gate proven only on the short form is a
+// gate proven on a path nothing in production takes. These two mirror
+// `negative_fee_refused_with_zero_state_touch` and the `%w[]` membership
+// work, differing in exactly one thing : the name the caller uses.
+const FQN_SHED: &str = r##"Hecks.bluebook "FqnShed" do
+  aggregate "Probe" do
+    description "Two wrapper VOs — one comparison rule, one membership rule"
+    attribute :mode, Mode
+    attribute :level, Level
+
+    value_object "Mode" do
+      attribute :value, String
+      invariant "mode must be one of the known modes" do
+        %w[ensure status stop].include?(value)
+      end
+    end
+
+    value_object "Level" do
+      attribute :value, Integer
+      invariant "level must be positive" do
+        value > 0
+      end
+    end
+
+    command "SetBoth" do
+      role "Operator"
+      attribute :mode, Mode
+      attribute :level, Level
+    end
+  end
+end"##;
+
+#[test]
+fn comparison_invariant_bites_through_the_fqn() {
+    let mut rt = boot(FQN_SHED);
+    rt.dispatch("FqnShed::Probe.SetBoth", attrs(&[("mode", s("stop")), ("level", s("3"))]))
+        .expect("a positive level passes");
+    match rt.dispatch("FqnShed::Probe.SetBoth", attrs(&[("mode", s("stop")), ("level", s("-5"))])) {
+        Err(RuntimeError::PayloadInvariantViolation { field, .. }) => assert_eq!(field, "level"),
+        other => panic!("level=-5 must be refused through the FQN, got {:?}", other),
+    }
+}
+
+#[test]
+fn membership_invariant_bites_through_the_fqn() {
+    let mut rt = boot(FQN_SHED);
+    rt.dispatch("FqnShed::Probe.SetBoth", attrs(&[("mode", s("stop")), ("level", s("3"))]))
+        .expect("an in-set mode passes");
+    match rt.dispatch("FqnShed::Probe.SetBoth", attrs(&[("mode", s("banana")), ("level", s("3"))])) {
+        Err(RuntimeError::PayloadInvariantViolation { field, .. }) => assert_eq!(field, "mode"),
+        other => panic!("mode=banana must be refused through the FQN, got {:?}", other),
+    }
+}

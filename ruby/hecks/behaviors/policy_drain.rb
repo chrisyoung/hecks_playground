@@ -41,6 +41,12 @@ module Hecks
             qualifier, bare = on.to_s.include?(".") ? on.to_s.split(".", 2) : [nil, on.to_s]
             next unless bare == ev[:name]
             next if qualifier && qualifier != ev[:aggregate_type].to_s
+            # Data guard — mirrors rust policy_react.rs : every `where`
+            # clause is matched against the TRIGGERING EVENT's own payload,
+            # and one miss skips the policy. Without it banking's
+            # CompleteOnDeposited (`where transfer: { ne: "" }`) fires on a
+            # MANUAL deposit too and mints a phantom Transfer.
+            next unless wheres_match?(p, ev)
             next if @stack.include?(p.name)
             @stack.push(p.name)
             begin
@@ -55,6 +61,42 @@ module Hecks
               @stack.pop
             end
           end
+        end
+      end
+
+      # Every `where` clause on the policy must match the event's payload.
+      # Values compare as DISPLAY STRINGS on both sides, which is what the
+      # bus already carries and what rust's where_matches does — so
+      # `{ ne: "" }` reads "the field is present and non-blank".
+      def wheres_match?(policy, ev)
+        clauses = policy.respond_to?(:wheres) ? policy.wheres : nil
+        return true if clauses.nil? || clauses.empty?
+
+        payload = ev[:payload] || {}
+        clauses.all? do |clause|
+          actual = payload[clause[:field]].to_s
+          target = clause[:value].to_s
+          case clause[:op]
+          when :eq  then actual == target
+          when :ne  then actual != target
+          when :gt  then compare_values(actual, target).positive?
+          when :gte then !compare_values(actual, target).negative?
+          when :lt  then compare_values(actual, target).negative?
+          when :lte then !compare_values(actual, target).positive?
+          when :in  then target.split(",").any? { |item| item.strip == actual }
+          else true
+          end
+        end
+      end
+
+      # Numeric ordering when both sides are integers, lexical otherwise —
+      # rust compare_strings, so a status field and a counter both order the
+      # way a reader expects.
+      def compare_values(a, b)
+        if a.match?(/\A-?\d+\z/) && b.match?(/\A-?\d+\z/)
+          a.to_i <=> b.to_i
+        else
+          a <=> b
         end
       end
 

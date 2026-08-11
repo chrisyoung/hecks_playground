@@ -57,12 +57,11 @@ Hecks.bluebook "Query", version: "2026.05.10.1" do
   # arc and the four-segment convention.
 
   aggregate "Query", "Singleton read bus over the conception" do
-    identified_by ServiceName
 
     value_object "ServiceName" do
       attribute :value, String
-      rule "must be the singleton 'query'" do
-        requires { value == "query" }
+      invariant "must be the singleton 'query'" do
+        value == "query"
       end
     end
 
@@ -75,8 +74,8 @@ Hecks.bluebook "Query", version: "2026.05.10.1" do
       # LucidDream::observations[-1]) is not in this first
       # chapter ; filed for a later iteration.
       attribute :value, String
-      rule "must be app::domain::Aggregate::attribute (4 non-empty segments)" do
-        requires { value.split("::").length == 4 && value.split("::").all? { |s| s.length > 0 } }
+      invariant "must be app::domain::Aggregate::attribute (4 non-empty segments)" do
+        value.split("::").length == 4 && value.split("::").all? { |s| s.length > 0 }
       end
     end
 
@@ -92,13 +91,8 @@ Hecks.bluebook "Query", version: "2026.05.10.1" do
       # fourth segments ; Dispatch.Route rejects snake_case
       # fourth segments. The convention is the type system.
       attribute :value, String
-      rule "must be app::domain::Aggregate::query_name (4 non-empty segments, fourth is snake_case)" do
-        requires {
-          parts = value.split("::")
-          parts.length == 4 \
-            && parts.all? { |s| s.length > 0 } \
-            && parts.last.match?(/\A[a-z][a-z0-9_]*\z/)
-        }
+      invariant "must be app::domain::Aggregate::query_name (4 non-empty segments, fourth is snake_case)" do
+        value.split("::").length == 4 && value.split("::").all? { |s| s.length > 0 } && value.split("::").last.match?(/\A[a-z][a-z0-9_]*\z/)
       end
     end
 
@@ -119,8 +113,8 @@ Hecks.bluebook "Query", version: "2026.05.10.1" do
       # set fits the same Run signature. Same shape as
       # Dispatch.Params.
       attribute :value, String
-      rule "must be a JSON object" do
-        requires { value.start_with?("{") && value.end_with?("}") }
+      invariant "must be a JSON object" do
+        value.start_with?("{") && value.end_with?("}")
       end
     end
 
@@ -140,9 +134,13 @@ Hecks.bluebook "Query", version: "2026.05.10.1" do
       description "Resolve the four-segment Phrase via Lexicon.Lookup, parse params into the target query's block parameters, evaluate the query's where/order/limit clauses against the configured storage adapter's index, and emit Queried with the result rows as payload. The fourth segment of the Phrase must be snake_case (the converted form of the bluebook-source PascalCase query name) ; PascalCase fourth segments are rejected — those go through Dispatch.Route."
       attribute Phrase, as: :phrase
       attribute Params, as: :params
-      expects "phrase resolves to a query in the lexicon" do
-        Lexicon.Lookup(phrase: phrase).present?
-      end
+      # PRECONDITION, stated and NOT machine-checked : phrase resolves to a query in the lexicon.
+      #   Lexicon.Lookup(phrase: phrase).present?
+      # The expression floor cannot evaluate this — cross-aggregate lookups,
+      # .start_with?/.split/.match? are not words the interpreter speaks. It
+      # was written as `expects`, which BOTH runtimes ignored ; as a `given`
+      # it would refuse every dispatch, since an unreadable predicate is now
+      # a refusal. Prose until the floor can judge it.
       emits "Queried"
     end
   end

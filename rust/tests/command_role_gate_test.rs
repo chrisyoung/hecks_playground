@@ -23,7 +23,7 @@ use storehouse::runtime::{CommandResult, Runtime, RuntimeError, Value};
 const GATING: &str =
     include_str!("../../hecks_conception/aggregates/storehouse/bluebook/storehouse.bluebook");
 const AUTHZ: &str =
-    include_str!("../../hecks_conception/aggregates/framework/authorization/authorization.bluebook");
+    include_str!("../../hecks_conception/aggregates/framework/authorization/bluebook/authorization.bluebook");
 const TOOLSHED: &str = include_str!("../../examples/workshop_demo/toolshed.bluebook");
 
 fn a(p: &[(&str, &str)]) -> HashMap<String, Value> {

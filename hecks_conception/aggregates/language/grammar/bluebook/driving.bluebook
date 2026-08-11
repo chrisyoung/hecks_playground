@@ -3,13 +3,13 @@ Hecks.bluebook "Driving", version: "2026.06.20.1" do
   category "language"
 
   aggregate "Driver", "One external clock reaching into a domain : the schedule that fires it, the aggregates root it dispatches against, and the ordered command(s) it dispatches per tick. Keyed by name — one Driver per cadenced concern (heart, breath, circadian, inbox, process_macrophage, consolidate). The inverse of an Adapter : an Adapter is named in a Family's outbound bind ; a Driver names its own inbound schedule. Its Schedule is a value-object (a Driver has exactly one) ; its Dispatches are ordered child entities (a Driver fires one or more commands per tick)." do
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name,          DriverName
     attribute :root,          AggregatesRoot
     attribute :schedule,      Schedule
-    attribute :lifespan,      Lifespan,   default: "persistent"
-    attribute :last_fired_at, Timestamp,  default: "—"
+    attribute :lifespan,      Lifespan,   default: { value: "persistent" }
+    attribute :last_fired_at, Timestamp,  default: { value: "—" }
     # Dispatches are OWNED ordered child entities (inside the boundary, local
     # identity) — list_of, not has_many. has_many is the cross-root verb (another
     # aggregate by global identity) ; Dispatch is internal, so the verb is list_of.
@@ -55,9 +55,9 @@ Hecks.bluebook "Driving", version: "2026.06.20.1" do
       # a handler only WHEN DUE (deduped to once per wall-clock minute).
       # clock remains parsed-but-test-only.
       attribute :kind,  ScheduleKind
-      attribute :every, Duration,  default: "—"
-      attribute :cron,  CronExpr,  default: "—"
-      attribute :poll,  Duration,  default: "—"
+      attribute :every, Duration,  default: { value: "—" }
+      attribute :cron,  CronExpr,  default: { value: "—" }
+      attribute :poll,  Duration,  default: { value: "—" }
     end
 
     value_object "ScheduleKind" do
@@ -81,11 +81,11 @@ Hecks.bluebook "Driving", version: "2026.06.20.1" do
     # ── Dispatch : WHAT a Driver fires, in order (one or more per Driver) ──
     entity "Dispatch" do
       description "One command a Driver fires per tick. Ordered, so breath inhales BEFORE it exhales and the no-promises sweep scans BEFORE it verifies. For a clock-kind schedule, `when` carries the wall-clock hour-range gating this dispatch (circadian's 5-6 -> MarkDawn) ; for interval/cron it is '—' and the command fires every tick. References only a command FQN (a plain string the runtime resolves through storehouse) — a bluebook never holds a reference to another bluebook."
-      identified_by :dispatch_id
+      identified_by { dispatch_id.value }
       attribute :dispatch_id, DispatchId
       attribute :command,     CommandFqn
-      attribute :order,       Order,     default: 0
-      attribute :when,        HourRange, default: "—"
+      attribute :order,       Order,     default: { value: 0 }
+      attribute :when,        HourRange, default: { value: "—" }
     end
 
     value_object "DispatchId" do

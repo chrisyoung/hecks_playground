@@ -19,7 +19,7 @@ Hecks.bluebook "Call", version: "2026.04.28.1" do
   # doing when she shelled out (e.g., "Speech.Speak:speech_42").
 
   aggregate "Call", "One invocation of an LLM — provider, token counts, cost, and what command triggered it" do
-    identified_by :ref
+    identified_by { ref.value }
     attribute :ref,         Ref
     attribute :provider,    ProviderName
     attribute :tokens_in,   TokenCount

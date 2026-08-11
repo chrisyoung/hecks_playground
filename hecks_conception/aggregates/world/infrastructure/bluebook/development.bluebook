@@ -9,7 +9,7 @@ Hecks.bluebook "Development", version: "2026.05.16.1" do
   # (DomainGrafted → ConnectNerve, archetype wiring).
 
   aggregate "Development", "Develop existing domains using nursery vectors — more domains = faster development" do
-    identified_by :domain_name
+    identified_by { domain_name.value }
 
     # ── Value-objects : wrapped primitives (no-primitive-envy, 2026-05-12) ──
     # Per i555 VOs live inside their aggregate ; one wrapper per
@@ -50,7 +50,7 @@ Hecks.bluebook "Development", version: "2026.05.16.1" do
     attribute :target_vector,    list_of(TargetVector)
     attribute :nearest_archetype, NearestArchetype
     attribute :similarity,       Similarity
-    attribute :status,           Status, default: "pending"
+    attribute :status,           Status, default: { value: "pending" }
 
     value_object "StructuralVector" do
       attribute :aggregates, Integer

@@ -1,3 +1,16 @@
-Hecks.hecksagon "Inbox" do
-  Inbox::Inbox.persisted_by("Heki")
+# Migration plan task 4: was `Hecks.hecksagon "Inbox"` -- a stale
+# leftover from before this file's own bluebook (inbox.bluebook)
+# domain-renamed "Inbox" -> "IssueLog" to resolve a basename collision
+# with aggregates/framework/inbox/bluebook/inbox.bluebook's OWN,
+# unrelated real "Inbox" domain. Never updated to match. verify! looks
+# up `bluebook(hexagon.domain)` using the HECKSAGON's own declared name,
+# not the bind's own "IssueLog::Inbox" text -- so this file's bind was
+# silently being checked against framework's REAL Inbox aggregate
+# instead of IssueLog's, and once the earlier hecksagon-merge fix (this
+# same migration pass) made multi-file hecksagons for the same domain
+# actually accumulate instead of silently overwriting, the two binds
+# collided visibly ("Inbox::Inbox has 2 authoritative persisted_by
+# bindings").
+Hecks.hecksagon "IssueLog" do
+  IssueLog::Inbox.persisted_by("Heki")
 end

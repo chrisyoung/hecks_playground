@@ -32,6 +32,10 @@ Hecks.hecksagon "Pizzas" do
   # persistence-family adapter and the domain never notices.
   Pizzas::Pizza.persisted_by("Heki")
   Pizzas::Order.persisted_by("Heki")
+  # Money owed to the bank must survive a restart. A deposit still pending when
+  # the process dies is exactly the record you cannot afford to lose — it is the
+  # only thing that knows a sale's takings never arrived.
+  Pizzas::Deposit.persisted_by("Heki")
 
   # ── REPLY PORT · persistence (MEMORY) ───────────────────────────────
   # The Cart is transient — an in-progress selection discarded on checkout
@@ -70,6 +74,54 @@ Hecks.hecksagon "Pizzas" do
   Pizzas::Order.charged_by("Stripe", on: "OrderPlaced") do
     success "Order.Authorize"
     failure "Order.Decline"
+  end
+
+  # ── CROSS-CONTEXT · every sale is banked ────────────────────
+  # One domain's event calling another domain's command, with the translation
+  # written right where the two meet. That is the WHOLE mechanism — no port, no
+  # family, no adapter contract : those buy swappability, and there is nothing
+  # here to swap.
+  #
+  # These two blocks are the only place Pizzas and Banking touch. Neither
+  # bluebook knows the other exists. A BLUEBOOK may not know another bluebook —
+  # a HECKSAGON is precisely the ring that is allowed to, which is why Stripe
+  # sits above and is not read as an intrusion. Banking is just another outside
+  # thing from in here.
+  #
+  # BOTH domains say "deposit", and they mean different things by it : in here
+  # it is OUR money going out, in there it is a credit landing on an account.
+  # One word, two contexts, and the FQN keeps them apart. That is what bounded
+  # contexts are for.
+
+  # A sale MAKES THE DEPOSIT first — money owed to the bank, written down in the
+  # shop's own words before anything is sent anywhere. So a deposit the bank
+  # never answers for is still visible : one that never cleared, rather than
+  # nothing at all. Without this aggregate a refused deposit exists only as a
+  # line on stderr.
+  adapter "Deposit" do
+    driven on "Pizzas::Order.OrderPlaced" do |sale|
+      dispatch "Pizzas::Deposit.Make", order: "{id}", amount: "{total}"
+    end
+  end
+
+  # Then the deposit goes to the bank, and the verdict comes back into PIZZAS as
+  # a plain command — Clear or Bounce — exactly as the payment gateway's verdict
+  # re-enters as Authorize or Decline. The domain stays synchronous and knows
+  # nothing of Banking ; it only ever learns that its deposit cleared, or that it
+  # bounced and why.
+  #
+  # `{field}` is the transformation : a deposit's `amount` is what Banking calls
+  # `amount` too, so the rename is short here. When two languages are further
+  # apart, this is where the distance gets paid for.
+  adapter "Banking" do
+    driven on "Pizzas::Deposit.DepositMade" do |deposit|
+      dispatch "Banking::Account.Deposit",
+               account:     "pizzeria",
+               amount:      "{amount}",
+               description: "Pizza sale"
+      success "Pizzas::Deposit.Clear"
+      failure "Pizzas::Deposit.Bounce"
+    end
   end
 
   # ── DRIVING SIDE · the recurring sweep ──────────────────────────

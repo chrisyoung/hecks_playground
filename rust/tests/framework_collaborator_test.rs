@@ -388,7 +388,7 @@ fn a_domain_declaring_its_own_outbox_is_not_overridden() {
 const GATING: &str =
     include_str!("../../hecks_conception/aggregates/storehouse/bluebook/storehouse.bluebook");
 const AUTHZ: &str =
-    include_str!("../../hecks_conception/aggregates/framework/authorization/authorization.bluebook");
+    include_str!("../../hecks_conception/aggregates/framework/authorization/bluebook/authorization.bluebook");
 const DEMO: &str = include_str!("fixtures/authz_demo.bluebook");
 
 fn s(p: &[(&str, &str)]) -> HashMap<String, Value> {

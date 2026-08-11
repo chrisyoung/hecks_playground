@@ -1,0 +1,9 @@
+# Vendored addition, not (yet) upstream hecksagain (migration plan task
+# 8): "Stripe" -- registers the adapter the canonical Pizzas example's own
+# `Order.charged_by("Stripe", on: "OrderPlaced")` names, so wiring
+# resolves. The actual charge call is real, external, off-core handler
+# machinery this bind only declares the contract for -- see payment.port's
+# own comment.
+Hecks.adapter "Stripe" do
+  port "payment"
+end

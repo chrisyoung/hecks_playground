@@ -19,7 +19,7 @@ Hecks.bluebook "Budget", version: "2026.04.28.1" do
   # write this whole essay right now, let it rip until 10pm").
 
   aggregate "Budget", "Spend cap for a period — hour/day/month — with manual override window" do
-    identified_by :period
+    identified_by { period.value }
     attribute :period,          Period
     attribute :cap_usd,         UsdAmount
     attribute :override_active, OverrideActive

@@ -5,7 +5,7 @@ Hecks.bluebook "ConversationTranscript", version: "2026.04.28.1" do
   # Lifted out of training_corpus.bluebook in i112 split.
 
   aggregate "ConversationTranscript", "A recorded session between Miette and a person — teaches voice and behavior" do
-    identified_by :ref
+    identified_by { ref.value }
     attribute :ref,                Ref
     attribute :person,             PersonName
     attribute :turns,              TurnCount

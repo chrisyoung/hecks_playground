@@ -30,50 +30,12 @@ use super::aggregate_state::AggregateState;
 use super::interpreter;
 use super::{RuntimeError, Value};
 
-/// Conservative whitelist of what the expression interpreter provably
-/// speaks at the gate : `&&`/`||` chains of comparisons whose terms are
-/// quoted strings, numeric literals (int or float), or identifiers
-/// (optionally `.size` / `.length`). Anything else — negation, method
-/// calls, assignment, blocks — is NOT judgeable and passes the gate
-/// unjudged rather than being refused by incomprehension.
-fn judgeable(expr: &str) -> bool {
-    expr.split("&&")
-        .flat_map(|p| p.split("||"))
-        .all(|clause| {
-            let c = clause.trim();
-            for op in ["==", "!=", ">=", "<=", ">", "<"] {
-                if let Some((l, r)) = c.split_once(op) {
-                    return simple_term(l) && simple_term(r);
-                }
-            }
-            false
-        })
-}
-
-fn simple_term(t: &str) -> bool {
-    let t = t.trim();
-    if t.is_empty() {
-        return false;
-    }
-    if t.starts_with('"') && t.ends_with('"') && t.len() >= 2 {
-        return true;
-    }
-    if t.parse::<f64>().is_ok() {
-        return true;
-    }
-    let base = t
-        .strip_suffix(".size")
-        .or_else(|| t.strip_suffix(".length"))
-        .unwrap_or(t);
-    !base.is_empty()
-        && base.chars().next().map(|c| c.is_alphabetic() || c == '_').unwrap_or(false)
-        && base.chars().all(|c| c.is_alphanumeric() || c == '_')
-}
-
 /// Judge every VO-typed command attribute's incoming value against the
 /// VO's declared invariants. First violation refuses the dispatch with
 /// a field-targeted error ; `Ok(())` means the payload is admissible
 /// (at this gate — givens and lifecycle still rule downstream).
+use super::payload_gate_terms::judgeable;
+
 pub fn check(
     agg: &Aggregate,
     cmd: &Command,

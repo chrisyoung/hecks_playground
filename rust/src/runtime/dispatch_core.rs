@@ -45,7 +45,7 @@ impl Runtime {
             // 2-seg the caller typed. `storehouse follow` is realm-explicit,
             // and a mis-resolve is visible instead of hiding behind the short
             // form. Falls back to the raw name when it can't resolve.
-            let log_name = command_dispatch::canonical_for_log(self, command_name);
+            let log_name = canonical_naming::canonical_for_log(self, command_name);
             let args_json = dispatch_detail_args_json(&attrs);
             let mut detail_scope =
                 dispatch_detail::DispatchScope::begin(&invocation_id, &log_name, args_json);

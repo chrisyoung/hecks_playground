@@ -68,7 +68,7 @@ Hecks.bluebook "Writing", version: "2026.05.14.1" do
   #        eleventh per-rule aggregate.
 
   aggregate "Writing", "Prose composition surface : every email, reply, marketing line, page-copy block, and inbox-card prose flows through Writing.Compose before reaching the underlying creation tool. State carries the recorded draft, its purpose, optional recipient, the most recent violations count set by the WritingDiscipline macrophage, and a one-line description." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id,                Id
     attribute :draft_text,        DraftText

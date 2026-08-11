@@ -5,14 +5,14 @@ Hecks.bluebook "FineTune", version: "2026.04.28.1" do
   # Lifted out of training_pipeline.bluebook in i112 split.
 
   aggregate "FineTune", "The actual training run" do
-    identified_by :ref
+    identified_by { ref.value }
     attribute :ref,           Ref
     attribute :base_model,    BaseModelName
     attribute :dataset_size,  PairCount
     attribute :epochs,        EpochCount
     attribute :learning_rate, LearningRate
     attribute :loss,          Loss
-    attribute :status,        Status, default: "pending"
+    attribute :status,        Status, default: { value: "pending" }
 
     value_object "Ref" do
       # Stable identifier for this fine-tune run.

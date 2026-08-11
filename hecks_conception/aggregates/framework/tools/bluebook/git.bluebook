@@ -3,14 +3,14 @@ Hecks.bluebook "Git", version: "2026.05.29.1" do
   category "framework"
 
   aggregate "Git", "Git command invocations as first-class dispatches. Each command records its captured output on state and emits a typed event. The :git_tool adapter family shells out and cascades the result back; this bluebook is the pure contract, not the execution." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id, Id
-    attribute :status_output,       StatusOutput,       default: ""
-    attribute :log_output,          LogOutput,          default: ""
-    attribute :diff_output,         DiffOutput,         default: ""
-    attribute :current_branch,      CurrentBranch,      default: ""
-    attribute :worktree_list_output, WorktreeListOutput, default: ""
+    attribute :status_output,       StatusOutput,       default: { value: "" }
+    attribute :log_output,          LogOutput,          default: { value: "" }
+    attribute :diff_output,         DiffOutput,         default: { value: "" }
+    attribute :current_branch,      CurrentBranch,      default: { value: "" }
+    attribute :worktree_list_output, WorktreeListOutput, default: { value: "" }
 
     value_object "Id" do
       # Stable invocation id, minted by the caller before dispatch.

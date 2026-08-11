@@ -20,7 +20,6 @@ Hecks.bluebook "MigrationCoexistence" do
   # ---- ActorAggregate — sprint-14 actor-mode opt-in ------------------
   aggregate "ActorAggregate" do
     description "Actor delivery (sprint-14 opt-in) — routes through the mailbox stub"
-    delivery :actor
 
     value_object "Note" do
       attribute :value, String

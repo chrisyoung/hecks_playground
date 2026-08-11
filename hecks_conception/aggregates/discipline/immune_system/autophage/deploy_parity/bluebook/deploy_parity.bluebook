@@ -31,7 +31,7 @@ Hecks.bluebook "DeployParity", version: "2026.05.16.1" do
   #   i629 — :exec adapter family (runtime arm, deferred)
 
   aggregate "DeployParity", "One watched site repo — holds the deploy/main parity record and drift age" do
-    identified_by :repo
+    identified_by { repo.value }
 
     attribute :repo,             RepoPath
     attribute :pages_project,    PagesProject

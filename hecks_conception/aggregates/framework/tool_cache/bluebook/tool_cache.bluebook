@@ -62,7 +62,7 @@ Hecks.bluebook "ToolCache", version: "2026.05.20.1" do
 
   # ── ToolStats : per-tool call history ──
   aggregate "ToolStats", "One ToolStats record per observed tool name (e.g. mcp__storehouse__storehouse__dispatch, FileTool.Read). RecordCall increments the count and updates the last-seen timestamp ; the aggregate is the persistent hot-path memory. Tool descriptions ride in the event payload and are folded into the rendered catalog ; aggregate state stays small (name + count + last_seen_at + last_description)." do
-    identified_by :tool_name
+    identified_by { tool_name.value }
 
     attribute :tool_name, ToolName
     attribute :call_count, CallCount
@@ -116,7 +116,7 @@ Hecks.bluebook "ToolCache", version: "2026.05.20.1" do
 
   # ── ToolCacheSnapshot : the hot-path roster ──
   aggregate "ToolCacheSnapshot", "A frozen top-N roster of tool names + descriptions, minted on each cache refresh. Compose mints a fresh snapshot from the current ToolStats records ; the markdown render (the catalog injected at SessionStart) reads from the most recent snapshot. Identified by snapshot_id (one per Compose dispatch) so the history is replayable." do
-    identified_by :snapshot_id
+    identified_by { snapshot_id.value }
 
     attribute :snapshot_id, SnapshotId
     attribute :composed_at, Timestamp

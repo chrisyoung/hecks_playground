@@ -32,19 +32,21 @@
 //!
 //! POST /domains/:domain/dispatch is the live-cascade path : the
 //! worker parses every embedded bluebook into a Runtime at request
-//! time, seeds each aggregate's records from R2 + fixtures, runs the
-//! command through `Runtime::dispatch`, persists every modified repo
-//! back to R2, returns the event JSON plus the cascade trail.
+//! time, completes the boot (establishment policies seed the demo
+//! records), layers R2 state on top, runs the command through
+//! `Runtime::dispatch`, persists every modified repo back to R2,
+//! returns the event JSON plus the cascade trail.
 //!
 //! ## R2 state layout (i114)
 //!
 //! For every aggregate, records live at the R2 key
 //! `state/<aggregate_snake>.heki` in the bucket bound as
 //! `DAILY_MUSING_R2_BUCKET`. The next-id counter manifest lives at
-//! `state/_counters.heki` keyed by aggregate name. Fixtures from
-//! every embedded `.fixtures` file seed the repositories at boot
-//! BEFORE R2 state is layered on top — R2 always wins for the same
-//! aggregate, so demo seeds become the empty-bucket starting point.
+//! `state/_counters.heki` keyed by aggregate name. Demo records
+//! establish via `on "BootCompleted"` policies at boot completion
+//! (fixtures→policies, 2026-07-26) BEFORE R2 state is layered on top —
+//! R2 always wins for the same aggregate, so established seeds become
+//! the empty-bucket starting point.
 
 use worker::*;
 use std::cell::RefCell;
@@ -56,12 +58,12 @@ mod embedded;
 // Mirror of `multi::load_all_domains` but reading from the embedded
 // bluebook strings instead of walking the filesystem. PRIMARY_BASENAME
 // is the root bluebook (e.g. "daily-musing.bluebook") ; every other
-// .bluebook entry contributes its aggregates / policies / fixtures /
+// .bluebook entry contributes its aggregates / policies /
 // sections / process_managers / cadences / block_grammars into the
 // merged Domain. Hecksagons load alongside so the runtime sees the
-// :web / :email / :stripe adapter bindings. `.fixtures` files merge
-// their declared `Fixture` rows into the same Domain so the boot path
-// can seed each repo with demo data before R2 state layers on top.
+// :web / :email / :stripe adapter bindings. Demo data arrives by
+// ESTABLISHMENT — the boot-completion dispatch below fans BootCompleted
+// out to the embedded policies — before R2 state layers on top.
 //
 // Booted fresh per request today. Each parse + IR build is a few ms
 // per bluebook ; with 27 embedded files, cold start is ~50ms. Move
@@ -85,21 +87,10 @@ async fn boot_runtimes(
             }
             merged.aggregates.extend(child.aggregates);
             merged.policies.extend(child.policies);
-            merged.fixtures.extend(child.fixtures);
             merged.sections.extend(child.sections);
             merged.process_managers.extend(child.process_managers);
             merged.cadences.extend(child.cadences);
             merged.block_grammars.extend(child.block_grammars);
-        }
-    }
-    // .fixtures files — sibling `Hecks.fixtures` DSL declarations. Parse
-    // each into a FixturesFile and fold its rows into merged.fixtures
-    // so the boot seed path below sees them alongside any in-bluebook
-    // fixture rows.
-    for (name, source) in embedded::EMBEDDED_BLUEBOOKS {
-        if name.ends_with(".fixtures") {
-            let f = storehouse::fixtures_parser::parse(source);
-            merged.fixtures.extend(f.fixtures);
         }
     }
     let mut hecksagons: Vec<storehouse::hecksagon_ir::Hecksagon> = Vec::new();
@@ -111,14 +102,19 @@ async fn boot_runtimes(
     let primary_name = merged.name.clone();
     let mut rt = storehouse::runtime::Runtime::boot_with_hecksagons(merged, None, hecksagons);
 
-    // ── Fixture seed (companion to daily-musing/i105) ────────────────
-    // The Domain holds every fixture row declared across the embedded
-    // .bluebook + .fixtures files. The runtime's boot path leaves
-    // them in the IR — nothing else pushes them into repositories.
-    // Seed them here as AggregateState so the demo world is non-empty
-    // on the first request to a fresh bucket. R2 state (read below)
-    // overwrites by id so live data always wins over seed data.
-    seed_fixtures(&mut rt);
+    // ── Boot completion (fixtures→policies, 2026-07-26) ──────────────
+    // The per-request boot IS a boot, so it completes like one : dispatch
+    // CompleteBoot (embedded boot.bluebook) and every `on "BootCompleted"`
+    // establishment policy self-seeds — the demo musings ride
+    // EstablishWelcomeMusing / EstablishMorningLightMusing instead of the
+    // retired daily_musing.fixtures. Establishment upserts on natural keys
+    // (BlogEntry :title), and R2 state (read below) still overwrites by id
+    // so live data always wins over seed data. A rejected completion is
+    // LOUD — a silent one is exactly how the keystone dead path hid
+    // (FINDING-keystone-dead-path).
+    if let Err(e) = rt.dispatch("Boot::BootRun.CompleteBoot", HashMap::new()) {
+        console_log!("boot completion rejected: {:?} — establishment policies did not fire", e);
+    }
 
     // ── R2 state hydration (i114) ─────────────────────────────────
     // For every aggregate, read `state/<aggregate_snake>.heki` and
@@ -134,67 +130,15 @@ async fn boot_runtimes(
     (map, primary_name)
 }
 
-/// Walk every fixture in the merged Domain and inject it into the
-/// matching repository as an AggregateState. The fixture's `name`
-/// field becomes the record id when the aggregate has no
-/// `identified_by` ; when `identified_by` is set, the matching
-/// attribute (e.g. `account_email`) becomes the id.
-fn seed_fixtures(rt: &mut storehouse::runtime::Runtime) {
-    use storehouse::runtime::{AggregateState, repo_lookup_key};
-    // Snapshot identified_by lookup per aggregate (avoid borrow conflicts).
-    let identified_by: HashMap<String, Option<String>> = rt
-        .domain
-        .aggregates
-        .iter()
-        .map(|a| (a.name.clone(), a.identified_by.clone()))
-        .collect();
-    let fixtures = rt.domain.fixtures.clone();
-    for fix in &fixtures {
-        let Some(repo_key) = repo_lookup_key(&rt.repositories, &fix.aggregate_name) else {
-            continue;
-        };
-        let id_field = identified_by.get(&fix.aggregate_name).cloned().flatten();
-        let id = if let Some(ref key) = id_field {
-            fix.attributes.iter().find(|(k, _)| k == key).map(|(_, v)| v.clone())
-                .or_else(|| fix.name.clone())
-                .unwrap_or_else(|| format!("fixture_{}", fix.aggregate_name))
-        } else {
-            fix.name.clone().unwrap_or_else(|| format!("fixture_{}", fix.aggregate_name))
-        };
-        let mut state = AggregateState::new(&id);
-        for (k, v) in &fix.attributes {
-            state.set(k, infer_value(v));
-        }
-        if let Some(repo) = rt.repositories.get_mut(&repo_key) {
-            repo.seed_record(state);
-        }
-    }
-}
-
-/// Light type inference for fixture attribute values (currently
-/// stringly-typed in the IR). Integers and booleans get coerced ;
-/// everything else stays a `Str`.
-fn infer_value(raw: &str) -> storehouse::runtime::Value {
-    use storehouse::runtime::Value;
-    if let Ok(n) = raw.parse::<i64>() {
-        return Value::Int(n);
-    }
-    match raw {
-        "true"  => Value::Bool(true),
-        "false" => Value::Bool(false),
-        _       => Value::Str(raw.to_string()),
-    }
-}
-
 /// Pull every persisted record out of R2 and inject it into the
 /// matching repository. Counters layer in via `state/_counters.heki`
 /// so counter-minted aggregates resume their id sequence rather than
-/// colliding with seeded fixture rows.
+/// colliding with established seed rows.
 async fn hydrate_from_r2(rt: &mut storehouse::runtime::Runtime, bucket: &Bucket) {
     use storehouse::runtime::{AggregateState, Value, repo_lookup_key};
     let agg_names: Vec<String> = rt.domain.aggregates.iter().map(|a| a.name.clone()).collect();
     for agg_name in &agg_names {
-        let snake = storehouse::heki::snake_case(agg_name);
+        let snake = storehouse::util::snake_case(agg_name);
         let key = format!("state/{}.heki", snake);
         let store = match storehouse::heki_r2::read_record(bucket, &key).await {
             Ok(s) => s,
@@ -247,7 +191,7 @@ async fn persist_runtime_to_r2(
     use storehouse::heki::Store;
     let mut counters = serde_json::Map::new();
     for agg in &rt.domain.aggregates {
-        let snake = storehouse::heki::snake_case(&agg.name);
+        let snake = storehouse::util::snake_case(&agg.name);
         let r2_key = format!("state/{}.heki", snake);
         let Some(repo_key) = storehouse::runtime::repo_lookup_key(&rt.repositories, &agg.name) else { continue };
         let Some(repo) = rt.repositories.get(&repo_key) else { continue };
@@ -361,7 +305,7 @@ async fn domain_query(req: Request, ctx: RouteContext<()>) -> Result<Response> {
     // storehouse::server::routes::query).
     let qname = rt.domain.aggregates.iter()
         .flat_map(|a| a.queries.iter())
-        .find(|q| q.name == verb || storehouse::heki::snake_case(&q.name) == verb)
+        .find(|q| q.name == verb || storehouse::util::snake_case(&q.name) == verb)
         .map(|q| q.name.clone());
     match qname {
         Some(qn) => {
@@ -722,6 +666,26 @@ fn humanize_runtime_error(err: &storehouse::runtime::RuntimeError) -> HumanizedE
         E::GivenFailed { message, expression } => HumanizedError {
             message: format!("Precondition failed : {}", message),
             suggestion: Some(format!("The check `{}` did not hold for this command.", expression)),
+            field: None,
+        },
+        E::PersistenceRefused(reason) => HumanizedError {
+            message: format!("Persistence refused : {}", reason),
+            suggestion: Some("The aggregate's storage adapter failed at boot — check the binding.".into()),
+            field: None,
+        },
+        E::InvariantViolation { name, expression } => HumanizedError {
+            message: format!("Invariant `{}` violated.", name),
+            suggestion: Some(format!("The rule `{}` must hold after this command.", expression)),
+            field: None,
+        },
+        E::PayloadInvariantViolation { name, expression, field, value } => HumanizedError {
+            message: format!("`{}` rejects the value `{}` (invariant `{}`).", field, value, name),
+            suggestion: Some(format!("The rule `{}` must hold for the input.", expression)),
+            field: Some(field.clone()),
+        },
+        E::Unauthorized { command, .. } => HumanizedError {
+            message: format!("Not authorized to `{}`.", command),
+            suggestion: Some("The asserted capabilities lack this command's role.".into()),
             field: None,
         },
         E::AmbiguousCommand { name, candidates } => HumanizedError {

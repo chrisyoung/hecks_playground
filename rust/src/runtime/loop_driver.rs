@@ -46,11 +46,11 @@
 //! cascade in `runtime/mod.rs`, so even hard-kill loses no PM state —
 //! the worst case is replaying one tick's policy cascade.
 
-use super::{Event, Runtime, Value};
+use super::{Runtime, Value};
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 /// Resolve `{now}` / `{now+N}` / `{now-N}` clock tokens in a dispatched
 /// attr map (the cadence-loop write path, mirroring interpolate_event on
@@ -58,7 +58,7 @@ use std::time::{Duration, Instant};
 /// resolver is a no-op for any value without a `{now` token, so the
 /// per-tick cost is one substring check per string attr. HECKS_NOW pins
 /// the base instant for deterministic tests.
-fn resolve_now_attrs(attrs: HashMap<String, Value>) -> HashMap<String, Value> {
+pub(super) fn resolve_now_attrs(attrs: HashMap<String, Value>) -> HashMap<String, Value> {
     attrs
         .into_iter()
         .map(|(k, v)| match v {
@@ -111,15 +111,15 @@ pub struct BootstrapEmit {
 }
 
 pub struct LoopDriver {
-    runtime: Runtime,
-    interval: Duration,
-    actions: Vec<TickAction>,
+    pub(super) runtime: Runtime,
+    pub(super) interval: Duration,
+    pub(super) actions: Vec<TickAction>,
     /// i223 — bootstraps fire ONCE on the first tick when their
     /// state predicate matches. Drained after the first tick so the
     /// emission can never replay.
-    bootstraps: Vec<BootstrapEmit>,
-    stop_flag: Arc<AtomicBool>,
-    tick_count: u64,
+    pub(super) bootstraps: Vec<BootstrapEmit>,
+    pub(super) stop_flag: Arc<AtomicBool>,
+    pub(super) tick_count: u64,
 }
 
 impl LoopDriver {
@@ -183,310 +183,4 @@ impl LoopDriver {
 
     pub fn tick_count(&self) -> u64 { self.tick_count }
 
-    /// Run forever (or until `stop_flag` is set). Sleeps `interval`
-    /// between ticks ; the tick itself fires every action in order.
-    pub fn run(&mut self) {
-        while !self.stop_flag.load(Ordering::Relaxed) {
-            let started = Instant::now();
-            self.tick_once();
-            let elapsed = started.elapsed();
-            if elapsed < self.interval {
-                std::thread::sleep(self.interval - elapsed);
-            }
-        }
-    }
-
-    /// Run for a fixed number of ticks. Used by tests that want
-    /// deterministic loop progression without spawning a stop thread.
-    pub fn run_ticks(&mut self, ticks: u64) {
-        for _ in 0..ticks {
-            if self.stop_flag.load(Ordering::Relaxed) { break; }
-            self.tick_once();
-        }
-    }
-
-    /// One tick : fire every registered action, swallowing errors so
-    /// a single bad dispatch can't kill the daemon. Errors print to
-    /// stderr ; the audit trail for production diagnosis is heki +
-    /// the existing dispatch-context breadcrumbs.
-    ///
-    /// First tick only : drain `bootstraps` first so the predicate-
-    /// gated synthetic emissions (WokenUp on attentive-restart, i223)
-    /// land BEFORE regular cadence actions on the same tick. Order
-    /// matters : Mind PM must see WokenUp before BodyPulse so the
-    /// instance exists when BodyPulse arrives and the wake handler
-    /// can match the engaged_in_wake transition.
-    pub fn tick_once(&mut self) {
-        self.tick_count = self.tick_count.wrapping_add(1);
-        // Freshness sweep — reload any repo whose heki file has been
-        // written by a sibling process since our last touch. The
-        // kernel-floor implementation of the RefreshOnPulse policy
-        // declared in runtime/storage/storage.bluebook. Runs BEFORE
-        // bootstraps + actions so the predicate-and-emit + cascade
-        // dispatches see the freshest state. Cost when nothing
-        // changed : one stat() per repo per tick. Closes the i517
-        // cross-process staleness root cause.
-        self.runtime.refresh_repositories_from_heki();
-        if !self.bootstraps.is_empty() {
-            let drained: Vec<BootstrapEmit> = std::mem::take(&mut self.bootstraps);
-            for boot in drained {
-                self.fire_bootstrap(boot);
-            }
-        }
-        for action in self.actions.clone() {
-            match action {
-                TickAction::Emit { event_name, aggregate_type, aggregate_id, data } => {
-                    let event = Event {
-                        name: event_name,
-                        aggregate_type,
-                        aggregate_id,
-                        data,
-                        realm_path: None,
-                        ..Default::default()
-                    };
-                    self.runtime.publish_synthetic_event(event);
-                }
-                TickAction::Dispatch { command_name, attrs } => {
-                    // Resolve `{now}` / `{now+N}` / `{now-N}` clock tokens
-                    // FRESH on every tick, so a cadence line like
-                    // `storehouse loop ... Worker.Heartbeat stale_after={now+N}`
-                    // writes the real wall-clock instant each beat (not a
-                    // value frozen at registration time). HECKS_NOW still
-                    // freezes it for deterministic tests.
-                    let attrs = resolve_now_attrs(attrs);
-                    // C3 CUTOVER — the daemon tick is ASYNC too. Deferred core
-                    // mutation + ports ; domain reactions go to the outbox.
-                    if let Err(e) = self.runtime.dispatch_deferred(&command_name, attrs) {
-                        eprintln!("[loop_driver] dispatch error '{}': {:?}",
-                                  command_name, e);
-                    }
-                    // Drain the outbox (persistent + in-memory fallback), then
-                    // RESET the cycle guard so the next tick starts fresh — one
-                    // Runtime lives across every tick, so in_flight must not leak
-                    // between ticks or policies would fire only on tick 1.
-                    self.runtime.pump_outbox();
-                    self.runtime.pump();
-                    // i750 — second drain arm : detach-spawn out-of-process
-                    // adapter handlers for any OutboundEvent this tick recorded
-                    // (and re-pump pending ones across ticks — free retry).
-                    #[cfg(not(target_arch = "wasm32"))]
-                    self.runtime.pump_outbound_events();
-                    self.runtime.policy_engine.reset_in_flight();
-                }
-            }
-        }
-        // Sprint 14 — fire every attached `driving on cron` adapter
-        // handler once per tick. v1 doesn't evaluate the cron
-        // expression : every tick fires every cron handler. A follow-up
-        // card adds expression-aware scheduling (parse 5-field cron,
-        // keep last-fire-at per handler, fire only when due). No-op
-        // when no hecksagons are attached or no cron handlers declared,
-        // so this stays free for the historical `storehouse loop` path.
-        self.runtime.fire_driving_cron_ticks();
-    }
-
-    /// i223 — evaluate a bootstrap's predicate against the current
-    /// runtime state and fire its embedded emit when matched. Reads
-    /// the named aggregate's identified record (looking up by
-    /// aggregate_id) and compares `field` against `expected` as a
-    /// string. Mismatch / missing aggregate / missing field all skip
-    /// the emission silently — the bootstrap's whole point is to be
-    /// inert when the predicate doesn't apply.
-    ///
-    /// String comparison only : the runtime stores Values in mixed
-    /// shapes (Str, Int, Bool) but the bootstrap CLI surface only
-    /// passes string expected values, so we render the field with
-    /// `format_value_string` and compare bytes. Equivalent to how
-    /// `--gate` (i108) compares heki field values.
-    fn fire_bootstrap(&mut self, boot: BootstrapEmit) {
-        let matched = match self.runtime.find(&boot.aggregate_type, &boot.aggregate_id) {
-            Some(state) => {
-                let actual = format_value_string(state.get(&boot.field));
-                actual == boot.expected
-            }
-            None => false,
-        };
-        if !matched {
-            eprintln!(
-                "[loop_driver] bootstrap skipped : {}.{}={} did not match (aggregate {} not found or field absent)",
-                boot.aggregate_type, boot.field, boot.expected, boot.aggregate_id
-            );
-            return;
-        }
-        if let TickAction::Emit { event_name, aggregate_type, aggregate_id, data } = boot.event {
-            eprintln!(
-                "[loop_driver] bootstrap fired : {}.{}={} → emit {}:{}:{}",
-                boot.aggregate_type, boot.field, boot.expected,
-                event_name, aggregate_type, aggregate_id
-            );
-            let event = Event {
-                name: event_name,
-                aggregate_type,
-                aggregate_id,
-                data,
-                realm_path: None,
-                ..Default::default()
-            };
-            self.runtime.publish_synthetic_event(event);
-        }
-    }
-}
-
-/// Render a Value into its bare string form for predicate
-/// comparison. Matches the stringification the heki/cli layer
-/// produces ; numeric values keep their literal digits, booleans
-/// become "true"/"false", null renders empty.
-fn format_value_string(v: &Value) -> String {
-    match v {
-        Value::Str(s) => s.clone(),
-        Value::Int(n) => n.to_string(),
-        Value::Bool(b) => b.to_string(),
-        Value::Null => String::new(),
-        Value::List(_) | Value::Map(_) => format!("{:?}", v),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::parser;
-
-    fn empty_runtime() -> Runtime {
-        // Minimal bluebook with one no-op aggregate — parser is the
-        // canonical way to build a Domain ; constructing the IR by
-        // hand bakes in field churn. `identified_by :name` so the
-        // repository keys saved records by their `name` field, which
-        // matches the dispatch path the i223 bootstrap predicate
-        // queries against.
-        let src = r#"
-            Hecks.bluebook "LoopDriverTest" do
-              aggregate "Tick" do
-                identified_by :name
-                attribute :name, :string
-                attribute :state, :string
-              end
-            end
-        "#;
-        Runtime::boot(parser::parse(src))
-    }
-
-    #[test]
-    fn run_ticks_advances_tick_count() {
-        let mut d = LoopDriver::new(empty_runtime(), Duration::from_millis(1));
-        d.run_ticks(3);
-        assert_eq!(d.tick_count(), 3);
-    }
-
-    #[test]
-    fn stop_flag_breaks_run_ticks_early() {
-        let mut d = LoopDriver::new(empty_runtime(), Duration::from_millis(1));
-        d.stop_flag().store(true, Ordering::Relaxed);
-        d.run_ticks(10);
-        assert_eq!(d.tick_count(), 0);
-    }
-
-    #[test]
-    fn emit_fires_event_into_bus() {
-        let mut d = LoopDriver::new(empty_runtime(), Duration::from_millis(1));
-        d.add_emit("BodyPulse", "Pulse", "pulse", HashMap::new());
-        d.run_ticks(2);
-        assert_eq!(d.runtime().event_bus.events().len(), 2);
-        assert_eq!(d.runtime().event_bus.events()[0].name, "BodyPulse");
-    }
-
-    /// i223 — seed an aggregate state directly into the runtime's
-    /// repository. Bypasses the dispatch path (the DSL parser-built
-    /// runtime in this test module has no commands defined) so the
-    /// bootstrap predicate has something to read against.
-    /// Repos may key by either bare name or "Context::Name" depending
-    /// on whether the bluebook declared a context — find the right
-    /// key by suffix.
-    fn seed_tick_state(rt: &mut Runtime, id: &str, state_value: &str) {
-        use crate::runtime::AggregateState;
-        let mut s = AggregateState::new(id);
-        s.set("state", Value::Str(state_value.into()));
-        let key = rt.repositories.keys()
-            .find(|k| k.as_str() == "Tick" || k.ends_with("::Tick"))
-            .cloned()
-            .expect("Tick repository must exist");
-        let repo = rt.repositories.get_mut(&key).unwrap();
-        let ctx = crate::heki::WriteContext::OutOfBand { reason: "test seed" };
-        repo.save(s, ctx);
-    }
-
-    /// i223 — bootstrap predicate matches → embedded emit fires
-    /// once on the first tick, before regular cadence actions.
-    #[test]
-    fn bootstrap_fires_when_predicate_matches() {
-        let mut rt = empty_runtime();
-        seed_tick_state(&mut rt, "tick", "attentive");
-
-        let mut d = LoopDriver::new(rt, Duration::from_millis(1));
-        d.add_bootstrap(BootstrapEmit {
-            aggregate_type: "Tick".into(),
-            aggregate_id: "tick".into(),
-            field: "state".into(),
-            expected: "attentive".into(),
-            event: TickAction::Emit {
-                event_name: "WokenUp".into(),
-                aggregate_type: "Tick".into(),
-                aggregate_id: "tick".into(),
-                data: HashMap::new(),
-            },
-        });
-        d.run_ticks(2);
-
-        let events = d.runtime().event_bus.events();
-        // WokenUp from bootstrap on tick 1. No re-emit on tick 2 —
-        // bootstraps drain after first tick.
-        let woken = events.iter().filter(|e| e.name == "WokenUp").count();
-        assert_eq!(woken, 1, "bootstrap fires exactly once");
-    }
-
-    /// i223 — bootstrap predicate fails → no emit, no panic.
-    #[test]
-    fn bootstrap_silent_when_predicate_does_not_match() {
-        let mut rt = empty_runtime();
-        seed_tick_state(&mut rt, "tick", "sleeping");
-
-        let mut d = LoopDriver::new(rt, Duration::from_millis(1));
-        d.add_bootstrap(BootstrapEmit {
-            aggregate_type: "Tick".into(),
-            aggregate_id: "tick".into(),
-            field: "state".into(),
-            expected: "attentive".into(),
-            event: TickAction::Emit {
-                event_name: "WokenUp".into(),
-                aggregate_type: "Tick".into(),
-                aggregate_id: "tick".into(),
-                data: HashMap::new(),
-            },
-        });
-        d.run_ticks(1);
-        let woken = d.runtime().event_bus.events()
-            .iter().filter(|e| e.name == "WokenUp").count();
-        assert_eq!(woken, 0, "predicate mismatch → no emit");
-    }
-
-    /// i223 — bootstrap with missing aggregate → silent skip.
-    #[test]
-    fn bootstrap_silent_when_aggregate_absent() {
-        let mut d = LoopDriver::new(empty_runtime(), Duration::from_millis(1));
-        d.add_bootstrap(BootstrapEmit {
-            aggregate_type: "Tick".into(),
-            aggregate_id: "missing".into(),
-            field: "state".into(),
-            expected: "attentive".into(),
-            event: TickAction::Emit {
-                event_name: "WokenUp".into(),
-                aggregate_type: "Tick".into(),
-                aggregate_id: "missing".into(),
-                data: HashMap::new(),
-            },
-        });
-        d.run_ticks(1);
-        let woken = d.runtime().event_bus.events()
-            .iter().filter(|e| e.name == "WokenUp").count();
-        assert_eq!(woken, 0);
-    }
 }

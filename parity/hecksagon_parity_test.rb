@@ -32,7 +32,8 @@ require "open3"
 require "hecks"
 require_relative "canonical_ir"
 
-STOREHOUSE = ENV.fetch("STOREHOUSE_BIN") { File.expand_path("../rust/target/release/storehouse", __dir__) }
+require_relative "storehouse_bin"
+STOREHOUSE = Hecks::Parity::StorehouseBin.path
 REPO_ROOT  = File.expand_path("..", __dir__)
 
 HECKSAGON_FILES = (
@@ -53,7 +54,6 @@ HECKSAGON_FILES = (
   Dir[File.join(REPO_ROOT, "..", "miette_family", "**", "*.hecksagon")]
 ).sort.uniq
 
-abort "storehouse not built — run: (cd rust && cargo build --release)" unless File.executable?(STOREHOUSE)
 
 # NO EXEMPTIONS (2026-06-19). There is no known-drift allowlist : every
 # .hecksagon must parse byte-equal between the Ruby HecksagonBuilder and the

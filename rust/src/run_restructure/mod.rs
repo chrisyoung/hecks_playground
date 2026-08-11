@@ -424,7 +424,6 @@ fn validate_moved_file(path: &str) -> bool {
         !domain.name.is_empty()
             || !domain.aggregates.is_empty()
             || !domain.policies.is_empty()
-            || !domain.fixtures.is_empty()
             || !domain.sections.is_empty()
     } else if path.ends_with(".hecksagon") {
         let hex = crate::hecksagon_parser::parse(&source);

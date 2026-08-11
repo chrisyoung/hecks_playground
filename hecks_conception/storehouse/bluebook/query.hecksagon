@@ -28,6 +28,4 @@ Hecks.hecksagon "Query" do
   # subscriber (Spring REPL, Glass palette) can read values via the
   # same surface other consumers do.
   adapter :memory
-
-  Query::Query.persisted_by("Memory")
 end

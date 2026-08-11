@@ -5,7 +5,7 @@ Hecks.bluebook "BehaviorExample", version: "2026.04.28.1" do
   # Lifted out of training_corpus.bluebook in i112 split.
 
   aggregate "BehaviorExample", "A specific behavior Miette exhibits — paired with the organ that governs it" do
-    identified_by :behavior
+    identified_by { behavior.value }
     attribute :behavior,       Behavior
     attribute :organ_name,     OrganName
     attribute :trigger,        Trigger

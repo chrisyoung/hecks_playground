@@ -249,11 +249,13 @@ pub fn authorized_dispatch(
     attrs: HashMap<String, String>,
     principal: Principal,
 ) -> serde_json::Value {
-    // JSON-aware : a nested-object arg (`daily_limit={"cents":5000,…}`) decodes
-    // to a Map, not a flat string — so a value object passed as a command INPUT
-    // survives the tool boundary (was mangled to raw JSON text / "[object Object]").
+    // JSON-aware, and SCHEMA-aware : a nested-object arg
+    // (`daily_limit={"cents":5000,…}`) decodes to a Map so a value object passed
+    // as a command INPUT survives the tool boundary — but an attribute declared
+    // as TEXT keeps its text, or `FileTool.Write content='{"a":1}'` writes the
+    // bytes `{2 fields}` over the file. See attr_decode.
     let mut rt_attrs: HashMap<String, Value> =
-        attrs.into_iter().map(|(k, v)| (k, crate::runtime::attr_value_from_str(&v))).collect();
+        crate::attr_decode::decode_attrs(&rt.domain, command, attrs);
     stamp_principal(&mut rt_attrs, &principal);
     if let Err(e) = rt.authorize_entry(command, &mut rt_attrs) {
         return json!({ "ok": false, "error": e.to_string(), "command": command });

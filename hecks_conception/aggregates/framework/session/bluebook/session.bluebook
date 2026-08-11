@@ -29,13 +29,13 @@ Hecks.bluebook "Session", version: "2026.05.13.1" do
   # session end attaches to SessionEnded.
 
   aggregate "Session", "A being-session — the bounded conversation that opens on SessionStart and closes on SessionEnd. Singleton-per-session ; the id identifies which conversation this is." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id,              SessionId
-    attribute :state,           SessionState, default: "pending"
-    attribute :began_at,        Timestamp,    default: "—"
-    attribute :ended_at,        Timestamp,    default: "—"
-    attribute :last_rebuilt_at, Timestamp,    default: "—"
+    attribute :state,           SessionState, default: { value: "pending" }
+    attribute :began_at,        Timestamp,    default: { value: "—" }
+    attribute :ended_at,        Timestamp,    default: { value: "—" }
+    attribute :last_rebuilt_at, Timestamp,    default: { value: "—" }
 
     # ── Value-objects : the domain's language ──
 

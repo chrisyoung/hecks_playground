@@ -3,13 +3,28 @@ Hecks.bluebook "Conductor", version: "2026.06.28.1" do
   category "framework"
 
   aggregate "MergeQueue", "Serialised merge-on-accept for one target branch. Has many queued stories and at most one current (the merging story). State transitions idle → merging → idle. Default branch is main." do
-    identified_by :branch
+    identified_by { branch.value }
 
-    attribute :branch,   Branch,  default: "main"
-    attribute :state,    State,   default: "idle"
+    attribute :branch,   Branch,  default: { value: "main" }
+    attribute :state,    State,   default: { value: "idle" }
 
-    has_many Stories, as: :queued
-    has_one  Story, as: :current
+    # Migration plan task 4: was `has_many Stories, as: :queued` / `has_one
+    # Story, as: :current` -- STRUCTURAL cross-aggregate references, but
+    # "Story" is not an aggregate in the Conductor domain (it lives
+    # elsewhere -- Plan::Story, Story::Story -- and hecksagain's has_many/
+    # has_one/belongs_to/reference_to only ever resolve WITHIN the
+    # declaring aggregate's own domain, confirmed via aggregate_builder.rb
+    # -- there is no cross-domain structural reference mechanism).
+    # `Claim` (claim.bluebook, same Conductor domain) already carries
+    # Story cross-domain the RIGHT way -- a plain VO-wrapped identity
+    # string (`attribute :story, Story` where Story wraps :value, String),
+    # never a structural reference. Every COMMAND here already followed
+    # that same pattern (`attribute :story_ref, StoryRef`,
+    # `then_set :queued, append: :story_ref`) -- only these two aggregate-
+    # level attributes were still the old structural form, never updated
+    # to match. Aligned to what the commands actually write.
+    attribute :queued,  list_of(StoryRef)
+    attribute :current, StoryRef, default: { value: "" }
 
     value_object "Branch" do
       # Target branch name, e.g. "main".

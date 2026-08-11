@@ -3,6 +3,9 @@ Hecks.bluebook "DailyMusing", version: "2026.05.23.2" do
   category "blog"
 
   aggregate "BlogEntry", "A single post in the Daily Musing — its title, body, author, and published state" do
+    # The natural key establishment upserts on (fixtures→policies,
+    # 2026-07-26) : re-Posting a title updates that entry, never duplicates.
+    identified_by :title
     attribute :title, Title
     attribute :body, Body
     attribute :author, AuthorName
@@ -35,13 +38,42 @@ Hecks.bluebook "DailyMusing", version: "2026.05.23.2" do
       emits "EntryPosted"
     end
 
+    # No from-gate : establishment re-asserts by re-Posting the same title
+    # (idempotent upsert on :title), so Post must land "published" from any
+    # state — a from: "draft" gate would turn re-establishment into a
+    # LifecycleViolation instead of an upsert.
     lifecycle :status, default: "draft" do
-      transition "Post" => "published", from: "draft"
+      transition "Post" => "published"
     end
 
     query "DailyMusing" do
       description "Readers' view — every published entry in the Daily Musing"
       where status: "published"
     end
+  end
+
+  # The demo musings as ESTABLISHMENT (fixtures→policies, 2026-07-26) —
+  # `on "BootCompleted"` seeds the two published entries the retired
+  # daily_musing.fixtures carried. The Worker's generated lib.rs dispatches
+  # CompleteBoot on every per-request boot (its boot IS a boot), so a fresh
+  # memory-only runtime always has a readable Daily Musing ; R2 state still
+  # layers on top afterwards and wins by id. Bite :
+  # rust/tests/daily_musing_establishment_test.rs.
+  policy "EstablishWelcomeMusing" do
+    on "BootCompleted"
+    trigger "BlogEntry.Post"
+    with "title", "Welcome to the Daily Musing"
+    with "body", "This blog runs on a single Hecks bluebook compiled to WebAssembly and served from a Cloudflare Worker — no container, no server. The domain IS the contract."
+    with "author", "Miette"
+    with "published_at", "2026-05-23T08:00:00Z"
+  end
+
+  policy "EstablishMorningLightMusing" do
+    on "BootCompleted"
+    trigger "BlogEntry.Post"
+    with "title", "Morning Light"
+    with "body", "A quiet musing on starting the day with a clear bluebook and a warm runtime."
+    with "author", "Chris"
+    with "published_at", "2026-05-23T09:30:00Z"
   end
 end

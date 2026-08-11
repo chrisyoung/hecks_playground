@@ -23,7 +23,7 @@ use storehouse::runtime::{Runtime, Value};
 use storehouse::server::route;
 
 const AUTHZ: &str =
-    include_str!("../../hecks_conception/aggregates/framework/authorization/authorization.bluebook");
+    include_str!("../../hecks_conception/aggregates/framework/authorization/bluebook/authorization.bluebook");
 const DEMO: &str = include_str!("fixtures/authz_demo.bluebook");
 
 fn a(pairs: &[(&str, &str)]) -> HashMap<String, Value> {

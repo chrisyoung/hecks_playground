@@ -19,6 +19,4 @@ Hecks.hecksagon "Call" do
   gate "Call", :miette do
     allow :RecordCall
   end
-
-  Call::Call.persisted_by("Memory")
 end

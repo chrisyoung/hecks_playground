@@ -29,6 +29,5 @@ Hecks.bluebook "BluebookGrammar", version: "2026.05.02.1" do
     block "policy",           parser: :parse_policy
     block "process_manager",  parser: :parse_process_manager
     block "cadence",          parser: :parse_cadence
-    block "fixture",          parser: :parse_fixture
   end
 end

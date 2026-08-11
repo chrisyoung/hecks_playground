@@ -12,7 +12,7 @@ Hecks.bluebook "Prompt", version: "2026.04.28.1" do
   # is its trigger target.
 
   aggregate "Prompt", "A single inference request — user input + context → bluebook output" do
-    identified_by :ref
+    identified_by { ref.value }
     attribute :ref,        Ref
     attribute :input,      Input
     attribute :output,     Output

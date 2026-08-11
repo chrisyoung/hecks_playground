@@ -1,0 +1,12 @@
+# Vendored addition, not (yet) upstream hecksagain (migration plan task
+# 4): the `imaged_by` verb (miette's body/dream/bluebook/dream.hecksagon:
+# "BodyDream::Dream.imaged_by('DreamImage', on: 'DreamImageRequested')").
+# Same shape as screenshot_buffer.port's own comment — an effect-family
+# async-verdict edge (an event fires an external LLM image-generation
+# call, off-core, and its reading re-enters via success/failure — still
+# structurally stubbed, part of this migration's single biggest
+# confirmed-unimplemented gap).
+Hecks.port "dream_image" do
+  verb   "imaged_by"
+  signal :effect
+end

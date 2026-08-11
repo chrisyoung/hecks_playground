@@ -77,7 +77,7 @@ Hecks.bluebook "InboxIndex", version: "2026.05.20.1" do
   # state against ALL of disk.
 
   aggregate "InboxIndex", "Singleton substrate for centralized i-number allocation. Owns next_number, the single source of truth for what the next inbox card's i-number should be. Allocate atomically returns + increments ; Reserve takes a contiguous range ; Recover re-scans disk to reclaim drifted state. Effectively a singleton — there is one inbox-number namespace per operator. Conventional `identified_by :name` shape for now ; under i611 phase 1 (when `singleton: true` lands) this converts." do
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name, Name
 

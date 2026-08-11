@@ -25,7 +25,6 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use super::html_shared::{wrap_page_with_domain, display_name, module_icon, esc};
 use super::html_sidebar::sidebar_tree;
-use super::html_fixtures::fixtures_section;
 use super::html_usage::usage_section;
 use super::html_form::render_command_form;
 use super::html_rules::collect_invariants_for;
@@ -374,9 +373,6 @@ fn records_table(rt: &Runtime) -> String {
     let live = live_records_section(rt);
     if !live.is_empty() {
         return live;
-    }
-    if !rt.domain.fixtures.is_empty() {
-        return fixtures_section(&rt.domain.fixtures);
     }
     r#"<div class="p-8 rounded-lg border border-dashed border-surface-4 text-center">
   <p class="text-gray-500">No records yet — use the palette above to dispatch a command</p>

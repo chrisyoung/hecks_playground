@@ -22,7 +22,7 @@
 //!   # → JSON to stdout, exit 0
 
 use crate::ir::{
-    Aggregate, Attribute, Cardinality, Command, Direction, Domain, Entity, Factory, Fixture, Given,
+    Aggregate, Attribute, Cardinality, Command, Direction, Domain, Entity, Factory, Given,
     Invariant, Lifecycle, LimitSpec, Mutation, MutationOp, OrderBy, Policy,
     DispatchSpec, ProcessManager, ProcessManagerHandler, Query, Reference, ReferenceKind, Transition, ValueSpec,
     ValueObject, View, WhereClause, WhereOp,
@@ -37,7 +37,6 @@ pub fn dump(domain: &Domain) -> Value {
         "vision": domain.vision,
         "aggregates": domain.aggregates.iter().map(dump_aggregate).collect::<Vec<_>>(),
         "policies": domain.policies.iter().map(dump_policy).collect::<Vec<_>>(),
-        "fixtures": domain.fixtures.iter().map(dump_fixture).collect::<Vec<_>>(),
         "process_managers": domain.process_managers.iter().map(dump_process_manager).collect::<Vec<_>>(),
     })
 }
@@ -131,6 +130,15 @@ fn dump_aggregate(agg: &Aggregate) -> Value {
         // (it was un-guarded by parity until the payload-gate arc).
         // Same slot as dump_entity's : after description, before attributes.
         "identified_by": agg.identified_by,
+        // The computed identity's ordered parts. Dumped so PARITY can see them :
+        // policy `wheres` and query `reduction` are both honoured by this runtime
+        // and absent from this dump, which is exactly how two runtimes drift
+        // without any gate noticing. A new field goes in the dump on the day it
+        // is added, or it never does.
+        "identity": agg.identity.iter().map(|p| match p {
+            crate::ir::IdentityPart::Field(f)   => serde_json::json!({"field": f}),
+            crate::ir::IdentityPart::Literal(v) => serde_json::json!({"literal": v}),
+        }).collect::<Vec<_>>(),
         "attributes": agg.attributes.iter().map(dump_attribute).collect::<Vec<_>>(),
         "value_objects": agg.value_objects.iter().map(dump_value_object).collect::<Vec<_>>(),
         "entities": agg.entities.iter().map(dump_entity).collect::<Vec<_>>(),
@@ -175,13 +183,19 @@ fn dump_value_object(vo: &ValueObject) -> Value {
         "name": vo.name,
         "description": vo.description,
         "attributes": vo.attributes.iter().map(dump_attribute).collect::<Vec<_>>(),
-        // 2026-07-18 — VO invariants, NAMES ONLY : the Ruby side holds the
-        // predicate as a Proc (source unrecoverable), so the shared canonical
-        // contract is the invariant's name ; each runtime enforces the
-        // predicate from its own parse. The Rust IR keeps the expression
-        // internally (payload_gate) — it just isn't part of the parity
-        // contract.
-        "invariants": vo.invariants.iter().map(|i| json!({"name": i.name})).collect::<Vec<_>>(),
+        // 2026-07-26 — VO invariants now carry their PREDICATE. The contract
+        // excluded it because "the Ruby side holds the predicate as a Proc
+        // (source unrecoverable)" — true when written, untrue since Ruby 3.3
+        // shipped Prism, and the Ruby side now recovers it
+        // (bluebook_model/predicate_source.rb).
+        //
+        // The omission had a cost : an invariant could be INVERTED while
+        // keeping its name and the contract saw no change, because it carried
+        // only the name. Two runtimes then enforce different rules and agree
+        // perfectly about it. The name is not the rule.
+        "invariants": vo.invariants.iter()
+            .map(|i| json!({"name": i.name, "expression": i.expression}))
+            .collect::<Vec<_>>(),
         // 2026-07-21 — VO derivations, SIGNATURE ONLY (name + return_type +
         // param names) : the body is a Ruby Proc on the Ruby side, so the
         // shared contract excludes the expression, exactly like invariants.
@@ -327,18 +341,6 @@ fn dump_policy(p: &Policy) -> Value {
         "on_event": p.on_event,
         "trigger_command": p.trigger_command,
         "target_domain": p.target_domain,
-    })
-}
-
-fn dump_fixture(f: &Fixture) -> Value {
-    // Use array of [key, value] pairs to preserve order — same shape Ruby will emit.
-    let pairs: Vec<Value> = f.attributes.iter()
-        .map(|(k, v)| json!([k, normalize_value(v)]))
-        .collect();
-    json!({
-        "name": f.name,
-        "aggregate_name": f.aggregate_name,
-        "attributes": pairs,
     })
 }
 

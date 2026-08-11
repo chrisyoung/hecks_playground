@@ -25,7 +25,7 @@ Hecks.bluebook "SessionLog", version: "2026.05.21.1" do
   #             launched by a command reports back minutes later.
 
   aggregate "StorehouseEntry", "One dispatch through the bus, captured as a domain record. Identified by its invocation id. Carries the command FQN, the args, the outcome + result state, the elapsed wall-clock, the sync/async kind, and (for async) the parent invocation that caused it. The PostToolUse dispatch-detail hook renders these ; analysis tools query them ; the timeline reconstructs from them." do
-    identified_by :invocation_id
+    identified_by { invocation_id.value }
 
     value_object "InvocationId" do
       # The runtime's inv_xxxxxxxx identifier, unique per dispatch.

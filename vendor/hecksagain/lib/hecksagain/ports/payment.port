@@ -1,0 +1,14 @@
+# Vendored addition, not (yet) upstream hecksagain (migration plan task
+# 8): the `charged_by` verb -- the CANONICAL PIZZAS EXAMPLE's own payment
+# edge (pizzeria/domain/pizzas.hecksagon: "Order.charged_by('Stripe', on:
+# 'OrderPlaced') do success 'Order.Authorize' failure 'Order.Decline' end").
+# hecks_conception's own `.family` files (payment.family included) are pure
+# prose -- confirmed earlier this migration : there is no `Hecks.family` DSL
+# method anywhere in hecksagain, so `.family` was never a parsed construct.
+# Same shape as screenshot_buffer.port/dream_image.port : an effect-family
+# async-verdict edge, still part of this migration's single biggest
+# confirmed-unimplemented gap (success/failure are structural no-op stubs).
+Hecks.port "payment" do
+  verb   "charged_by"
+  signal :effect
+end

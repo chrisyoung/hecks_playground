@@ -290,6 +290,14 @@ pub struct DrivenHandler {
     /// Follow-on dispatches declared inside the handler body. Each is
     /// a `(command_fqn, attrs)` pair.
     pub dispatches: Vec<DrivenDispatch>,
+    /// The verdict pair : commands dispatched back into THIS domain when the
+    /// follow-on succeeds or is refused, the same shape an effect binding uses
+    /// (`charged_by(...) do success "Order.Authorize" ... end`). A
+    /// cross-context dispatch is the one place a domain cannot see what
+    /// happened to it — without these, a refused deposit was a line on stderr
+    /// and nothing else. Empty when the handler is fire-and-forget.
+    pub success: String,
+    pub failure: String,
     /// In-process external commands to run when this handler fires
     /// (e.g. `run "git worktree add {worktree_path}"`). {field} tokens
     /// interpolate from the triggering event. Spawned by the resolver ;

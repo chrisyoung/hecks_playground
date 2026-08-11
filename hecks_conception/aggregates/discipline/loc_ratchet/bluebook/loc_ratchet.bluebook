@@ -48,7 +48,7 @@ Hecks.bluebook "LocRatchet", version: "2026.05.23.1" do
   # emitter Rust must not fight the shrink gate.
 
   aggregate "Concern", "One counted tree the loc-ratchet gates, with its own direction. Concerns are disjoint by longest-prefix-match : a scanned file belongs to the concern whose path is the longest matching prefix of its own path." do
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name,       Name
     attribute :path,       Path

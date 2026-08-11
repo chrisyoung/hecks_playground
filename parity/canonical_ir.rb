@@ -41,7 +41,6 @@ module Hecks
           "vision"           => domain.vision,
           "aggregates"       => domain.aggregates.map { |a| dump_aggregate(a) },
           "policies"         => all_policies.map { |p| dump_policy(p) },
-          "fixtures"         => (domain.fixtures || []).map { |f| dump_fixture(f) },
           "process_managers" => pms.map { |pm| dump_process_manager(pm) },
         }
       end
@@ -163,6 +162,13 @@ module Hecks
           # (payload-gate arc closed the un-guarded gap). Mirrors dump.rs :
           # after description, before attributes — same slot as dump_entity.
           "identified_by" => agg.respond_to?(:identified_by) && agg.identified_by ? agg.identified_by.to_s : nil,
+          # The computed identity's ordered parts. Dumped so PARITY can see it :
+          # policy `wheres` and query `reduction` are both honoured by a runtime
+          # and absent from this dump, which is how two runtimes drift with every
+          # gate green. A new field enters the dump on the day it is added.
+          "identity" => (agg.respond_to?(:identity) ? (agg.identity || []) : []).map { |part|
+            part[:literal] ? { "literal" => part[:literal].to_s } : { "field" => part[:field].to_s }
+          },
           "attributes"    => (agg.attributes || []).map { |a| dump_attribute(a) },
           "value_objects" => (agg.value_objects || []).map { |vo| dump_value_object(vo) },
           "entities"      => (agg.entities || []).map { |ent| dump_entity(ent) },
@@ -251,12 +257,26 @@ module Hecks
           "name"        => vo.name,
           "description" => vo.description,
           "attributes"  => (vo.attributes || []).map { |a| dump_attribute(a) },
-          # 2026-07-18 — VO invariants, NAMES ONLY (mirrors dump.rs) : the
-          # Ruby side holds the predicate as a Proc whose source is
-          # unrecoverable, so the shared canonical contract is the name ;
-          # each runtime enforces the predicate from its own parse.
+          # 2026-07-26 — VO invariants now carry their PREDICATE, not just
+          # their name. The old contract excluded it because "the Ruby side
+          # holds the predicate as a Proc whose source is unrecoverable" —
+          # true when written, and untrue since Ruby 3.3 shipped Prism.
+          #
+          # The omission had a cost : an invariant could be INVERTED while
+          # keeping its name (`cents > 0` becoming `cents < 0`) and the
+          # contract saw no change, because it carried only the name. Two
+          # runtimes then enforce different rules and agree perfectly about
+          # it. The name is not the rule.
+          #
+          # A predicate whose source genuinely cannot be read (an eval'd
+          # block has no file) recovers as nil and is omitted — the honest
+          # answer, and one the Rust side reproduces by having no expression
+          # to emit either.
           "invariants"  => (vo.respond_to?(:invariants) ? (vo.invariants || []) : []).map { |inv|
-            { "name" => inv.respond_to?(:message) ? inv.message.to_s : inv.name.to_s }
+            name = inv.respond_to?(:message) ? inv.message.to_s : inv.name.to_s
+            expression = inv.respond_to?(:expression) ? inv.expression : nil
+
+            { "name" => name, "expression" => expression.to_s }
           },
           # 2026-07-21 — VO derivations, SIGNATURE ONLY (mirrors dump.rs) :
           # name + return_type + param names ; the body is a Proc whose
@@ -459,38 +479,6 @@ module Hecks
           "trigger_command" => pol.trigger_command,
           "target_domain"   => pol.respond_to?(:target_domain) ? pol.target_domain : nil,
         }
-      end
-
-      def dump_fixture(f)
-        pairs = (f.attributes || {}).map { |k, v| [k.to_s, normalize_value(fixture_value(v))] }
-        {
-          "name"           => (f.respond_to?(:name) ? f.name : nil),
-          "aggregate_name" => f.aggregate_name,
-          "attributes"     => pairs,
-        }
-      end
-
-      # Render a Ruby fixture value as the source-text token Rust would emit:
-      # arrays as [a, b], hashes as { k: v }, strings as their content (Rust
-      # already unwraps the quotes for fixture string values).
-      def fixture_value(v)
-        case v
-        when Array  then "[#{v.map { |e| fixture_value_inner(e) }.join(', ')}]"
-        when Hash   then "{ #{v.map { |k, val| "#{k}: #{fixture_value_inner(val)}" }.join(', ')} }"
-        when Symbol then ":#{v}"
-        when nil    then ""
-        else v.to_s
-        end
-      end
-
-      def fixture_value_inner(v)
-        case v
-        when String then "\"#{v}\""
-        when Symbol then ":#{v}"
-        when Array  then "[#{v.map { |e| fixture_value_inner(e) }.join(', ')}]"
-        when Hash   then "{ #{v.map { |k, val| "#{k}: #{fixture_value_inner(val)}" }.join(', ')} }"
-        else v.to_s
-        end
       end
 
       # Strip whitespace adjacent to brackets/braces/parens — matches Rust's
@@ -736,6 +724,21 @@ module Hecks
 
       # Args render as ordered [key, value] pairs matching Rust's
       # BTreeMap traversal — both sides emit alphabetical key order.
+      # Canonical renderer for nested value tokens (arrays/hashes/strings)
+      # — the source-text shape the Rust parser captures. Shared by
+      # test_arg_value (behaviors parity); named for its fixture-era origin,
+      # kept as the one nested-token contract.
+      def fixture_value_inner(v)
+        case v
+        when String then "\"#{v}\""
+        when Symbol then ":#{v}"
+        when Array  then "[#{v.map { |e| fixture_value_inner(e) }.join(', ')}]"
+        when Hash   then "{ #{v.map { |k, val| "#{k}: #{fixture_value_inner(val)}" }.join(', ')} }"
+        when nil    then ""
+        else v.to_s
+        end
+      end
+
       def dump_test_args(args)
         (args || {}).sort_by { |k, _| k.to_s }.map { |k, v| [k.to_s, test_arg_value(v)] }
       end

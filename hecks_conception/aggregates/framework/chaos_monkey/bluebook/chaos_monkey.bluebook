@@ -48,7 +48,7 @@ Hecks.bluebook "ChaosMonkey", version: "2026.05.14.1" do
   # follow-up substrate.
 
   aggregate "ChaosMonkey", "Singleton-shaped chaos-engineering aggregate — owns the corruption history, the weakness backlog, and the exemption list. The circadian dispatcher fires PerturbCircadian ; ChaosMonkey orchestrates the corrupt → verify → revert cycle." do
-    identified_by :name
+    identified_by { name.value }
 
     # Singleton-shaped via identified_by :name until i611's
     # `singleton: true` declaration lands.
@@ -190,6 +190,7 @@ Hecks.bluebook "ChaosMonkey", version: "2026.05.14.1" do
     # ── Entities — child records living inside ChaosMonkey ──
 
     entity "Corruption" do
+      identified_by { perturbed_at.value }
       description "One act of corruption — the full audit row. Carries the target, kind, original + corrupted values, verification outcome, and revert status. Each PerturbCircadian creates one Corruption row ; the row stays even after revert as the historical trace."
       attribute :perturbed_at,        Timestamp
       attribute :target,              TargetRef
@@ -202,6 +203,7 @@ Hecks.bluebook "ChaosMonkey", version: "2026.05.14.1" do
     end
 
     entity "Weakness" do
+      identified_by { discovered_at.value }
       description "One blind spot — a corruption the discipline layer failed to catch. This is the backlog : every Weakness row is a gap in test + macrophage coverage that needs closing. Recorded loud (the macrophage hook surfaces them in stderr) so they don't drift into a quiet log."
       attribute :discovered_at, Timestamp
       attribute :target,        TargetRef
@@ -210,6 +212,7 @@ Hecks.bluebook "ChaosMonkey", version: "2026.05.14.1" do
     end
 
     entity "ExemptedTarget" do
+      identified_by { target.value }
       description "A target ChaosMonkey will NOT corrupt. Each exemption carries a reason — same audit-trail shape as [antibody-exempt: file — reason] markers. Adding / removing exemptions goes through the bus (ExemptTarget command) so the exemption history is itself queryable."
       attribute :target,    TargetRef
       attribute :reason,    ExemptionReason

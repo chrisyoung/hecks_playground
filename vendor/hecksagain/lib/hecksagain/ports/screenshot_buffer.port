@@ -1,0 +1,20 @@
+# Vendored addition, not (yet) upstream hecksagain (migration plan task
+# 4): the `buffered_by` verb (framework/web_debug/bluebook/
+# web_debug.hecksagon: "Screenshot.buffered_by('DiskBuffer', on:
+# 'FrameCaptured')"). hecks_conception's own `.family` files
+# (aggregates/framework/families/*.family, including screenshot_buffer.
+# family) are PURE PROSE — confirmed by reading hecksagain's own source:
+# there is no `Hecks.family` DSL method anywhere, so `.family` was never
+# a real, parsed construct, only illustrative documentation mirroring
+# the Pizzas example's narrative. The REAL, load-bearing registration a
+# bind's wiring check needs is a `.port` (verb + signal) plus an
+# `.adapter` declaring it — same shape persistence.port/heki.adapter
+# already use. `signal :effect` because this is the SAME async-verdict
+# shape as `payment`/`imaged_by` (an event fires the write, a handler
+# runs off-core) -- itself part of the still-unimplemented effect-family
+# subsystem this migration flagged as its single biggest remaining gap
+# (success/failure are structural no-op stubs, see hecksagon_builder.rb).
+Hecks.port "screenshot_buffer" do
+  verb   "buffered_by"
+  signal :effect
+end

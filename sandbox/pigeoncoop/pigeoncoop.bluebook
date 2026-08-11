@@ -197,7 +197,7 @@ Hecks.bluebook "PigeonCoop" do
 
     command "Expire" do
       reference_to Invite
-      requires "status" => "pending"
+      given("status is pending") { status == "pending" }
       role "Admin"
     end
   end
@@ -445,7 +445,7 @@ Hecks.bluebook "PigeonCoop" do
     command "SendAnnouncement" do
       reference_to Announcement
       reference_to Admin, as: :sent_by
-      requires "status" => "scheduled"
+      given("status is scheduled") { status == "scheduled" }
     end
 
     query "Scheduled" do
@@ -600,7 +600,7 @@ Hecks.bluebook "PigeonCoop" do
     command "PublishArticle" do
       reference_to Article
       reference_to Admin, as: :publisher
-      requires "status" => "draft"
+      given("status is draft") { status == "draft" }
     end
 
     query "Published" do
@@ -644,7 +644,7 @@ Hecks.bluebook "PigeonCoop" do
     command "PublishNewsletter" do
       reference_to Newsletter
       reference_to Admin, as: :publisher
-      requires "status" => "draft"
+      given("status is draft") { status == "draft" }
     end
 
     query "Current" do
@@ -789,14 +789,14 @@ Hecks.bluebook "PigeonCoop" do
     command "PublishEvent" do
       reference_to Event
       reference_to Admin, as: :published_by
-      requires "status" => "draft"
+      given("status is draft") { status == "draft" }
     end
 
     command "IssueTicket" do
       reference_to Event
       reference_to Parent, as: :holder
       attribute :payment, Payment
-      requires "status" => "published"
+      given("status is published") { status == "published" }
       # SoldOut specification also enforced at dispatch (capacity invariant).
     end
 
@@ -814,13 +814,13 @@ Hecks.bluebook "PigeonCoop" do
     command "RegisterAttendance" do
       reference_to Event
       reference_to Parent, as: :registrant
-      requires "status" => "published"
+      given("status is published") { status == "published" }
     end
 
     command "CancelRegistration" do
       reference_to Event
       reference_to Parent, as: :registrant
-      requires "status" => "published"
+      given("status is published") { status == "published" }
     end
 
     query "Upcoming" do
@@ -881,7 +881,7 @@ Hecks.bluebook "PigeonCoop" do
     command "ArchiveDocument" do
       reference_to Document
       reference_to Admin, as: :archived_by
-      requires "status" => "active"
+      given("status is active") { status == "active" }
     end
 
     query "All" do
@@ -931,7 +931,7 @@ Hecks.bluebook "PigeonCoop" do
     command "AcknowledgeAbsence" do
       reference_to AbsenceNotification
       reference_to Admin, as: :acknowledged_by
-      requires "status" => "pending"
+      given("status is pending") { status == "pending" }
     end
 
     query "Recent" do
@@ -1013,13 +1013,13 @@ Hecks.bluebook "PigeonCoop" do
     command "RetireMerchItem" do
       reference_to MerchItem
       reference_to Admin, as: :retired_by
-      requires "status" => "available"
+      given("status is available") { status == "available" }
     end
 
     command "RestoreMerchItem" do
       reference_to MerchItem
       reference_to Admin, as: :restored_by
-      requires "status" => "unavailable"
+      given("status is unavailable") { status == "unavailable" }
     end
 
     query "Available" do

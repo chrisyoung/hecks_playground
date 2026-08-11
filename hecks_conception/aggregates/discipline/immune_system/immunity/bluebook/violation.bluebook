@@ -12,7 +12,7 @@ Hecks.bluebook "Violation", version: "2026.04.28.1" do
   # original, so the split is structural-only.
 
   aggregate "Violation", "A detected rule violation" do
-    identified_by :ref
+    identified_by { ref.value }
     attribute :ref,            Ref
     attribute :rule_name,      RuleName
     attribute :message,        Message

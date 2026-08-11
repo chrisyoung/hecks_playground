@@ -3,7 +3,7 @@ Hecks.bluebook "Governance", version: "2026.06.26.1" do
   category "framework"
 
   aggregate "Violation", "A tool act denied or vetoed because it would not have emitted a bus event — one immutable record per attempt. Recording it is the point : the denial itself becomes a governed, logged fact. The shared veto-audit sink the inbound Gate records to." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id,          Id
     attribute :tool_name,   ToolName
@@ -65,6 +65,7 @@ Hecks.bluebook "Governance", version: "2026.06.26.1" do
     end
 
     query "ByTool" do
+      attribute :tool_name, ToolName
       description "Every denial recorded for one native tool by name — the per-tool audit."
       where tool_name: :tool_name
     end

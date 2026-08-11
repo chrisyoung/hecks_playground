@@ -6,49 +6,18 @@
 //! repositories + the `repo_key` / `AggregateState` / `Value` / `WhereOp`
 //! names through child-module privacy + the `super::*` glob.
 //!
+//! [cask-irreducible: query.rs — resolve_query_qualified, a single
+//!  ~410-line query interpreter fn. Its top-level helpers are casked out
+//!  (query_event_fields.rs) ; the fn stays far over the cap either way.
+//!  Authorized by Chris, 2026-07-26 ("remove the need to sign").]
+//!
 //! [antibody-exempt: rust/src/runtime/query.rs — hand-written runtime kernel-
 //!  floor. Was a codegen/runtime_shape artifact ; the shape was retired
 //!  2026-06-27 — a .bluebook that only re-emitted imperative Rust captures no
 //!  domain, so the runtime kernel is hand-maintained Rust like mod.rs.]
 
 use super::*;
-
-/// Read an id-shaped Event field that may be a plain string OR a `{value}` VO.
-/// The Log stamps VOs ; hand-constructed fixtures often carry bare strings, and
-/// both lineage traversals must read either.
-fn id_field(ev: &AggregateState, key: &str) -> String {
-    match ev.fields.get(key) {
-        Some(Value::Str(s)) => s.clone(),
-        Some(Value::Map(m)) => m.get("value").map(|v| v.to_string()).unwrap_or_default(),
-        _ => String::new(),
-    }
-}
-
-/// The Log sequence of an event (0 when absent) — the total order the forward
-/// walk sorts siblings by, so a consequence tree is deterministic.
-fn seq_field(ev: &AggregateState) -> i64 {
-    match ev.fields.get("sequence") {
-        Some(Value::Int(i)) => *i,
-        Some(Value::Map(m)) => m.get("value").and_then(|v| v.as_int()).unwrap_or(0),
-        _ => 0,
-    }
-}
-
-/// One Event as flat JSON — the row shape BOTH lineage traversals return.
-///
-/// Serialised through `value_to_json`, NOT a match that stringifies the
-/// non-scalar arms. The old form rendered every value object as the useless
-/// `"{N fields}"` — so a lineage row lost its `event_name`, `sequence`, `delta`
-/// and `verdict` wholesale, which is exactly the lossiness the Log itself was
-/// fixed for (the source-of-truth floor). A traversal that reports the Log must
-/// report it as faithfully as the Log stores it.
-fn record_json(ev: &AggregateState) -> serde_json::Map<String, serde_json::Value> {
-    let mut map = serde_json::Map::new();
-    for (k, v) in &ev.fields {
-        map.insert(k.clone(), value_to_json(v));
-    }
-    map
-}
+use super::query_event_fields::{id_field, record_json, seq_field};
 
 impl Runtime {
     /// Context-qualified record retrieval — bypasses repo_lookup_key's

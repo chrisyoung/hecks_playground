@@ -899,7 +899,15 @@ fn main() {
     // boot pipeline runs as Phase 4b ; exposed here so it can be triggered
     // without a full boot (and verified in isolation).
     if command == "gen-agent-defs" {
-        let n = storehouse::run_boot::agent_defs::render();
+        // The defs project from ESTABLISHED AgentDefinition records, so the
+        // on-demand path routes BootCompleted through the corpus policy engine
+        // first — the same completion runtime Phase 4b hands to render.
+        let corpus_rt = find_boot_bluebook(&storehouse::storehouse_router::conception_root())
+            .and_then(|p| storehouse::run::load_script(&p).ok())
+            .and_then(|(boot_domain, hex)| {
+                storehouse::run_boot::complete::complete_boot(boot_domain, vec![hex], "Miette")
+            });
+        let n = storehouse::run_boot::agent_defs::render(corpus_rt.as_ref());
         eprintln!("gen-agent-defs : {} agent def(s) written + CLAUDE.md door blocks refreshed", n);
         std::process::exit(0);
     }
@@ -1101,7 +1109,27 @@ fn main() {
                 .unwrap_or_else(|| format!("{}/data", std::path::Path::new(target).parent()
                     .unwrap_or(std::path::Path::new(".")).display()));
             let mut rt = Runtime::boot_with_data_dir(domain, Some(data_dir));
-            match rt.dispatch(cmd_name, std::collections::HashMap::new()) {
+            // THE PAYLOAD, not an empty map. This branch parsed `k=v` off argv
+            // into `attrs` and then dispatched `HashMap::new()`, discarding
+            // every one — so a single-FILE dispatch wrote a record whose fields
+            // were all absent and reported ok:true. Silent, because absence is
+            // legal at every gate : the payload gate's invariant arm skips a
+            // missing attr on purpose (it is the required arm's concern), so an
+            // out-of-set value was never judged — it was never DELIVERED. The
+            // sibling directory branch above always passed attrs through, which
+            // is why the MCP door and `storehouse <root> …` were unaffected and
+            // this survived : the broken path is the one only a human types.
+            let payload: std::collections::HashMap<String, storehouse::runtime::Value> = attrs
+                .iter()
+                .map(|(k, v)| {
+                    let s = match v {
+                        serde_json::Value::String(s) => s.clone(),
+                        other => other.to_string(),
+                    };
+                    (k.clone(), storehouse::runtime::Value::Str(s))
+                })
+                .collect();
+            match rt.dispatch(cmd_name, payload) {
                 Ok(result) => println!("{}", serde_json::json!({
                     "ok": true, "aggregate": result.aggregate_type, "id": result.aggregate_id,
                 })),
@@ -1447,7 +1475,7 @@ fn main() {
         // Terraform HCL projection.
         "counts" => {
             let cmds: usize = domain.aggregates.iter().map(|a| a.commands.len()).sum();
-            println!("{}|{}|{}|{}|{}", domain.name, domain.aggregates.len(), cmds, domain.policies.len(), domain.fixtures.len());
+            println!("{}|{}|{}|{}", domain.name, domain.aggregates.len(), cmds, domain.policies.len());
         }
         "serve" => {
             let port: u16 = args.iter().find(|a| a.parse::<u16>().is_ok())
@@ -1507,7 +1535,7 @@ fn run_batch(command: &str) {
             }
             "counts" => {
                 let cmds: usize = domain.aggregates.iter().map(|a| a.commands.len()).sum();
-                println!("{}|{}|{}|{}|{}|{}", file_path, domain.name, domain.aggregates.len(), cmds, domain.policies.len(), domain.fixtures.len());
+                println!("{}|{}|{}|{}|{}", file_path, domain.name, domain.aggregates.len(), cmds, domain.policies.len());
                 valid += 1;
             }
             _ => { eprintln!("Batch mode only supports: validate, counts"); std::process::exit(1); }
@@ -2305,11 +2333,17 @@ fn run_project(args: &[String]) -> i32 {
     let target = args.get(2).map(|s| s.as_str()).unwrap_or("");
     if target.is_empty() {
         eprintln!("Usage: storehouse project <target> <hecksagon> [world] [--output <dir>]");
-        eprintln!("       targets: terraform");
+        eprintln!("       targets: terraform, wrangler");
         return 2;
     }
+    if target == "wrangler" {
+        return run_project_wrangler(args);
+    }
+    if target == "procfile" {
+        return run_project_procfile(args);
+    }
     if target != "terraform" {
-        eprintln!("project: unknown target '{}' — only 'terraform' is wired (i693 Phase 1)", target);
+        eprintln!("project: unknown target '{}' — targets: terraform, wrangler, procfile", target);
         return 2;
     }
     let hecksagon_path = match args.get(3) {
@@ -2365,6 +2399,133 @@ fn run_project(args: &[String]) -> i32 {
         None => {
             print!("{}", result.hcl);
             eprintln!("# {} resource(s) emitted", result.adapter_count);
+        }
+    }
+    0
+}
+
+/// `storehouse project wrangler <root> [--output <file>]` — the
+/// fixtures→policies SEAM for the Cloudflare deploy config : load the
+/// corpus at `root`, route BootCompleted through it (the establishment
+/// policy asserts the WorkerConfig record — in memory, nothing persists),
+/// and render wrangler.toml from the ESTABLISHED record via
+/// projection::wrangler. The artifact derives from the record, never from
+/// re-parsing the bluebook. No --output prints to stdout.
+fn run_project_wrangler(args: &[String]) -> i32 {
+    let Some(root) = args.get(3) else {
+        eprintln!("Usage: storehouse project wrangler <root> [--output <file>]");
+        return 2;
+    };
+    if !std::path::Path::new(root).is_dir() {
+        eprintln!("project wrangler: root {} is not a directory", root);
+        return 1;
+    }
+    let Some(boot_path) = find_boot_bluebook(root) else {
+        eprintln!(
+            "project wrangler: no runtime/boot/bluebook/boot.bluebook found walking up from {}",
+            root
+        );
+        return 1;
+    };
+    let (boot_domain, hex) = match storehouse::run::load_script(&boot_path) {
+        Ok(x) => x,
+        Err(e) => return e.code(),
+    };
+    let corpus = storehouse::corpus_loader::load_combined_domain(root);
+    let root_abs = std::fs::canonicalize(root)
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_else(|_| root.to_string());
+    let (rt, outcome) = storehouse::run_boot::complete::complete_over_checked(
+        boot_domain, corpus, None, vec![hex], Some(root_abs), "Miette",
+    );
+    if let Err(e) = outcome {
+        eprintln!("project wrangler: {}", e);
+        return 1;
+    }
+    let Some(toml) = storehouse::projection::wrangler::render(&rt) else {
+        eprintln!(
+            "project wrangler: no WorkerConfig record established at {} — nothing to render",
+            root
+        );
+        return 1;
+    };
+    let output = args.iter().position(|a| a == "--output").and_then(|i| args.get(i + 1));
+    match output {
+        Some(path) => {
+            if let Err(e) = std::fs::write(path, &toml) {
+                eprintln!("project wrangler: cannot write {}: {}", path, e);
+                return 1;
+            }
+            eprintln!("project wrangler: wrote {}", path);
+        }
+        None => print!("{}", toml),
+    }
+    0
+}
+
+/// `storehouse project procfile <root> [--output-dir <dir>]` — the
+/// fixtures→policies SEAM for the overmind deploy artifacts : load the
+/// corpus at `root` (the conception — the framework mindstream.bluebook
+/// carries both the types and the establishment policies), route
+/// BootCompleted through it in memory, and render Procfile +
+/// .overmind.env from the ESTABLISHED Mindstream + MindstreamMember
+/// records via projection::procfile. No --output-dir prints both to
+/// stdout.
+fn run_project_procfile(args: &[String]) -> i32 {
+    let Some(root) = args.get(3) else {
+        eprintln!("Usage: storehouse project procfile <root> [--output-dir <dir>]");
+        return 2;
+    };
+    if !std::path::Path::new(root).is_dir() {
+        eprintln!("project procfile: root {} is not a directory", root);
+        return 1;
+    }
+    let Some(boot_path) = find_boot_bluebook(root) else {
+        eprintln!(
+            "project procfile: no runtime/boot/bluebook/boot.bluebook found walking up from {}",
+            root
+        );
+        return 1;
+    };
+    let (boot_domain, hex) = match storehouse::run::load_script(&boot_path) {
+        Ok(x) => x,
+        Err(e) => return e.code(),
+    };
+    let corpus = storehouse::corpus_loader::load_combined_domain(root);
+    let root_abs = std::fs::canonicalize(root)
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_else(|_| root.to_string());
+    let (rt, outcome) = storehouse::run_boot::complete::complete_over_checked(
+        boot_domain, corpus, None, vec![hex], Some(root_abs), "Miette",
+    );
+    if let Err(e) = outcome {
+        eprintln!("project procfile: {}", e);
+        return 1;
+    }
+    let Some(arts) = storehouse::projection::procfile::render(&rt) else {
+        eprintln!(
+            "project procfile: no Mindstream/MindstreamMember records established at {} — nothing to render",
+            root
+        );
+        return 1;
+    };
+    let output = args.iter().position(|a| a == "--output-dir").and_then(|i| args.get(i + 1));
+    match output {
+        Some(dir) => {
+            let d = std::path::Path::new(dir);
+            for (name, body) in [("Procfile", &arts.procfile), (".overmind.env", &arts.env)] {
+                let path = d.join(name);
+                if let Err(e) = std::fs::write(&path, body) {
+                    eprintln!("project procfile: cannot write {}: {}", path.display(), e);
+                    return 1;
+                }
+                eprintln!("project procfile: wrote {}", path.display());
+            }
+        }
+        None => {
+            print!("{}", arts.procfile);
+            println!("# ── .overmind.env ──");
+            print!("{}", arts.env);
         }
     }
     0
@@ -5383,6 +5544,14 @@ fn run_host_cli(args: &[String]) {
             (parser::parse(&source), Vec::new())
         };
         let mut rt = Runtime::boot_with_hecksagons(domain, Some(data_dir), hecksagons);
+        // i750 pump + spawn-cwd contract — thread the dispatch root onto the
+        // runtime (absolute) so pump_outbound_events and Primitive::Process.Spawn
+        // resolve conception-root-relative paths regardless of the daemon's own
+        // cwd (overmind members run from deploy/, not the conception).
+        rt.aggregates_root = std::fs::canonicalize(&target)
+            .ok()
+            .map(|p| p.to_string_lossy().into_owned())
+            .or_else(|| Some(target.to_string()));
         storehouse::world::attach::attach_world_servers(&mut rt, &target);
         storehouse::world::attach::attach_world_adapter_bindings(&mut rt, &target);
         rt
@@ -5593,6 +5762,15 @@ fn run_loop(args: &[String]) {
     // dispatch fine but no :llm adapter would fire and text_fr / text_en
     // would never populate. Mirrors the dispatch_hecksagon path.
     let mut rt = Runtime::boot_with_hecksagons(domain, Some(data_dir), hecksagons);
+    // i750 pump + spawn-cwd contract — thread the dispatch root onto the
+    // runtime (absolute) so pump_outbound_events and Primitive::Process.Spawn
+    // resolve conception-root-relative paths regardless of the daemon's own
+    // cwd (overmind members run from deploy/ — the process_health_reap/sweep
+    // "No such file or directory" bug, 2026-07-27).
+    rt.aggregates_root = std::fs::canonicalize(target)
+        .ok()
+        .map(|p| p.to_string_lossy().into_owned())
+        .or_else(|| Some(target.to_string()));
     register_llm_providers(&mut rt, target);
     storehouse::world::attach::attach_world_servers(&mut rt, target);
     storehouse::world::attach::attach_world_adapter_bindings(&mut rt, target);
@@ -5682,6 +5860,11 @@ fn run_drive(args: &[String]) {
         (parser::parse(&source), Vec::new())
     };
     let mut rt = Runtime::boot_with_hecksagons(domain, Some(data_dir), hecksagons);
+    // i750 pump + spawn-cwd contract — same threading as run_loop above.
+    rt.aggregates_root = std::fs::canonicalize(target)
+        .ok()
+        .map(|p| p.to_string_lossy().into_owned())
+        .or_else(|| Some(target.to_string()));
     register_llm_providers(&mut rt, target);
     storehouse::world::attach::attach_world_servers(&mut rt, target);
     storehouse::world::attach::attach_world_adapter_bindings(&mut rt, target);
@@ -5941,6 +6124,11 @@ fn run_pm_loop(args: &[String]) {
     // dispatcher's drain_policies hook resolves :llm adapters during
     // PM-cascade dispatches. Same wiring as run_loop / dispatch_hecksagon.
     let mut rt = Runtime::boot_with_hecksagons(domain, Some(data_dir), hecksagons);
+    // i750 pump + spawn-cwd contract — same threading as run_loop above.
+    rt.aggregates_root = std::fs::canonicalize(target)
+        .ok()
+        .map(|p| p.to_string_lossy().into_owned())
+        .or_else(|| Some(target.to_string()));
     register_llm_providers(&mut rt, target);
     storehouse::world::attach::attach_world_servers(&mut rt, target);
     storehouse::world::attach::attach_world_adapter_bindings(&mut rt, target);

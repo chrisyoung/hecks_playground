@@ -34,7 +34,7 @@ impl Runtime {
         // verb. `resource` is aligned to the same canonical the same way.
         // [antibody-exempt: rust/src/runtime/mod.rs (evaluate_policy) —
         //  kernel-floor authz gate, security fix, authorized by Chris 2026-07-03]
-        let canon = command_dispatch::canonical_action(self, command_name);
+        let canon = canonical_naming::canonical_action(self, command_name);
         let now = crate::clock::now_iso();
         let mut matched: Vec<String> = Vec::new();
         let mut permitted = false;

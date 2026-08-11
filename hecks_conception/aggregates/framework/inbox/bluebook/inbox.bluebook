@@ -52,14 +52,14 @@ Hecks.bluebook "Inbox", version: "2026.05.17.1" do
   # human from the noticing.
 
   aggregate "Inbox", "Miette's email inbox — one per being, periodically checked." do
-    identified_by :name
+    identified_by { name.value }
 
-    attribute :name,             InboxName,    default: "miette"
-    attribute :last_checked_at,  Timestamp,    default: "—"
-    attribute :last_message_id,  MessageId,    default: "—"
-    attribute :unread_count,     Count,        default: 0
-    attribute :poll_cadence_secs, IntervalSecs, default: 900
-    attribute :last_history_id,  HistoryId,    default: "—"
+    attribute :name,             InboxName,    default: { value: "miette" }
+    attribute :last_checked_at,  Timestamp,    default: { value: "—" }
+    attribute :last_message_id,  MessageId,    default: { value: "—" }
+    attribute :unread_count,     Count,        default: { value: 0 }
+    attribute :poll_cadence_secs, IntervalSecs, default: { value: 900 }
+    attribute :last_history_id,  HistoryId,    default: { value: "—" }
     attribute :correspondents,   list_of(Correspondent)
 
     # ── Value-objects : the domain's language ──
@@ -135,6 +135,7 @@ Hecks.bluebook "Inbox", version: "2026.05.17.1" do
     # thread from a registered correspondent becomes a card in the
     # mapped project inbox.
     entity "Correspondent" do
+      identified_by { email.value }
       attribute :email,        EmailAddress
       attribute :display_name, Sender
       attribute :inbox_initial, InboxInitial

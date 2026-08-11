@@ -7,7 +7,7 @@ Hecks.bluebook "DataPrep", version: "2026.04.28.1" do
   # event source and trigger live on this aggregate.
 
   aggregate "DataPrep", "Transform Bluebooks and transcripts into training format" do
-    identified_by :name
+    identified_by { name.value }
     attribute :name,        Name
     attribute :format,      Format
     attribute :total_pairs, PairCount

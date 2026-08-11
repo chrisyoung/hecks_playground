@@ -235,9 +235,11 @@ pub fn extract_block(line: &str) -> Option<String> {
 
 pub fn extract_after(line: &str, keyword: &str) -> Option<String> {
     let start = line.find(keyword)? + keyword.len();
-    let rest = line[start..].trim();
+    let rest = strip_trailing_comment(line[start..].trim());
     Some(rest.trim_end_matches([',', ' ']).to_string())
 }
+
+
 
 /// Extract a state token from `text`: either a quoted "string" or a bare
 /// token like `true`, `false`, or `:symbol`. Used by lifecycle parsing

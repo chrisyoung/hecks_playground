@@ -37,10 +37,10 @@ Hecks.bluebook "Cargo", version: "2026.05.29.1" do
   # Callers supply it ; the adapter errors cleanly if absent.
 
   aggregate "Cargo", "Cargo CLI invocations as typed Door commands. State carries the last output via last_output so downstream policies can read build / test results without re-running. Pure invocation record : each Build / Test / Check / Clippy mints a fresh record keyed by id." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id, Id
-    attribute :last_output, RenderResult, default: ""
+    attribute :last_output, RenderResult, default: { value: "" }
 
     value_object "Id" do
       # Stable invocation id, minted by the caller before dispatch.

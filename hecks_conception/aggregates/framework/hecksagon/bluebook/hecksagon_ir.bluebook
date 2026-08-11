@@ -89,7 +89,7 @@ Hecks.bluebook "HecksagonIr", version: "2026.05.21.1" do
   # sibling collections, discovered by the parser and merged
   # by the runtime — not state of this aggregate.
   aggregate "Hecksagon", "Root of a parsed .hecksagon file. Carries the file's name, optional framework_kind discriminator (for meta-layer files), optional persistence adapter, and the cross-domain subscription list. Adapter declarations (shell, llm, compute, tts, io, gates) live on their own sibling aggregates ; the parser produces one Conceive per adapter found." do
-    identified_by :name
+    identified_by { name.value }
 
     # Name — the string passed to `Hecks.hecksagon "Name" do`.
     value_object "Name" do
@@ -144,7 +144,7 @@ Hecks.bluebook "HecksagonIr", version: "2026.05.21.1" do
   # options the parser extracts ; the runtime decides what each
   # one means.
   aggregate "IoAdapter", "Non-persistence adapter binding (:stdout, :stderr, :stdin, :env, :fs, etc.). Carries the adapter kind (without the leading colon), the option key/value pairs lifted from the inline form or block body, and optional on-event hooks the runtime uses as policy-style triggers." do
-    identified_by :name
+    identified_by { name.value }
 
     # Name — synthesised identity for the parsed record (e.g.
     # "stdout" / "stderr" / "env" — the kind doubles as the
@@ -197,7 +197,7 @@ Hecks.bluebook "HecksagonIr", version: "2026.05.21.1" do
   # live in the runtime's ShellDispatcher
   # (runtime/shell_dispatcher.rs).
   aggregate "ShellAdapter", "Named shell-command binding declared with `adapter :shell, name:, command:, args:, output_format:, timeout:, working_dir:, env:, ok_exit:`. Args may carry `{{placeholder}}` tokens that the dispatcher substitutes from the triggering command's attrs ; the placeholders helper walks args in first-appearance order. Execution lives in the runtime's ShellDispatcher." do
-    identified_by :name
+    identified_by { name.value }
 
     # Name — the adapter's natural-key identifier (the `name:`
     # keyword argument on the DSL form).
@@ -283,7 +283,7 @@ Hecks.bluebook "HecksagonIr", version: "2026.05.21.1" do
   # role is allowed to invoke against a given aggregate. The
   # runtime checks this list when dispatching.
   aggregate "Gate", "Role-gated allowlist for an aggregate. Declared with `gate \"Aggregate\", :role do allow :Cmd, :Cmd2 end`. Commands not in the allowed list are rejected by the bus when the dispatcher's role string matches `role`." do
-    identified_by :name
+    identified_by { name.value }
 
     # Name — synthesised identity (typically "<Aggregate>:<role>").
     # Same shape conceptually as a tuple (aggregate, role) but
@@ -343,7 +343,7 @@ Hecks.bluebook "HecksagonIr", version: "2026.05.21.1" do
   # to accept both forms ; Phase 3 collapses Option<String> into
   # Vec<String>. This bluebook ONLY declares the new shape.
   aggregate "LlmAdapter", "Named LLM-call binding declared with `adapter :llm, name:, prompt_template:, model:, max_tokens:, response_into:, backend:, …`. Carries the prompt template (with `{{placeholder}}` tokens), the model identifier, max-tokens budget, the triggers list (zero, one, or many upstream dispatch targets that fire the adapter), the response routing target and attribute name, and the optional backend (:claude / :ollama / :fixture). When triggers is empty the runtime falls back to response_into_target as the firing target." do
-    identified_by :name
+    identified_by { name.value }
 
     # Name — the adapter's natural-key identifier.
     value_object "Name" do
@@ -433,7 +433,7 @@ Hecks.bluebook "HecksagonIr", version: "2026.05.21.1" do
   # Same triggers lift as LlmAdapter — zero/one/many upstream
   # dispatch targets ; empty falls back to response_into_target.
   aggregate "ComputeAdapter", "Named local-computation binding declared with `adapter :compute, name:, function:, trigger_on:, response_into:, attr:`. The runtime resolves function_name through the compute_functions registry, invokes it with the upstream state + dispatch attrs, and chains the returned string into response_into_target under response_into_attr. Same triggers fallback semantics as LlmAdapter — empty list falls back to response_into_target." do
-    identified_by :name
+    identified_by { name.value }
 
     value_object "Name" do
       attribute :value, String
@@ -490,7 +490,7 @@ Hecks.bluebook "HecksagonIr", version: "2026.05.21.1" do
   # Same triggers lift as LlmAdapter/ComputeAdapter — zero/one/
   # many upstream targets, declared as a list.
   aggregate "TtsAdapter", "Named text-to-speech binding declared with `adapter :tts, name:, provider:, voice_id:, model:, speed:, stability:, similarity_boost:, style:, trigger_on:, cache_dir:, auto_play:`. Fire-and-forget — the family's response_field is :none, so there's no cascade. The runtime renders audio via the resolved provider. Same triggers lift as LlmAdapter (zero/one/many) but no response_into fallback — when triggers is empty the adapter does not fire." do
-    identified_by :name
+    identified_by { name.value }
 
     value_object "Name" do
       attribute :value, String

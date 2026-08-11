@@ -55,17 +55,13 @@ Hecks.bluebook "AuthIdentity", version: "2026.06.26.1" do
   # relationship in the domain model.
 
   aggregate "AuthIdentity", "A credential-bearing identity behind a session — the verifiable WHO an Agent binds to. id adapts HECKS_SESSION_AUTH_ID ; credential names the secret (never holds it) ; status tracks the once-per-session verification (pending -> active|rejected -> retired). The impure verification is the authentication Family at Establish ; the per-dispatch authenticate Gate reads Active in-process." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id,               Id
     attribute :label,            Label
     attribute :credential,       Credential
-    attribute :verification_ref, VerificationRef, default: "—"
-    attribute :status,           Status,          default: "pending" do
-      transition "MarkVerified" => "active"
-      transition "Reject"       => "rejected"
-      transition "Retire"       => "retired"
-    end
+    attribute :verification_ref, VerificationRef, default: { value: "—" }
+    attribute :status, Status, default: { value: "pending" }
 
     value_object "Id" do
       # The session principal's identifier — the value the runtime reads
@@ -147,6 +143,7 @@ Hecks.bluebook "AuthIdentity", version: "2026.06.26.1" do
     end
 
     query "ById" do
+      attribute :id, Id
       description "Resolve one identity by its id (the session token). The Establish/verify path and audit read it."
       where id: :id
     end

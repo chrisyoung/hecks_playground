@@ -1,14 +1,16 @@
 Hecks.bluebook "LegacyTopLevel", version: "2026.04.22.1" do
-  vision "Locks Ruby↔Rust parity for legacy top-level forms that both runtimes accept-and-ignore: lifecycle/event at bluebook scope, fixture inside aggregate, cross_domain inside policy"
+  vision "Locks Ruby↔Rust parity for legacy top-level forms that both runtimes accept-and-ignore: lifecycle/event at bluebook scope, cross_domain inside policy"
 
   aggregate "Room" do
-    attribute :name, String
+    attribute :name, RoomName
 
-    fixture "SampleRoom", name: "Studio"    # legacy — ignored both sides
+    value_object "RoomName" do
+      attribute :value, String
+    end
 
     command "DefineRoom" do
       role "Architect"
-      attribute :name, String
+      attribute :name, RoomName
       emits "RoomDefined"
     end
   end

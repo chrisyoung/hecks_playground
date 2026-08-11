@@ -3,10 +3,10 @@ Hecks.bluebook "Conductor", version: "2026.06.02.2" do
   category "framework"
 
   aggregate "Claim", "The atomic hold on a story — the structural mutex. Identified by the story it guards. At most one Claim may be in state=held per story (invariant). Belongs to the Worker that holds it." do
-    identified_by :story
+    identified_by { story.value }
 
     attribute :story,       Story
-    attribute :state,       State,      default: "open"
+    attribute :state,       State,      default: { value: "open" }
     attribute :claimed_at,  ClaimedAt
 
     belongs_to Worker
@@ -65,6 +65,14 @@ Hecks.bluebook "Conductor", version: "2026.06.02.2" do
 
     query "HeldByWorker" do
       description "All HELD claims held by a given worker. SEMANTIC : worker == :worker AND state == held. The driving read for SEAM 3 (worker-died reclaim) : when a Worker dies, the ReclaimOnWorkerDied driven adapter sweeps this query (where worker == the dead worker_id) and fires Claim.Expire once per matching held claim. Now that belongs_to Worker synthesises a STORED worker FK (references-not-ids), the worker filter is a plain same-aggregate where — no cross-aggregate join needed."
+      # Plain-scalar query param, not `reference_to Worker` -- the latter
+      # hit a cross-file resolution-order issue (claim.bluebook loads
+      # alphabetically before worker.bluebook within the same multi-file
+      # Conductor domain; MetaValidator ran before Worker existed yet).
+      # Flagged for review, not silently worked around: the underlying
+      # multi-file same-domain load-order dependency is a real finding for
+      # the migration plan, not specific to this one query.
+      attribute :worker, String
       where worker: :worker
       where state: "held"
     end

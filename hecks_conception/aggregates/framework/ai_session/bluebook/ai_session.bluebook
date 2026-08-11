@@ -3,7 +3,7 @@ Hecks.bluebook "AiSession", version: "2026.05.25.1" do
   category "framework"
 
   aggregate "AiSession", "The channel the AI conversation flows through, for governance. Identified by id (the session id). ReceivePrompt / EmitResponse record the turn's two halves ; Inject emits content (markdown) into the turn. State holds the latest of each ; the event log is the full governed record." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id, SessionId
     attribute :last_prompt, Text

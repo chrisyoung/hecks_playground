@@ -10,7 +10,7 @@ Hecks.bluebook "FewShot", version: "2026.04.28.1" do
   # moved to language/ : context_window, local_model, prompt.
 
   aggregate "FewShot", "Real bluebooks included as examples in the context" do
-    identified_by :domain_name
+    identified_by { domain_name.value }
     attribute :domain_name, DomainName
     attribute :source,      Source
     attribute :purpose,     Purpose

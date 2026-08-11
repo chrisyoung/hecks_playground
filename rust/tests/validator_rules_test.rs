@@ -96,7 +96,7 @@ fn duplicate_aggregate_names() {
                 value_objects: vec![], entities: vec![], context: None, category: None, realm_path: None, bluebook_version: None,
                 references: vec![],
                 lifecycle: None, invariants: vec![],
-                identified_by: None,
+                identified_by: None, identity: vec![],
                 views: vec![],
                 unknown_keywords: vec![],
                 queries: vec![],
@@ -120,7 +120,7 @@ fn duplicate_aggregate_names() {
                 value_objects: vec![], entities: vec![], context: None, category: None, realm_path: None, bluebook_version: None,
                 references: vec![],
                 lifecycle: None, invariants: vec![],
-                identified_by: None,
+                identified_by: None, identity: vec![],
                 views: vec![],
                 unknown_keywords: vec![],
                 queries: vec![],
@@ -128,11 +128,11 @@ fn duplicate_aggregate_names() {
         ],
         process_managers: vec![],
         policies: vec![],
-        fixtures: vec![],
         entrypoint: None,
         sections: vec![],
         cadences: vec![],
         block_grammars: vec![],
+        unknown_keywords: vec![],
     };
     let errors = validate(&domain);
     assert!(errors.iter().any(|e| e.contains("Duplicate aggregate")));
@@ -154,18 +154,18 @@ fn aggregate_without_commands() {
             value_objects: vec![], entities: vec![], context: None, category: None, realm_path: None, bluebook_version: None,
             references: vec![],
             lifecycle: None, invariants: vec![],
-            identified_by: None,
+            identified_by: None, identity: vec![],
             views: vec![],
             unknown_keywords: vec![],
             queries: vec![],
         }],
         process_managers: vec![],
         policies: vec![],
-        fixtures: vec![],
         entrypoint: None,
         sections: vec![],
         cadences: vec![],
         block_grammars: vec![],
+        unknown_keywords: vec![],
     };
     let errors = validate(&domain);
     assert!(errors.iter().any(|e| e.contains("has no commands")));
@@ -199,18 +199,18 @@ fn bad_command_naming() {
             value_objects: vec![], entities: vec![], context: None, category: None, realm_path: None, bluebook_version: None,
             references: vec![],
             lifecycle: None, invariants: vec![],
-            identified_by: None,
+            identified_by: None, identity: vec![],
             views: vec![],
             unknown_keywords: vec![],
             queries: vec![],
         }],
         process_managers: vec![],
         policies: vec![],
-        fixtures: vec![],
         entrypoint: None,
         sections: vec![],
         cadences: vec![],
         block_grammars: vec![],
+        unknown_keywords: vec![],
     };
     let errors = validate(&domain);
     assert!(errors
@@ -320,7 +320,7 @@ fn unknown_policy_trigger() {
             value_objects: vec![], entities: vec![], context: None, category: None, realm_path: None, bluebook_version: None,
             references: vec![],
             lifecycle: None, invariants: vec![],
-            identified_by: None,
+            identified_by: None, identity: vec![],
             views: vec![],
             unknown_keywords: vec![],
             queries: vec![],
@@ -336,11 +336,11 @@ fn unknown_policy_trigger() {
             for_each: None,
             extra_dispatches: vec![],
         }],
-        fixtures: vec![],
         entrypoint: None,
         sections: vec![],
         cadences: vec![],
         block_grammars: vec![],
+        unknown_keywords: vec![],
     };
     let errors = validate(&domain);
     assert!(errors

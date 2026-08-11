@@ -20,7 +20,7 @@ fn agg(name: &str, ctx: &str) -> Aggregate {
         category: None,
         bluebook_version: None,
         realm_path: None,
-        identified_by: None,
+        identified_by: None, identity: vec![],
         attributes: vec![],
         factories: vec![],
         commands: vec![],
@@ -43,12 +43,12 @@ fn dom(aggs: Vec<Aggregate>) -> Domain {
         vision: None,
         aggregates: aggs,
         policies: vec![],
-        fixtures: vec![],
         entrypoint: None,
         sections: vec![],
         process_managers: vec![],
         cadences: vec![],
         block_grammars: vec![],
+        unknown_keywords: vec![],
     }
 }
 

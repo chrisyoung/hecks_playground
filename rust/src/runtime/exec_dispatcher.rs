@@ -12,10 +12,11 @@
 //! Reached via `resolve_primitive_spawn` when a `Primitive::Process.Spawn`
 //! command dispatches (whether top-level or from a policy/PM cascade).
 //! Reads the literal program string off the dispatch's `cmd` attr, runs
-//! it to completion inheriting the runtime process cwd + env (the
-//! overmind loop member already runs from hecks_conception, so relative
-//! paths resolve identically whether the loop or a manual
-//! storehouse__dispatch fired it), captures stdout/stderr/exit, and the
+//! it to completion with the child's cwd pinned to the conception root
+//! the declaring domain was booted from (see `dispatch`'s `cwd` param —
+//! relative `bin/…` paths resolve identically whether an overmind loop
+//! member, the socket server, or a manual storehouse__dispatch fired
+//! it), captures stdout/stderr/exit, and the
 //! primitive cascades the outcome into the dispatch's `result_into`
 //! target. Every former `:exec` binding is now a bluebook policy
 //! firing this primitive — see resolve_primitive_spawn's doc comment.
@@ -64,15 +65,24 @@ fn truncate(s: String) -> String {
 
 /// Run the adapter's `exec` string. Split on whitespace into
 /// program + args (same convenience split parse_shell_adapter uses).
-/// cwd + env inherited from the runtime process. Any entries in
-/// `extra_env` are added to the child's environment (useful for
-/// passing event payload to the spawned process). `stdin_payload`,
-/// when non-empty, is piped to the child's stdin and stdin is then
-/// closed so the script can drain to EOF.
+/// `cwd`, when Some and an existing directory, becomes the child's
+/// working directory — the caller passes the conception root the
+/// declaring domain was booted from, so a repo-relative `exec:
+/// "bin/…"` resolves identically no matter which process (an overmind
+/// loop member running from deploy/, a manual dispatch, the socket
+/// server) fired it. By construction, not convention — the old
+/// contract ("inherit cwd ; the loop already runs from
+/// hecks_conception") broke the day the Procfile moved to deploy/.
+/// When None, cwd is inherited (legacy/test callers). env is
+/// inherited ; any entries in `extra_env` are added to the child's
+/// environment (useful for passing event payload to the spawned
+/// process). `stdin_payload`, when non-empty, is piped to the child's
+/// stdin and stdin is then closed so the script can drain to EOF.
 pub fn dispatch(
     exec: &str,
     extra_env: &[(String, String)],
     stdin_payload: Option<&str>,
+    cwd: Option<&str>,
 ) -> ExecResult {
     let mut parts = exec.split_whitespace();
     let program = match parts.next() {
@@ -89,6 +99,11 @@ pub fn dispatch(
     let args: Vec<&str> = parts.collect();
     let mut cmd = Command::new(program);
     cmd.args(&args);
+    if let Some(dir) = cwd {
+        if std::path::Path::new(dir).is_dir() {
+            cmd.current_dir(dir);
+        }
+    }
     for (k, v) in extra_env {
         cmd.env(k, v);
     }
@@ -148,5 +163,47 @@ pub fn dispatch(
             exit_code: -1,
             error: Some(format!("failed to wait on {}: {}", program, e)),
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The regression this pins : a relative `exec: "bin/…"` must resolve
+    /// from the caller-supplied cwd (the conception root), NOT from
+    /// whatever directory the firing process happens to run in — the
+    /// process_health_reap "No such file or directory" bug
+    /// (Procfile members run from deploy/, scripts live in
+    /// <conception>/bin/).
+    #[test]
+    fn cwd_pins_the_childs_working_directory() {
+        let dir = std::env::temp_dir();
+        let want = std::fs::canonicalize(&dir).unwrap();
+        let r = dispatch("/bin/pwd", &[], None, Some(dir.to_str().unwrap()));
+        assert!(r.ok, "pwd should succeed: {:?}", r.error);
+        assert_eq!(
+            std::path::PathBuf::from(r.output.trim()),
+            want,
+            "child must run from the supplied cwd"
+        );
+    }
+
+    /// None inherits the runtime process cwd — the legacy contract for
+    /// library/test boots that carry no aggregates_root.
+    #[test]
+    fn no_cwd_inherits_the_process_cwd() {
+        let here = std::fs::canonicalize(std::env::current_dir().unwrap()).unwrap();
+        let r = dispatch("/bin/pwd", &[], None, None);
+        assert!(r.ok, "pwd should succeed: {:?}", r.error);
+        assert_eq!(std::path::PathBuf::from(r.output.trim()), here);
+    }
+
+    /// A cwd that is not a directory is ignored rather than failing the
+    /// spawn — a missing conception root must not brick every exec.
+    #[test]
+    fn nonexistent_cwd_is_ignored() {
+        let r = dispatch("/bin/pwd", &[], None, Some("/nonexistent/xyz"));
+        assert!(r.ok, "spawn must still run when cwd is bogus: {:?}", r.error);
     }
 }

@@ -7,7 +7,7 @@ Hecks.bluebook "BaseModel", version: "2026.04.28.1" do
   # fine_tune, evaluation, deployment.
 
   aggregate "BaseModel", "The foundation model to fine-tune — provides language, we provide domain thinking" do
-    identified_by :name
+    identified_by { name.value }
     attribute :name,         Name
     attribute :parameters,   Parameters
     attribute :source,       Source

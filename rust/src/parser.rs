@@ -22,12 +22,12 @@ pub fn parse(source: &str) -> Domain {
         vision: None,
         aggregates: vec![],
         policies: vec![],
-        fixtures: vec![],
         entrypoint: None,
         sections: vec![],
         process_managers: vec![],
         cadences: vec![],
         block_grammars: vec![],
+        unknown_keywords: vec![],
     };
 
     let source = strip_shebang(source);
@@ -98,10 +98,93 @@ pub fn parse(source: &str) -> Domain {
             continue;
         }
 
+        // A `do`-opener no arm above claimed. Ruby is the semantic mirror :
+        //   • ACCEPTED_TOP_KEYWORDS — the builder evaluates the block in a
+        //     SUB-builder (saga, glossary, …) or never evaluates it at all
+        //     (lifecycle, event — legacy no-op stubs), so the whole block is
+        //     consumed here : its inner lines must never be claimed as
+        //     top-level declarations. (`paragraph` is the one transparent
+        //     exception — Ruby instance_evals it into the MAIN builder, so
+        //     its inner aggregates ARE top-level and keep flowing.)
+        //   • anything else — Ruby RAISES NoMethodError, the file is
+        //     unreadable on the Ruby side. Record the keyword on
+        //     `domain.unknown_keywords` (the validator names it — e.g. a
+        //     leftover `fixture` block after fixtures→policies) and consume
+        //     the block for the same never-claim-inner-lines reason.
+        if ends_with_do_block(line) && !line.starts_with("paragraph") {
+            let word: String = line
+                .chars()
+                .take_while(|c| c.is_ascii_lowercase() || *c == '_')
+                .collect();
+            if !word.is_empty() {
+                if !ACCEPTED_TOP_KEYWORDS.contains(&word.as_str()) {
+                    domain.unknown_keywords.push(crate::ir::UnknownKeyword {
+                        suggestion: suggest_top_keyword(&word, &grammar),
+                        keyword: word,
+                    });
+                }
+                i += skip_block(&lines[i..]);
+                continue;
+            }
+        }
+
         i += 1;
     }
 
     domain
+}
+
+/// Top-level `do`-openers Ruby's BluebookBuilder ACCEPTS but the Rust IR
+/// does not (yet) capture — each is either evaluated in a Ruby sub-builder
+/// (saga/service/view/workflow/glossary/domain_module), stored unevaluated
+/// (on_event), or an explicit accept-and-ignore legacy stub (lifecycle,
+/// event at bluebook scope — locked by parity/bluebooks/17_legacy_top_level).
+/// Grammar keywords (aggregate/section/policy/process_manager/cadence) never
+/// reach the fall-through, and `paragraph` stays transparent, so neither
+/// belongs here. A keyword NOT in this list and not in the grammar is one
+/// Ruby raises NoMethodError on — recorded for the validator.
+const ACCEPTED_TOP_KEYWORDS: &[&str] = &[
+    "saga", "glossary", "domain_module", "service", "on_event",
+    "lifecycle", "event", "view", "workflow",
+];
+
+/// Nearest known top-level keyword (grammar + accepted) within edit
+/// distance 2 — a `did you mean` hint for the validator message. Empty
+/// when the word is far from everything (e.g. `fixture`, which is not a
+/// typo but a construct that left the language).
+fn suggest_top_keyword(word: &str, grammar: &BlockGrammar) -> String {
+    grammar
+        .blocks
+        .iter()
+        .map(|e| e.keyword.as_str())
+        .chain(ACCEPTED_TOP_KEYWORDS.iter().copied())
+        .chain(std::iter::once("paragraph"))
+        .map(|k| (levenshtein(word, k), k))
+        .filter(|(d, _)| *d <= 2)
+        .min_by_key(|(d, _)| *d)
+        .map(|(_, k)| k.to_string())
+        .unwrap_or_default()
+}
+
+/// Consume a `<keyword> … do` block starting at `lines[0]` : counts nested
+/// do/end pairs and returns the number of lines consumed INCLUDING the
+/// closing `end`. The whole-block consume is the point — inner lines never
+/// re-enter the top-level loop (Ruby never evaluates these blocks in the
+/// main builder, so nothing inside may become a top-level declaration).
+fn skip_block(lines: &[&str]) -> usize {
+    let mut depth = 0usize;
+    for (i, raw) in lines.iter().enumerate() {
+        let line = raw.trim();
+        if ends_with_do_block(line) {
+            depth += 1;
+        } else if line == "end" {
+            depth = depth.saturating_sub(1);
+            if depth == 0 {
+                return i + 1;
+            }
+        }
+    }
+    lines.len()
 }
 
 /// i218 — block_grammar registry walker. Returns Some(consumed) when a
@@ -195,36 +278,7 @@ fn invoke(parser: BlockParser, slice: &[&str], domain: &mut Domain) -> usize {
             domain.cadences.push(cad);
             consumed
         }
-        BlockParser::Fixture => {
-            // Fixtures inside a Hecks.bluebook are no-op'd Ruby-side
-            // (canonical home is sibling .fixtures files). Rust still
-            // walks the do/end block to consume it cleanly, matching
-            // the legacy behavior.
-            consume_do_block(slice)
-        }
     }
-}
-
-/// Walk a `do … end` block and return the number of source lines it
-/// covers (including the closing `end`). Used by Fixture dispatch as a
-/// no-op consumer.
-fn consume_do_block(lines: &[&str]) -> usize {
-    let first = lines.first().map(|l| l.trim()).unwrap_or("");
-    if !ends_with_do_block(first) {
-        return 1;
-    }
-    let mut depth = 1usize;
-    let mut i = 0;
-    while i + 1 < lines.len() && depth > 0 {
-        i += 1;
-        let l = lines[i].trim();
-        if l == "end" {
-            depth -= 1;
-        } else if ends_with_do_block(l) {
-            depth += 1;
-        }
-    }
-    i + 1
 }
 
 /// Parse a `block_grammar "Name" do … end` block declaring keyword
@@ -311,7 +365,7 @@ fn parse_aggregate(lines: &[&str]) -> (Aggregate, Vec<Policy>, usize) {
         factories: vec![], // births — first-class Factory nodes (2026-06-12)
         commands: vec![], queries: vec![], value_objects: vec![],
         entities: vec![],
-        references: vec![], lifecycle: None, identified_by: None,
+        references: vec![], lifecycle: None, identified_by: None, identity: vec![],
         invariants: vec![],
         views: vec![],
         unknown_keywords: vec![],
@@ -406,7 +460,43 @@ fn parse_aggregate(lines: &[&str]) -> (Aggregate, Vec<Policy>, usize) {
                 i += consumed;
                 continue;
             } else if line.starts_with("identified_by") {
+                // BLOCK form - `identified_by do ... end` - the computed
+                // identity. Each body line is one part, in declaration order :
+                // a bare word is a FIELD read from the command's attrs, a
+                // quoted string is a LITERAL (how a singleton says there is one
+                // of it). The derived id is the parts joined by ':', so the same
+                // facts always name the same record and nothing is minted.
+                if ends_with_do_block(line) {
+                    let mut j = i + 1;
+                    while j < lines.len() {
+                        let b = lines[j].trim();
+                        if b == "end" { break; }
+                        if !b.is_empty() && !b.starts_with('#') {
+                            if let Some(lit) = extract_string(b) {
+                                agg.identity.push(crate::ir::IdentityPart::Literal(lit));
+                            } else {
+                                let field = b.trim_start_matches(':').trim().to_string();
+                                if !field.is_empty() {
+                                    agg.identity.push(crate::ir::IdentityPart::Field(field));
+                                }
+                            }
+                        }
+                        j += 1;
+                    }
+                    // A single plain field is exactly the old form, so it keeps
+                    // the old key ; anything richer is derived and keys off `id`.
+                    match agg.identity.as_slice() {
+                        [crate::ir::IdentityPart::Field(f)] => agg.identified_by = Some(f.clone()),
+                        [] => {}
+                        _ => agg.identified_by = Some("id".to_string()),
+                    }
+                    i = j + 1;
+                    continue;
+                }
                 agg.identified_by = extract_symbol(line);
+                if let Some(f) = &agg.identified_by {
+                    agg.identity = vec![crate::ir::IdentityPart::Field(f.clone())];
+                }
             } else if line.starts_with("view") && ends_with_do_block(line) {
                 // i254 — `view "for_customer" do show :a, :b end` declares
                 // a named projection. parse_view returns the View IR + the

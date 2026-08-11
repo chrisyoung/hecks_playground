@@ -71,12 +71,12 @@ pub fn load_combined_domain(agg_dir: &str) -> crate::ir::Domain {
         version: None, // the merge is synthetic ; each aggregate carries its OWN bluebook_version
         category: None, vision: None,
         aggregates: vec![], policies: vec![],
-        fixtures: vec![],
         entrypoint: None,
         sections: vec![],
         process_managers: vec![],
         cadences: vec![],
         block_grammars: vec![],
+        unknown_keywords: vec![],
     };
     // Organ-wins dedupe (i108) — when two bluebooks declare the same
     // aggregate, the one closest to the dispatch root wins. Recursive
@@ -104,7 +104,6 @@ pub fn load_combined_domain(agg_dir: &str) -> crate::ir::Domain {
             c.aggregates.push(agg);
         }
         c.policies.extend(dom.policies);
-        c.fixtures.extend(dom.fixtures);
         // i75-pulse-organs : process_managers + cadences + block_grammars
         // were dropped by the merge function — load_combined_domain only
         // ever surfaced the FIRST merged file's PMs, silently swallowing

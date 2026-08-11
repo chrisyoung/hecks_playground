@@ -30,13 +30,13 @@ Hecks.bluebook "RestartPrompt", version: "2026.05.19.1" do
   #     per the existing pattern until i262 generator lands.
 
   aggregate "RestartPrompt", "The session orientation singleton — one per being. Records the latest restart prompt composed, audit history via Composition entities, and a rolling count. The daemon writes restarts_inbox/latest.md whenever a new Composed event fires on the bus." do
-    identified_by :name
+    identified_by { name.value }
 
-    attribute :name,               Name,             default: "miette"
-    attribute :latest_content,     ComposedContent,  default: "—"
-    attribute :latest_at,          Timestamp,        default: "—"
-    attribute :latest_session_id,  SessionId,        default: "—"
-    attribute :total_compositions, Count,            default: 0
+    attribute :name,               Name,             default: { value: "miette" }
+    attribute :latest_content,     ComposedContent,  default: { value: "—" }
+    attribute :latest_at,          Timestamp,        default: { value: "—" }
+    attribute :latest_session_id,  SessionId,        default: { value: "—" }
+    attribute :total_compositions, Count,            default: { value: 0 }
 
     # ── Value-objects ──
 
@@ -75,6 +75,7 @@ Hecks.bluebook "RestartPrompt", version: "2026.05.19.1" do
     # ── Audit entity ──
 
     entity "Composition" do
+      identified_by { content.value }
       # Audit trail — one Composition created per Compose command.
       # The daemon may use the Composition list to rotate numbered
       # history files (iNNN.md) alongside latest.md.

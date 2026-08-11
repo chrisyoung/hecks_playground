@@ -13,7 +13,25 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
 
   # ===== from sprint/sprint.bluebook =====
   aggregate "Sprint", "One time-boxed sprint — a number, a goal, a list of committed stories, a closure checklist, and a lifecycle state." do
-    identified_by :number
+    identified_by { number.value }
+
+    # Migration plan task 4: local identity-string VO -- "Project" as a
+    # type here means "carries a project slug," not a structural
+    # cross-aggregate reference (mirrors the same convention established
+    # on conductor/claim.bluebook's own "Story" VO for the identical
+    # reason -- see that file's comment). Duplicated per-aggregate on
+    # purpose ; VO duplication across aggregates is this corpus's own
+    # established, accepted convention.
+    value_object "Project" do
+      attribute :value, String
+    end
+
+    # Migration plan task 4: local identity-string VO -- "Story" as a
+    # type here means "carries a story ref," not a structural
+    # cross-aggregate reference. Same convention as "Project" above.
+    value_object "Story" do
+      attribute :value, String
+    end
 
     # ---- Identity ----
     attribute :number,              Number
@@ -30,7 +48,11 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
     attribute :project,             Project
 
     # ---- Membership ----
-    has_many Stories
+    # Migration plan task 4: `has_many Stories` used to sit here — dead
+    # code the comment right below it already contradicted ("Sprint does
+    # NOT own a list of its committed stories"), and hecksagain refuses
+    # it outright anyway (bidirectional: Story's own `belongs_to Sprint`
+    # below is the authoritative direction, Story.BySprint the query).
     # Sprint does NOT own a list of its committed stories (legacy comment retained below) — that is the
     # Story aggregate's concern. Story.sprint + Story.BySprint(sprint=N)
     # are the single source of truth for 'which stories are committed to
@@ -46,24 +68,24 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
 
     # ---- Lifecycle ----
     # state: planned | active | ready_for_closure | completed
-    attribute :state,               State, default: "planned"
+    attribute :state,               State, default: { value: "planned" }
 
     # ---- Closure criteria (Sprint DoD) ----
     # Six operator/runtime-confirmed flags. All must be true before
     # RequestClosure may fire. Each is armed by its own Mark* command.
-    attribute :all_stories_done,    AllStoriesDone,    default: false
-    attribute :merged_to_main,      MergedToMain,      default: false
-    attribute :ci_passing,          CiPassing,         default: false
-    attribute :summary_drafted,     SummaryDrafted,    default: false
-    attribute :worktrees_pruned,    WorktreesPruned,   default: false
-    attribute :prs_for_open_branches, PrsForOpenBranches, default: false
+    attribute :all_stories_done,    AllStoriesDone,    default: { value: false }
+    attribute :merged_to_main,      MergedToMain,      default: { value: false }
+    attribute :ci_passing,          CiPassing,         default: { value: false }
+    attribute :summary_drafted,     SummaryDrafted,    default: { value: false }
+    attribute :worktrees_pruned,    WorktreesPruned,   default: { value: false }
+    attribute :prs_for_open_branches, PrsForOpenBranches, default: { value: false }
 
     # ---- Contract-first gate (contract-first-sprint-gate, sprint 20) ----
     # The agreed inter-story interfaces + whether they are ratified. A sprint
     # may not release its stories to the fleet until contracts_ratified — the
     # front-bookend twin of the DoD back gate.
-    attribute :contracts,           Contracts,          default: ""
-    attribute :contracts_ratified,  ContractsRatified,  default: false
+    attribute :contracts,           Contracts,          default: { value: "" }
+    attribute :contracts_ratified,  ContractsRatified,  default: { value: false }
 
     # wip_limit is RETIRED from Sprint — moved to Board.wip_limit (board-level
     # discipline ; WIP crosses sprints when several are active). See
@@ -420,6 +442,7 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
     end
 
     query "ForProject" do
+      attribute :project, Project
       description "Sprints belonging to a given project. Pass project: <slug> to filter."
       where project: :project
     end
@@ -427,7 +450,25 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
 
   # ===== from story/story.bluebook =====
   aggregate "Story", "A user story with an ordered list of forwarded commands — the work unit of the Planning domain" do
-    identified_by :ref
+    identified_by { ref.value }
+
+    # Migration plan task 4: local identity-string VO -- "Project" as a
+    # type here means "carries a project slug," not a structural
+    # cross-aggregate reference (mirrors the same convention established
+    # on conductor/claim.bluebook's own "Story" VO for the identical
+    # reason -- see that file's comment). Duplicated per-aggregate on
+    # purpose ; VO duplication across aggregates is this corpus's own
+    # established, accepted convention.
+    value_object "Project" do
+      attribute :value, String
+    end
+
+    # Migration plan task 4: local identity-string VO -- "Story" as a
+    # type here means "carries a story ref," not a structural
+    # cross-aggregate reference. Same convention as "Project" above.
+    value_object "Story" do
+      attribute :value, String
+    end
 
     # ── Audit: unidir-heki-per-relationship (Sprint 7) ─────────────────────
     # Verdict: COMPLIANT. The heki layout is one file per aggregate-instance
@@ -452,6 +493,25 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
     attribute :tier,           Tier
     attribute :summary,        Summary
     attribute :target,         Target
+
+    # Migration plan task 4: ComposeStep (below) already wrote
+    # `then_set :steps, append: { order: :order, command: :command, args:
+    # :args }`, but Story never declared :steps at all -- the aggregate's
+    # own vision line ("an ordered list of FORWARDED COMMANDS") describes
+    # exactly this field ; it was simply missing. `Step` here is Story's
+    # OWN local value object (UseCase's same-named `entity "Step"` is a
+    # different, unrelated construct -- generated-scenario steps, not
+    # forwarded commands ; VOs/entities are scoped per-aggregate, so
+    # there's no collision either way), wrapping the same StepOrder /
+    # CommandPhrase / Args types ComposeStep's own command-level
+    # attributes already use.
+    attribute :steps, list_of(Step)
+
+    value_object "Step" do
+      attribute :order,   StepOrder
+      attribute :command, CommandPhrase
+      attribute :args,    Args
+    end
 
     # ---- Sprint membership (Sprint 24 : typed reference) ----
     # belongs_to Sprint declares the 'sprint' scalar AssignToSprint writes
@@ -493,7 +553,7 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
     has_many Stories, as: :dependencies
 
     # ---- Lifecycle ----
-    attribute :state,          State, default: "untasked"
+    attribute :state,          State, default: { value: "untasked" }
 
     # ---- Done-is-done gate flags (auto-set by cascade, NEVER by Mark*) ----
     # Each flag is set true only when the corresponding bin/ script returns
@@ -502,11 +562,11 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
     # is no manual setter ; lying requires lying to the bin script's actual
     # git/cargo invocation. Workflow : RunCheck → cascade fires → flags
     # update → MarkReady invariants gate the transition.
-    attribute :verified,       Verified,      default: false
-    attribute :merged_to_main, MergedToMain,  default: false
-    attribute :worktree_clean, WorktreeClean, default: false
-    attribute :tests_passing,  TestsPassing,  default: false
-    attribute :pr_mergeable,   PrMergeable,   default: false
+    attribute :verified,       Verified,      default: { value: false }
+    attribute :merged_to_main, MergedToMain,  default: { value: false }
+    attribute :worktree_clean, WorktreeClean, default: { value: false }
+    attribute :tests_passing,  TestsPassing,  default: { value: false }
+    attribute :pr_mergeable,   PrMergeable,   default: { value: false }
     # main_up_to_date : live-checked by bin/check-main-uptodate (ci-fence-main-up-to-date, sprint 20).
     # True when BOTH `git rev-list origin/main..HEAD` AND `git rev-list HEAD..origin/main` are empty --
     # i.e. the local branch and origin/main are exactly in sync (no unpushed commits, no unpulled commits).
@@ -517,15 +577,15 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
     # NOTE: hex-live-check-adapter upgrade path -- when the LiveCheckAdapter card lands, this
     # cascade-policy pattern (Process.Spawn + result_into) can be replaced by a first-class
     # LiveCheck adapter that short-circuits the bus round-trip.
-    attribute :main_up_to_date, MainUpToDate, default: false
+    attribute :main_up_to_date, MainUpToDate, default: { value: false }
 
     # ---- Worktree lifecycle (worktree-removal-is-story-done-gate) ----
     # A story claims its git worktree on Start (LockWorktree) and releases
     # + removes it before done (UnlockWorktree). Locking keeps concurrent
     # stories from clobbering the same tree.
-    attribute :worktree_locked, WorktreeLocked, default: false
-    attribute :worktree_path,   WorktreePath,   default: ""
-    attribute :worktree_removed, WorktreeRemoved, default: false
+    attribute :worktree_locked, WorktreeLocked, default: { value: false }
+    attribute :worktree_path,   WorktreePath,   default: { value: "" }
+    attribute :worktree_removed, WorktreeRemoved, default: { value: false }
 
     # ---- Definition of done ----
     # The done_criterion declares WHAT must be true before MarkReady is valid:
@@ -535,7 +595,7 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
     # lands with the f4 rule construct. Until then this is the documented UL
     # contract: MarkReady MUST NOT be called unless the criterion is satisfied
     # and all story use cases have been generated and run.
-    attribute :done_criterion, DoneCriterion, default: "callable"
+    attribute :done_criterion, DoneCriterion, default: { value: "callable" }
 
     # ---- Composition ----
     attribute :subsumes,       list_of(Story)
@@ -547,14 +607,14 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
     # gates MarkReady on pending_task_count == 0. Task is now its
     # own aggregate (sibling of Story in this bluebook) ; the legacy
     # `list_of(Task)` entity composition retired sprint 14.
-    attribute :pending_task_count, PendingTaskCount, default: 0
+    attribute :pending_task_count, PendingTaskCount, default: { value: 0 }
 
     # ---- Replicated sprint fact (DDD : Story reads its OWN copy of "my sprint
     # is active", maintained by the seed_sprint_active hecksagon on Sprint events.
     # The pending_task_count pattern applied to sprint membership. Story.Start will
     # read this LOCAL flag instead of a cross-aggregate Sprint read.) ----
-    attribute :sprint_active, SprintActive, default: false
-    attribute :unresolved_dep_count, UnresolvedDepCount, default: 0
+    attribute :sprint_active, SprintActive, default: { value: false }
+    attribute :unresolved_dep_count, UnresolvedDepCount, default: { value: 0 }
 
     # ---- Artifacts ----
     # Files the story produced or consumed: a downloaded graphic, a
@@ -767,6 +827,7 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
     # appended by AttachFile. The bytes live on disk; the Story holds
     # the reference so the work unit owns the artifacts it touched.
     entity "Attachment" do
+      identified_by { path.value }
       attribute :path,     AttachmentPath
       attribute :filename, AttachmentName
       attribute :kind,     AttachmentKind
@@ -1280,22 +1341,26 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
     end
 
     query "ByProject" do
+      attribute :project, Project
       description "All stories belonging to a given project. Pass project: <slug> to filter."
       where project: :project
     end
 
     query "ByTheme" do
+      attribute :theme, Theme
       description "All stories carrying a given theme — the cross-sprint cluster. Pass theme: <name> to filter. The set of distinct themes is whatever Stories carry (no theme registry)."
       where theme: :theme
     end
 
     query "BySprint" do
       description "All stories committed to a given sprint, by the Story.sprint field — the SOLE source of truth for sprint membership. Sprint no longer carries a story_refs list (retired in fix-sprint-story-refs-drift, sprint 7) ; this query is how Sprint, projections, and the planning pulse learn which stories belong to a given sprint. Pass sprint: <ref> to filter."
+      attribute :sprint, Sprint
       where sprint: :sprint
     end
 
     query "DependentsOf" do
       description "Every story whose dependencies list CONTAINS the given dep ref — the reverse-dependency lookup. Aggregate-LOCAL (reads each story's own dependencies list via the contains where op, no sibling read). Drives the resolve_deps adapter : when a dependency story resolves, decrement unresolved_dep_count on every story that depends on it."
+      attribute :dep, Story
       where dependencies: { contains: :dep }
     end
 
@@ -1398,7 +1463,14 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
   # cascade policies below ; the ready_means_all_tasks_resolved invariant
   # gates Story.MarkReady on pending_task_count == 0.
   aggregate "Task", "One unit of work under a Story. Status walks pending → done | cancelled, with Reopen to return to pending. Counting is maintained reactively on Story via cascade policies on TaskAdded / TaskCompleted / TaskCancelled / TaskReopened." do
-    identified_by :id
+    identified_by { id.value }
+
+    # Migration plan task 4: local identity-string VO -- "Story" as a
+    # type here means "carries a story ref," not a structural
+    # cross-aggregate reference. Same convention as "Project" above.
+    value_object "Story" do
+      attribute :value, String
+    end
 
     # ---- Identity ----
     attribute :id,          TaskId
@@ -1412,7 +1484,7 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
 
     # ---- Lifecycle ----
     # status: pending | done | cancelled
-    attribute :status,      TaskStatus, default: "pending"
+    attribute :status,      TaskStatus, default: { value: "pending" }
 
     # ── Value objects ─────────────────────────────────────────
 
@@ -1499,6 +1571,7 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
     # ── Queries ───────────────────────────────────────────────────
 
     query "ForStory" do
+      attribute :story, Story
       description "Every task owned by a given story — the membership lookup the planning-pulse renderer uses to compute done/total per Story."
       where story: :story
     end
@@ -1537,7 +1610,7 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
 
   # ===== from board/board.bluebook =====
   aggregate "Board", "The one working board — singleton. Owns the sprint roster (queued + the active set, one sprint per project) and the manual card order across the board. Enforces on-board activation conventions (cross-aggregate uniqueness pending runtime support)." do
-    identified_by :name
+    identified_by { name.value }
 
     # ---- Identity (singleton) ----
     attribute :name,                Name
@@ -1561,7 +1634,7 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
     # Max number of stories allowed in `started` state on the board at once.
     # Lives on the Board because WIP discipline is about the work crossing
     # the board, not a property of any one sprint. 0 = unlimited.
-    attribute :wip_limit,           WipLimit, default: 0
+    attribute :wip_limit,           WipLimit, default: { value: 0 }
 
     value_object "Name" do
       # Singleton identity. Conventionally "board" — there is one.
@@ -1581,11 +1654,14 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
 
     command "Open" do
       role "Miette"
-      description "Open the one board — the creation command. Mints the singleton with its name + initial project context. The record does not exist until Open fires."
+      description "Open the one board — the creation command. Mints the singleton with its name."
       attribute :name,    Name
-      attribute :project, Project
       then_set :name,    to: :name
-      then_set :project, to: :project
+      # Migration plan task 4: was `attribute :project, Project` /
+      # `then_set :project, to: :project` -- leftover from before the
+      # aggregate's own "Active project context (RETIRED)" comment above
+      # says the legacy belongs_to Project was removed as a projector-
+      # compat shim. The command was never cleaned up to match.
       emits "BoardOpened"
     end
 
@@ -1678,7 +1754,25 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
 
   # ===== from backlog/backlog.bluebook =====
   aggregate "Backlog", "The ordered intake pool of un-sprinted story refs. One per project, identified by project slug." do
-    identified_by :project
+    identified_by { project.value }
+
+    # Migration plan task 4: local identity-string VO -- "Project" as a
+    # type here means "carries a project slug," not a structural
+    # cross-aggregate reference (mirrors the same convention established
+    # on conductor/claim.bluebook's own "Story" VO for the identical
+    # reason -- see that file's comment). Duplicated per-aggregate on
+    # purpose ; VO duplication across aggregates is this corpus's own
+    # established, accepted convention.
+    value_object "Project" do
+      attribute :value, String
+    end
+
+    # Migration plan task 4: local identity-string VO -- "Story" as a
+    # type here means "carries a story ref," not a structural
+    # cross-aggregate reference. Same convention as "Project" above.
+    value_object "Story" do
+      attribute :value, String
+    end
 
     attribute :project,      Project
     has_many Stories
@@ -1722,12 +1816,27 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
 
   # ===== from use_case/use_case.bluebook =====
   aggregate "UseCase", "One generated use case anchored to a Story — records the scenario title, narrative, generation status, and an ordered list of runnable Steps so the cascade is real and observable." do
-    identified_by :id
+    identified_by { id.value }
+
+    # Migration plan task 4: local identity-string VO -- "Story" as a
+    # type here means "carries a story ref," not a structural
+    # cross-aggregate reference. Same convention as "Project" above.
+    value_object "Story" do
+      attribute :value, String
+    end
 
     attribute :id,        Id
+    # Migration plan task 4: was missing entirely -- Generate (below)
+    # already wrote `then_set :story_ref, to: :story_ref`, and the
+    # aggregate's own vision line says "anchored to a STORY" ; the field
+    # anchoring it was simply never declared. `Story` here is the same
+    # local identity-string VO type this file's own commands already use
+    # for cross-domain-safe story references (ComposeStep, AddDependency,
+    # etc.) -- see Story aggregate's own comment on the same convention.
+    attribute :story_ref, Story
     attribute :title,     Title
     attribute :narrative, Narrative
-    attribute :status,    Status, default: "generated"
+    attribute :status,    Status, default: { value: "generated" }
     attribute :steps,     list_of(Step)
 
     value_object "Id" do
@@ -1784,6 +1893,7 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
     # story_runtime helpers (story_sorted_steps, story_args_to_tokens)
     # work without modification: reads "phrase" key from heki JSON.
     entity "Step" do
+      identified_by { order.value }
       attribute :order,  StepOrder
       attribute :phrase, Phrase
       attribute :args,   Args
@@ -1834,13 +1944,14 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
 
     query "ForStory" do
       description "All use cases for a given story. Returns UseCase records scoped by the caller-supplied story_ref — allows many use cases per story."
+      attribute :story_ref, Story
       where story_ref: :story_ref
     end
   end
 
   # ===== from project/project.bluebook =====
   aggregate "Epic", "A named body of work that optionally groups Sprints and Stories under one cross-cutting initiative (e.g. 'adapters'). Owned by a Project (Project.has_many Epics) ; grouping is OPTIONAL - a project's sprints and stories may sit outside any epic. Epic owns its membership truth (Epic.sprints, Epic.stories) ; Sprint and Story carry NO back-pointer (no FK shapes, references-not-ids). Epic is the initiative axis ; orthogonal to the Sprint time-box and Project lifecycle." do
-    identified_by :name
+    identified_by { name.value }
 
     # ---- Identity ----
     attribute :name,        Name
@@ -1856,7 +1967,7 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
     has_many Stories
 
     # ---- Lifecycle ----
-    attribute :status,      Status, default: "active"
+    attribute :status,      Status, default: { value: "active" }
 
     value_object "Name" do
       # The epic slug / identifier. E.g. "adapters", "payments". Stable for the
@@ -1949,13 +2060,14 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
     end
 
     query "ByStatus" do
+      attribute :status, Status
       description "Epics filtered by lifecycle status. Pass status: active | done | cancelled."
       where status: :status
     end
   end
 
   aggregate "Project", "A named initiative in the project registry — groups planning work across stories, backlogs, and sprints." do
-    identified_by :name
+    identified_by { name.value }
 
     # ---- Identity ----
     attribute :name,        Name
@@ -1969,13 +2081,13 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
     has_many Epics
 
     # ---- Lifecycle ----
-    attribute :status,      Status, default: "active"
+    attribute :status,      Status, default: { value: "active" }
 
     # ---- Active-sprint ownership (DDD : Project is the consistency boundary
     # that owns 'which of my sprints is active'. one-active-per-project is
     # enforced HERE, intra-aggregate, by ActivateSprint's own given — no
     # aggregate ever reads a sibling's live state.) ----
-    attribute :active_sprint, ActiveSprint, default: ""
+    attribute :active_sprint, ActiveSprint, default: { value: "" }
 
     # ── Value objects ──────────────────────────────────────────────
 
@@ -2080,6 +2192,7 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
     end
 
     query "ByStatus" do
+      attribute :status, Status
       description "Projects filtered by lifecycle status. Pass status: active | paused | done to narrow the registry view."
       where status: :status
     end

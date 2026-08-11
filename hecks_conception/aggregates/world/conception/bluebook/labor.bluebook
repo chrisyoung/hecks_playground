@@ -7,10 +7,10 @@ Hecks.bluebook "Labor", version: "2026.04.16.1" do
   # Labor.CheckParity).
 
   aggregate "Labor", "Validation and naming — the domain is ready to be born" do
-    identified_by :domain_name
+    identified_by { domain_name.value }
     attribute :domain_name,     DomainName
     attribute :bluebook_source, BluebookSource
-    attribute :valid,           Validity, default: "pending"
+    attribute :valid,           Validity, default: { value: "pending" }
     attribute :errors,          list_of(ErrorMessage)
     attribute :parity,          ParityResult
 

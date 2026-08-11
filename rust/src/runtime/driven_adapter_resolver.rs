@@ -53,6 +53,9 @@
 //! rule applied to `resolve_claude_tool_adapters`.)
 
 use std::collections::HashMap;
+use super::driven_adapter_args::*;
+pub use super::driven_adapter_args::{merge_wrapped_and_declared, pick_wrapped_values};
+pub use super::driven_adapter_enumerate::enumerate_driven_dispatches;
 use crate::runtime::{Runtime, Value, command_dispatch};
 use crate::runtime::event_bus::Event;
 
@@ -72,71 +75,6 @@ pub fn resolve_driven_adapters(rt: &mut Runtime, event: &Event) {
     resolve_driven_adapters_at_depth(rt, event, 0);
 }
 
-/// C3 (transactional outbox) — enumerate, WITHOUT dispatching, the driven-
-/// adapter follow-on COMMANDS that would fire for an event. Read-only mirror
-/// of the snapshot phase of `resolve_driven_adapters_at_depth` (handler match
-/// + for_each sweep + wrapped/declared attr merge), returning (command,
-/// attrs) so the outbox can record them as Steps the pump delivers later.
-/// Only `dispatches` are captured — the impure `runs`/`checks` adapter
-/// executions stay on the eager edge.
-pub fn enumerate_driven_dispatches(
-    rt: &Runtime,
-    event: &Event,
-) -> Vec<(String, std::collections::HashMap<String, Value>)> {
-    let mut out: Vec<(String, std::collections::HashMap<String, Value>)> = Vec::new();
-    if rt.hecksagons.is_empty() {
-        return out;
-    }
-    for hex in rt.hecksagons.iter() {
-        for adapter in hex.driven_adapters.iter() {
-            let world_values: Option<Vec<(String, String)>> = rt
-                .world_adapter_bindings
-                .iter()
-                .find(|b| b.name == adapter.name)
-                .map(|b| b.values.clone());
-            for handler in adapter.handlers.iter() {
-                if !event_ref_matches(&handler.event_ref, event) {
-                    continue;
-                }
-                let wrapped =
-                    pick_wrapped_values(world_values.as_deref(), handler.canned.as_ref());
-                for dispatch in handler.dispatches.iter() {
-                    match &dispatch.for_each {
-                        None => {
-                            let interp_attrs: Vec<(String, String)> = dispatch
-                                .attrs
-                                .iter()
-                                .map(|(k, v)| (k.clone(), interpolate_event(v, event)))
-                                .collect();
-                            out.push((
-                                dispatch.command.clone(),
-                                merge_wrapped_and_declared(&wrapped, &interp_attrs),
-                            ));
-                        }
-                        Some(spec) => {
-                            let qattrs = sweep_query_attrs(&spec.query_inputs, event);
-                            for record in rt.sweep_records(spec, &qattrs) {
-                                let interp_attrs: Vec<(String, String)> = dispatch
-                                    .attrs
-                                    .iter()
-                                    .map(|(k, v)| {
-                                        (k.clone(), interpolate_event_and_record(v, event, &record))
-                                    })
-                                    .collect();
-                                out.push((
-                                    dispatch.command.clone(),
-                                    merge_wrapped_and_declared(&wrapped, &interp_attrs),
-                                ));
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    out
-}
-
 fn resolve_driven_adapters_at_depth(rt: &mut Runtime, event: &Event, depth: usize) {
     if depth >= MAX_CASCADE_DEPTH {
         eprintln!("[driven] cascade depth {} reached at event '''{}''' — stopping (cycle guard)", MAX_CASCADE_DEPTH, event.name);
@@ -154,7 +92,8 @@ fn resolve_driven_adapters_at_depth(rt: &mut Runtime, event: &Event, depth: usiz
     // boundary — the resolver doesn't re-walk the world list per
     // dispatch.
     // (adapter kind, its options, its on_events) — one matched driven adapter.
-    type MatchedAdapter = (String, Vec<(String, String)>, Vec<(String, String)>);
+    // (command, interpolated attrs, wrapped values, success cmd, failure cmd)
+    type MatchedAdapter = (String, Vec<(String, String)>, Vec<(String, String)>, String, String);
     let mut matched: Vec<MatchedAdapter> = Vec::new();
     let mut runs_to_exec: Vec<String> = Vec::new();
     let mut checks_to_run: Vec<(String, String)> = Vec::new();
@@ -195,6 +134,8 @@ fn resolve_driven_adapters_at_depth(rt: &mut Runtime, event: &Event, depth: usiz
                                 dispatch.command.clone(),
                                 interp_attrs,
                                 wrapped.clone(),
+                                handler.success.clone(),
+                                handler.failure.clone(),
                             ));
                         }
                         Some(spec) => {
@@ -210,6 +151,8 @@ fn resolve_driven_adapters_at_depth(rt: &mut Runtime, event: &Event, depth: usiz
                                     dispatch.command.clone(),
                                     interp_attrs,
                                     wrapped.clone(),
+                                    handler.success.clone(),
+                                    handler.failure.clone(),
                                 ));
                             }
                         }
@@ -227,7 +170,7 @@ fn resolve_driven_adapters_at_depth(rt: &mut Runtime, event: &Event, depth: usiz
 
     if matched.is_empty() && runs_to_exec.is_empty() && checks_to_run.is_empty() { return; }
 
-    for (command, declared_attrs, wrapped_values) in matched {
+    for (command, declared_attrs, wrapped_values, on_success, on_failure) in matched {
         // Merge order : wrapped values first, then declared attrs
         // override on key collision. A literal `dispatch "Y", id: "x"`
         // pins `id` regardless of what canned/world declared. The
@@ -246,10 +189,55 @@ fn resolve_driven_adapters_at_depth(rt: &mut Runtime, event: &Event, depth: usiz
             &event.aggregate_type,
             &event.aggregate_id,
         );
-        if debug {
-            match &outcome {
-                Ok(r) => eprintln!("[driven:debug] cascaded into {} ok agg={} id={}", command, r.aggregate_type, r.aggregate_id),
-                Err(e) => eprintln!("[driven:debug] cascade into {} FAILED: {:?}", command, e),
+        // The verdict re-enters the EMITTING domain as a plain command, the
+        // same way a payment gateway's answer comes back as Authorize or
+        // Decline. The upstream aggregate is the subject — a Deposit that
+        // asked the bank learns that it cleared or bounced — so the verdict
+        // carries `<upstream>: <id>` as its reference, plus the refusal's
+        // own words as `reason`.
+        let verdict_ref = crate::parser_helpers::to_snake_case(&event.aggregate_type);
+        match &outcome {
+            // SUCCESS is debug-only — a working cascade is not news.
+            Ok(r) => {
+                if debug {
+                    eprintln!(
+                        "[driven:debug] cascaded into {} ok agg={} id={}",
+                        command, r.aggregate_type, r.aggregate_id
+                    );
+                }
+                if !on_success.is_empty() {
+                    let mut va: HashMap<String, Value> = HashMap::new();
+                    va.insert(verdict_ref.clone(), Value::Str(event.aggregate_id.clone()));
+                    let _ = command_dispatch::dispatch_cascade(
+                        rt, &on_success, va, &event.aggregate_type, &event.aggregate_id,
+                    );
+                }
+            }
+            // FAILURE is always news. This used to be `if debug` too, so a
+            // cross-context dispatch that the far side REFUSED vanished
+            // unless the reader had guessed to set HECKS_DEBUG_DRIVEN — and
+            // a pizza sale silently failed to bank its takings, with the
+            // upstream command reporting success. An error nobody can see
+            // without an env var is an error nobody sees.
+            Err(e) => {
+                eprintln!(
+                    "  ⚠ [driven] {} → {} REFUSED: {:?}",
+                    event.name, command, e
+                );
+                // A refusal the domain declared a home for stops being an
+                // error message and becomes a FACT it holds : a deposit that
+                // bounced, with the bank's own reason on it, answerable by a
+                // query. Without a `failure` command the refusal is still
+                // loud, but only on stderr — which is why the aggregate that
+                // names one exists.
+                if !on_failure.is_empty() {
+                    let mut va: HashMap<String, Value> = HashMap::new();
+                    va.insert(verdict_ref.clone(), Value::Str(event.aggregate_id.clone()));
+                    va.insert("reason".to_string(), Value::Str(format!("{:?}", e)));
+                    let _ = command_dispatch::dispatch_cascade(
+                        rt, &on_failure, va, &event.aggregate_type, &event.aggregate_id,
+                    );
+                }
             }
         }
         // resolver-on-cascade : if the follow-on emitted an event, drive
@@ -292,302 +280,5 @@ fn resolve_driven_adapters_at_depth(rt: &mut Runtime, event: &Event, depth: usiz
         let mut attrs = HashMap::new();
         attrs.insert("ok".to_string(), Value::Bool(ok));
         let _ = command_dispatch::dispatch_cascade(rt, &target, attrs, &event.aggregate_type, &event.aggregate_id);
-    }
-}
-
-fn val_str(v: &Value) -> String {
-    match v {
-        Value::Str(s) => s.clone(),
-        Value::Int(i) => i.to_string(),
-        Value::Bool(b) => b.to_string(),
-        _ => String::new(),
-    }
-}
-
-/// Split a command line into argv, honoring single and double quotes so one
-/// argument may contain spaces (e.g. a `--jq` filter). A quoted span groups
-/// into the current token and its content is taken literally ; the alternate
-/// quote char inside passes through verbatim (so `'if .x=="Y"'` is one arg
-/// with the inner double-quotes preserved). No escape processing — sufficient
-/// for the git / gh+jq probes the live-check leaves run.
-fn split_argv(cmd: &str) -> Vec<String> {
-    let mut args: Vec<String> = Vec::new();
-    let mut cur = String::new();
-    let mut has = false;
-    let mut chars = cmd.chars().peekable();
-    while let Some(c) = chars.next() {
-        match c {
-            ' ' | '\t' | '\n' | '\r' => {
-                if has { args.push(std::mem::take(&mut cur)); has = false; }
-            }
-            '\'' | '"' => {
-                has = true;
-                let q = c;
-                for d in chars.by_ref() {
-                    if d == q { break; }
-                    cur.push(d);
-                }
-            }
-            _ => { has = true; cur.push(c); }
-        }
-    }
-    if has { args.push(cur); }
-    args
-}
-
-/// Interpolate `{field}` tokens in a run-command template from the
-/// triggering event's data + identity. Identity/event fields only —
-/// there are no FK refs here ; `{worktree_path}` is the aggregate's own id.
-fn interpolate_event(template: &str, event: &Event) -> String {
-    let mut out = template.to_string();
-    for (k, v) in event.data.iter() {
-        out = out.replace(&format!("{{{}}}", k), &val_str(v));
-    }
-    out = out.replace("{id}", &event.aggregate_id);
-    out = out.replace("{aggregate_id}", &event.aggregate_id);
-    // The `{now}` / `{now+N}` / `{now-N}` clock primitive. Resolved LAST
-    // so a field literally named `now` (event data) still wins ; only the
-    // unresolved clock tokens reach the time resolver. This single call is
-    // why the clock reaches every driven write path : the per-record sweep
-    // attrs (interpolate_event_and_record) and the query `where` values
-    // (sweep_query_attrs) both funnel through interpolate_event.
-    out = crate::runtime::storehouse_log::interpolate_now_tokens(&out);
-    out
-}
-
-/// True when the handler's declared `event_ref` (e.g.
-/// `"Tools::ShellTool.BashRan"`) refers to the event that just fired.
-/// Accepts three forms : `Context::Aggregate.Event`, `Aggregate.Event`,
-/// or bare `Event`. The event itself carries `name` (the event token)
-/// and `aggregate_type` (the aggregate that emitted it).
-fn event_ref_matches(event_ref: &str, event: &Event) -> bool {
-    let (ctx_agg, evt_name) = match event_ref.rsplit_once('.') {
-        Some((head, tail)) => (head, tail),
-        None => return event_ref == event.name,
-    };
-    if evt_name != event.name { return false; }
-    // `ctx_agg` is either `Context::Aggregate` or just `Aggregate`.
-    let agg_only = ctx_agg.rsplit("::").next().unwrap_or(ctx_agg);
-    if agg_only != event.aggregate_type { return false; }
-    // Realm/context enforcement — symmetric with the command resolver (slice 3),
-    // the SAME shared heki helper. A realm-qualified event ref must match the
-    // EMITTER's stamped realm_path, carried on the event itself. Lenient : a
-    // 2-seg ref or an unstamped emitter passes. So two same-named aggregates in
-    // different realms no longer cross-fire each other's events.
-    let (realm, context) = crate::heki::fqn_realm_context(event_ref);
-    crate::heki::realm_context_matches(event.realm_path.as_deref(), realm.as_deref(), context.as_deref())
-}
-
-/// Convert the parser's source-token attrs (string values still carry
-/// surrounding quotes, ints stay as digit strings) into the runtime's
-/// dynamic Value form. Mirrors behaviors_runner's `parse_value`.
-fn build_attr_map(attrs: &[(String, String)]) -> HashMap<String, Value> {
-    let mut out = HashMap::new();
-    for (k, raw) in attrs {
-        let v = raw.trim();
-        if let Ok(n) = v.parse::<i64>() {
-            out.insert(k.clone(), Value::Int(n));
-        } else if v == "true" {
-            out.insert(k.clone(), Value::Bool(true));
-        } else if v == "false" {
-            out.insert(k.clone(), Value::Bool(false));
-        } else {
-            // Strip surrounding quotes when present (string literal form).
-            let s = if v.starts_with('"') && v.ends_with('"') && v.len() >= 2 {
-                v[1..v.len() - 1].to_string()
-            } else {
-                v.to_string()
-            };
-            out.insert(k.clone(), Value::Str(s));
-        }
-    }
-    out
-}
-
-/// Sprint 14 — pick the wrapped-call return value source for a fire.
-/// World binding wins (when `.world` declares an adapter binding for
-/// this adapter's name) ; canned is the memory-default (when the
-/// `driven on` handler declares a `canned do ... end` block) ;
-/// neither = empty. Factored out of `resolve_driven_adapters` so the
-/// canned-vs-real switch is unit-testable without booting a Runtime.
-pub fn pick_wrapped_values(
-    world: Option<&[(String, String)]>,
-    canned: Option<&crate::hecksagon_ir::CannedResponse>,
-) -> Vec<(String, String)> {
-    if let Some(w) = world { return w.to_vec(); }
-    if let Some(c) = canned { return c.values.clone(); }
-    Vec::new()
-}
-
-/// Sprint 14 — merge a fire's wrapped-call values with the declared
-/// dispatch attrs. Wrapped values fill the slot the adapter's wrapped
-/// call would produce ; declared attrs override on key collision so a
-/// literal `dispatch "Y", id: "fixed"` pins `id` regardless of what
-/// canned/world declared. Factored out of `resolve_driven_adapters`
-/// so the override semantics are unit-testable.
-pub fn merge_wrapped_and_declared(
-    wrapped: &[(String, String)],
-    declared: &[(String, String)],
-) -> HashMap<String, Value> {
-    let mut out = build_attr_map(wrapped);
-    for (k, v) in build_attr_map(declared) {
-        out.insert(k, v);
-    }
-    out
-}
-
-
-/// i221-C — resolve a sweep's query inputs against the triggering event
-/// into a string attr map the query executor filters on.
-fn sweep_query_attrs(
-    inputs: &[(String, crate::ir::ValueSpec)],
-    event: &Event,
-) -> HashMap<String, String> {
-    let mut out = HashMap::new();
-    for (k, spec) in inputs {
-        let v = match spec {
-            crate::ir::ValueSpec::Literal { value } => {
-                // strip the source-token quotes before interpolating so the
-                // filter value matches the (unquoted) stored field.
-                interpolate_event(value.trim().trim_matches('"'), event)
-            }
-            crate::ir::ValueSpec::FromEvent { name, default } => event
-                .data
-                .get(name)
-                .map(val_str)
-                .or_else(|| default.clone())
-                .unwrap_or_default(),
-            _ => String::new(),
-        };
-        out.insert(k.clone(), v);
-    }
-    out
-}
-
-/// i221-C — interpolate `{field}` tokens record-first (the swept record's
-/// fields win), then fall back to the triggering event.
-fn interpolate_event_and_record(
-    template: &str,
-    event: &Event,
-    record: &HashMap<String, Value>,
-) -> String {
-    let mut out = template.to_string();
-    for (k, v) in record.iter() {
-        out = out.replace(&format!("{{{}}}", k), &val_str(v));
-    }
-    interpolate_event(&out, event)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::hecksagon_ir::CannedResponse;
-
-    fn canned(pairs: &[(&str, &str)]) -> CannedResponse {
-        CannedResponse {
-            values: pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(),
-        }
-    }
-
-    fn raw_pairs(pairs: &[(&str, &str)]) -> Vec<(String, String)> {
-        pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
-    }
-
-    // Sprint 14 memory-canned-defaults : adapter with `canned do` and no
-    // `.world` entry → the canned values ARE the wrapped-call return.
-    #[test]
-    fn split_argv_keeps_quoted_jq_filter_as_one_arg() {
-        // A --jq filter is single-quoted and contains double-quotes + spaces ;
-        // it must arrive as ONE argv token with the inner double-quotes intact.
-        let cmd = "gh pr view sq/x --jq 'if .a==\"OPEN\" then empty else halt_error(1) end'";
-        let parts = split_argv(cmd);
-        assert_eq!(parts[0], "gh");
-        assert_eq!(parts[3], "sq/x");
-        assert_eq!(parts[4], "--jq");
-        assert_eq!(parts[5], "if .a==\"OPEN\" then empty else halt_error(1) end");
-        assert_eq!(parts.len(), 6, "quoted filter must not be split on its inner spaces");
-    }
-
-    #[test]
-    fn pick_returns_canned_when_no_world_binding() {
-        let c = canned(&[("output", "\"canned-ack\""), ("exit_code", "0")]);
-        let picked = pick_wrapped_values(None, Some(&c));
-        assert_eq!(
-            picked,
-            raw_pairs(&[("output", "\"canned-ack\""), ("exit_code", "0")]),
-        );
-    }
-
-    // Sprint 14 world-wires-real-adapters : adapter with `canned do` AND
-    // a `.world` entry → the .world binding's values ARE the wrapped-call
-    // return ; canned is bypassed.
-    #[test]
-    fn pick_returns_world_when_binding_present_canned_ignored() {
-        let c = canned(&[("output", "\"canned-ack\"")]);
-        let world = raw_pairs(&[("output", "\"real-ack\"")]);
-        let picked = pick_wrapped_values(Some(&world), Some(&c));
-        assert_eq!(picked, raw_pairs(&[("output", "\"real-ack\"")]));
-    }
-
-    // Sprint 14 legacy : adapter with neither canned nor world → empty
-    // wrapped-call return ; only the declared dispatch attrs reach the
-    // follow-on.
-    #[test]
-    fn pick_returns_empty_when_neither_present() {
-        let picked = pick_wrapped_values(None, None);
-        assert!(picked.is_empty());
-    }
-
-    // Sprint 14 — declared dispatch attrs override on key collision so
-    // `dispatch "Y", id: "fixed"` pins `id` regardless of the canned or
-    // world source.
-    #[test]
-    fn merge_declared_wins_over_wrapped_on_key_collision() {
-        let wrapped = raw_pairs(&[("id", "\"canned-id\""), ("output", "\"ack\"")]);
-        let declared = raw_pairs(&[("id", "\"fixed\"")]);
-        let merged = merge_wrapped_and_declared(&wrapped, &declared);
-        // declared wins for `id` ...
-        assert_eq!(merged.get("id"), Some(&Value::Str("fixed".to_string())));
-        // ... and wrapped survives for keys declared doesn't shadow.
-        assert_eq!(merged.get("output"), Some(&Value::Str("ack".to_string())));
-    }
-
-    // Sprint 14 — wrapped value reaches the follow-on when declared
-    // doesn't shadow the key, so the canned/world source actually wires
-    // through to the dispatch.
-    #[test]
-    fn merge_wrapped_keys_reach_follow_on_when_declared_silent() {
-        let wrapped = raw_pairs(&[("output", "\"real-ack\""), ("exit_code", "0")]);
-        let declared = raw_pairs(&[]);
-        let merged = merge_wrapped_and_declared(&wrapped, &declared);
-        assert_eq!(merged.get("output"), Some(&Value::Str("real-ack".to_string())));
-        assert_eq!(merged.get("exit_code"), Some(&Value::Int(0)));
-    }
-
-    // Event routing is realm-aware (symmetric with the command resolver) :
-    // a `driven on` ref must match the EMITTER's stamped realm_path, carried
-    // on the event. Legacy 2-seg refs stay lenient ; cross-realm no longer fires.
-    #[test]
-    fn event_ref_matches_enforces_realm_and_context() {
-        use crate::runtime::event_bus::Event;
-        use std::collections::HashMap;
-        let evt = Event {
-            name: "Polled".into(),
-            aggregate_type: "InboxPoller".into(),
-            aggregate_id: "x".into(),
-            data: HashMap::new(),
-                realm_path: Some("hecks/framework".into()),
-                ..Default::default()
-            };
-        // Canonical ref matching the emitter's realm + context → fires.
-        assert!(event_ref_matches("Hecks::Framework::AgentInbox::InboxPoller.Polled", &evt));
-        // Legacy 2-seg ref → lenient, still fires.
-        assert!(event_ref_matches("InboxPoller.Polled", &evt));
-        // Wrong realm → rejected.
-        assert!(!event_ref_matches("Miette::Body::AgentInbox::InboxPoller.Polled", &evt));
-        // Wrong context → rejected.
-        assert!(!event_ref_matches("Hecks::Wrongctx::AgentInbox::InboxPoller.Polled", &evt));
-        // Wrong event name → rejected.
-        assert!(!event_ref_matches("Hecks::Framework::AgentInbox::InboxPoller.Other", &evt));
     }
 }

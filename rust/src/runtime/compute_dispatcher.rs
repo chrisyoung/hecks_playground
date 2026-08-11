@@ -109,10 +109,16 @@ pub fn call(
             })
         }
         None => {
-            if debug {
-                eprintln!("[compute:debug] Skipped function_unregistered adapter={} function={}",
-                    adapter.name, adapter.function_name);
-            }
+            // Always loud. A compute adapter naming a function that is not
+            // registered can never run — that is a WIRING DEFECT, not a
+            // quiet outcome, and it is never what the author intended. It
+            // still returns a structured Skipped for the caller ; this makes
+            // sure a human sees it too, without having to know the env var
+            // exists.
+            eprintln!(
+                "  ⚠ [compute] adapter {} names function {} — NOT REGISTERED, nothing ran",
+                adapter.name, adapter.function_name
+            );
             ComputeOutcome::Skipped(ComputeSkipped {
                 adapter_name: adapter.name.clone(),
                 reason: "function_unregistered".into(),

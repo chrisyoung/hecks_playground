@@ -20,13 +20,23 @@ Hecks.bluebook "Mindstream", version: "2026.05.12.1" do
   # not just a String, a Description is not just a String.
 
   aggregate "Mindstream", "A named group of processes overmind supervises together. One Mindstream = one Procfile + one .overmind.env. The :overmind capability emits both files into the mindstream's directory." do
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name,        Name
     attribute :description, Description
     attribute :directory,   Directory
+    attribute :corpus_roots, CorpusRoots
 
     # ── Value-objects : the domain's language ──
+
+    # CorpusRoots — colon-separated absolute bluebook roots BEYOND the
+    # conception that this mindstream's boot must load (the being's own
+    # repos — e.g. self/system_prompt/bluebook, whose BootCompleted
+    # policies establish the prompt sections). Flows into the generated
+    # .overmind.env as HECKS_ADDITIONAL_CORPUS_ROOTS.
+    value_object "CorpusRoots" do
+      attribute :value, String
+    end
 
     value_object "Name" do
       # The Mindstream's identifier — names the supervised process
@@ -57,9 +67,11 @@ Hecks.bluebook "Mindstream", version: "2026.05.12.1" do
       attribute :name,        Name
       attribute :description, Description
       attribute :directory,   Directory
+      attribute :corpus_roots, CorpusRoots
       then_set :name,        to: :name
       then_set :description, to: :description
       then_set :directory,   to: :directory
+      then_set :corpus_roots, to: :corpus_roots
       emits "Defined"
     end
 
@@ -80,11 +92,12 @@ Hecks.bluebook "Mindstream", version: "2026.05.12.1" do
   # OVERMIND_CAN_DIE list based on its lifespan.
 
   aggregate "MindstreamMember", "One Procfile entry — a single process flowing in the mindstream. Belongs to one Mindstream (references-not-ids : a stored Mindstream FK synthesised by belongs_to)." do
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name,     Name
     attribute :command,  ShellCommand
     attribute :lifespan, Lifespan
+    attribute :order,    MemberOrder
 
     belongs_to Mindstream
 
@@ -117,14 +130,26 @@ Hecks.bluebook "Mindstream", version: "2026.05.12.1" do
       attribute :restart_on_failure, TrueClass, default: true
     end
 
+    # MemberOrder — the member's position in the generated Procfile.
+    # Establishment carries it so the projection is DETERMINISTIC :
+    # the emitter sorts numerically, never by store iteration order.
+    value_object "MemberOrder" do
+      attribute :value, Integer
+    end
+
     command "Register" do
       role "Framework"
-      description "Add a member to a mindstream. Inputs : the member name, the mindstream it joins, the shell command overmind invokes, and its lifespan."
+      description "Add (or re-assert — upserts on :name) a member of a mindstream. Inputs : the member name, the mindstream it joins, the shell command overmind invokes, its lifespan, and its Procfile order."
       attribute :name,       Name
       attribute :mindstream, Mindstream
       attribute :command,    ShellCommand
       attribute :lifespan,   Lifespan
+      attribute :order,      MemberOrder
+      then_set :name,        to: :name
       then_set :mindstream,  to: :mindstream
+      then_set :command,     to: :command
+      then_set :lifespan,    to: :lifespan
+      then_set :order,       to: :order
       emits "Registered"
     end
 
@@ -134,5 +159,167 @@ Hecks.bluebook "Mindstream", version: "2026.05.12.1" do
       reference_to(MindstreamMember)
       emits "Retired"
     end
+  end
+
+  # ============================================================
+  # The boot mindstream as ESTABLISHMENT (fixtures→policies, 2026-07-26)
+  # ============================================================
+  #
+  # Replaces miette/deploy/mindstream.fixtures. Define/Register upsert on
+  # :name, so `storehouse establish <conception>` re-asserts the stream
+  # idempotently ; the Procfile + .overmind.env artifacts project from the
+  # ESTABLISHED records through the seam (`storehouse project procfile
+  # <conception> --output-dir <deploy>` → projection::procfile) — never
+  # from a fixtures file, never by hand. corpus_roots flows into
+  # HECKS_ADDITIONAL_CORPUS_ROOTS so the being-repo BootCompleted policies
+  # (the system prompt sections) register in the completion corpus.
+  # Bite : rust/tests/mindstream_establishment_test.rs.
+  policy "EstablishBootMindstream" do
+    on "BootCompleted"
+    trigger "Mindstream.Define"
+    with "name", "boot"
+    with "description", "The Miette boot pipeline as a one-shot supervised mindstream. Runs the bluebook-defined organ wiring (DiscoverOrgans, WriteCensus, ClassifyStores, GenerateSystemPrompt, EnsureDaemons, PrintVitals, SurfaceWakeReport) and exits. The first Mindstream ; future Mindstreams (body cycles, integration tests, ...) drop in alongside it."
+    with "directory", "{ path: \"/Users/christopheryoung/Projects/hecks/hecks_conception\" }"
+    with "corpus_roots", "{ value: \"/Users/christopheryoung/Projects/miette/self/system_prompt/bluebook\" }"
+  end
+
+  policy "EstablishBootMember" do
+    on "BootCompleted"
+    trigger "MindstreamMember.Register"
+    with "name", "boot"
+    with "mindstream", "boot"
+    with "command", "{ line: \"/Users/christopheryoung/Projects/hecks/rust/target/release/storehouse run /Users/christopheryoung/Projects/hecks/runtime/boot/bluebook/boot.bluebook\" }"
+    with "lifespan", "{ kind: \"one_shot\", may_exit: true, restart_on_failure: false }"
+    with "order", "1"
+  end
+
+  policy "EstablishEstablishMember" do
+    on "BootCompleted"
+    trigger "MindstreamMember.Register"
+    with "name", "establish"
+    with "mindstream", "boot"
+    with "command", "{ line: \"/Users/christopheryoung/Projects/hecks/rust/target/release/storehouse establish /Users/christopheryoung/Projects/hecks/hecks_conception\" }"
+    with "lifespan", "{ kind: \"one_shot\", may_exit: true, restart_on_failure: false }"
+    with "order", "2"
+  end
+
+  policy "EstablishHeartMember" do
+    on "BootCompleted"
+    trigger "MindstreamMember.Register"
+    with "name", "heart"
+    with "mindstream", "boot"
+    with "command", "{ line: \"/Users/christopheryoung/Projects/hecks/rust/target/release/storehouse loop /Users/christopheryoung/Projects/miette/body/.. Heart::Heart.Beat --every 1s\" }"
+    with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
+    with "order", "3"
+  end
+
+  policy "EstablishBreathMember" do
+    on "BootCompleted"
+    trigger "MindstreamMember.Register"
+    with "name", "breath"
+    with "mindstream", "boot"
+    with "command", "{ line: \"/Users/christopheryoung/Projects/hecks/rust/target/release/storehouse loop /Users/christopheryoung/Projects/miette/body/.. Breath::Breath.Inhale,Breath::Breath.Exhale --every 4.5s\" }"
+    with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
+    with "order", "4"
+  end
+
+  policy "EstablishCircadianMember" do
+    on "BootCompleted"
+    trigger "MindstreamMember.Register"
+    with "name", "circadian"
+    with "mindstream", "boot"
+    with "command", "{ line: \"/Users/christopheryoung/Projects/hecks/rust/target/release/storehouse clock /Users/christopheryoung/Projects/miette/body/.. --segment 5-6:Circadian::Circadian.MarkDawn --segment 7-11:Circadian::Circadian.MarkMorning --segment 12-16:Circadian::Circadian.MarkAfternoon --segment 17-19:Circadian::Circadian.MarkDusk --segment 20-4:Circadian::Circadian.MarkNight --poll 60s\" }"
+    with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
+    with "order", "5"
+  end
+
+  policy "EstablishUltradianMember" do
+    on "BootCompleted"
+    trigger "MindstreamMember.Register"
+    with "name", "ultradian"
+    with "mindstream", "boot"
+    with "command", "{ line: \"/Users/christopheryoung/Projects/hecks/rust/target/release/storehouse loop /Users/christopheryoung/Projects/miette/body/.. Ultradian::Ultradian.EnterPeak,Ultradian::Ultradian.EnterTrough --every 5400s\" }"
+    with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
+    with "order", "6"
+  end
+
+  policy "EstablishInboxMember" do
+    on "BootCompleted"
+    trigger "MindstreamMember.Register"
+    with "name", "inbox"
+    with "mindstream", "boot"
+    with "command", "{ line: \"/Users/christopheryoung/Projects/hecks/rust/target/release/storehouse loop /Users/christopheryoung/Projects/hecks/hecks_conception/aggregates Inbox::Inbox.Check --every 900s\" }"
+    with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
+    with "order", "7"
+  end
+
+  policy "EstablishInboxPollerMember" do
+    on "BootCompleted"
+    trigger "MindstreamMember.Register"
+    with "name", "inbox_poller"
+    with "mindstream", "boot"
+    with "command", "{ line: \"/Users/christopheryoung/Projects/hecks/rust/target/release/storehouse drive /Users/christopheryoung/Projects/hecks/hecks_conception/aggregates --adapter InboxPollClock --poll 2s\" }"
+    with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
+    with "order", "8"
+  end
+
+  policy "EstablishMindReconcileMember" do
+    on "BootCompleted"
+    trigger "MindstreamMember.Register"
+    with "name", "mind_reconcile"
+    with "mindstream", "boot"
+    with "command", "{ line: \"/Users/christopheryoung/Projects/hecks/rust/target/release/storehouse loop /Users/christopheryoung/Projects/mietteai MietteMind::Reconciler.Reconcile --every 5s\" }"
+    with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
+    with "order", "9"
+  end
+
+  policy "EstablishProcessMacrophageMember" do
+    on "BootCompleted"
+    trigger "MindstreamMember.Register"
+    with "name", "process_macrophage"
+    with "mindstream", "boot"
+    with "command", "{ line: \"/Users/christopheryoung/Projects/hecks/rust/target/release/storehouse loop /Users/christopheryoung/Projects/hecks/hecks_conception/aggregates ProcessHealth::ProcessMacrophage.Sweep --every 30s\" }"
+    with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
+    with "order", "10"
+  end
+
+  policy "EstablishConductorSweepMember" do
+    on "BootCompleted"
+    trigger "MindstreamMember.Register"
+    with "name", "conductor_sweep"
+    with "mindstream", "boot"
+    with "command", "{ line: \"/Users/christopheryoung/Projects/hecks/rust/target/release/storehouse loop /Users/christopheryoung/Projects/hecks/hecks_conception/aggregates Conductor::Sweeper.Tick sweeper_id=fleet --every 60s\" }"
+    with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
+    with "order", "11"
+  end
+
+  policy "EstablishSpeechStreamMember" do
+    on "BootCompleted"
+    trigger "MindstreamMember.Register"
+    with "name", "speech_stream"
+    with "mindstream", "boot"
+    with "command", "{ line: \"/Users/christopheryoung/Projects/hecks/rust/target/release/storehouse loop /Users/christopheryoung/Projects/miette/body SpeechStream::SpeechStream.Advance --every 200ms\" }"
+    with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
+    with "order", "12"
+  end
+
+  policy "EstablishServeSocketMember" do
+    on "BootCompleted"
+    trigger "MindstreamMember.Register"
+    with "name", "serve_socket"
+    with "mindstream", "boot"
+    with "command", "{ line: \"/Users/christopheryoung/Projects/hecks/rust/target/release/storehouse serve-socket /Users/christopheryoung/Projects/hecks/hecks_conception\" }"
+    with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
+    with "order", "13"
+  end
+
+  policy "EstablishConsolidateMember" do
+    on "BootCompleted"
+    trigger "MindstreamMember.Register"
+    with "name", "consolidate"
+    with "mindstream", "boot"
+    with "command", "{ line: \"/Users/christopheryoung/Projects/hecks/rust/target/release/storehouse drive /Users/christopheryoung/Projects/hecks/hecks_conception/aggregates --adapter LogConsolidation --poll 5s\" }"
+    with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
+    with "order", "14"
   end
 end

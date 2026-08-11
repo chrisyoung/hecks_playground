@@ -23,7 +23,7 @@ Hecks.bluebook "Hexagon", version: "2026.06.16.2" do
   # (the bluebook handles them by naming convention) ; only the edges
   # that leave the domain.
   aggregate "Hexagon", "The hexagon of one domain. Names the domain and aggregates the port-bindings that wire its boundary edges — the impure-adapter and fulfillment (cross-domain) edges. Intra-domain calls are not wired here." do
-    identified_by :domain
+    identified_by { domain.value }
     attribute :domain, DomainName
     has_many Binding
 
@@ -58,7 +58,7 @@ Hecks.bluebook "Hexagon", version: "2026.06.16.2" do
   # carry. Never names its adapters (they declare their use of it).
   # Fulfillment needs no family : it routes via storehouse.
   aggregate "Family", "An impure boundary kind (persistence, payment). Names its how-verb (persisted_by, charged_by) — how we implement, specifically, not a port method — its signal (reply | effect), and the config fields its adapters carry. Never names its adapters." do
-    identified_by :name
+    identified_by { name.value }
     attribute :name,   FamilyName
     attribute :verb,   HowVerb
     attribute :signal, Signal
@@ -116,9 +116,9 @@ Hecks.bluebook "Hexagon", version: "2026.06.16.2" do
   # discipline as the .adapter↔.family arrow, extended to .world. The world
   # supplies VALUES against this schema ; the family owns the schema.
   aggregate "Field", "One configuration field a family's adapters carry (db, endpoint, timeout_ms, token). The field NAME and its SOURCE — the VALUE lives per-deployment in .world. A family's fields establish the schema its adapters' .world blocks must conform to (Hexagon.Verify enforces it). Belongs to its family." do
-    identified_by :name
+    identified_by { name.value }
     attribute :name,   FieldName
-    attribute :source, Source, default: "direct"
+    attribute :source, Source, default: { value: "direct" }
 
     value_object "FieldName" do
       # The field's name — "db", "endpoint", "timeout_ms", "token". The .world
@@ -145,7 +145,7 @@ Hecks.bluebook "Hexagon", version: "2026.06.16.2" do
       role "Framework"
       description "Declare one config field on a family — its name and source (direct | env | secret). The value is supplied per-deployment in .world ; for env/secret the .world value is the NAME of the env var the runtime resolves at dispatch."
       attribute :name,   FieldName
-      attribute :source, Source, default: "direct"
+      attribute :source, Source, default: { value: "direct" }
       emits "Declared"
       then_set :name,   to: :name
       then_set :source, to: :source
@@ -161,7 +161,7 @@ Hecks.bluebook "Hexagon", version: "2026.06.16.2" do
   # — "payment_ref". Names only ; a conformance test asserts the handler
   # actually emits them. The runtime flattens these to plain names in the IR.
   aggregate "ProducedField", "One verdict-data key a conforming handler must emit on stdout for its family's port (payment -> payment_ref). The OUTPUT half of the family contract, symmetric with Field. Names only ; a conformance test asserts the handler emits them." do
-    identified_by :name
+    identified_by { name.value }
     attribute :name, ProducedFieldName
 
     value_object "ProducedFieldName" do
@@ -188,10 +188,10 @@ Hecks.bluebook "Hexagon", version: "2026.06.16.2" do
   # A fulfillment (cross-domain) bind needs NO declared adapter ; it
   # routes via storehouse to a target aggregate that implements directly.
   aggregate "Adapter", "A concrete async impure implementation (heki, sqlite, shell) of a family. Declares the family it implements — the inverted arrow. Always async ; the colour is free. Configuration lives in .world." do
-    identified_by :name
+    identified_by { name.value }
     belongs_to Family
     attribute :name, AdapterName
-    attribute :handler, HandlerPath, default: ""
+    attribute :handler, HandlerPath, default: { value: "" }
 
     value_object "AdapterName" do
       # The adapter's name — "heki", "shell", "fulfillment". The string
@@ -216,7 +216,7 @@ Hecks.bluebook "Hexagon", version: "2026.06.16.2" do
       role "Framework"
       description "Declare an adapter — it belongs_to the family it implements, and names the standalone handler the adapter-host execs (empty for in-process persistence adapters). Config is in .world ; cross-domain wiring is the hexagon's job at runtime, so no FQN is stored here."
       attribute :name, AdapterName
-      attribute :handler, HandlerPath, default: ""
+      attribute :handler, HandlerPath, default: { value: "" }
       emits "Declared"
       then_set :name, to: :name
       then_set :handler, to: :handler
@@ -250,13 +250,13 @@ Hecks.bluebook "Hexagon", version: "2026.06.16.2" do
   #       domain ; the hexagon wires it through storehouse. The binding NEVER
   #       names the other bluebook.
   aggregate "Binding", "One port's boundary edge wired to an adapter (has_one). References only THIS domain : the port (aggregate) and the triggering event (on). The cross-domain target FQN lives in the adapter, never here — a bluebook never references another bluebook directly." do
-    identified_by :phrase
+    identified_by { phrase.value }
     has_one Adapter
     attribute :phrase,    Phrase
     attribute :aggregate, AggregateRef
-    attribute :on,        EventRef, default: ""
-    attribute :success,   VerdictRef, default: ""
-    attribute :failure,   VerdictRef, default: ""
+    attribute :on,        EventRef, default: { value: "" }
+    attribute :success,   VerdictRef, default: { value: "" }
+    attribute :failure,   VerdictRef, default: { value: "" }
 
     value_object "Phrase" do
       # The bind identity — "Pizza::Order.persisted_by" or

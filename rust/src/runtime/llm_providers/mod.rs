@@ -29,6 +29,7 @@
 //!   ruby/hecks/runtime/llm_providers/ollama_provider.rb → ollama.rs
 
 pub mod test;
+mod test_digest;
 pub mod claude;
 pub mod ollama;
 

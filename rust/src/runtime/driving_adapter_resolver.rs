@@ -92,11 +92,22 @@ pub fn fire_driving_handlers(rt: &mut Runtime, kind: &str) {
             &upstream_type,
             &upstream_id,
         );
-        if debug {
-            match &outcome {
-                Ok(r) => eprintln!("[driving:debug] cascaded into {} ok agg={} id={}", command, r.aggregate_type, r.aggregate_id),
-                Err(e) => eprintln!("[driving:debug] cascade into {} FAILED: {:?}", command, e),
+        match &outcome {
+            // Success is debug-only ; a tick that worked is not news.
+            Ok(r) => {
+                if debug {
+                    eprintln!(
+                        "[driving:debug] cascaded into {} ok agg={} id={}",
+                        command, r.aggregate_type, r.aggregate_id
+                    );
+                }
             }
+            // Failure is always news. A Driver fires on a CLOCK, so nobody
+            // is watching when it runs — which makes a refusal hidden behind
+            // an env var the least discoverable failure in the system : a
+            // scheduled sweep that has been dead for weeks looks exactly
+            // like one with nothing to do.
+            Err(e) => eprintln!("  ⚠ [driving] {} REFUSED: {:?}", command, e),
         }
         let _ = outcome;
     }

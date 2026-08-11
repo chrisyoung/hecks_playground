@@ -10,7 +10,7 @@ Hecks.bluebook "Compilation", version: "2026.04.28.1" do
   # moved to library/ : nursery_census, domain_entry, sector.
 
   aggregate "Compilation", "Compile the nursery into a compressed corpus" do
-    identified_by :name
+    identified_by { name.value }
     attribute :name,             Name
     attribute :domains_compiled, DomainCount
     attribute :output_path,      OutputPath

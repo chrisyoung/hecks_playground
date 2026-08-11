@@ -1,0 +1,419 @@
+
+Hecks.bluebook "Expression" do
+  vision "The subset of regular Ruby a predicate is allowed to be — small enough that every target can evaluate it, and carried as canonical text so no two readers can disagree about what was said."
+  generic
+
+  aggregate "Operator" do
+    description "One admitted operation — its symbol, its precedence, and how it reads in every target that must evaluate it."
+
+    # WHAT IS NOT HERE, on purpose. The outer grammar
+    # has two rules that are not operators: parenthesization (a structural
+    # strip-and-recurse, no symbol of its own) and the bare-leaf fallback
+    # (whatever matches nothing else falls through to the inner grammar).
+    # Its inner grammar has three more: integer/float/string/bool/nil
+    # literals and the dotted-lookup fallback are TERMINAL productions —
+    # they recognize text, they do not combine operands, and they have
+    # nothing meaningful to render per target (a literal's spelling does
+    # not differ between targets the way an operation's might).
+    # Forcing them into this shape would stretch `renderings` and the
+    # Arity invariant past what they mean. They stay declared only in
+    # prose — named here rather than silently left out.
+    identified_by { symbol.value }
+
+    attribute :symbol,     OperatorSymbol
+    attribute :category,   Category
+    attribute :precedence, Precedence
+    attribute :arity,      Arity
+    attribute :grammar,    Grammar
+    attribute :strategy,   Strategy
+    attribute :position,   Position
+    attribute :renderings, list_of(Rendering)
+
+    lifecycle :status, default: "proposed" do
+      transition "Admit"  => "admitted", from: "proposed"
+      transition "Retire" => "retired",  from: "admitted"
+    end
+
+    value_object "OperatorSymbol" do
+      attribute :value, String
+      invariant("an operator is written as something") { !value.to_s.empty? }
+    end
+
+    value_object "Category" do
+      attribute :value, String
+      invariant("an operator belongs to a category") { !value.to_s.empty? }
+    end
+
+    value_object "Precedence" do
+      attribute :value, Integer
+      invariant("precedence binds at some level") { value > 0 }
+    end
+
+    value_object "Arity" do
+      attribute :value, Integer
+      # WRITTEN ACROSS LINES ON PURPOSE, and this is the only predicate in the
+      # corpus that is. A CONTINUATION line is where extraction used to break:
+      # a naive line join reads `value > 0 && && value <= 3` — a different
+      # canonical form for the same source, waiting for the first multi-line
+      # rule anyone wrote. Every predicate here was kept on one line to dodge
+      # that. The join is continuation-aware now, so this case holds the fix:
+      # if it regresses, the canonical text of THIS invariant changes and the
+      # golden IR goes red.
+      invariant("an operator takes one, two or three operands") do
+        value > 0 &&
+          value <= 3
+      end
+    end
+
+    # OUTER checks a leaf against `.include?`/comparators/`!` before falling
+    # through to INNER's arithmetic/dotted-lookup grammar — two stacked
+    # grammars. Which one an operator belongs
+    # to is not derivable from its symbol alone (`+` reads like it could be
+    # either), so it is its own column rather than inferred.
+    value_object "Grammar" do
+      attribute :value, String
+      invariant("an operator belongs to one of the two stacked grammars") { !value.to_s.empty? }
+    end
+
+    # HOW the check recognizes this operator's text, not WHERE it binds
+    # (that's precedence) or WHEN it's tried (that's position). Four shapes
+    # cover every admitted operator: split at a top-level occurrence
+    # (`||`, comparators), strip a leading marker (`!`), strip a trailing
+    # suffix (`.empty?`), or match a call-with-argument pattern
+    # (`.include?(needle)`).
+    value_object "Strategy" do
+      attribute :value, String
+      invariant("an operator names how its check recognizes it") { !value.to_s.empty? }
+    end
+
+    # THE WITHIN-GRAMMAR CHECK ORDER — what precedence alone cannot say,
+    # since the six comparators all share one precedence tier and something
+    # still has to break the tie (grammar.md: `>=` before `<=` before `<`
+    # before `>` before `==` before `!=`, so `<` splitting does not fire
+    # inside `>=`). Scoped per `grammar`, mirroring Normalisation's own
+    # Position column below — each grammar starts its own count at 1.
+    value_object "Position" do
+      attribute :value, Integer
+      invariant("an operator sits somewhere in its grammar's check order") { value > 0 }
+    end
+
+    value_object "Target" do
+      attribute :value, String
+    end
+
+    value_object "Form" do
+      attribute :value, String
+    end
+
+    value_object "Rendering" do
+      attribute :target, String
+      attribute :form,   String
+
+      invariant("a rendering must name its target") { !target.to_s.empty? }
+      invariant("a rendering must have a form")     { !form.to_s.empty? }
+    end
+
+    command "Propose" do
+      role "Language designer"
+      goal "Put an operation forward for the sublanguage"
+
+      attribute :symbol,     OperatorSymbol
+      attribute :category,   Category
+      attribute :precedence, Precedence
+      attribute :arity,      Arity
+      attribute :grammar,    Grammar
+      attribute :strategy,   Strategy
+      attribute :position,   Position
+
+      given("an operator belongs to the outer or the inner grammar") do
+        grammar.value == "outer" || grammar.value == "inner"
+      end
+
+      given("an operator's check strategy is one the parser actually has") { strategy.value == "top_level_split" || strategy.value == "prefix_match" || strategy.value == "suffix_match" || strategy.value == "call_pattern_match" }
+
+      emits "OperatorProposed"
+    end
+
+    command "Render" do
+      role "Language designer"
+      goal "Declare how this operator reads in one target"
+
+      reference_to Operator
+      attribute :target, Target
+      attribute :form,   Form
+
+      given("a retired operator takes no new renderings") { status != "retired" }
+
+      then_set :renderings, append: { target: :target, form: :form }
+
+      emits "OperatorRendered"
+    end
+
+    command "Admit" do
+      role "Language designer"
+      goal "Accept the operation into the sublanguage"
+
+      reference_to Operator
+
+      given("an operator must read in every target before it is admitted") { renderings.size >= 1 }
+
+      emits "OperatorAdmitted"
+    end
+
+    command "Retire" do
+      role "Language designer"
+      goal "Remove an operation from the sublanguage"
+
+      reference_to Operator
+
+      emits "OperatorRetired"
+    end
+  end
+
+  aggregate "Normalisation" do
+    description "One rule that turns written source into canonical text — its boundary condition, where it sits in the order, and how it reads in every target that must apply it."
+
+    identified_by { name.value }
+
+    attribute :name,         RuleName
+    attribute :strategy,     Strategy
+    attribute :source_token, SourceToken
+    attribute :replacement,  Replacement
+    attribute :boundary,     Boundary
+    attribute :position,     Position
+    attribute :readings,     list_of(Reading)
+
+    lifecycle :status, default: "proposed" do
+      transition "Admit"  => "admitted", from: "proposed"
+      transition "Retire" => "retired",  from: "admitted"
+    end
+
+    value_object "RuleName" do
+      attribute :value, String
+      invariant("a rule is named") { !value.to_s.empty? }
+    end
+
+    value_object "Strategy" do
+      attribute :value, String
+      invariant("a rule names a strategy") { !value.to_s.empty? }
+    end
+
+    value_object "SourceToken" do
+      attribute :value, String
+    end
+
+    value_object "Replacement" do
+      attribute :value, String
+    end
+
+    value_object "Boundary" do
+      attribute :value, String, default: "none"
+      invariant("a boundary condition is named") { !value.to_s.empty? }
+    end
+
+    value_object "Position" do
+      attribute :value, Integer
+      invariant("a rule sits somewhere in the order") { value > 0 }
+    end
+
+    value_object "Target" do
+      attribute :value, String
+    end
+
+    value_object "Form" do
+      attribute :value, String
+    end
+
+    value_object "Rule" do
+      attribute :strategy,     String
+      attribute :source_token, String
+      attribute :replacement,  String
+      attribute :boundary,     String
+      attribute :position,     Integer
+
+      one_of do
+        member strategy: "collapse_whitespace", source_token: "", replacement: "", boundary: "none", position: 1
+        member strategy: "replace", source_token: ".length", replacement: ".size", boundary: "word", position: 2
+      end
+    end
+
+    value_object "Reading" do
+      attribute :target, String
+      attribute :form,   String
+
+      invariant("a reading must name its target") { !target.to_s.empty? }
+      invariant("a reading must have a form")     { !form.to_s.empty? }
+    end
+
+    command "Propose" do
+      role "Language designer"
+      goal "Put a normalisation rule forward for the canonical form"
+
+      attribute :name,         RuleName
+      attribute :strategy,     Strategy
+      attribute :source_token, SourceToken
+      attribute :replacement,  Replacement
+      attribute :boundary,     Boundary
+      attribute :position,     Position, optional: true
+
+      given("a rule must name a linked strategy") do
+        strategy.value == "collapse_whitespace" || strategy.value == "replace"
+      end
+
+      given("a rule must state its boundary") { boundary.value == "none" || boundary.value == "word" }
+
+      emits "NormalisationProposed"
+    end
+
+    command "Read" do
+      role "Language designer"
+      goal "Declare how this rule reads in one target"
+
+      reference_to Normalisation
+      attribute :target, Target
+      attribute :form,   Form
+
+      given("a retired rule takes no new readings") { status != "retired" }
+
+      then_set :readings, append: { target: :target, form: :form }
+
+      emits "NormalisationRead"
+    end
+
+    command "Admit" do
+      role "Language designer"
+      goal "Accept the rule into the canonical form"
+
+      reference_to Normalisation
+
+      given("a rule must read in every target before it is admitted") { readings.size >= 1 }
+
+      emits "NormalisationAdmitted"
+    end
+
+    command "Retire" do
+      role "Language designer"
+      goal "Remove a rule from the canonical form"
+
+      reference_to Normalisation
+
+      emits "NormalisationRetired"
+    end
+  end
+
+  aggregate "Expression" do
+    description "One predicate extracted from regular Ruby — the source as written, the canonical text the evaluator runs, and the subject it reads against."
+
+    identified_by { canonical.value }
+
+    attribute :description, Description
+    attribute :source,      Source
+    attribute :canonical,   Canonical
+    attribute :subject,     Subject
+    attribute :role,        ExpressionRole
+    attribute :references,  list_of(Reference)
+
+    lifecycle :status, default: "extracted" do
+      transition "Admit"  => "admitted", from: "extracted"
+      transition "Reject" => "rejected", from: "extracted"
+    end
+
+    value_object "Description" do
+      attribute :value, String
+      invariant("a predicate says what it is for") { !value.to_s.empty? }
+    end
+
+    value_object "Source" do
+      attribute :value, String
+    end
+
+    value_object "Canonical" do
+      attribute :value, String
+    end
+
+    value_object "Subject" do
+      attribute :value, String
+      invariant("a predicate reads against something") { !value.to_s.empty? }
+    end
+
+    value_object "ExpressionRole" do
+      attribute :value, String, default: "given"
+      invariant("a predicate plays a role") { !value.to_s.empty? }
+    end
+
+    value_object "ReferenceName" do
+      attribute :value, String
+      invariant("a reference must be named") { !value.to_s.empty? }
+    end
+
+    value_object "Kind" do
+      attribute :value, String
+      invariant("a reference is either an attribute or an argument") do
+        value.to_s == "attribute" || value.to_s == "argument"
+      end
+    end
+
+    value_object "Reason" do
+      attribute :value, String
+      invariant("a refusal gives a reason") { !value.to_s.empty? }
+    end
+
+    value_object "Reference" do
+      attribute :name, String
+      attribute :kind, String
+
+      invariant("a reference must be named") { !name.to_s.empty? }
+      invariant("a reference is either an attribute or an argument") do
+        kind.to_s == "attribute" || kind.to_s == "argument"
+      end
+    end
+
+    command "Extract" do
+      role "System"
+      goal "Lower a real Ruby predicate into the sublanguage"
+
+      attribute :description, Description, optional: true
+      attribute :source,      Source
+      attribute :canonical,   Canonical
+      attribute :subject,     Subject
+
+      emits "ExpressionExtracted"
+    end
+
+    command "Note" do
+      role "System"
+      goal "Record a name the expression reads"
+
+      reference_to Expression
+      attribute :name, ReferenceName
+      attribute :kind, Kind
+
+      then_set :references, append: { name: :name, kind: :kind }
+
+      emits "ReferenceNoted"
+    end
+
+    command "Admit" do
+      role "System"
+      goal "Accept the expression as evaluable by every target"
+
+      reference_to Expression
+
+      given("an expression must have canonical text") { !canonical.value.to_s.empty? }
+      given("an expression must know its subject")    { !subject.value.to_s.empty? }
+
+      emits "ExpressionAdmitted"
+    end
+
+    command "Reject" do
+      role "System"
+      goal "Refuse a predicate that leaves the sublanguage"
+
+      reference_to Expression
+      attribute :reason, Reason
+
+      emits "ExpressionRejected"
+    end
+  end
+
+end

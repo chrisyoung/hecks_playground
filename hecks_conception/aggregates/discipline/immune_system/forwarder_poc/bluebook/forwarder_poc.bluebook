@@ -42,7 +42,7 @@ Hecks.bluebook "ForwarderPoc", version: "2026.05.22.1" do
 
   # ── NEW HOME : the real command (rename target) ──
   aggregate "NewHome", "Stands in for the renamed ImmuneSystem::BluebookFirst address — holds the real RecordImperativeEdit implementation" do
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name,             Name
     attribute :imperative_edits, EditCount
@@ -69,7 +69,7 @@ Hecks.bluebook "ForwarderPoc", version: "2026.05.22.1" do
 
   # ── OLD HOME : the forwarder (the address callers still hold) ──
   aggregate "OldHome", "Stands in for the OLD pre-rename address — its RecordImperativeEdit is a pure forwarder that chains to NewHome via a policy" do
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name, Name
 

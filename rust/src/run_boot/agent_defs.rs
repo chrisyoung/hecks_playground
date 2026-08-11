@@ -2,7 +2,7 @@
 //!
 //! [antibody-exempt: rust/src/run_boot/agent_defs.rs — boot-pipeline runner,
 //!  sibling of run_boot/system_prompt.rs. Projects the AgentInstrumentation
-//!  source (door.md + AgentDefinition fixtures + roles/<name>.md) into the
+//!  source (door.md + ESTABLISHED AgentDefinition records + roles/<name>.md) into the
 //!  subagent instrumentation artifacts. Kernel-floor glue that writes a
 //!  generated surface from bluebook source ; retires with the run_boot
 //!  pipeline under i78/i145, same as system_prompt.rs.]
@@ -18,7 +18,7 @@
 //!      between generated markers — inherited by EVERY subagent (built-in
 //!      Explore/Plan/general-purpose and custom).
 //!   2. Each custom `.claude/agents/<name>.md` def — frontmatter (from the
-//!      AgentDefinition fixtures) + the shared door fragment + the authored
+//!      established AgentDefinition records) + the shared door fragment + the authored
 //!      role body (roles/<name>.md).
 //!
 //! Run every boot, so the instrumentation can never drift from the governance
@@ -51,10 +51,26 @@ pub fn door_fragment() -> String {
         .unwrap_or_default()
 }
 
-/// Regenerate every subagent instrumentation artifact. Returns the number of
-/// `.claude/agents/*.md` defs written (used by vitals). Never panics ; each
-/// failure emits a stderr line and boot continues.
-pub fn render() -> usize {
+/// Bare string out of a record field — unwraps the single-attribute VO
+/// form ({value: s}) the runtime stores typed attributes as ; a plain Str
+/// passes through.
+fn bare(v: &crate::runtime::Value) -> String {
+    match v {
+        crate::runtime::Value::Str(s) => s.clone(),
+        crate::runtime::Value::Map(m) => m.get("value").map(bare).unwrap_or_default(),
+        other => other.to_string(),
+    }
+}
+
+/// Regenerate every subagent instrumentation artifact from the ESTABLISHED
+/// AgentDefinition records (seeded by the `on "BootCompleted"` policies in
+/// agent_instrumentation.bluebook — fixtures→policies, 2026-07-26).
+/// `corpus_rt` is the completion runtime ; None (completion failed) skips
+/// the defs projection loudly — the previous boot's generated files stay.
+/// Returns the number of `.claude/agents/*.md` defs written (used by
+/// vitals). Never panics ; each failure emits a stderr line and boot
+/// continues.
+pub fn render(corpus_rt: Option<&crate::runtime::Runtime>) -> usize {
     let Some(dir) = source_dir() else {
         eprintln!("  ⚠ agent_defs: cannot resolve repo root");
         return 0;
@@ -71,16 +87,17 @@ pub fn render() -> usize {
     inject_claude_md(&hecks_root.join("CLAUDE.md"), &door);
     inject_claude_md(&hecks_root.join("hecks_conception/CLAUDE.md"), &door);
 
-    // 2) Generate each custom .claude/agents/<name>.md from the fixtures.
-    let fixtures_path = dir.join("agent_instrumentation.fixtures");
-    let source = match fs::read_to_string(&fixtures_path) {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!("  ⚠ agent_defs: fixtures not found at {} ({})", fixtures_path.display(), e);
-            return 0;
-        }
+    // 2) Generate each custom .claude/agents/<name>.md from the ESTABLISHED
+    //    AgentDefinition records on the completion runtime.
+    let Some(rt) = corpus_rt else {
+        eprintln!("  ⚠ agent_defs: boot completion failed — skipping defs projection (previous defs stay)");
+        return 0;
     };
-    let parsed = crate::fixtures_parser::parse(&source);
+    let records = rt.all("AgentDefinition");
+    if records.is_empty() {
+        eprintln!("  ⚠ agent_defs: no AgentDefinition records established — skipping defs projection");
+        return 0;
+    }
     let agents_dir = hecks_root.join(".claude/agents");
     if let Err(e) = fs::create_dir_all(&agents_dir) {
         eprintln!("  ⚠ agent_defs: mkdir {} failed ({})", agents_dir.display(), e);
@@ -88,14 +105,8 @@ pub fn render() -> usize {
     }
 
     let mut written = 0usize;
-    for f in parsed.fixtures.iter().filter(|f| f.aggregate_name == "AgentDefinition") {
-        let get = |k: &str| {
-            f.attributes
-                .iter()
-                .find(|(a, _)| a == k)
-                .map(|(_, v)| v.clone())
-                .unwrap_or_default()
-        };
+    for rec in records {
+        let get = |k: &str| bare(rec.get(k));
         let name = get("name");
         if name.is_empty() {
             continue;

@@ -21,7 +21,7 @@ use storehouse::runtime::Runtime;
 use storehouse::server::{html_diagram, html_shared, route};
 
 const AUTHZ: &str =
-    include_str!("../../hecks_conception/aggregates/framework/authorization/authorization.bluebook");
+    include_str!("../../hecks_conception/aggregates/framework/authorization/bluebook/authorization.bluebook");
 const DEMO: &str = include_str!("fixtures/authz_demo.bluebook");
 
 /// Env hygiene — same recipe as http_door_gate_test : never let the ambient

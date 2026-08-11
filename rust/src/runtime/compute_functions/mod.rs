@@ -42,6 +42,8 @@ pub mod aggregate_corpus_window;
 pub mod dream_corpus_stopwords;
 pub mod dream_corpus_json;
 pub mod tokenize_dream_corpus;
+#[cfg(test)]
+mod tokenize_dream_corpus_tests;
 
 /// Registry dispatcher — match the function name and call the
 /// corresponding implementation. Adding a function here is the

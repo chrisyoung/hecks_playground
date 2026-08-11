@@ -28,10 +28,10 @@ Hecks.bluebook "Filesystem", version: "2026.05.29.1" do
   # Tracked by policy-cmd-needs-interpolation-or-bin-scripts card.
 
   aggregate "Filesystem", "Filesystem operation invocations as typed Door commands. State carries the last output via last_output so downstream policies can read results without re-running. Pure invocation record: each command mints a fresh record keyed by id. Mirrors Cargo aggregate shape." do
-    identified_by :id
+    identified_by { id.value }
 
     attribute :id, Id
-    attribute :last_output, RenderResult, default: ""
+    attribute :last_output, RenderResult, default: { value: "" }
 
     value_object "Id" do
       # Stable invocation id, minted by the caller before dispatch.

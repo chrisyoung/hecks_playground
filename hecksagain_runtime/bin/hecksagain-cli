@@ -1,0 +1,114 @@
+#!/usr/bin/env ruby
+# hecksagain-cli — the storehouse-mcp-facing entrypoint over HecksagainRuntime.
+# Replaces rust/cli's `storehouse` binary as the thing STOREHOUSE_BIN points
+# at. Each subcommand prints ONE line of JSON to stdout and exits 0/1 --
+# no cascade/timeline text, no stdout-log-scraping contract to honor (see
+# Part 5 of the migration plan: this is a deliberate simplification, not a
+# preserved-shape compatibility layer).
+#
+# Subcommands (mirrors what tooling/storehouse-mcp's .mjs defs call):
+#   hecksagain-cli dispatch <root> <FQN> [k=v ...]
+#   hecksagain-cli query    <root> <FQN> [k=v ...]
+#   hecksagain-cli state    <root> <Aggregate::FQN> <id>
+#   hecksagain-cli catalog  <root>
+#   hecksagain-cli describe <root> <Aggregate::FQN>
+#   hecksagain-cli list     <root>
+#   hecksagain-cli validate <root>
+#   hecksagain-cli macrophage <root>          (reads tool-call JSON from stdin)
+#   hecksagain-cli governed-door <root> <tool-name>
+#   hecksagain-cli behaviors <path>           (NOT YET SUPPORTED -- see below)
+#   hecksagain-cli conceive-behaviors <path>  (NOT YET SUPPORTED -- see below)
+
+$LOAD_PATH.unshift File.expand_path("../../vendor/hecksagain/lib", __dir__)
+$LOAD_PATH.unshift File.expand_path("../lib", __dir__)
+
+require "hecksagain_runtime"
+require "hecksagain_runtime/governed_door"
+require "hecksagain_runtime/macrophage_bridge"
+require "json"
+
+def parse_kv(pairs)
+  pairs.to_h do |pair|
+    k, v = pair.split("=", 2)
+    parsed = begin
+      JSON.parse(v)
+    rescue JSON::ParserError, TypeError
+      v
+    end
+    [k, parsed]
+  end
+end
+
+subcommand, root, *rest = ARGV
+
+result =
+  case subcommand
+  when "dispatch"
+    verb, *kv = rest
+    HecksagainRuntime.dispatch(root, verb, parse_kv(kv))
+  when "query"
+    verb, *kv = rest
+    HecksagainRuntime.query(root, verb, parse_kv(kv))
+  when "state"
+    aggregate_fqn, id = rest
+    HecksagainRuntime.state(root, aggregate_fqn, id)
+  when "catalog"
+    HecksagainRuntime.catalog(root)
+  when "describe"
+    HecksagainRuntime.describe_aggregate(root, rest.first)
+  when "list"
+    HecksagainRuntime.list_aggregates(root)
+  when "validate"
+    HecksagainRuntime.validate(root)
+  when "macrophage"
+    payload = JSON.parse($stdin.read)
+    HecksagainRuntime::MacrophageBridge.call(root, payload)
+  when "governed-door"
+    HecksagainRuntime::GovernedDoor.lookup_door(root, rest.first)
+  when "behaviors", "conceive-behaviors"
+    # REAL, DOCUMENTED SCOPE DECISION (migration plan Part 5 / Part 1
+    # item 5, "correction to an earlier claim" pass): checked directly,
+    # not assumed -- grepped both the vendored copy AND the untouched
+    # original ~/Projects/hecksagain (read-only, never modified) for
+    # BehaviorRuntime / a `.behaviors` file interpreter / any bin/*
+    # script that runs one. Zero hits, either place. hecksagain's own
+    # testing convention is plain RSpec + JSON corpus fixtures -- a
+    # DIFFERENT format, not a superset of `.behaviors` (Part 1 item 5's
+    # own framing). The retired Rust `storehouse` binary's behaviors
+    # engine (rust/src/behaviors_runner.rs, behaviors_parser.rs,
+    # behaviors_conceiver/) has no Ruby port and porting one (a real
+    # DSL interpreter, not a plumbing fix) is out of this pass's scope --
+    # same "neither path was completable within the session" judgment
+    # already made for the harder bare-primitive-attribute gap.
+    # Returning a clear, honest, non-crashing "not yet supported" beats
+    # both a silent no-op that pretends success and an opaque "unknown
+    # subcommand" -- the caller gets told WHY, not just THAT.
+    { ok: false, supported: false,
+      error: "hecksagain has no .behaviors interpreter (migration plan Part 1 item 5, deliberately not yet ported -- checked directly against both the vendored copy and the untouched original ~/Projects/hecksagain, zero hits). hecksagain's own testing convention is RSpec + JSON corpus fixtures, not `.behaviors` files." }
+  else
+    { ok: false, error: "unknown subcommand #{subcommand.inspect}" }
+  end
+
+puts JSON.generate(result)
+# EXIT CODE, not the same question as the JSON's own `ok` field for every
+# subcommand -- found live this pass (storehouse-mcp rewrite, migration
+# plan Part 5 "correction" pass): `state`'s `ok` deliberately carries
+# "was a record found?" (HecksagainRuntime.state's own doc comment : "A
+# missing record returns ok:false ... not an error — 'no such record' is
+# a normal answer to a state query"), a DIFFERENT question from "did this
+# CLI invocation itself fail?" every other subcommand's `ok` answers. A
+# blanket `exit(ok == false ? 1 : 0)` conflated the two, so a plain miss
+# (no `error_class`, nothing actually raised) exited 1 same as a real
+# crash -- state.mjs's `toMcpResponse` reads that exit code straight into
+# `isError`, so a normal "no such record" answer surfaced as an MCP tool
+# ERROR. Scoped to `state` alone : `describe`'s own "no such aggregate"
+# miss deliberately DOES want isError=true (a caller correction, not a
+# graceful empty answer -- see describe_aggregate.mjs's own miss-message
+# design), so the general `ok`-driven rule stays correct everywhere else.
+exit_code =
+  if subcommand == "state"
+    result[:error_class] ? 1 : 0
+  else
+    result[:ok] == false ? 1 : 0
+  end
+exit(exit_code)

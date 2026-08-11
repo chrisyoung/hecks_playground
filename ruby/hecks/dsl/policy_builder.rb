@@ -46,6 +46,7 @@ module Hecks
         @attribute_map = {}
         @condition = nil
         @defaults = {}
+        @wheres = []
       end
 
       # Set the event this policy reacts to.
@@ -141,6 +142,43 @@ module Hecks
       def defaults(**hash)
         @defaults.merge!(hash)
       end
+
+      # Gate the policy on the DATA of the triggering event.
+      #
+      # `where transfer: { ne: "" }` reads : only fire for events that carry
+      # a transfer. It is what keeps a cascade to the events it was written
+      # for — banking's CompleteOnDeposited fires on Deposited, and without
+      # the guard a MANUAL deposit (no transfer) would mint a phantom
+      # Transfer. The clause is checked against the event's own fields
+      # before the trigger is dispatched.
+      #
+      # Two forms, both mirroring rust parse_blocks::parse_where_line :
+      #
+      #   where status: "open"            # implicit :eq
+      #   where transfer: { ne: "" }      # comparator hash
+      #
+      # Ops : :eq :ne :gt :gte :lt :lte :in — the same set as ir::WhereOp.
+      # Rust has parsed and HONOURED this since the deciderate data-guard
+      # work ; Ruby raised NoMethodError on the word, so every bluebook
+      # using it (banking) was unreadable on this side. The canonical IR
+      # dump serialises only QUERY wheres, so the parity harness could not
+      # see the divergence either.
+      #
+      # @param clauses [Hash{Symbol => Object}] field => literal, or
+      #   field => { op => value }
+      # @return [void]
+      def where(**clauses)
+        clauses.each do |field, raw|
+          if raw.is_a?(Hash) && raw.size == 1 && WHERE_OPS.include?(raw.keys.first.to_sym)
+            op, value = raw.first
+            @wheres << { field: field.to_s, op: op.to_sym, value: value }
+          else
+            @wheres << { field: field.to_s, op: :eq, value: raw }
+          end
+        end
+      end
+
+      WHERE_OPS = %i[eq ne gt gte lt lte in].freeze
 
       # Set an anti-corruption translation block for cross-context policies.
       #

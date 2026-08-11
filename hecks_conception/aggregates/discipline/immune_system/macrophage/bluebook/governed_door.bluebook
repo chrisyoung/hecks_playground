@@ -35,7 +35,7 @@ Hecks.bluebook "Macrophage", version: "2026.06.26.2" do
   #     into the macrophage that owns the governed-door rule.
 
   aggregate "GovernedDoor", "The governed-door rule : the native->door map (PROJECTED from the command IR via LookupDoor, no stored rows) AND the per-record audit of blocked native-tool attempts (one immutable record per denial). The bluebook of record for what the governed-door hooks redirect to and log." do
-    identified_by :id
+    identified_by { id.value }
 
     # One record per blocked attempt — the denial audit (Pizzas Order shape).
     attribute :id,          Id
@@ -92,6 +92,7 @@ Hecks.bluebook "Macrophage", version: "2026.06.26.2" do
     end
 
     query "ByTool" do
+      attribute :tool_name, ToolName
       description "Every denial recorded for one native tool by name — the per-tool audit."
       where tool_name: :tool_name
     end
@@ -99,8 +100,9 @@ Hecks.bluebook "Macrophage", version: "2026.06.26.2" do
     # ── THE MAP : projected from the command IR ──
 
     query "LookupDoor" do
-      description "Look up the storehouse-door equivalent for one native tool by name. PROJECTS the map from the command IR : scans every command for the door whose `redirects_native` list contains the queried tool and returns its fully-qualified door command plus door_args derived from that command's own attributes — there is no stored map, no Register, no fixtures. Returns the door + args when the tool is governed, or empty when it is not (control-plane tools, mcp__storehouse__*). The governed-door hooks call this per dispatch to render the redirect message. A computed meta-query the runtime special-cases — like MatchInput / CausationTrace — because a record-filter `where` cannot iterate the IR's own command structure. It ignores the stored denial records entirely."
-      where tool: :tool
+      description "Look up the storehouse-door equivalent for one native tool by name. PROJECTS the map from the command IR : scans every command for the door whose `redirects_native` list contains the queried tool and returns its fully-qualified door command plus door_args derived from that command's own attributes — there is no stored map, no Register, no fixtures. Returns the door + args when the tool is governed, or empty when it is not (control-plane tools, mcp__storehouse__*). The governed-door hooks call this per dispatch to render the redirect message. A computed meta-query the runtime special-cases — like MatchInput / CausationTrace — because a record-filter `where` cannot iterate the IR's own command structure. It ignores the stored denial records entirely. NOT actually dispatched through hecksagain's ordinary query path (see hecksagain_runtime/lib/hecksagain_runtime/governed_door.rb's hand-written Ruby escape hatch) -- this declaration exists so LookupDoor still appears in catalog/describe output for humans and tooling, and so it satisfies hecksagain's structural query validation."
+      attribute :tool, ToolName
+      where tool_name: :tool
     end
   end
 end
