@@ -67,8 +67,9 @@ module HecksagainRuntime
           next if NON_STATE_KEYS.include?(key)
 
           raw    = state.key?(key) ? state[key] : state[key.to_s]
-          actual = Hecksagain::Runtime::Value.materialize_unwrapped(raw)
-          return fail_result(test, "expected #{key}: #{expected.inspect}, got #{actual.inspect}") unless actual == expected
+          actual = normalize(raw)
+          exp    = normalize(expected)
+          return fail_result(test, "expected #{key}: #{expected.inspect}, got #{actual.inspect}") unless actual == exp
         end
 
         pass_result(test)
@@ -108,6 +109,21 @@ module HecksagainRuntime
       # instead of guessing wrong silently. Falls back to the original
       # guess (so the resulting UnknownVerb names the aggregate the author
       # meant) only if truly no aggregate declares it.
+      # The real corpus writes VO-typed `expect` values BOTH ways: bare
+      # (`expect sweeper_id: "fleet"`) and wrapped (`expect repo:
+      # {value: "..."}`). A live record's field always comes back as a
+      # Hecksagain::Runtime::Value ; unwrapping ONLY the actual side (the
+      # obvious first fix) broke every wrapped-form expectation the other
+      # way -- found live sweeping the real corpus (i745), not guessed.
+      # Normalizing BOTH sides to the same bare-scalar-or-plain-hash shape
+      # is the one comparison that accepts either spelling.
+      def normalize(value)
+        return Hecksagain::Runtime::Value.materialize_unwrapped(value) if value.is_a?(Hecksagain::Runtime::Value)
+        return normalize(value[:value]) if value.is_a?(Hash) && value.keys == [:value]
+
+        value
+      end
+
       def qualify(command, on_aggregate, domain_name, bluebook)
         return command.to_s if command.to_s.include?(".")
 
