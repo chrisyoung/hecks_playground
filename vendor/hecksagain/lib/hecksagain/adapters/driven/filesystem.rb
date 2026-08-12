@@ -21,19 +21,29 @@ module Hecksagain
     module Filesystem
       OUTPUT_LIMIT = 100_000
 
+      # Cascade's ToolKind documents a CLOSED set ("bash"/"edit"/"read"/
+      # "write"/"grep"/"glob"/"web_fetch"/"web_search"). One lookup used by
+      # the success path, the failure path and the rescue alike — an outcome
+      # that reports a different tool kind depending on whether it worked
+      # makes the audit trail's own vocabulary drift exactly where it is
+      # being read most carefully.
+      TOOL_KINDS = { "Read" => "read", "Write" => "write",
+                     "Update" => "write", "Edit" => "edit" }.freeze
+
       module_function
 
       def execute(operation, args)
         case operation
-        when "Read"   then read(args)
-        when "Write"  then write(args, tool: "write")
-        when "Update" then write(args, tool: "write")
-        when "Edit"   then edit(args)
+        when "Read"            then read(args)
+        when "Write", "Update" then write(args, tool: kind(operation))
+        when "Edit"            then edit(args)
         else refuse(operation)
         end
       rescue StandardError => error
-        fail_with(operation.downcase, "#{error.class}: #{error.message}")
+        fail_with(kind(operation), "#{error.class}: #{error.message}")
       end
+
+      def kind(operation) = TOOL_KINDS.fetch(operation.to_s, "file")
 
       def read(args)
         path = args[:file_path].to_s
@@ -72,8 +82,18 @@ module Hecksagain
                                    "pass replace_all, or give a longer unique string")
         end
 
-        File.write(path, truthy?(args[:replace_all]) ? source.gsub(old_string, new_string) : source.sub(old_string, new_string))
-        ok("edit", "replaced #{truthy?(args[:replace_all]) ? count : 1} occurrence(s) in #{path}")
+        # THE BLOCK FORM IS NOT A STYLE CHOICE. `sub(old_string, new_string)`
+        # matches literally (String pattern) but still interpolates
+        # backreferences in the REPLACEMENT — `\1`, `\0`, `\&`, `\\` get
+        # substituted rather than written. Editing any file whose new text
+        # contains a backslash (a regex, a "\n" inside a string literal, a
+        # Windows path) would silently write the wrong bytes, and a
+        # silently-wrong edit is worse than a refused one. A block's return
+        # value is never interpolated.
+        all     = truthy?(args[:replace_all])
+        updated = all ? source.gsub(old_string) { new_string } : source.sub(old_string) { new_string }
+        File.write(path, updated)
+        ok("edit", "replaced #{all ? count : 1} occurrence(s) in #{path}")
       end
 
       def slice(lines, offset, limit)
@@ -95,7 +115,8 @@ module Hecksagain
       def fail_with(tool, output) = { tool: tool, output: output, exit_code: 1, ok: false }
 
       def refuse(operation)
-        fail_with("file", "the Filesystem adapter implements Read, Write, Update and Edit, not #{operation}")
+        fail_with(kind(operation),
+                  "the Filesystem adapter implements Read, Write, Update and Edit, not #{operation}")
       end
     end
   end

@@ -28,6 +28,11 @@ module Hecksagain
       # answer, not a failure. Only 2+ is a real error.
       NO_MATCHES = 1
 
+      # See Adapters::Filesystem::TOOL_KINDS — Cascade's ToolKind documents a
+      # closed set, and one lookup keeps the success, failure and rescue
+      # paths reporting the same kind.
+      TOOL_KINDS = { "Grep" => "grep", "Glob" => "glob" }.freeze
+
       module_function
 
       def execute(operation, args)
@@ -37,8 +42,10 @@ module Hecksagain
         else refuse(operation)
         end
       rescue StandardError => error
-        fail_with(operation.to_s.downcase, "#{error.class}: #{error.message}")
+        fail_with(kind(operation), "#{error.class}: #{error.message}")
       end
+
+      def kind(operation) = TOOL_KINDS.fetch(operation.to_s, "search")
 
       def grep(args)
         pattern = args[:pattern].to_s
@@ -89,7 +96,7 @@ module Hecksagain
       def fail_with(tool, output) = { tool: tool, output: output, exit_code: 1, ok: false }
 
       def refuse(operation)
-        fail_with("search", "the Search adapter implements Grep and Glob, not #{operation}")
+        fail_with(kind(operation), "the Search adapter implements Grep and Glob, not #{operation}")
       end
     end
   end

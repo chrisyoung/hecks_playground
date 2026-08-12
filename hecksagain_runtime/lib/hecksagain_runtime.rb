@@ -416,9 +416,13 @@ module HecksagainRuntime
       # read off the events: a re-entered Cascade.RecordResult's events do
       # not land in this call's own `announced`, so without this a caller
       # would watch a shell command genuinely run and still see nothing
-      # come back. `compact` keeps it absent for every ordinary dispatch.
-      reply: result.reply,
-    }.compact
+      # come back.
+      #
+      # Added conditionally rather than via `.compact` — compact would ALSO
+      # drop `state` on the port-operation path (nothing is hydrated there,
+      # so state is legitimately nil), silently changing the response shape
+      # of every dispatch to fix the one key that needed it.
+    }.tap { |payload| payload[:reply] = result.reply if result.reply }
   rescue StandardError => e
     { ok: false, error: e.message, error_class: e.class.name }
   end
