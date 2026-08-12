@@ -33,6 +33,9 @@ module HecksagainRuntime
     MOONS = ["🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘"].freeze
     PRUNE = %w[.git node_modules target vendor .wrangler dist build .next coverage .venv].freeze
     MAX_DEPTH = 4
+    # Client work never surfaces on the ambient statusline — Chris's own
+    # projects render, client projects stay off it (2026-08-12).
+    CLIENT_DIRS = %w[embryonaut_clients].freeze
 
     State = Struct.new(
       :consciousness, :sleep_summary, :sleep_stage, :sleep_cycle, :sleep_total,
@@ -275,7 +278,7 @@ module HecksagainRuntime
         path = File.join(dir, name)
         next if File.symlink?(path)
         next unless File.directory?(path)
-        next if name.start_with?(".") || PRUNE.include?(name)
+        next if name.start_with?(".") || PRUNE.include?(name) || CLIENT_DIRS.include?(name)
 
         collect_channels(path, depth + 1, out)
       end
