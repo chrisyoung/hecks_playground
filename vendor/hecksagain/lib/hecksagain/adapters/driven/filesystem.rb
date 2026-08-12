@@ -49,9 +49,14 @@ module Hecksagain
         path = args[:file_path].to_s
         return fail_with("read", "#{path}: no such file") unless File.file?(path)
 
-        lines  = File.readlines(path)
+        lines = File.readlines(path)
+        # An empty file and a successful read that returned nothing are
+        # indistinguishable as a blank body at exit 0. Say which it is.
+        return ok("read", "... [empty file: 0 lines]") if lines.empty?
+
         window = slice(lines, args[:offset], args[:limit])
-        ok("read", cap(window.join) + coverage(lines, window, args[:offset]))
+        shown  = fit(window)
+        ok("read", shown.join + coverage(lines, shown, args[:offset]))
       end
 
       # A FRAGMENT MUST ANNOUNCE ITSELF. `read` knows the file's true length
@@ -67,15 +72,37 @@ module Hecksagain
       # byte-verbatim as the header promises, so read and edit still compose.
       # Only a genuine fragment carries the extra line. Same shape as cap's
       # own "... [truncated at N bytes]" notice.
-      def coverage(lines, window, offset)
-        return "" if window.size >= lines.size
+      def coverage(lines, shown, offset)
+        return "" if shown.size >= lines.size
 
         from = offset.to_i
         from = 0 if from.negative?
-        return "\n... [fragment: no lines at offset #{from} of #{lines.size}]" if window.empty?
+        return "\n... [fragment: no lines at line #{from + 1} of #{lines.size}]" if shown.empty?
 
-        "\n... [fragment: lines #{from + 1}-#{from + window.size} of #{lines.size} " \
-          "- #{lines.size - window.size} not shown]"
+        "\n... [fragment: lines #{from + 1}-#{from + shown.size} of #{lines.size} " \
+          "- #{lines.size - shown.size} not shown]"
+      end
+
+      # The byte cap cuts on WHOLE LINES so that coverage can be counted
+      # from what actually survived it. Cutting mid-line and then counting
+      # the PRE-cut window is how a truncation notice comes to claim more
+      # lines than it showed — a number that agrees with the caller instead
+      # of with the file, which is the very failure this footer exists to
+      # end. One honest footer, not two notices that disagree.
+      #
+      # A single line longer than the whole budget is kept, byte-capped, so
+      # an enormous minified line reports as one shown line rather than
+      # vanishing into "no lines".
+      def fit(lines)
+        kept = []
+        size = 0
+        lines.each do |line|
+          break if size + line.bytesize > OUTPUT_LIMIT
+
+          kept << line
+          size += line.bytesize
+        end
+        kept.empty? && !lines.empty? ? [cap(lines.first)] : kept
       end
 
       def write(args, tool:)

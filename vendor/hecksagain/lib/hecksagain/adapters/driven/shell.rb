@@ -55,10 +55,23 @@ module Hecksagain
       # On success stdout alone is the answer. On failure stderr is usually
       # the only thing that explains it, so both ride out together rather
       # than handing back a silent empty string.
+      # SILENCE MUST NOT RENDER AS SUCCESS. A command that exits 0 having
+      # printed nothing comes back as an empty string, which lands under a
+      # success header as a blank body — and a blank body reads as "nothing
+      # is there" when it equally means "the command looked in the wrong
+      # place". A grep whose --include excluded the only matching extension,
+      # a find rooted at a directory that does not hold what was sought, an
+      # ls of a glob that matched nothing: all exit 0 and print nothing.
+      # This cannot make a shell tool honest about its own scope — only the
+      # tool knows what it looked at — but it can stop emptiness from
+      # arriving disguised as an answer.
       def body(stdout, stderr, code)
         return stdout if code.zero? && !stdout.empty?
 
-        [stdout, stderr].reject { |stream| stream.nil? || stream.empty? }.join("\n")
+        joined = [stdout, stderr].reject { |stream| stream.nil? || stream.empty? }.join("\n")
+        return joined unless joined.empty?
+
+        "... [no output - exited #{code}, wrote nothing to stdout or stderr]"
       end
 
       def cap(text)
