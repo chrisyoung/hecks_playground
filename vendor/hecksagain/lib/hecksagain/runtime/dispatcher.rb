@@ -15,7 +15,22 @@ module Hecksagain
     class Dispatcher
       MAX_REACTION_DEPTH = 5
 
-      Result = Struct.new(:verb, :instance, :events, keyword_init: true) do
+      # THE DOMAIN'S OWN OUTCOME CHAIN — where an execution-port reply is
+      # recorded once the adapter has run. Cascade's own bluebook already
+      # declares exactly this ("After a ShellTool / FileTool / SearchTool
+      # dispatch runs through its adapter, the adapter chains
+      # Cascade.RecordResult carrying the captured outcome"), so the
+      # dispatcher re-enters that command rather than inventing a second
+      # place for tool outcomes to live.
+      CASCADE_VERB = "Cascade::Cascade.RecordResult".freeze
+
+      # `reply` is the execution port's returned value (Ports::Execution) —
+      # nil for the overwhelming majority of dispatches, which touch no
+      # impure edge at all. It rides on the Result because `events` alone
+      # cannot carry it: a re-entered command's events go into the registry's
+      # event log, not into this call's `announced`, so a caller reading only
+      # events would watch a shell command run and still see nothing.
+      Result = Struct.new(:verb, :instance, :events, :reply, keyword_init: true) do
         # `instance` is nil for a port operation dispatched by verb (below)
         # — nothing was hydrated or saved, the same reason
         # `PortOperationInterpreter#emit`'s own comment gives for sourcing
@@ -98,11 +113,21 @@ module Hecksagain
           announced.each { |event| (event.correlation ||= {}).merge!(saga_correlation) }
         end
 
+        # THE IMPURE EDGE, AFTER THE DOMAIN HAS AGREED — the command has
+        # already passed its givens, its role gate and its ensures, and the
+        # record is saved. Only then does the bound adapter actually run, so
+        # a refused command never reaches the world. A port operation
+        # (`command_name` carrying a dot) is skipped: it is an adapter
+        # calling IN, and running an adapter for it would invert the
+        # direction the port exists to express.
+        reply = command_name.include?(".") ? nil : perform_execution(domain, aggregate, command_name, args)
+        announced.concat(record_outcome(reply, args)) if reply
+
         announced.each { |event| @policies.react(event, domain) }
 
         announced.each { |event| @sagas.advance(event, domain) }
 
-        Result.new(verb: verb, instance: instance, events: announced)
+        Result.new(verb: verb, instance: instance, events: announced, reply: reply)
       end
 
       # THE DOOR AN ADAPTER OUTSIDE THE BLUEBOOK CALLS THROUGH — never the
@@ -174,6 +199,36 @@ module Hecksagain
       def max_reaction_depth      = MAX_REACTION_DEPTH
 
       private
+
+      # Vendored addition, not (yet) upstream hecksagain — see
+      # ports/execution.rb for the whole story. An aggregate with no
+      # `executed_by` bind returns nil here and nothing changes for it,
+      # which is every aggregate in every domain but the tool ones.
+      def perform_execution(domain, aggregate, command_name, args)
+        Ports::Execution.perform(@registry, domain, aggregate, command_name, args)
+      end
+
+      # An adapter that ran is a fact about the domain, so it is recorded as
+      # one. Guarded on Cascade actually being loaded — a corpus that binds
+      # an execution adapter without Cascade in it still gets its reply back
+      # on the Result, it just has no outcome chain to write to.
+      #
+      # Failures here are swallowed DELIBERATELY and reported in-band: the
+      # adapter has already run and its output is already in hand, so
+      # raising would throw away a real result over a bookkeeping problem.
+      def record_outcome(reply, args)
+        return [] unless @registry.bluebook("Cascade")
+
+        reenter(CASCADE_VERB,
+                id:        args[:id].to_s,
+                tool:      reply[:tool].to_s,
+                output:    reply[:output].to_s,
+                exit_code: reply[:exit_code].to_i,
+                ok:        reply[:ok] ? true : false).events
+      rescue StandardError => error
+        reply[:cascade_error] = "#{error.class}: #{error.message}"
+        []
+      end
 
       def parse(verb)
         Naming.split_verb(verb) ||

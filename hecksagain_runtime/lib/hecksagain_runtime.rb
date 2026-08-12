@@ -410,7 +410,15 @@ module HecksagainRuntime
       ok: true,
       state: result.state,
       events: result.events.map { |e| { name: e.name, aggregate: e.aggregate, id: e.id, payload: e.payload } },
-    }
+      # THE EXECUTION PORT'S REPLY — present only for a command whose
+      # aggregate binds an `executed_by` adapter (Tools::ShellTool /
+      # FileTool / SearchTool). Carried explicitly rather than left to be
+      # read off the events: a re-entered Cascade.RecordResult's events do
+      # not land in this call's own `announced`, so without this a caller
+      # would watch a shell command genuinely run and still see nothing
+      # come back. `compact` keeps it absent for every ordinary dispatch.
+      reply: result.reply,
+    }.compact
   rescue StandardError => e
     { ok: false, error: e.message, error_class: e.class.name }
   end
