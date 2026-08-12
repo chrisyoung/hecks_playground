@@ -18,6 +18,8 @@
 #   hecksagain-cli governed-door <root> <tool-name>
 #   hecksagain-cli behaviors <path>           (NOT YET SUPPORTED -- see below)
 #   hecksagain-cli conceive-behaviors <path>  (NOT YET SUPPORTED -- see below)
+#   hecksagain-cli statusline                 (prints a PLAIN line, not JSON --
+#                                               statusline-command.sh's exec contract)
 
 $LOAD_PATH.unshift File.expand_path("../../vendor/hecksagain/lib", __dir__)
 $LOAD_PATH.unshift File.expand_path("../lib", __dir__)
@@ -25,7 +27,19 @@ $LOAD_PATH.unshift File.expand_path("../lib", __dir__)
 require "hecksagain_runtime"
 require "hecksagain_runtime/governed_door"
 require "hecksagain_runtime/macrophage_bridge"
+require "hecksagain_runtime/statusline"
 require "json"
+
+# `statusline` short-circuits before the JSON-envelope machinery below --
+# Claude Code's statusLine harness execs this and renders stdout VERBATIM
+# (rust/src/run_statusline/mod.rs's own contract, ported faithfully; see
+# HecksagainRuntime::Statusline's own header). Every other subcommand
+# answers `{ok, ...}` JSON on one line; this one answers a plain rendered
+# status line instead, so it can't share that path.
+if ARGV.first == "statusline"
+  HecksagainRuntime::Statusline.run
+  exit 0
+end
 
 def parse_kv(pairs)
   pairs.to_h do |pair|
