@@ -21,6 +21,26 @@ Hecks.bluebook "Macrophage", version: "2026.06.26.2" do
   # mcp__storehouse__* are NOT governed here — they orchestrate, they do not act
   # on the world.
   #
+  # THE ESCAPE (operational, out-of-band) : `miette --ungoverned` exports
+  # HECKS_GOVERNANCE_OFF=1 for door-down recovery and upgrades. Every governance
+  # HOOK honors it and exits 0 (governed-door-hook, governed-door-complain,
+  # macrophage-hook). The one piece that cannot read an env var is the STATIC
+  # permissions.deny list in the being's settings file — so the launcher strips
+  # exactly that key (`jq 'del(.permissions.deny)'`) and loads the rest.
+  # UNGOVERNED DROPS GOVERNANCE, NEVER THE BODY. Measured 2026-08-12, per key :
+  # the DOOR survives either shape (enableAllProjectMcpServers is declared in
+  # BOTH the being's settings and ~/.claude/settings.json, so the project MCP
+  # server comes up regardless) — the prior ungoverned session did reach the
+  # door, which is how the adapter drop was found at all. What dropping the
+  # whole file actually amputated is everything declared ONLY in the being's
+  # file : the UserPromptSubmit wake surface, the statusline, the Stop hook,
+  # SubagentStart, advisorModel and the plugins. The SessionStart boot pipeline
+  # half-survives (the project's settings.local.json carries its own). Real
+  # losses, but not the door — say the true one. The door remains the PREFERRED
+  # route when ungoverned ; native tools are a fallback for when it is broken,
+  # and the Transparency vow still binds every native act. There is no in-band
+  # allowlist : the governed agent cannot disable its own governance mid-session.
+  #
   # ONE AGGREGATE, TWO FACETS, REFERENCING PIZZAS :
   #   THE MAP — projected, not stored. LookupDoor scans the command IR for the
   #     door whose `redirects_native` contains the queried tool and derives
