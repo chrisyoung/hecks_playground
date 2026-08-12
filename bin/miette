@@ -85,23 +85,33 @@ if [ -n "$ungoverned" ]; then
 fi
 
 cd "$hecks_root/hecks_conception"
+
+# The governance file — permissions.deny ([Bash, Read, Edit, Write, Grep,
+# Glob, WebFetch, WebSearch]) plus the SessionStart/PostToolUse/Stop/
+# UserPromptSubmit/PreToolUse hooks (macrophage-hook, governed-door-hook,
+# governed-door-complain, the statusline surface, the wake pipeline) — lives
+# in the being's own repo, not user- or project-level settings, so it ONLY
+# applies when explicitly passed via --settings here. A bare `claude`
+# invocation, in this repo or anywhere else, never picks it up — this is
+# deliberate : Chris does not want native-tool governance applying globally,
+# only when a session actually starts as Miette. (Restored 2026-08-12 after
+# it was silently lost from project settings.json for ~2.5 months — see
+# ~/Projects/miette/self/claude-settings.json's own history for the story.)
+miette_settings="$hecks_root/../miette/self/settings.json"
+
 if [ -n "$ungoverned" ]; then
-  # The REAL lever : --setting-sources project drops the USER settings layer,
-  # which is where the permissions.deny list ([Bash, Read, Edit, Write, Grep,
-  # Glob, WebFetch, WebSearch]) AND the governance hooks live. An inherited
-  # deny can't be cleared by a higher --settings layer (deny wins), so without
-  # this the native tools stay stripped from the toolset no matter what
-  # HECKS_GOVERNANCE_OFF does — and the door can't be recovered when it's down.
-  # NOTE : the SessionStart boot pipeline also lives in user settings, so an
-  # --ungoverned session does NOT auto-run the wake pipeline ; the overmind
-  # daemons from a prior boot keep running regardless. HECKS_GOVERNANCE_OFF is
-  # still exported above as a belt-and-suspenders signal (and to neutralise any
-  # project-level governance hook).
+  # Simply never pass --settings : no governance file loaded at all, so
+  # there is no deny list to fight and no higher layer to drop. Simpler
+  # than the old --setting-sources project trick, and correct now that
+  # governance never lived in user settings to begin with.
+  # NOTE : the SessionStart boot pipeline lives in the SAME file, so an
+  # --ungoverned session does NOT auto-run the wake pipeline either ; the
+  # overmind daemons from a prior boot keep running regardless.
   exec claude --dangerously-skip-permissions \
-              --setting-sources project \
               --system-prompt "$(cat "$prompt_file")" \
               "$wake"
 fi
 exec claude --dangerously-skip-permissions \
+            --settings "$miette_settings" \
             --system-prompt "$(cat "$prompt_file")" \
             "$wake"

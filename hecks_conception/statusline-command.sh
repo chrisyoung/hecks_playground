@@ -20,6 +20,13 @@ script="$0"
 while [ -L "$script" ]; do script="$(readlink "$script")"; done
 script_dir="$(cd "$(dirname "$script")" && pwd)"
 hecks_root="$(cd "$script_dir/.." && pwd)"
-hecks="${STOREHOUSE:-$hecks_root/rust/target/release/storehouse}"
+# REPOINTED (hecksagain cutover, 2026-08-12): the old Rust storehouse
+# binary can no longer safely parse hecks_conception, since its content
+# is now hecksagain-shaped. hecksagain-cli's own `statusline` subcommand
+# is a verified, faithful Ruby port of the same rust/src/run_statusline/
+# rendering logic (confirmed byte-identical live output, modulo the
+# heart-glyph animation frame) — see hecksagain_runtime/lib/
+# hecksagain_runtime/statusline*.rb.
+hecks="${STOREHOUSE:-$hecks_root/hecksagain_runtime/bin/hecksagain-cli}"
 
 exec "$hecks" statusline
