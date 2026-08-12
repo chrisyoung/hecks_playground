@@ -15,6 +15,7 @@ require "hecksagain"
 require "json"
 require "fileutils"
 require "digest"
+require_relative "behaviors_runner"
 
 # Vendored addition, not (yet) upstream hecksagain (migration plan task
 # 8): `hecksagain/presentation` is DELIBERATELY not required by `require

@@ -16,7 +16,8 @@
 #   hecksagain-cli validate <root>
 #   hecksagain-cli macrophage <root>          (reads tool-call JSON from stdin)
 #   hecksagain-cli governed-door <root> <tool-name>
-#   hecksagain-cli behaviors <path>           (NOT YET SUPPORTED -- see below)
+#   hecksagain-cli behaviors <path>           (path: a .behaviors file, or a
+#                                               dir to sweep -- i745)
 #   hecksagain-cli conceive-behaviors <path>  (NOT YET SUPPORTED -- see below)
 #   hecksagain-cli statusline                 (prints a PLAIN line, not JSON --
 #                                               statusline-command.sh's exec contract)
@@ -79,26 +80,31 @@ result =
     HecksagainRuntime::MacrophageBridge.call(root, payload)
   when "governed-door"
     HecksagainRuntime::GovernedDoor.lookup_door(root, rest.first)
-  when "behaviors", "conceive-behaviors"
-    # REAL, DOCUMENTED SCOPE DECISION (migration plan Part 5 / Part 1
-    # item 5, "correction to an earlier claim" pass): checked directly,
-    # not assumed -- grepped both the vendored copy AND the untouched
-    # original ~/Projects/hecksagain (read-only, never modified) for
-    # BehaviorRuntime / a `.behaviors` file interpreter / any bin/*
-    # script that runs one. Zero hits, either place. hecksagain's own
-    # testing convention is plain RSpec + JSON corpus fixtures -- a
-    # DIFFERENT format, not a superset of `.behaviors` (Part 1 item 5's
-    # own framing). The retired Rust `storehouse` binary's behaviors
-    # engine (rust/src/behaviors_runner.rs, behaviors_parser.rs,
-    # behaviors_conceiver/) has no Ruby port and porting one (a real
-    # DSL interpreter, not a plumbing fix) is out of this pass's scope --
-    # same "neither path was completable within the session" judgment
-    # already made for the harder bare-primitive-attribute gap.
-    # Returning a clear, honest, non-crashing "not yet supported" beats
-    # both a silent no-op that pretends success and an opaque "unknown
-    # subcommand" -- the caller gets told WHY, not just THAT.
+  when "behaviors"
+    # i745 -- ported from rust/src/behaviors_runner.rs + behaviors_parser.rs
+    # (build the behaviors runtime BEFORE the Rust parser is deleted, per
+    # Chris's explicit order ; see HecksagainRuntime::BehaviorsRunner's own
+    # header for the ported semantics and the one disclosed deviation --
+    # hecksagain's dispatcher has no cascade-off mode). `root` is a single
+    # `.behaviors` file OR a directory to sweep ; either way `ok:true`
+    # always carries `files_swept`/`summary` counts so a green result says
+    # how much it actually looked at, not just that it found nothing wrong.
+    if root && File.file?(root) && root.end_with?(".behaviors")
+      r = HecksagainRuntime::BehaviorsRunner.run_file(root)
+      { ok: true, files_swept: 1, files: [r], summary: HecksagainRuntime::BehaviorsRunner.summarize([r]) }
+    elsif root && File.directory?(root)
+      { ok: true }.merge(HecksagainRuntime::BehaviorsRunner.run_corpus(root))
+    else
+      { ok: false, error: "#{root.inspect} is not a .behaviors file or a directory" }
+    end
+  when "conceive-behaviors"
+    # NOT ported -- a DIFFERENT subsystem from `behaviors` above (rust/src/
+    # behaviors_conceiver/ GENERATES a suite from a bluebook's own commands
+    # ; this CLI verb only RUNS an existing suite). Scoped out of i745 on
+    # purpose: verifying the new parser's correctness needed a runner, not
+    # a generator. Honest stub, not a silent no-op.
     { ok: false, supported: false,
-      error: "hecksagain has no .behaviors interpreter (migration plan Part 1 item 5, deliberately not yet ported -- checked directly against both the vendored copy and the untouched original ~/Projects/hecksagain, zero hits). hecksagain's own testing convention is RSpec + JSON corpus fixtures, not `.behaviors` files." }
+      error: "hecksagain has no behaviors CONCEIVER yet (rust/src/behaviors_conceiver, not ported -- distinct from `behaviors`, which now runs an existing suite, i745). Write .behaviors files by hand for now." }
   else
     { ok: false, error: "unknown subcommand #{subcommand.inspect}" }
   end
