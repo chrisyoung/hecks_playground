@@ -49,9 +49,33 @@ module Hecksagain
         path = args[:file_path].to_s
         return fail_with("read", "#{path}: no such file") unless File.file?(path)
 
-        lines = File.readlines(path)
-        lines = slice(lines, args[:offset], args[:limit])
-        ok("read", cap(lines.join))
+        lines  = File.readlines(path)
+        window = slice(lines, args[:offset], args[:limit])
+        ok("read", cap(window.join) + coverage(lines, window, args[:offset]))
+      end
+
+      # A FRAGMENT MUST ANNOUNCE ITSELF. `read` knows the file's true length
+      # at the very moment it decides to hand back less than all of it, and
+      # throwing that away is what makes a 20-line window shape-identical to
+      # a whole-file read. The reader then cannot tell "this is the file"
+      # from "this is the first tenth of it", so a claim formed from the
+      # fragment is voiced as a claim about the whole — a tool that
+      # recognises nothing refuses nothing, and agrees with whoever called
+      # it. Coverage is the fact that makes refusal possible.
+      #
+      # Appended as a trailing footer, never a gutter: a WHOLE read returns
+      # byte-verbatim as the header promises, so read and edit still compose.
+      # Only a genuine fragment carries the extra line. Same shape as cap's
+      # own "... [truncated at N bytes]" notice.
+      def coverage(lines, window, offset)
+        return "" if window.size >= lines.size
+
+        from = offset.to_i
+        from = 0 if from.negative?
+        return "\n... [fragment: no lines at offset #{from} of #{lines.size}]" if window.empty?
+
+        "\n... [fragment: lines #{from + 1}-#{from + window.size} of #{lines.size} " \
+          "- #{lines.size - window.size} not shown]"
       end
 
       def write(args, tool:)
