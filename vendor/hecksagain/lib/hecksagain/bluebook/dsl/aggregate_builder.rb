@@ -262,7 +262,27 @@ module Hecksagain
           def respond_to_missing?(*) = true
         end
 
-        def fixture(*, **, &block)
+        # Chris's call (2026-08-13, i745/i748): still ACCEPTED so the file
+        # boots -- hecksagain has no fixture-LOADING mechanism at all yet
+        # (not even the separate .fixtures-file convention bin-buddy relies
+        # on ; real seeding is a genuine subsystem build, its own decision,
+        # not attempted here) -- but no longer PURELY silent. A stderr
+        # warning at parse time surfaces through every subcommand that
+        # boots this file (validate, dispatch, behaviors alike), not just
+        # one path -- cheaper than adding a whole new warnings-collection
+        # channel to validate's own return shape, and it names the record
+        # so a caller currently blind to this real content loss can grep
+        # for it.
+        def fixture(*args, **kwargs, &block)
+          # The first positional arg is usually just the aggregate name
+          # repeated (`fixture "Train", train_number: "MT-100", ...`), not a
+          # distinguishing record id -- fold in the first non-`on:` kwarg
+          # too, so two records on the same aggregate don't log identically.
+          name   = args.first || "(unnamed)"
+          detail = kwargs.reject { |k, _| k == :on }.first
+          suffix = detail ? " #{detail[0]}=#{detail[1].inspect}" : ""
+          $stderr.puts "[fixture] #{@name}.fixture(#{name.inspect}#{suffix}) accepted but NOT seeded " \
+                       "-- hecksagain has no fixture-loading mechanism yet (i745/i748)"
           InlineFixtureFieldStub.new.instance_eval(&block) if block
         end
 
