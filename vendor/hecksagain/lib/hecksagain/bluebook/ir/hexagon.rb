@@ -49,15 +49,35 @@ module Hecksagain
         def to_h = { adapter_name: adapter_name, kind: kind, arg: arg, dispatch_command: dispatch_command }
       end
 
-      class Hecksagon
-        attr_reader :domain, :binds, :subscriptions, :framework_members, :driving_handlers
+      # i747 — the DRIVEN side's counterpart to Bind's on:/success/failure :
+      # `adapter "X" do driven on "Domain::Aggregate.Event" do dispatch
+      # "Domain::Aggregate.Command", field: "{event_field}" ; success "..." ;
+      # failure "..." end end`. Unlike Bind (a PORT-mediated effect, async,
+      # swappable adapter), a driven handler is a direct in-process
+      # cross-context call — "no port, no family, no adapter contract"
+      # (pizzas.hecksagon's own comment) — so it lives on the Hecksagon
+      # directly, not through Registry#port_for/check_verb the way Bind
+      # does. dispatch_args carries the `{field}` interpolation map ;
+      # success/failure are optional — a driven block with neither is a
+      # fire-and-forget dispatch (examples/pizzas' own "Deposit" adapter).
+      DrivenHandler = Struct.new(:adapter_name, :event, :dispatch_command, :dispatch_args, :success, :failure,
+                                  keyword_init: true) do
+        def to_h
+          { adapter_name: adapter_name, event: event, dispatch_command: dispatch_command,
+            dispatch_args: dispatch_args, success: success, failure: failure }
+        end
+      end
 
-        def initialize(domain:, binds: [], subscriptions: [], framework_members: [], driving_handlers: [])
+      class Hecksagon
+        attr_reader :domain, :binds, :subscriptions, :framework_members, :driving_handlers, :driven_handlers
+
+        def initialize(domain:, binds: [], subscriptions: [], framework_members: [], driving_handlers: [], driven_handlers: [])
           @domain             = domain.to_s
           @binds              = binds
           @subscriptions      = subscriptions
           @framework_members  = framework_members
           @driving_handlers   = driving_handlers
+          @driven_handlers    = driven_handlers
         end
 
         def bind_for(aggregate_name, verb)
@@ -75,7 +95,8 @@ module Hecksagain
         def to_h
           { domain: @domain, binds: @binds.map(&:to_h), subscriptions: @subscriptions.map(&:to_s),
             framework_members: @framework_members.map(&:to_s),
-            driving_handlers: @driving_handlers.map(&:to_h) }
+            driving_handlers: @driving_handlers.map(&:to_h),
+            driven_handlers: @driven_handlers.map(&:to_h) }
         end
       end
 

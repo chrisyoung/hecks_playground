@@ -11,7 +11,7 @@ module Hecksagain
           attr_accessor :collector, :current_bind
         end
 
-        attr_reader :binds, :subscriptions, :framework_members, :raw_adapters, :driving_handlers
+        attr_reader :binds, :subscriptions, :framework_members, :raw_adapters, :driving_handlers, :driven_handlers
 
         def initialize(domain)
           @domain             = domain
@@ -20,6 +20,7 @@ module Hecksagain
           @framework_members  = []
           @raw_adapters       = []
           @driving_handlers   = []
+          @driven_handlers    = []
         end
 
         # Vendored addition, not (yet) upstream hecksagain (task 7 of the
@@ -65,7 +66,9 @@ module Hecksagain
           return domain_wide_persisted_by(kind) if !block && DOMAIN_WIDE_KINDS.key?(kind)
           return @raw_adapters << { kind: kind.to_s, opts: opts } unless block
 
-          @driving_handlers.concat(DrivingAdapterBuilder.build(kind, &block))
+          built = DrivingAdapterBuilder.build(kind, &block)
+          @driving_handlers.concat(built.driving_handlers)
+          @driven_handlers.concat(built.driven_handlers)
         end
 
         # Vendored addition, not (yet) upstream hecksagain: `adapter
@@ -239,7 +242,8 @@ module Hecksagain
         def build
           apply_domain_wide_defaults!
           IR::Hecksagon.new(domain: @domain, binds: @binds, subscriptions: @subscriptions,
-                             framework_members: @framework_members, driving_handlers: @driving_handlers)
+                             framework_members: @framework_members, driving_handlers: @driving_handlers,
+                             driven_handlers: @driven_handlers)
         end
 
         def self.build(domain, &block)
