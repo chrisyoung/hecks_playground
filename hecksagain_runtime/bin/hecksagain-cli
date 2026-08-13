@@ -125,9 +125,23 @@ puts JSON.generate(result)
 # miss deliberately DOES want isError=true (a caller correction, not a
 # graceful empty answer -- see describe_aggregate.mjs's own miss-message
 # design), so the general `ok`-driven rule stays correct everywhere else.
+# `behaviors` gets its OWN branch, same shape as `state`'s : `ok:true`
+# deliberately stays true even when the sweep found real failures (the
+# INVOCATION succeeded -- it correctly determined some tests failed, same
+# as `validate`'s ok:true/valid:false distinction). Without this, exit code
+# only ever reflected "did the sweep crash", never "did it find anything" --
+# a CI gate built on `hecksagain-cli behaviors` would have been GREEN no
+# matter how many tests failed, the exact always-green shape this whole
+# arc exists to end. Found live wiring test.yml (parser-removal plan,
+# Phase 2), before it shipped, not after.
 exit_code =
   if subcommand == "state"
     result[:error_class] ? 1 : 0
+  elsif subcommand == "behaviors"
+    summary = result[:summary]
+    bad = result[:ok] == false ||
+          (summary && ((summary[:failed] || 0) + (summary[:errored] || 0) + (summary[:parse_errors] || 0) > 0))
+    bad ? 1 : 0
   else
     result[:ok] == false ? 1 : 0
   end

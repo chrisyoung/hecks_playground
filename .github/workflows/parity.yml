@@ -75,42 +75,29 @@ jobs:
         working-directory: hecks/rust
         run: cargo test --release --workspace --quiet
 
-      - name: Run parser parity suite (Ruby DSL ↔ Rust IR)
-        working-directory: hecks
-        run: bundle exec ruby -Ilib parity/parity_test.rb
+      # ── Ruby-DSL ↔ Rust IR parity suites — RETIRED (parser-removal plan,
+      # Phase 2, mirroring the local hook retirement f73a34567 already did
+      # for pre-commit/pre-push). Never updated when the local hooks were:
+      # ran here on every push against a corpus hecksagain now authors, not
+      # the retired Rust parser. Same reasoning as the local retirement --
+      # the corpus no longer matches the old parser's expectations BY
+      # DESIGN, not drift. parity/ itself is now fully inert (see i745).
 
-      - name: Run behaviors-runner parity suite (Ruby ↔ Rust)
-        working-directory: hecks
-        run: bundle exec ruby -Ilib parity/behaviors_parity_test.rb
-
-      - name: Run fixtures parity suite (Ruby ↔ Rust)
-        working-directory: hecks
-        run: bundle exec ruby -Ilib parity/fixtures_parity_test.rb
-
-      - name: Run fixtures auto-load parity suite (Ruby ↔ Rust)
-        working-directory: hecks
-        run: bundle exec ruby -Ilib parity/fixtures_auto_load_parity_test.rb
-
-      - name: Run hecksagon parity suite (Ruby ↔ Rust)
-        working-directory: hecks
-        run: bundle exec ruby -Ilib parity/hecksagon_parity_test.rb
-
-      - name: Run world parity suite (Ruby ↔ Rust)
-        working-directory: hecks
-        run: bundle exec ruby -Ilib parity/world_parity_test.rb
-
-      - name: Lifecycle validator across all bluebooks
+      - name: hecksagain-cli validate (per-root)
+        # Replaces the hand-rolled check-lifecycle loop over the retired
+        # Rust binary. HecksagainRuntime::ValidateSweep (i745, Phase 1b)
+        # sweeps every domain root individually and reports which ones are
+        # invalid, not just a combined pass/fail -- a single combined boot
+        # can silently hide a broken root behind a name collision another
+        # root's boot happens to survive (confirmed live this session).
         working-directory: hecks
         run: |
-          BAD=""
-          for f in $(find hecks_conception -name "*.bluebook"); do
-            if ! rust/target/release/storehouse check-lifecycle "$f" >/dev/null 2>&1; then
-              BAD="$BAD\n  $f"
-            fi
-          done
-          if [ -n "$BAD" ]; then
-            echo "::error::Lifecycle validator found unreachable transitions:"
-            printf "$BAD\n"
+          out=$(ruby -Ivendor/hecksagain/lib -Ihecksagain_runtime/lib -r hecksagain_runtime -e 'require "json"; puts JSON.generate(HecksagainRuntime.validate("hecks_conception"))')
+          echo "$out"
+          ok=$(printf '%s' "$out" | ruby -rjson -e 'puts (JSON.parse(STDIN.read)["ok"] == true) rescue puts "false"')
+          invalid=$(printf '%s' "$out" | ruby -rjson -e 'j=JSON.parse(STDIN.read); puts j["invalid"] || 1')
+          if [ "$ok" != "true" ] || [ "$invalid" != "0" ]; then
+            echo "::error::hecksagain-cli validate found $invalid invalid root(s)"
             exit 1
           fi
-          echo "All bluebooks pass check-lifecycle"
+          echo "validate: all domain roots clean"
