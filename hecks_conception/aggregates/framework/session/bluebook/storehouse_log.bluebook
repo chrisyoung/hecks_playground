@@ -53,7 +53,12 @@ Hecks.bluebook "SessionLog", version: "2026.05.21.1" do
     value_object "Outcome" do
       # ok | error — whether the dispatch succeeded. Stored as a
       # closed-set string ; the renderer colours accordingly.
-      attribute :value, one_of("ok", "error")
+      attribute :value, String
+
+      one_of do
+        member value: "ok"
+        member value: "error"
+      end
     end
 
     value_object "ResultState" do
@@ -76,7 +81,12 @@ Hecks.bluebook "SessionLog", version: "2026.05.21.1" do
     value_object "DispatchKind" do
       # sync — result inline, one self-contained block.
       # async — outcome lands later, references parent_invocation_id.
-      attribute :value, one_of("sync", "async")
+      attribute :value, String
+
+      one_of do
+        member value: "sync"
+        member value: "async"
+      end
     end
 
     value_object "EventCount" do
@@ -102,7 +112,16 @@ Hecks.bluebook "SessionLog", version: "2026.05.21.1" do
       #                       background dispatch.
       # Chris filters the log by this : "show me everything the process
       # managers dispatched."
-      attribute :value, one_of("process-manager", "operator", "hook", "sidequest-agent", "cascade", "daemon")
+      attribute :value, String
+
+      one_of do
+        member value: "process-manager"
+        member value: "operator"
+        member value: "hook"
+        member value: "sidequest-agent"
+        member value: "cascade"
+        member value: "daemon"
+      end
     end
 
     value_object "MetadataJson" do
@@ -123,7 +142,18 @@ Hecks.bluebook "SessionLog", version: "2026.05.21.1" do
       # line by kind : dispatch=cyan, event=green, cascade-ok=green,
       # cascade-fail=red, adapter=magenta, error=bright-red,
       # fallback=yellow.
-      attribute :kind, one_of("dispatch", "event", "cascade", "adapter", "policy", "attr", "error", "fallback")
+      attribute :kind, String
+
+      one_of do
+        member value: "dispatch"
+        member value: "event"
+        member value: "cascade"
+        member value: "adapter"
+        member value: "policy"
+        member value: "attr"
+        member value: "error"
+        member value: "fallback"
+      end
       attribute :verb, String
       attribute :ok,   Bool
     end

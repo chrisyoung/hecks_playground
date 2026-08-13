@@ -56,7 +56,15 @@ Hecks.bluebook "Relationship", version: "2026.06.18.2" do
       # The English relationship verb. The verb alone carries the boundary :
       #   list_of / reference_to -> INSIDE (by local identity)
       #   has_one / has_many / belongs_to -> ACROSS (by global identity)
-      attribute :value, one_of("list_of", "reference_to", "has_one", "has_many", "belongs_to")
+      attribute :value, String
+
+      one_of do
+        member value: "list_of"
+        member value: "reference_to"
+        member value: "has_one"
+        member value: "has_many"
+        member value: "belongs_to"
+      end
     end
 
     value_object "LeafName" do
@@ -71,20 +79,38 @@ Hecks.bluebook "Relationship", version: "2026.06.18.2" do
       # Read off the verb, never authored :
       #   inside = list_of / reference_to  (a member of my boundary, local id)
       #   cross  = has_one / has_many / belongs_to  (another root, global id)
-      attribute :value, one_of("inside", "cross", "unresolved")
+      attribute :value, String
+
+      one_of do
+        member value: "inside"
+        member value: "cross"
+        member value: "unresolved"
+      end
     end
 
     value_object "Nature" do
       # Read off the scope :
       #   composition (inside) — the leaf lives in me, persisted with me.
       #   reference (cross) — I hold the leaf root's identity, never embed it.
-      attribute :value, one_of("composition", "reference", "unresolved")
+      attribute :value, String
+
+      one_of do
+        member value: "composition"
+        member value: "reference"
+        member value: "unresolved"
+      end
     end
 
     value_object "Cardinality" do
       # Read off the verb : reference_to / has_one / belongs_to -> one ;
       # list_of / has_many -> many.
-      attribute :value, one_of("one", "many", "unresolved")
+      attribute :value, String
+
+      one_of do
+        member value: "one"
+        member value: "many"
+        member value: "unresolved"
+      end
     end
 
     command "Declare" do

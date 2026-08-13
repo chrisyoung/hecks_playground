@@ -220,7 +220,15 @@ Hecks.bluebook "HecksagonIr", version: "2026.05.21.1" do
     # "json_lines", "exit_code". The dispatcher decodes stdout
     # according to this value.
     value_object "OutputFormat" do
-      attribute :value, one_of("text", "lines", "json", "json_lines", "exit_code")
+      attribute :value, String
+
+      one_of do
+        member value: "text"
+        member value: "lines"
+        member value: "json"
+        member value: "json_lines"
+        member value: "exit_code"
+      end
     end
 
     # Timeout — optional wall-clock cap in milliseconds, as a

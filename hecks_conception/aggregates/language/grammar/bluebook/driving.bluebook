@@ -35,7 +35,12 @@ Hecks.bluebook "Driving", version: "2026.06.20.1" do
       # on failure, never exits (every cadence). "one_shot" — runs once, may
       # exit (boot). Projects into overmind's OVERMIND_CAN_DIE the same way a
       # mindstream member's lifespan.kind does.
-      attribute :value, one_of("persistent", "one_shot")
+      attribute :value, String
+
+      one_of do
+        member value: "persistent"
+        member value: "one_shot"
+      end
     end
 
     value_object "Timestamp" do
@@ -62,7 +67,13 @@ Hecks.bluebook "Driving", version: "2026.06.20.1" do
 
     value_object "ScheduleKind" do
       # interval | cron | clock.
-      attribute :value, one_of("interval", "cron", "clock")
+      attribute :value, String
+
+      one_of do
+        member value: "interval"
+        member value: "cron"
+        member value: "clock"
+      end
     end
 
     value_object "Duration" do

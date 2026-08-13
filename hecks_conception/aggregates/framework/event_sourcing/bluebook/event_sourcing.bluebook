@@ -526,7 +526,14 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
       # derivable = every folded field matches the store. drifted = at least one
       # PERSISTENT mismatch survived re-measurement. empty = the Log has nothing
       # to verify yet (the gate is off, or nothing has been dispatched).
-      attribute :value, one_of("unknown", "derivable", "drifted", "empty")
+      attribute :value, String
+
+      one_of do
+        member value: "unknown"
+        member value: "derivable"
+        member value: "drifted"
+        member value: "empty"
+      end
     end
     value_object "CheckedAt" do
       attribute :value, String
