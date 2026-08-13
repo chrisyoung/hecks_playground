@@ -28,7 +28,24 @@ module Hecksagain
         @repositories = {}
         @projection_repositories = {}
         @bluebook_builders = {}
+        @loading = false
       end
+
+      # THIS REGISTRY'S OWN loading state — set true for the span of
+      # Loader.boot's file-loading phases, false once every file has been
+      # read. `Bluebook::MetaValidator.call` checks this (via
+      # `Hecksagain.current_registry`) to defer judging a multi-file domain
+      # until every file contributing to it has loaded, instead of judging
+      # each file's partial view alone the moment it loads.
+      #
+      # Registry-scoped, NOT a MetaValidator class-level flag like
+      # `bootstrapping?` — that flag's `load_grammar_into` unconditionally
+      # clears it in an `ensure`, so a lazy `grammar_registry` trigger mid-load
+      # (a different registry entirely) would clobber it out from under an
+      # outer boot still in progress. This ivar can't be, because it lives on
+      # the one Registry instance a single `Loader.boot` call owns.
+      attr_accessor :loading
+      alias_method :loading?, :loading
 
       # THE BUILDER STAYS OPEN FOR THE LIFE OF THIS REGISTRY, keyed by chapter
       # name — see the comment on `BluebookBuilder.build`. A chapter split across

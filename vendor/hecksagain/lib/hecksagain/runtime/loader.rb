@@ -30,9 +30,27 @@ module Hecksagain
         registry  = Registry.new(root: File.dirname(directory))
 
         Hecksagain.with_registry(registry) do
+          registry.loading = true
           loading.load_library
           loading.load_project(root)
           loading.load_domain(directory)
+          registry.loading = false
+
+          # FINALIZE EVERY DEFERRED DOMAIN, ONCE, NOW THAT EVERY FILE HAS
+          # LOADED. While `registry.loading?` was true, `MetaValidator.call`
+          # (meta_validator.rb) returned each file's bluebook unassembled and
+          # unjudged rather than refusing a multi-file domain over a
+          # forward reference (conductor/claim.bluebook's `belongs_to
+          # Worker`, declared later in worker.bluebook) — `registry.bluebooks`
+          # now holds, per domain, whatever the LAST file contributed :
+          # already a strict superset of every earlier file's own
+          # declarations (`BluebookBuilder.build`'s own comment), just not
+          # yet judged. Re-run `.call` for real — `loading?` is false now,
+          # so this time it assembles and raises if the WHOLE domain is
+          # still malformed, not a partial slice of it.
+          registry.bluebooks.each_key do |name|
+            registry.add_bluebook(Bluebook::MetaValidator.call(registry.bluebooks[name]))
+          end
         end
 
         # The era gate runs BEFORE verify! builds repositories: minting an

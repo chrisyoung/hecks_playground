@@ -124,6 +124,28 @@ module Hecksagain
       def self.call(bluebook)
         return bluebook if disabled? || bootstrapping?
 
+        # DEFER, DON'T VALIDATE, WHILE THE REGISTRY IS STILL LOADING FILES.
+        # A chapter split across several files (conductor/{claim,worker,...}
+        # .bluebook, all `Hecks.bluebook "Conductor"`) calls `.call` once per
+        # FILE, since `BluebookBuilder#build` runs at the end of every file's
+        # own block — so a file whose content references an aggregate a
+        # LATER file declares (claim.bluebook's `belongs_to Worker`, worker
+        # not yet loaded) judged the partial view alone and refused it, even
+        # though the fully-loaded domain is well-formed. `Loader#boot` marks
+        # its registry `loading = true` for exactly the span this matters,
+        # then re-invokes `.call` once per domain — for real, judged whole —
+        # after every file has loaded (registry.rb's own `loading?` doc has
+        # the full reasoning, including why this is registry state and not
+        # a `bootstrapping?`-style class flag).
+        #
+        # Returning `bluebook` unassembled here, exactly like the
+        # `bootstrapping?` branch above, is deliberate — whatever `Loader#boot`
+        # re-registers via the deferred call is what ends up assembled ; the
+        # intermediate, per-file value only ever needs to be a valid `IR::
+        # Bluebook` for the NEXT file's accumulation, never a judged one.
+        registry = Hecksagain.current_registry
+        return bluebook if registry&.loading?
+
         key = Digest::SHA256.hexdigest(JSON.generate(bluebook.to_h))
         held = verdicts[key] ||= hold(bluebook)
 
