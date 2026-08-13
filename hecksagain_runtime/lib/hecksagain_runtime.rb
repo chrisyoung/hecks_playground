@@ -545,6 +545,21 @@ module HecksagainRuntime
     { ok: false, error: e.message, error_class: e.class.name }
   end
 
+  # i746 step 7 -- replaces bin/adapter-host's old shell-out to a
+  # nonexistent "storehouse dump-hecksagon" subcommand. Boots root, finds
+  # the named adapter, returns its declared `handler` path (or nil if the
+  # .adapter file never declared one -- bin/adapter-host's own "fail loud"
+  # check handles that, not this method).
+  def self.adapter_handler(root, adapter_name)
+    runtime = Hecks.boot(stage_flat_corpus(root), install_facade: false)
+    adapter = runtime.registry.adapters[adapter_name]
+    return { ok: false, error: "no such adapter #{adapter_name.inspect}", available: runtime.registry.adapters.keys } unless adapter
+
+    { ok: true, adapter: adapter_name, handler: adapter.handler }
+  rescue StandardError => e
+    { ok: false, error: e.message, error_class: e.class.name }
+  end
+
   def self.symbolize(h)
     (h || {}).transform_keys { |k| k.to_s.to_sym }
   end

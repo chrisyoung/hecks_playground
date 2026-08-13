@@ -15,13 +15,26 @@ module Hecksagain
         def effect? = signal == :effect
       end
 
-      Adapter = Struct.new(:name, :port, :fields, :secrets, keyword_init: true) do
+      # `handler` — i746 step 7: the out-of-process program bin/adapter-host
+      # execs when this adapter's bound event fires (`handler "path/to/
+      # program"` in a .adapter file). Real now, not a no-op stub — read
+      # by HecksagainRuntime.adapter_handler, the hecksagain-cli
+      # adapter-handler subcommand bin/adapter-host calls instead of the
+      # nonexistent dump-hecksagon it used to shell out to.
+      Adapter = Struct.new(:name, :port, :fields, :secrets, :handler, keyword_init: true) do
         def declares?(field) = all_fields.include?(field.to_sym)
 
         def all_fields = (fields || []) + (secrets || [])
       end
 
-      Bind = Struct.new(:aggregate, :verb, :adapter, :role, keyword_init: true) do
+      # `on`/`success`/`failure` — i746: the effect-port async verdict
+      # pattern (Order.charged_by("Stripe", on: "OrderPlaced") do
+      # success "Order.Authorize" ; failure "Order.Decline" end). `on` is
+      # the triggering event name ; `success`/`failure` are bare or
+      # qualified command FQNs, filled in by BindingProxy/HecksagonBuilder
+      # at DSL-build time (binding_proxy.rb, hecksagon_builder.rb), read
+      # by Dispatcher#record_effect_outbound at dispatch time.
+      Bind = Struct.new(:aggregate, :verb, :adapter, :role, :on, :success, :failure, keyword_init: true) do
         def aggregate_name = Naming.demodulise(aggregate)
       end
 

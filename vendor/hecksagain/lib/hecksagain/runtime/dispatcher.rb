@@ -123,6 +123,8 @@ module Hecksagain
         reply = command_name.include?(".") ? nil : perform_execution(domain, aggregate, command_name, args)
         announced.concat(record_outcome(reply, args)) if reply
 
+        record_effect_outbound(announced)
+
         announced.each { |event| @policies.react(event, domain) }
 
         announced.each { |event| @sagas.advance(event, domain) }
@@ -228,6 +230,74 @@ module Hecksagain
       rescue StandardError => error
         reply[:cascade_error] = "#{error.class}: #{error.message}"
         []
+      end
+
+      # i746 — the effect-port producer. Port of rust/src/runtime/
+      # effect_outbound.rs's record_effect_outbound (IR shape:
+      # rust/src/hecksagon_ir.rs:187-209). For each just-announced event,
+      # for every hexagon's every bind whose `on` matches this event and
+      # whose adapter resolves to an EFFECT-signal port (charged_by, not
+      # persisted_by), records ONE OutboundEvent::OutboundEvent.Record
+      # carrying the qualified success/failure verdict commands — a
+      # standalone host (bin/adapter-host) later claims it, does the
+      # impure async work, and dispatches the verdict back in. The core
+      # never waits.
+      #
+      # Guarded on OutboundEvent actually being attached (uses_framework
+      # "OutboundEvent") — same precedent as record_outcome's own Cascade
+      # guard just above — so a domain that never wired the framework in
+      # pays nothing and a bind with no `on` (the overwhelming majority)
+      # short-circuits on the very next line.
+      #
+      # port_for is GUARDED, not called bare : it raises WiringError on an
+      # unresolvable adapter/port, but Rust's own equivalent `continue`s
+      # past a broken bind (effect_outbound.rs) rather than aborting the
+      # whole dispatch over one bad binding elsewhere in the corpus.
+      def record_effect_outbound(announced)
+        return if announced.empty?
+        return unless @registry.bluebook("OutboundEvent")
+
+        seen_delivery_ids = []
+
+        announced.each do |event|
+          @registry.hecksagons.each_value do |hexagon|
+            hexagon.binds.each do |bind|
+              next if bind.on.to_s.empty? || bind.on.to_s != event.name.to_s
+              next if bind.success.to_s.empty? && bind.failure.to_s.empty?
+
+              port = begin
+                @registry.port_for(bind)
+              rescue WiringError
+                next
+              end
+              next unless port.verb.to_s == bind.verb.to_s
+              next unless port.effect?
+
+              delivery_id = "#{event.aggregate}::#{event.id}::#{event.name}::#{bind.adapter}"
+              next if seen_delivery_ids.include?(delivery_id)
+
+              seen_delivery_ids << delivery_id
+
+              bind_domain = bind.aggregate.to_s.split("::").first
+              qualify = lambda do |cmd|
+                cmd = cmd.to_s
+                cmd.empty? || cmd.include?("::") ? cmd : "#{bind_domain}::#{cmd}"
+              end
+
+              reenter(
+                "OutboundEvent::OutboundEvent.Record",
+                delivery_id:     delivery_id,
+                adapter:         bind.adapter.to_s,
+                event:           event.name.to_s,
+                source_type:     event.aggregate.to_s,
+                source_id:       event.id.to_s,
+                payload:         event.payload.to_json,
+                success_command: qualify.call(bind.success),
+                failure_command: qualify.call(bind.failure)
+              )
+            end
+          end
+        end
       end
 
       def parse(verb)

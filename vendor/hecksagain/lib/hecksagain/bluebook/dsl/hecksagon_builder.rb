@@ -3,7 +3,12 @@ module Hecksagain
     module DSL
       class HecksagonBuilder
         class << self
-          attr_accessor :collector
+          # i746 — current_bind mirrors collector's own class-level-
+          # channel pattern : BindingProxy#method_missing sets this to
+          # the IR::Bind it just minted before running the bind's block,
+          # so success/failure (below) can write onto it even though the
+          # block runs with self == this builder instance, not the proxy.
+          attr_accessor :collector, :current_bind
         end
 
         attr_reader :binds, :subscriptions, :framework_members, :raw_adapters, :driving_handlers
@@ -201,18 +206,16 @@ module Hecksagain
         # instance_eval's it against the bind), so they need to exist
         # here regardless of who resolves them.
         #
-        # Stubbed structurally so the file boots — NOT a real fix. A
-        # real fix means: `on:` threaded onto IR::Bind, an actual async
-        # delivery mechanism (there is no adapter-host process in this
-        # runtime the way the Pizzas narrative implies), and genuine
-        # verdict re-entry wiring (a refused/succeeded response
-        # dispatching the named command back in). That is a whole
-        # subsystem, not a missing keyword — deliberately not attempted
-        # under this session's time pressure. TODO upstream via
-        # bin/evolve (migration plan task 7): this is the single
-        # highest-value remaining gap this migration surfaced.
-        def success(*) = nil
-        def failure(*) = nil
+        # i746 — REAL now, not a stub. `on:` is threaded onto IR::Bind
+        # (bluebook/ir/hexagon.rb), BindingProxy#method_missing mints the
+        # bind and tracks it via HecksagonBuilder.current_bind while the
+        # bind's block runs (see that file's own comment), and these two
+        # methods write the verdict commands onto it. The remaining half
+        # of the subsystem — actual async delivery + verdict re-entry —
+        # is Dispatcher#record_effect_outbound, not this builder; this is
+        # only the DSL-capture half.
+        def success(cmd) = (self.class.current_bind&.success = cmd.to_s)
+        def failure(cmd) = (self.class.current_bind&.failure = cmd.to_s)
 
         # Vendored catch-all no-op, not (yet) upstream hecksagain
         # (migration plan task 8): bin-buddy's portal `.hecksagon` files

@@ -13,6 +13,9 @@
 #   hecksagain-cli catalog  <root>
 #   hecksagain-cli describe <root> <Aggregate::FQN>
 #   hecksagain-cli list     <root>
+#   hecksagain-cli adapter-handler <root> <adapter-name>  (i746 step 7 --
+#                                               replaces bin/adapter-host's
+#                                               old dump-hecksagon shell-out)
 #   hecksagain-cli validate <root>
 #   hecksagain-cli macrophage <root>          (reads tool-call JSON from stdin)
 #   hecksagain-cli governed-door <root> <tool-name>
@@ -73,6 +76,12 @@ result =
     HecksagainRuntime.describe_aggregate(root, rest.first)
   when "list"
     HecksagainRuntime.list_aggregates(root)
+  when "adapter-handler"
+    # hecksagain-cli adapter-handler <root> <adapter-name> -- what
+    # bin/adapter-host now calls instead of its old `dump-hecksagon | jq
+    # '.adapters[0].handler'` shell-out (dump-hecksagon was never a real
+    # hecksagain-cli subcommand, i746 step 7).
+    HecksagainRuntime.adapter_handler(root, rest.first)
   when "validate"
     HecksagainRuntime.validate(root)
   when "macrophage"
