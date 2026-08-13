@@ -43,7 +43,20 @@ module Hecksagain
         # pass if Chris prefers that path instead.
         PRIMITIVE_CLASSES = [String, Integer, Float, TrueClass, FalseClass, Numeric].freeze
 
-        def attribute(name, type = String, **kwargs)
+        # NAMED, NOT **kwargs — spelled out exactly like AttributeCollector#
+        # attribute's own signature (the method this overrides). A `**kwargs`
+        # catch-all forwards fine at runtime but ERASES the signature a
+        # projected parser reads: spec/syntax_conformance_spec's "declares
+        # every keyword argument each word's builder takes" inspects
+        # `instance_method(:attribute).parameters` and only counts real
+        # `key`/`keyreq` entries, so a `**kwargs` override made every named
+        # argument syntax.bluebook declares for Aggregate.attribute
+        # (default/optional/pattern/admits/...) look unanswered — a real
+        # regression from the primitive-wrapper synthesis pass, not a
+        # deliberate signature change. Fixed at the root, not by weakening
+        # the spec.
+        def attribute(name, type = String, as: nil, default: nil, optional: false, required: nil,
+                      pattern: nil, admits: nil, logged: true, enum: nil)
           # Vendored fix, not (yet) upstream hecksagain (migration plan task
           # 4): apply the SAME inverted-form correction AttributeCollector#
           # attribute makes -- but BEFORE the primitive-wrapper check below,
@@ -55,7 +68,7 @@ module Hecksagain
           # colliding with a real hand-written `value_object "App"` a few
           # lines above it in the same file. See AttributeCollector.
           # resolve_inverted's own comment for why the check is reliable.
-          name, type = AttributeCollector.resolve_inverted(name, type, kwargs[:as])
+          name, type = AttributeCollector.resolve_inverted(name, type, as)
           type = AttributeCollector.normalize_boolean_alias(type)
 
           if PRIMITIVE_CLASSES.include?(type)
@@ -63,7 +76,8 @@ module Hecksagain
           elsif type.is_a?(ListOf) && PRIMITIVE_CLASSES.include?(type.type)
             type = ListOf.new(synthesise_primitive_wrapper(name, type.type))
           end
-          super(name, type, **kwargs)
+          super(name, type, as: as, default: default, optional: optional, required: required,
+                pattern: pattern, admits: admits, logged: logged, enum: enum)
         end
 
         def synthesise_primitive_wrapper(name, primitive_class)

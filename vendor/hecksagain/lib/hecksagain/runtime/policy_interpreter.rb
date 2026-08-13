@@ -1,6 +1,7 @@
 require_relative "../naming"
 require_relative "errors"
 require_relative "query_interpreter"
+require_relative "refusal_wording"
 
 
 module Hecksagain
@@ -57,10 +58,19 @@ module Hecksagain
       end
 
       def deliver(policy, event, domain)
-        return deliver_for_each(policy, event, domain) if policy.for_each
-
+        # `record` ASSIGNED BEFORE THE for_each BRANCH, not after — both
+        # rescue clauses below call `.merge` on it, and a `return` early
+        # (the for_each fan-out has no single record of its own; it
+        # rescues its OWN failures per-row, below) used to leave `record`
+        # unassigned, so a genuine defect inside `deliver_for_each` was
+        # caught here only to raise a SECOND, different `NoMethodError`
+        # (`undefined method 'merge' for nil`) trying to record the
+        # first one. Computing it unconditionally, first, means this
+        # method's own defect handling can never fail that second way.
         target = "#{policy.target_domain || domain}::#{policy.trigger_command}"
         record = { policy: policy.name, on: event.name, trigger: target }
+
+        return deliver_for_each(policy, event, domain) if policy.for_each
 
         if @door.reaction_depth_reached?
           return record.merge(delivered: false,
@@ -125,13 +135,20 @@ module Hecksagain
       def deliver_for_each(policy, event, domain)
         spec = policy.for_each
         aggregate_name, query_name = spec[:from].split(".", 2)
+        # THE SAME target_domain-OR-domain CONVENTION `trigger` USES,
+        # applied here too — a for_each source and its trigger are the
+        # same saga step (PolicyBuilder#for_each's own comment), so the
+        # query resolves against whichever domain the trigger will fire
+        # into, not unconditionally the event's own domain.
+        source_domain = policy.target_domain || domain
+        aggregate = resolve_for_each_aggregate(source_domain, aggregate_name, spec[:from])
         payload = event.payload.transform_keys(&:to_sym)
         resolved_where = (spec[:where] || {}).transform_values do |v|
           v.is_a?(Symbol) ? payload[v] : v
         end
 
-        rows = QueryInterpreter.new(@registry).call(domain, aggregate_name, query_name, resolved_where)
-        target = "#{policy.target_domain || domain}::#{policy.trigger_command}"
+        rows = QueryInterpreter.new(@registry).call(source_domain, aggregate, query_name, resolved_where)
+        target = "#{source_domain}::#{policy.trigger_command}"
         literals = (policy.with_literals || {}).transform_keys(&:to_sym)
 
         Array(rows).map do |row|
@@ -148,6 +165,23 @@ module Hecksagain
             record.merge(delivered: false, reason: error.message)
           end
         end
+      end
+
+      # THE SAME RESOLUTION `Dispatcher#resolve_aggregate` performs — a
+      # bare aggregate NAME split out of `for_each from:` is not what
+      # `QueryInterpreter#call` needs: `declared_query` calls `.query` on
+      # whatever it is handed, and a String has no such method. Mirrored
+      # here rather than reused (that method is private on Dispatcher, and
+      # this interpreter only ever sees it as `@door`) — an UnknownVerb
+      # refusal, the same class `resolve_aggregate` raises, so a for_each
+      # naming a domain or aggregate that is not loaded is recorded as an
+      # undelivered reaction, not a defect (see DOMAIN_REFUSALS).
+      def resolve_for_each_aggregate(domain, aggregate_name, verb)
+        bluebook = @registry.bluebook(domain) ||
+                   raise(UnknownVerb, RefusalWording.render("UnknownVerb", "no_domain", domain: domain.inspect, verb: verb))
+        bluebook.aggregate(aggregate_name) ||
+          raise(UnknownVerb, RefusalWording.render("UnknownVerb", "no_aggregate",
+                                                    domain: domain, aggregate: aggregate_name.inspect))
       end
     end
   end

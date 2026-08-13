@@ -43,8 +43,18 @@ module Hecksagain
         end
         return if @registry.saga_instances[pm.name].key?(correlation)
 
+        # `.dup`, not the SAME Hash `event.payload` already is — a real
+        # aliasing bug found live, not by inspection: `remember_into_
+        # instance` (below) mutates `instance[:memory]` in place, and
+        # without the dup that write landed on the STARTING event's own
+        # `.payload` object too, since assignment here never copied it.
+        # A `remember` declared on the SAME leg that starts the saga
+        # (`on "TransferRequested"`, banking.bluebook's own Settlement)
+        # retroactively added a field to an event already emitted and
+        # logged — the one event a saga instance's memory must never be
+        # able to reach backward and edit.
         @registry.saga_instances[pm.name][correlation] =
-          { state: pm.states.first, memory: event.payload }
+          { state: pm.states.first, memory: event.payload.dup }
         @registry.saga_log << { process_manager: pm.name, on: event.name,
                                 instance: correlation, born: true, state: pm.states.first }
       end

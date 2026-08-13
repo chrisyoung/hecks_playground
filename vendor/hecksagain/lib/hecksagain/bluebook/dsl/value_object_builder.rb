@@ -78,6 +78,30 @@ module Hecksagain
         alias_method :rule, :invariant
 
         def build
+          # `attribute :size, one_of("small", "large")` INSIDE a value_object
+          # body reaches AttributeCollector#synthesise_closed_set (via the
+          # one_of/#one_of disambiguation this class's own `one_of` method
+          # already fixed — no more ArgumentError on the wrong arity) and
+          # pushes a real closed-set ValueObject onto `closed_sets` — but
+          # `IR::ValueObject.declare` has no member to hold a NESTED value
+          # object at all (unlike IR::Aggregate, which merges its own
+          # `closed_sets` into `value_objects`). Silently dropping it here
+          # left `:size` typed as a reference to a shape that was never
+          # registered anywhere — no crash, no refusal, and `aggregate.
+          # value_object("Size")` simply returned nil the first time anyone
+          # actually looked. Found live via docs/guides/aggregates-and-
+          # value-objects.md's own doctest, which the syntax-level
+          # disambiguation fix turned from "raises ArgumentError" into
+          # "loads clean and is silently broken" — worse, not fixed.
+          # Refused here instead, honestly, until value objects can really
+          # nest one (a structural change well beyond this fix's scope).
+          if closed_sets.any?
+            raise Malformed,
+                  "#{@name}'s attribute #{closed_sets.first.hecks_name.inspect} names an inline " \
+                  "one_of, which a value object cannot hold — value objects do not nest. " \
+                  "Declare the closed set as its own value_object instead."
+          end
+
           IR::ValueObject.declare(
             name: @name, attributes: attributes,
             invariants: @invariants, members: @members,

@@ -377,6 +377,20 @@ Hecks.bluebook "Bluebook" do
     attribute :order_field, QueryText
     attribute :order_way,   QueryText
     attribute :limit,       QueryText
+    # Vendored addition, not (yet) upstream hecksagain (migration plan
+    # task 8): the self-hosted grammar's own "Query" aggregate never
+    # declared these three, so a query's `count`/`median`/`group_by`
+    # survived parsing but silently vanished the moment a bluebook was
+    # actually loaded (`Hecks.bluebook` always routes through
+    # `MetaValidator.call`, which replaces the built IR with what this
+    # domain reconstructs). Same shape as `order_field`/`order_way`/
+    # `limit` just above -- plain scalars, carried straight through
+    # `Query.Declare` rather than a sub-command, since all three are
+    # known in full by the time the DSL block finishes. TODO upstream
+    # via bin/evolve (migration plan task 7).
+    attribute :count,          QueryText
+    attribute :median_field,   QueryText
+    attribute :group_by_field, QueryText
     attribute :wheres,      list_of(Filter)
     attribute :attributes,  list_of(AskArgument)
     # EVERY OTHER OPTION A QUERY CAN CARRY, as an open map rather than a field
@@ -467,6 +481,9 @@ Hecks.bluebook "Bluebook" do
       attribute :order_field, QueryText, optional: true
       attribute :order_way,   QueryText, optional: true
       attribute :limit,       QueryText, optional: true
+      attribute :count,          QueryText, optional: true
+      attribute :median_field,   QueryText, optional: true
+      attribute :group_by_field, QueryText, optional: true
 
       attribute :position, Position, optional: true
       emits "AskDeclared"

@@ -55,8 +55,25 @@ module Hecksagain
       # either (Proc isn't JSON-shaped); only their PRESENCE is exported,
       # as a count, so the IR still says a guard exists without claiming
       # to describe it. See DSL::ProcessManagerBuilder::HandlerBuilder#given.
+      # `guard_count` is a SEVENTH member, not just a computed reader —
+      # the self-hosted "Handler" aggregate (reaction.bluebook) declares
+      # it as a real attribute (guards themselves, raw Procs, are not
+      # storable), so Assembly's reconstruction needs a real keyword to
+      # hand the count back through. The everyday DSL::
+      # ProcessManagerBuilder path never sets it (only `guards`, real
+      # predicates) — `guard_count` stays nil there, and the reader below
+      # falls back to counting them, so ordinary dispatch is unchanged.
       ProcessManagerHandler = Struct.new(:event_type, :from_state, :to_state,
-                                         :dispatches, :remembers, :guards, keyword_init: true) do
+                                         :dispatches, :remembers, :guards, :guard_count,
+                                         keyword_init: true) do
+        # OVERRIDES the plain Struct accessor: an EXPLICIT guard_count (set
+        # only by Assembly's reconstruction, which cannot rebuild the raw
+        # Procs `guards` normally holds) wins ; otherwise it is computed
+        # the way it always was. `self[:guard_count]`, not `guard_count`,
+        # reads the underlying member slot directly — calling the accessor
+        # here would recurse.
+        def guard_count = self[:guard_count] || (guards || []).size
+
         def to_h
           {
             event_type: event_type.to_s,
@@ -64,7 +81,7 @@ module Hecksagain
             to_state:   to_state.to_s,
             dispatches: dispatches.map(&:to_h),
             remembers:  (remembers || []).map { |k, v| [k.to_s, IR.render_value(v)] },
-            guard_count: (guards || []).size
+            guard_count: guard_count
           }
         end
       end

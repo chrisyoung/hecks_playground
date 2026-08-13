@@ -59,6 +59,19 @@ module Hecksagain
             vision:           text(@chapter[:vision]),
             classification:   text(@chapter[:classification]),
             formerly_known_as: text(@chapter[:formerly_known_as]),
+            # Vendored addition, not (yet) upstream hecksagain (migration
+            # plan task 4): `category` reached `assembly/contracts.rb`'s
+            # Bluebook contract and bluebook.bluebook's own self-hosted
+            # schema, but this method is hand-written rather than built
+            # off the contract table the way `declaration()` is for every
+            # OTHER category — so it still needed its own line, or
+            # `Hecks.bluebook` (which always routes through
+            # `MetaValidator.call` -> this) would silently drop a
+            # declared `category` on every real boot. The round-trip
+            # corpus never exercises `category` (no fixture calls it), so
+            # this was invisible there — found by a real dsl_spec.rb unit
+            # test asserting a non-nil value survives.
+            category:         text(@chapter[:category]),
             aggregates:       declared("Aggregate", chapter_id).map { |row| aggregate(row) },
             read_models:      declared("ReadModel", chapter_id).map { |row| read_model(row) },
             policies:         declared("Policy", chapter_id).map { |row| policy(row) },
@@ -189,6 +202,16 @@ module Hecksagain
 
         def query(row) = declaration("Query", row).merge(options_of(row))
 
+        # `count` is stored as TEXT ("true"/"false", the same self-
+        # describing spelling every other language-held scalar uses) but
+        # `IR::Query#count` is a real Ruby boolean — so this decodes it,
+        # the same way `closed_set_of` above answers a real boolean for
+        # `ValueObject#closed_set?`. Reading `row[:count]` directly
+        # (rather than trusting `:flag`'s own `value ? true : false`) is
+        # the whole fix: ANY non-empty string, including the text
+        # "false", is truthy in Ruby.
+        def count_flag(row) = text(row[:count]).to_s == "true"
+
         def entity(row)
           {
             name:        text(row[:name]),
@@ -223,6 +246,22 @@ module Hecksagain
         end
 
         def policy(row) = declaration("Policy", row)
+
+        # `for_each` is ONE Hash in the IR (`{from:, where:}`) where the
+        # language keeps the parts — `for_each_from` a plain scalar,
+        # `for_each_where` the open map `policy_for_each_where_rows`
+        # wrote. `pairs`, not a Hash, for the same reason `remembers`/
+        # `with_spec` read back as pairs rather than decoded already —
+        # the VALUES are still marked (a colon-prefixed symbol, an
+        # inspected literal) and decoding happens once, at
+        # `Marks#for_each_spec`, the one place that builds the object
+        # every `deliver_for_each` dispatch actually reads.
+        def policy_for_each(row)
+          from = text(row[:for_each_from])
+          return nil if from.to_s.empty?
+
+          { from: from, where: pairs(row[:for_each_where]) }
+        end
 
         def process_manager(row)
           declaration("ProcessManager", row,

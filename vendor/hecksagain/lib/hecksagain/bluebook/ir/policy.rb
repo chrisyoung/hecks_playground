@@ -41,14 +41,42 @@ module Hecksagain
 
         def event_name = Naming.unqualified(@on_event)
 
+        # COMPUTED, not stored — the self-hosted grammar's own "Policy"
+        # aggregate holds `for_each` split into two fields (`for_each_from`
+        # a scalar, `for_each_where` an open map — a value object cannot
+        # hold a Hash), where the IR keeps one Hash. These two answer the
+        # split half of that shape, the same way `ReadModel#query_name` is
+        # a real reader over a stored field rather than one of its own —
+        # see `assembly/contracts.rb`'s Policy contract, `[:computed, ...]`.
+        def for_each_from  = @for_each && @for_each[:from]
+        def for_each_where = @for_each && @for_each[:where]
+
+        # `wheres`/`with_literals`/`for_each`, vendored additions not (yet)
+        # upstream hecksagain -- unlike `aggregate` above, these ARE on
+        # the wire: `assembly/contracts.rb`'s Policy contract reads them
+        # back through the SAME spelling this writes, whether the source
+        # is this method (`spec/assembly_spec`'s own `Assembly.call(built.
+        # to_h)` check) or the self-hosted meta-domain's own
+        # reconstruction (an ordinary `Hecks.bluebook` load). Marked the
+        # same way `DispatchSpec#to_h` already marks `with_spec` --
+        # `IR.render_value` distinguishes a Symbol argument reference
+        # from a literal of the same spelling, which a bare `to_s` alone
+        # cannot.
         def to_h
           {
             name:            @name,
             on_event:        @on_event,
             trigger_command: @trigger_command,
-            target_domain:   @target_domain
+            target_domain:   @target_domain,
+            wheres:          marked_pairs(@wheres),
+            with_literals:   marked_pairs(@with_literals),
+            for_each:        @for_each && { from: @for_each[:from], where: marked_pairs(@for_each[:where]) }
           }
         end
+
+        private
+
+        def marked_pairs(map) = Hash(map).map { |key, value| [key.to_s, IR.render_value(value)] }
       end
     end
   end

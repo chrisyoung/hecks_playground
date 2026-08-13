@@ -5,8 +5,31 @@ no submodule/subtree) from:
 
 - **Fork**: https://github.com/chrisyoung/hecks-hecksagain
 - **Branch**: `main`
-- **Commit**: `db253cd2b33369bb23e807b33832984594b5c7fe`
-- **Vendored**: 2026-08-11
+- **Commit**: `835435154b698e3c810c5a6cd2cb950d3b924e20`
+- **Vendored**: 2026-08-13 (re-vendor #2 -- 24 commits total landed on
+  the fork's `main` since `db253cd2b`, of which 11 touch `lib/` or the
+  gemspec (the rest are `rust/` projector work, not yet vendored here).
+  3-way merged, base = `db253cd2b`'s
+  own `lib/`+gemspec, ours = this directory's content INCLUDING this
+  session's own local additions (execution port, `.behaviors` runtime,
+  the i746/i747 effect-port/driven ports, the deferred-MetaValidator
+  boot fix), theirs = the fork's current `main`. Clean merge, one file
+  auto-merged (`aggregate_builder.rb`), zero conflicts.
+
+  Notably includes `24e54ae value objects: refuse an inline one_of they
+  cannot actually nest` -- the grammar tightening that broke 14
+  hecks_conception bluebooks on first attempt (inline `attribute :x,
+  one_of(...)` inside a `value_object`) ; migrated to the long form
+  first, landed separately (`fix(bluebook): inline ... -> the long
+  form`), verified clean before this re-vendor.
+
+  Other commits carried in : Query `count`/`median`/`group_by` and
+  Policy `where`/`with`/`for_each` round-tripping through the self-hosted
+  grammar's Judge, Handler `remembers`/`guard_count`, saga `given`/
+  `template`/`remember` fixes (including a real memory-mutation-of-an-
+  emitted-event bug), `MutationOp`'s runtime table gaining `remove`,
+  `Ports::Query::InMemory`'s `none_in_state` on aggregate-level Memory
+  queries, and a `PolicyInterpreter#deliver_for_each` record-scoping fix.
 
 The fork is based on the real upstream `main` branch of
 https://github.com/chrisyoung/hecksagain (not the `feat/interview-bluebook`

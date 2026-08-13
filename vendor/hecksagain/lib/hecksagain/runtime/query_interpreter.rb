@@ -84,7 +84,7 @@ module Hecksagain
                        .sort_by { |row| [-row[:count], row[field].to_s] }
         end
 
-        if (native = Ports::Query.execute(repository, declared, args, context: { domain: domain, aggregate: aggregate }))
+        if (native = Ports::Query.execute(repository, declared, args, context: { domain: domain, aggregate: aggregate, registry: @registry }))
           records = native
           # `record.state.merge(id: record.id)` — id LAST, not first. See
           # Instance#to_h's own comment: an aggregate free to declare its

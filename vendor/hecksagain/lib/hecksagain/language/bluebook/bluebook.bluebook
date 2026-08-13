@@ -66,6 +66,13 @@ Hecks.bluebook "Bluebook", version: "1" do
     # Most chapters declare none, and ABSENT IS NOT EMPTY, the same
     # reading `version` above gives.
     attribute :formerly_known_as, FormerlyKnownAs
+    # Vendored addition, not (yet) upstream hecksagain (migration plan
+    # task 4): a free-form second axis alongside `classification`'s fixed
+    # core/supporting/generic set (BluebookBuilder#category's own
+    # comment) — hecks_conception writes `category "framework"` across
+    # 119 files, 12 distinct values. Same shape as `formerly_known_as`
+    # just above: plain text, no closed set, ABSENT IS NOT EMPTY.
+    attribute :category,       Category
     attribute :normalisations, list_of(NormalisationRule)
 
     value_object "RuleText" do
@@ -109,6 +116,11 @@ Hecks.bluebook "Bluebook", version: "1" do
       invariant("a formerly_known_as says something") { !value.to_s.empty? }
     end
 
+    value_object "Category" do
+      attribute :value, String
+      invariant("a category says something") { !value.to_s.empty? }
+    end
+
     command "Declare" do
       role "Language"
       goal "Open a chapter"
@@ -118,6 +130,7 @@ Hecks.bluebook "Bluebook", version: "1" do
       attribute :classification, Classification, optional: true
       attribute :version,        Version, optional: true
       attribute :formerly_known_as, FormerlyKnownAs, optional: true
+      attribute :category,       Category, optional: true
 
       emits "ChapterDeclared"
     end

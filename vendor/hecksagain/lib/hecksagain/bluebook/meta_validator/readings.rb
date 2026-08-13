@@ -53,9 +53,38 @@ module Hecksagain
         # argument became indistinguishable from one carrying a literal string.
         def with_spec_rows(node) = pair_rows(node.to_h[:with_spec])
 
+        # Same shape as `with_spec_rows` above, one construct up — a
+        # handler's own remembered key/value pairs, through `to_h` for the
+        # same reason (`IR.render_value` spells a symbol argument with its
+        # leading colon, which the raw `remembers` array does not).
+        def remembers_rows(node) = pair_rows(node.to_h[:remembers])
+
         # A read model carries the same options an ask does, plus its filters — see
         # option_rows.
         def read_model_option_rows(node) = option_rows(node, filters: true)
+
+        # A policy's own `where field: value` conditions and `with key,
+        # value` literals — both open maps, the SAME shape Handler's
+        # `remembers`/Dispatch's `with_spec` already are, read through
+        # `to_h` for the same reason those two are: `IR::Policy#to_h`
+        # marks each value with `IR.render_value` (a leading colon for a
+        # Symbol), and reading the OBJECT instead of the wire spelling —
+        # `encode_literal`'s own `.inspect` marking, an earlier version
+        # of this method used — loses nothing on its own, but disagrees
+        # byte-for-byte with what `to_h` already wrote, which is exactly
+        # what `spec/round_trip_spec` compares this against.
+        def policy_wheres_rows(node) = pair_rows(node.to_h[:wheres])
+
+        def policy_with_literals_rows(node) = pair_rows(node.to_h[:with_literals])
+
+        # `for_each`'s own `where:` — the SAME open-map shape as `wheres`
+        # just above, except a value may be a bare Symbol
+        # (`from_event(:field)`, a reference into the triggering event's
+        # own payload) rather than always a literal. `IR.render_value`
+        # marks either correctly: a Symbol prints with its own leading
+        # colon, the exact spelling `Marks#unmark`'s reader already
+        # expects.
+        def policy_for_each_where_rows(node) = pair_rows(node.to_h[:for_each]&.dig(:where))
 
         # The canonical-form table is the expression grammar's, not this chapter's, so
         # the node is not consulted at all.

@@ -104,6 +104,27 @@ module Hecksagain
         # argument coercion did with it.
         def bindings(with) = Array(with).to_h { |key, value| [key.to_sym, unmark(value)] }
 
+        # `with_literals`' own keys — a POLICY writes them as STRINGS
+        # (`with "key", "value"` / `map key: value`, both `to_s`-keyed —
+        # see PolicyBuilder#with/#map's own comments), unlike `bindings`
+        # just above, whose Symbol keys match `where`'s own
+        # `transform_keys(&:to_sym)`. Same decode (`unmark`) either way;
+        # only the key's own type differs.
+        def literal_map(with) = Array(with).to_h { |key, value| [key.to_s, unmark(value)] }
+
+        # `for_each`'s own shape — one scalar (`from`) and one open map
+        # (`where`), Reconstruction's `policy_for_each` gathers the parts,
+        # this decodes them: `where`'s values ride the exact encoding
+        # `bindings` already reads, since `for_each`'s own where-clause
+        # values are the SAME mix (a bare Symbol referencing the
+        # triggering event's payload, or a literal) `with:`/`remember`
+        # already round-trip this way.
+        def for_each_spec(value)
+          return nil unless value
+
+          { from: value[:from], where: bindings(value[:where]) }
+        end
+
         def invariant(rule)
           IR::Invariant.new(description: rule[:description], canonical: rule[:canonical])
         end

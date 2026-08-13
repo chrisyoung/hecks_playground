@@ -42,7 +42,16 @@ module Hecksagain
             version:        [:version,        :plain],
             vision:         [:vision,         :plain],
             classification: [:classification, :plain],
-            formerly_known_as: [:formerly_known_as, :plain]
+            formerly_known_as: [:formerly_known_as, :plain],
+            # Vendored addition, not (yet) upstream hecksagain (migration
+            # plan task 4): same three-part shape `redirects_native`
+            # already used to close this exact gap on Command -- the
+            # self-hosted Bluebook aggregate now declares `category`
+            # (bluebook.bluebook), so the Judge's rebuild needs to read it
+            # back too, or `IR::Bluebook.new`'s own default (`category:
+            # nil`) would silently win over whatever the original DSL
+            # declaration said.
+            category: [:category, :plain]
           },
           rows: { normalisations: :normalisation_table },
           derived: { normalisations: :elsewhere }
@@ -128,6 +137,22 @@ module Hecksagain
             wheres:          [:wheres,          [:each, :where_clause]],
             order_by:        [:order_by,        :order_by],
             limit:           [:limit,           :limit],
+            # Vendored addition, not (yet) upstream hecksagain (migration
+            # plan task 8): `count`/`median_field`/`group_by_field` never
+            # reached this table, so a query carrying any of the three
+            # survived the DSL parse and vanished the moment the same
+            # bluebook went through `MetaValidator.call` (every ordinary
+            # `Hecks.bluebook` load). Same shape as `redirects_native`'s
+            # own gap on Command — the self-hosted grammar's own "Query"
+            # aggregate needed the matching fields too (see
+            # behavior.bluebook). `count` rides as a real Ruby boolean
+            # (`:flag`, decoded from the language's stored text by
+            # `count_flag` below — see its own comment) ; `median_field`/
+            # `group_by_field` are Symbols, the same `:identity` reading
+            # `correlates_by` already uses.
+            count:           [:count,           :flag],
+            median_field:    [:median_field,    :identity],
+            group_by_field:  [:group_by_field,  :identity],
             # Held by the language as an OPEN MAP, so every one of these reads the
             # same way and a ninth option needs no new field on either side.
             offset:          [:offset,          [:option, :offset]],
@@ -141,7 +166,8 @@ module Hecksagain
           },
           rows: { wheres: :where_rows, options: :option_rows },
           reads: { attributes: [:each, :shape_field], wheres: [:each, :where_clause],
-                  order_by: [:call, :order_by], limit: [:call, :limit] },
+                  order_by: [:call, :order_by], limit: [:call, :limit],
+                  count: [:call, :count_flag] },
           derived: {
             position: :walk,
             order_field: [:folded, :order_by, :field],
@@ -184,9 +210,51 @@ module Hecksagain
             aggregate:       [:aggregate,       :plain],
             on_event:        [:on_event,        :plain],
             trigger_command: [:trigger_command, :plain],
-            target_domain:   [:target_domain,   :plain]
+            target_domain:   [:target_domain,   :plain],
+            # Vendored addition, not (yet) upstream hecksagain (migration
+            # plan task 8): `wheres`/`with_literals`/`for_each` never
+            # reached this table, so a policy carrying any of the three
+            # survived the DSL parse and vanished the moment the same
+            # bluebook went through `MetaValidator.call` (every ordinary
+            # `Hecks.bluebook` load) — see reaction.bluebook's own
+            # comment on the matching grammar addition. `wheres`/
+            # `with_literals` are open maps, the SAME `:bindings` reading
+            # `Handler#remembers` already uses (Symbol keys, matching
+            # `where`'s own `transform_keys(&:to_sym)`) — `with_literals`
+            # needs its own `:literal_map` twin only because ITS keys are
+            # Strings (`with`/`map`'s own `transform_keys(&:to_s)`).
+            # `for_each` is a compound field the language keeps as two
+            # (`for_each_from`/`for_each_where`, both `derived:` below,
+            # since assembling `for_each` as one thing is this row's job)
+            # — see IR::Policy#for_each_from/#for_each_where's own comment.
+            wheres:          [:wheres,          :bindings],
+            with_literals:   [:with_literals,   :literal_map],
+            for_each:        [:for_each,        :for_each_spec]
           },
-          derived: { position: :walk }
+          rows: {
+            wheres:         :policy_wheres_rows,
+            with_literals:  :policy_with_literals_rows,
+            for_each_where: :policy_for_each_where_rows
+          },
+          reads: {
+            wheres:        [:from, :wheres],
+            with_literals: [:from, :with_literals],
+            for_each:      [:call, :policy_for_each]
+          },
+          derived: {
+            position: :walk,
+            # `[:computed, ...]`, not `[:folded, ...]` — a folded claim
+            # needs a REAL reconstructed declaration somewhere in the
+            # assembly corpus to carry both keys together (Contract#folded's
+            # own comment), and `for_each` is new enough that nothing in
+            # that corpus exercises it yet. `computes?` asks a narrower,
+            # STATIC question instead — does `IR::Policy` answer to this
+            # name while its OWN constructor does not accept it as a
+            # keyword — which the two readers just added to `ir/policy.rb`
+            # satisfy directly, with no corpus content required.
+            for_each_from:  [:computed, :for_each_from],
+            for_each_where: [:computed, :for_each_where]
+          }
         ),
 
         "ProcessManager" => Contract.new(
@@ -212,8 +280,21 @@ module Hecksagain
           fields: {
             event_type: [:event_type, :plain],
             from_state: [:from_state, :plain],
-            to_state:   [:to_state,   :plain]
+            to_state:   [:to_state,   :plain],
+            # Vendored addition, not (yet) upstream hecksagain (migration
+            # plan task 4): same open-map shape Dispatch's own `with_spec`
+            # already is — `remember key: from_event(...)` has no value
+            # object that can hold it, so it rides as rows.
+            remembers:  [:remembers,  :bindings],
+            # `guard_count` is now a real seventh member of IR::
+            # ProcessManagerHandler (its own comment explains why) — only
+            # the COUNT survives the round trip, never the predicates
+            # themselves (raw Procs). `:plain`, the same as every other
+            # scalar here.
+            guard_count: [:guard_count, :plain]
           },
+          rows: { remembers: :remembers_rows },
+          reads: { remembers: [:from, :remembers] },
           derived: { position: :walk }
         ),
 

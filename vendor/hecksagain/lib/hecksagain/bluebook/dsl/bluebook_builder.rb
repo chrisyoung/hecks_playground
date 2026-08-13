@@ -222,10 +222,51 @@ module Hecksagain
           # meta-domain sees a fully built IR — the whole-document rules need
           # every declaration present, which is why they cannot be givens fired
           # at declaration time.
-          MetaValidator.call(bluebook)
+          judged = MetaValidator.call(bluebook)
+
+          # THE META-DOMAIN HOLDS DATA, NOT RUBY. A handler-level `given`
+          # predicate is a real Proc — nothing a data-only meta-domain could
+          # ever store — and `ProcessManagerHandler#to_h` already says so
+          # (`guard_count`, not the guard itself: see its own comment).
+          # `remembers` and a `with_spec` value built by `template(...)`
+          # (`IR::TemplateSpec`) are the same shape of problem: the
+          # self-hosted "Handler"/"Dispatch" contracts (assembly/
+          # contracts.rb) declare no field for either, so `Reconstruction`
+          # silently drops `remembers`/`guards` to `nil`, and flattens a
+          # Struct-typed `with_spec` value through `IR.render_value`'s
+          # generic `.to_s` fallback (real only for Symbol/Hash values,
+          # which is every existing corpus fixture's own `with_spec` — so
+          # this went unnoticed until a real saga dispatch exercised
+          # `remember`/handler-level `given`/`template(...)` for the first
+          # time; `validate` never runs a handler). Reattached here, by
+          # declared position — handlers and dispatches keep the author's
+          # order (`Reconstruction`'s own doc comment already guarantees
+          # it) — from the pre-judge graph the DSL builder actually
+          # produced.
+          reattach_saga_runtime_state!(judged.process_managers, @process_managers)
+
+          judged
         end
 
         private
+
+        # See `build`'s own comment just above. Struct-backed IR
+        # (`ProcessManagerHandler`, `DispatchSpec`) already exposes writers —
+        # no need to rebuild either object, just restore the three fields the
+        # meta-domain cannot carry.
+        def reattach_saga_runtime_state!(judged_pms, original_pms)
+          judged_pms.each_with_index do |pm, i|
+            original_pm = original_pms[i]
+            pm.handlers.each_with_index do |handler, j|
+              original_handler = original_pm.handlers[j]
+              handler.remembers = original_handler.remembers
+              handler.guards    = original_handler.guards
+              handler.dispatches.each_with_index do |dispatch, k|
+                dispatch.with_spec = original_handler.dispatches[k].with_spec
+              end
+            end
+          end
+        end
 
         # AN ENTITY COMMAND MAY NOT NAME ITSELF AS ITS ROOT.
         #
