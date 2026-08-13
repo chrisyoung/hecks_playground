@@ -130,13 +130,23 @@ async function main() {
   const uris = resources.resources.map((r) => r.uri);
   truthy(uris.includes("storehouse://events"), "resources/list has storehouse://events");
 
-  // -- storehouse__validate on the known-good corpus root
+  // -- storehouse__validate on the corpus root
+  // Per-root sweep (parser-removal plan, Phase 1b) -- a multi-domain root
+  // like hecks_conception now returns {roots_swept, valid, invalid, results}
+  // instead of one combined {valid:true/false}, so a broken root can't hide
+  // behind a name collision another root's boot happens to survive. This
+  // smoke test verifies the TOOL works (a well-formed sweep came back with
+  // a plausible root count), not that the corpus is universally defect-free
+  // right now -- known, separately-tracked invalid roots (see inbox) are a
+  // corpus-content concern, not this tool's correctness.
   const validateRes = await client.callTool({
     name: "storehouse__validate",
     arguments: { aggregates_dir: SMOKE_ROOT },
   });
   eq(validateRes.isError, false, "validate isError=false");
-  contains(validateRes.content[0].text, '"valid":true', "validate reports valid:true");
+  contains(validateRes.content[0].text, '"roots_swept"', "validate reports roots_swept (per-root sweep)");
+  const sweptCount = JSON.parse(validateRes.content[0].text).roots_swept;
+  truthy(sweptCount > 50, `validate swept a plausible number of roots (got ${sweptCount})`);
 
   // -- storehouse__catalog returns the full IR (JSON, pretty-printed)
   const catalogRes = await client.callTool({

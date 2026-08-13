@@ -16,6 +16,7 @@ require "json"
 require "fileutils"
 require "digest"
 require_relative "behaviors_runner"
+require_relative "validate_sweep"
 
 # Vendored addition, not (yet) upstream hecksagain (migration plan task
 # 8): `hecksagain/presentation` is DELIBERATELY not required by `require
@@ -454,11 +455,28 @@ module HecksagainRuntime
   # Replaces `storehouse validate`. hecksagain's own DSL builders raise
   # inline and Registry#verify! checks wiring at boot -- a clean Hecks.boot
   # already IS validity (Part 1's validator finding). No separate pass.
+  #
+  # PER-ROOT for a multi-domain corpus (i745 -- parser-removal plan, Phase
+  # 1b): a single combined boot over the WHOLE corpus reported valid:true
+  # while 36 of hecks_conception's own 58 sub-roots were individually
+  # invalid -- a crash anywhere makes the whole thing false with no "which
+  # root", and a name collision between two roots' declarations can make a
+  # broken root silently PASS (confirmed live this session: heki.adapter
+  # was missing field :dir and only "worked" because a DIFFERENT bug
+  # crashed it before it could load and shadow a better copy). See
+  # ValidateSweep's own header for the full reasoning.
+  #
+  # ALWAYS sweeps, single domain or many -- a single-domain root reduces to
+  # "1 root swept, valid or not", which is the same answer in a strictly
+  # more informative shape ({roots_swept, valid, invalid, results}, not a
+  # bare boolean). Kept ONE path deliberately: a root-count comparison to
+  # special-case the single-domain shape back to the old bare-boolean form
+  # turned out to compare an expanded path against a relative one and never
+  # actually match (caught by cli_smoke.mjs's own assertion needing an
+  # update, not by this comment) -- simpler to commit to one honest shape
+  # everywhere than carry a comparison that silently never took its branch.
   def self.validate(root)
-    Hecks.boot(stage_flat_corpus(root), install_facade: false)
-    { ok: true, valid: true }
-  rescue StandardError => e
-    { ok: true, valid: false, error: e.message, error_class: e.class.name }
+    ValidateSweep.run(root)
   end
 
   # Replaces storehouse__catalog / describe_aggregate / list_aggregates.
