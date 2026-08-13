@@ -81,7 +81,9 @@ jobs:
       # ran here on every push against a corpus hecksagain now authors, not
       # the retired Rust parser. Same reasoning as the local retirement --
       # the corpus no longer matches the old parser's expectations BY
-      # DESIGN, not drift. parity/ itself is now fully inert (see i745).
+      # DESIGN, not drift. parity/ itself has been deleted (see i745) --
+      # its last two callers (fuzz_nightly.yml, Rakefile's parity:fuzz)
+      # were retired in the same pass.
 
       - name: hecksagain-cli validate (per-root)
         # Replaces the hand-rolled check-lifecycle loop over the retired
