@@ -121,6 +121,31 @@ module RustProjection
       end
     end
 
+    # i753 -- a BARE scalar literal (Integer/String/Float/Boolean) headed
+    # at a value-object-typed target needs the SAME wrapping
+    # `literal_hash_rhs` already gives a Hash literal (`default: { value:
+    # 1 }` and `then_set :x, to: 1` are two spellings of the identical
+    # intent -- "wrap this raw value"), just for the single-value spelling
+    # instead of the hash spelling. Before this, both call sites below fell
+    # straight through to `literal_rhs`, which knows nothing about VOs and
+    # emitted the bare literal unwrapped -- `Some(1)` where the field type
+    # is `Option<SlideNumber>`, a real compile error (i753).
+    #
+    # Only wraps when the target resolves to a real, non-closed-set,
+    # SINGLE-attribute value object -- the common "wrapped primitive"
+    # shape every example hit so far uses (SlideNumber/Kind/Status all
+    # carry exactly one `attribute :value, ...`). A multi-attribute VO
+    # falls through to the raw literal unwrapped rather than guess which
+    # field a lone scalar belongs to -- there is no bluebook shape that
+    # writes a bare literal at a multi-field VO target in the first place.
+    def scalar_literal_rhs(value, target_type, value_objects_by_name)
+      vo = value_objects_by_name[target_type]
+      return literal_rhs(value) unless vo && !vo[:closed_set] && vo[:attributes].size == 1
+
+      attr = vo[:attributes].first
+      "#{rust_ident(target_type)} { #{rust_ident_field(attr[:name])}: #{literal_rhs(value)} }"
+    end
+
     def integer_field_of(vo)
       return nil unless vo && !vo[:closed_set]
 
@@ -185,7 +210,7 @@ module RustProjection
     # gap this generator failed to bridge.
     def creation_default_rhs(attr, value_objects_by_name)
       default = attr[:default]
-      return default.is_a?(Hash) ? literal_hash_rhs(default, attr[:type], value_objects_by_name) : literal_rhs(default) unless default.nil?
+      return default.is_a?(Hash) ? literal_hash_rhs(default, attr[:type], value_objects_by_name) : scalar_literal_rhs(default, attr[:type], value_objects_by_name) unless default.nil?
 
       vo = value_objects_by_name[attr[:type]]
       return nil unless vo && !vo[:closed_set] && vo[:attributes].all? { |f| !f[:default].nil? }

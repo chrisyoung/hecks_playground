@@ -138,7 +138,12 @@ module RustProjection
         value = source[:value]
         return literal_hash_rhs(value, target_type, value_objects_by_name) if value.is_a?(Hash)
 
-        return literal_rhs(value)
+        # i753 -- a bare scalar `then_set :x, to: 1` needs the same VO
+        # wrapping a Hash-shaped literal already gets above, when `x`'s
+        # own attribute type is a value object rather than a raw
+        # primitive (bridging.rb's `scalar_literal_rhs`, shared with
+        # `creation_default_rhs`'s identical gap).
+        return scalar_literal_rhs(value, target_type, value_objects_by_name)
       end
 
       source_attr = command[:attributes].find { |a| a[:name].to_s == source[:name] }
