@@ -235,7 +235,29 @@ module HecksagainRuntime
         current_count      = source_files.size.to_s
         count_changed      = !File.exist?(file_count_marker) || File.read(file_count_marker) != current_count
 
-        if !File.exist?(marker) || count_changed || (newest_source && File.mtime(marker) < newest_source)
+        # Found live (2026-08-13): count_changed alone is blind to a
+        # DIFFERENT bug than the deletion case above -- which BRANCH
+        # produced canon_globs (CANON_SUBDIRS / MIETTE_SUBDIRS /
+        # scattered_project?) can itself flip between calls if a
+        # directory this root depends on (hecks_conception/adapters,
+        # /storehouse) transiently vanishes from another process racing
+        # this one, then reappears. If the transient scattered-glob pass
+        # happens to stage the SAME file count as a later, correctly-
+        # shaped canon-glob pass, count_changed is false and the WRONG
+        # (broader, unscoped) file set silently survives for every
+        # subsequent call -- confirmed live : a scattered-glob stage
+        # pulled in framework/behavior_kinds/*.hecksagon (files with no
+        # "bluebook/" path segment, using a Hecks.behavior_kind DSL
+        # entrypoint vendor/hecksagain never defines), and every dispatch
+        # against the cached stage raised NoMethodError until the tmp dir
+        # was deleted by hand. Fingerprinting the glob PATTERNS
+        # themselves (not just what they matched) catches a branch flip
+        # even when file counts coincide.
+        shape_marker     = File.join(stage_root, ".staged_shape")
+        current_shape     = Digest::SHA256.hexdigest(canon_globs.sort.join("\n"))
+        shape_changed     = !File.exist?(shape_marker) || File.read(shape_marker) != current_shape
+
+        if !File.exist?(marker) || count_changed || shape_changed || (newest_source && File.mtime(marker) < newest_source)
           FileUtils.rm_rf(stage_root)
           FileUtils.mkdir_p(stage_dir)
           seen = Hash.new(0)
@@ -318,6 +340,7 @@ module HecksagainRuntime
           end
           FileUtils.touch(marker)
           File.write(file_count_marker, current_count)
+          File.write(shape_marker, current_shape)
         end
         stage_root
   end
