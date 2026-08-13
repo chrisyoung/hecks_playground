@@ -103,13 +103,30 @@ module Hecksagain
             return self
           end
 
-          @collector << IR::Bind.new(
+          # i746 — on: is captured here ; success/failure are filled in
+          # by HecksagonBuilder#success/#failure while `block` runs below,
+          # writing onto THIS bind via HecksagonBuilder.current_bind (see
+          # that class's own comment). block&.call runs in its original
+          # lexical scope (self == the HecksagonBuilder instance, from the
+          # outer instance_eval in HecksagonBuilder.build), never
+          # instance_eval'd against this bind directly — current_bind is
+          # the bridge between the two.
+          bind = IR::Bind.new(
             aggregate: @fqn,
             verb:      verb.to_s,
             adapter:   args.first.to_s,
-            role:      kwargs[:role]&.to_s
+            role:      kwargs[:role]&.to_s,
+            on:        kwargs[:on]&.to_s
           )
-          block&.call
+          @collector << bind
+
+          previous_bind = HecksagonBuilder.current_bind
+          HecksagonBuilder.current_bind = bind
+          begin
+            block&.call
+          ensure
+            HecksagonBuilder.current_bind = previous_bind
+          end
           self
         end
 

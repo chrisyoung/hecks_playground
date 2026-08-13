@@ -123,6 +123,9 @@ module Hecksagain
         reply = command_name.include?(".") ? nil : perform_execution(domain, aggregate, command_name, args)
         announced.concat(record_outcome(reply, args)) if reply
 
+        record_effect_outbound(announced)
+        record_driven_dispatches(announced)
+
         announced.each { |event| @policies.react(event, domain) }
 
         announced.each { |event| @sagas.advance(event, domain) }
@@ -228,6 +231,164 @@ module Hecksagain
       rescue StandardError => error
         reply[:cascade_error] = "#{error.class}: #{error.message}"
         []
+      end
+
+      # i746 — the effect-port producer. Port of rust/src/runtime/
+      # effect_outbound.rs's record_effect_outbound (IR shape:
+      # rust/src/hecksagon_ir.rs:187-209). For each just-announced event,
+      # for every hexagon's every bind whose `on` matches this event and
+      # whose adapter resolves to an EFFECT-signal port (charged_by, not
+      # persisted_by), records ONE OutboundEvent::OutboundEvent.Record
+      # carrying the qualified success/failure verdict commands — a
+      # standalone host (bin/adapter-host) later claims it, does the
+      # impure async work, and dispatches the verdict back in. The core
+      # never waits.
+      #
+      # Guarded on OutboundEvent actually being attached (uses_framework
+      # "OutboundEvent") — same precedent as record_outcome's own Cascade
+      # guard just above — so a domain that never wired the framework in
+      # pays nothing and a bind with no `on` (the overwhelming majority)
+      # short-circuits on the very next line.
+      #
+      # port_for is GUARDED, not called bare : it raises WiringError on an
+      # unresolvable adapter/port, but Rust's own equivalent `continue`s
+      # past a broken bind (effect_outbound.rs) rather than aborting the
+      # whole dispatch over one bad binding elsewhere in the corpus.
+      def record_effect_outbound(announced)
+        return if announced.empty?
+        return unless @registry.bluebook("OutboundEvent")
+
+        seen_delivery_ids = []
+
+        announced.each do |event|
+          @registry.hecksagons.each_value do |hexagon|
+            hexagon.binds.each do |bind|
+              next if bind.on.to_s.empty? || bind.on.to_s != event.name.to_s
+              next if bind.success.to_s.empty? && bind.failure.to_s.empty?
+
+              port = begin
+                @registry.port_for(bind)
+              rescue WiringError
+                next
+              end
+              next unless port.verb.to_s == bind.verb.to_s
+              next unless port.effect?
+
+              delivery_id = "#{event.aggregate}::#{event.id}::#{event.name}::#{bind.adapter}"
+              next if seen_delivery_ids.include?(delivery_id)
+
+              seen_delivery_ids << delivery_id
+
+              bind_domain = bind.aggregate.to_s.split("::").first
+
+              reenter(
+                "OutboundEvent::OutboundEvent.Record",
+                delivery_id:     delivery_id,
+                adapter:         bind.adapter.to_s,
+                event:           event.name.to_s,
+                source_type:     event.aggregate.to_s,
+                source_id:       event.id.to_s,
+                payload:         event.payload.to_json,
+                success_command: qualify_command(bind.success, bind_domain),
+                failure_command: qualify_command(bind.failure, bind_domain)
+              )
+            end
+          end
+        end
+      end
+
+      # Shared by record_effect_outbound and record_driven_dispatches : a
+      # success/failure verdict command is written bare in the corpus
+      # sometimes ("Order.Authorize") and already fully qualified other
+      # times ("Pizzas::Deposit.Clear", examples/pizzas' own Banking driven
+      # block) -- only prefix when it's bare.
+      def qualify_command(cmd, domain)
+        cmd = cmd.to_s
+        cmd.empty? || cmd.include?("::") ? cmd : "#{domain}::#{cmd}"
+      end
+
+      # i747 -- the driven-side counterpart to record_effect_outbound. A
+      # driven handler is a direct in-process cross-context call, not a
+      # port-mediated effect (pizzas.hecksagon's own comment : "no port, no
+      # family, no adapter contract") -- so no OutboundEvent record, no
+      # Registry#port_for check. Interpolates `{field}` tokens in
+      # dispatch_args against the triggering event's own id + payload, then
+      # re-enters dispatch_command. success/failure are OPTIONAL : a driven
+      # block declaring neither (examples/pizzas' "Deposit" adapter) is
+      # fire-and-forget ; a block declaring both (its "Banking" adapter)
+      # gets success re-entered if the inner dispatch didn't raise, failure
+      # if it did -- both re-entered against the ORIGINAL triggering
+      # aggregate's own id (event.id), the same self-reference shape
+      # record_effect_outbound's verdict commands resolve against via
+      # source_id.
+      def record_driven_dispatches(announced)
+        return if announced.empty?
+
+        announced.each do |event|
+          # `driven on "Domain::Aggregate.Event"` is FULLY qualified,
+          # unlike charged_by's bare `on: "EventName"` (record_effect_
+          # outbound, above) -- confirmed against the corpus's own two
+          # conventions (pizzas.hecksagon : `charged_by(..., on:
+          # "OrderPlaced")` vs `driven on "Pizzas::Order.OrderPlaced"`).
+          # event.aggregate is already the domain-qualified FQN, so the
+          # match target is a plain concatenation, not event.name alone.
+          qualified_event_name = "#{event.aggregate}.#{event.name}"
+
+          @registry.hecksagons.each_value do |hexagon|
+            hexagon.driven_handlers.each do |handler|
+              next unless handler.event == qualified_event_name
+
+              args = interpolate_args(handler.dispatch_args || {}, event)
+              handler_domain = event.aggregate.to_s.split("::").first
+
+              begin
+                reenter(handler.dispatch_command, **args)
+                next if handler.success.to_s.empty?
+
+                reenter(qualify_command(handler.success, handler_domain), id: event.id)
+              rescue StandardError
+                next if handler.failure.to_s.empty?
+
+                reenter(qualify_command(handler.failure, handler_domain), id: event.id)
+              end
+            end
+          end
+        end
+      end
+
+      # `{field}` interpolation for a driven handler's dispatch_args :
+      # `{id}` resolves to the triggering event's own aggregate id ;
+      # any other `{name}` resolves against the event's payload. A token
+      # that is the WHOLE string ("{total}") substitutes the materialized
+      # value verbatim (preserving its type -- a multi-field VO's own hash,
+      # not a stringification of it, so it round-trips into another
+      # VO-typed attribute on the receiving command) ; a token embedded in
+      # a larger string interpolates as text.
+      def interpolate_args(args, event)
+        lookup = { "id" => event.id }
+        (event.payload || {}).each { |k, v| lookup[k.to_s] = materialize_value(v) }
+
+        args.transform_values do |v|
+          next v unless v.is_a?(String)
+
+          if v =~ /\A\{(\w+)\}\z/
+            lookup.key?(::Regexp.last_match(1)) ? lookup[::Regexp.last_match(1)] : v
+          else
+            v.gsub(/\{(\w+)\}/) { lookup.key?(::Regexp.last_match(1)) ? lookup[::Regexp.last_match(1)].to_s : ::Regexp.last_match(0) }
+          end
+        end.transform_keys(&:to_sym)
+      end
+
+      # A Runtime::Value wrapping a single :value field materializes to
+      # that bare scalar (the common case -- most dispatch_args tokens
+      # reference a simple VO) ; a multi-field VO materializes to its
+      # whole #to_h, structurally passed through to whatever VO-typed
+      # attribute receives it on the other side.
+      def materialize_value(value)
+        return value unless value.respond_to?(:to_h)
+
+        h = value.to_h
+        h.size == 1 && h.key?(:value) ? h[:value] : h
       end
 
       def parse(verb)

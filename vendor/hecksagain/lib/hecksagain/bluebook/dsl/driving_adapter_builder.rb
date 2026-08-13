@@ -19,9 +19,12 @@ module Hecksagain
         DRIVING_KINDS = %w[cron interval http_post file_watch].freeze
 
         def initialize(adapter_name)
-          @adapter_name = adapter_name
-          @handlers     = []
+          @adapter_name     = adapter_name
+          @driving_handlers = []
+          @driven_handlers  = []
         end
+
+        attr_reader :driving_handlers, :driven_handlers
 
         # Ruby's do/end binds to the OUTERMOST call in an unparenthesized
         # chain: `driving on cron "x" do |clock| ... end` is
@@ -32,14 +35,33 @@ module Hecksagain
           define_method(kind) { |arg| [kind, arg] }
         end
 
-        def on(kind_arg_pair) = kind_arg_pair
+        # `on` is overloaded structurally between driving (a [kind, arg]
+        # pair, from cron/interval/http_post/file_watch above) and driven
+        # (a bare event-name string, `driven on "Domain::Aggregate.Event"`)
+        # -- both just pass their argument straight through, so ONE method
+        # serves both call shapes without needing to distinguish them.
+        def on(kind_arg_pair_or_event) = kind_arg_pair_or_event
 
         def driving((kind, arg), &block)
           dispatcher = DispatchCapture.new
           dispatcher.instance_eval(&block) if block
-          @handlers << IR::DrivingHandler.new(
+          @driving_handlers << IR::DrivingHandler.new(
             adapter_name: @adapter_name, kind: kind, arg: arg,
             dispatch_command: dispatcher.command
+          )
+        end
+
+        # i747 — `driven on "Domain::Aggregate.Event" do dispatch
+        # "Domain::Aggregate.Command", field: "{event_field}" ; success
+        # "..." ; failure "..." end`. Was silently swallowed whole by
+        # method_missing before this (not even `dispatch` ran) — real now.
+        def driven(event, &block)
+          dispatcher = DrivenCapture.new
+          dispatcher.instance_eval(&block) if block
+          @driven_handlers << IR::DrivenHandler.new(
+            adapter_name: @adapter_name, event: event.to_s,
+            dispatch_command: dispatcher.command, dispatch_args: dispatcher.args,
+            success: dispatcher.success_command, failure: dispatcher.failure_command
           )
         end
 
@@ -63,12 +85,15 @@ module Hecksagain
         def method_missing(*) = nil
         def respond_to_missing?(*) = true
 
-        def build = @handlers
-
+        # i747 -- returns the BUILDER, not a bare array : HecksagonBuilder
+        # #adapter (the one caller) needs BOTH `driving_handlers` and
+        # `driven_handlers` off one evaluation of `block`, and evaluating
+        # the block twice (once per accessor) would double-run any driven/
+        # driving declaration inside it. One instance_eval, two readers.
         def self.build(adapter_name, &block)
           builder = new(adapter_name)
           builder.instance_eval(&block) if block
-          builder.build
+          builder
         end
 
         # Captures the single `dispatch "Domain::Aggregate.Command"` call
@@ -81,6 +106,32 @@ module Hecksagain
           attr_reader :command
 
           def dispatch(command_fqn, **) = @command = command_fqn
+        end
+
+        # i747 -- the DRIVEN-side capture, sibling to DispatchCapture above.
+        # Unlike DispatchCapture, this KEEPS the kwargs `dispatch` receives
+        # (`args`) -- i746/i747's own field mapping contract
+        # (`dispatch "Banking::Account.Deposit", amount: "{amount}", ...`)
+        # lives entirely in those kwargs, and DispatchCapture silently
+        # dropping them was itself a live bug in the driving-side path
+        # (unfixed here -- out of scope, driving's own dispatch_command
+        # never carried field mappings in the corpus, so nothing observably
+        # broke ; noted, not touched, to keep this change scoped to the
+        # driven side i747 actually asked for).
+        class DrivenCapture
+          # success_command/failure_command, not success/failure -- those
+          # names are the DSL VERBS themselves (below), called with one
+          # arg to SET the value ; a same-named zero-arg reader would
+          # collide with that arity the moment #driven reads it back.
+          attr_reader :command, :args, :success_command, :failure_command
+
+          def dispatch(command_fqn, **kwargs)
+            @command = command_fqn
+            @args    = kwargs
+          end
+
+          def success(cmd) = @success_command = cmd.to_s
+          def failure(cmd) = @failure_command = cmd.to_s
         end
       end
     end

@@ -30,13 +30,12 @@ ADAPTER="${2:?adapter name required}"
 ONCE="${3:-}"
 SH="${STOREHOUSE:-storehouse}"
 
-# Resolve the handler DECLARATIVELY from the adapter's *.adapter file. Find it
-# ANYWHERE under ROOT by the declared adapter name (nested bluebook trees like
-# miette's body/dream/, not just a flat $ROOT/<name>.adapter) — the file layout
-# is the domain's business, the host only needs the declaration.
-ADAPTER_FILE=$(grep -rlF "Hecks.adapter \"$ADAPTER\"" "$ROOT" --include='*.adapter' 2>/dev/null | head -1)
-[ -n "$ADAPTER_FILE" ] || { echo "[adapter-host] no *.adapter under $ROOT declares adapter \"$ADAPTER\"" >&2; exit 1; }
-HANDLER=$("$SH" dump-hecksagon "$ADAPTER_FILE" | jq -r '.adapters[0].handler // empty')
+# Resolve the handler DECLARATIVELY — i746 step 7 : hecksagain-cli's
+# adapter-handler subcommand boots ROOT and reads the named adapter's own
+# `handler "..."` field directly out of the registry (IR::Adapter#handler),
+# replacing this script's old dump-hecksagon shell-out to a subcommand
+# that was never real.
+HANDLER=$("$SH" adapter-handler "$ROOT" "$ADAPTER" | jq -r '.handler // empty')
 
 # Fail LOUD. An empty handler would make bash exec "" (exit 127) and silently
 # take the FAILURE branch — every delivery would fail while the host looked
