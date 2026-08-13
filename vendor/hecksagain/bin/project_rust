@@ -17,24 +17,49 @@ require "fileutils"
 domain = ARGV.shift or abort "usage: bin/project_rust <domain>"
 
 target_registry = Hecksagain::Runtime::Registry.new
-Hecksagain.with_registry(target_registry) do
-  Kernel.load(File.expand_path("../lib/hecksagain/ports/persistence.port", __dir__))
-  Kernel.load(File.expand_path("../lib/hecksagain/ports/extraction.port", __dir__))
-  Kernel.load(File.expand_path("../lib/hecksagain/adapters/driven/memory.adapter", __dir__))
-  Kernel.load(File.expand_path("../lib/hecksagain/adapters/driven/prism.adapter", __dir__))
-  Kernel.load(File.join(domain, "bluebook", "#{File.basename(domain)}.bluebook"))
 
-  # ALSO the .hecksagon file, not just the .bluebook — this is what
-  # actually fires `uses_framework`, which `Kernel.load`s that framework
-  # member's own .bluebook into this SAME registry as a side effect
-  # (HecksagonBuilder#uses_framework -> Framework.load!, hecksagon_
-  # builder.rb:31-34 / framework.rb:37-46) — the same mechanism the app
-  # itself already relies on at real boot time, not a new one. A domain
-  # with no .hecksagon (or one that attaches nothing) leaves
-  # target_registry.bluebooks with just its own single entry, exactly
-  # as before this line existed.
-  hecksagon_file = File.join(domain, "bluebook", "#{File.basename(domain)}.hecksagon")
-  Kernel.load(hecksagon_file) if File.exist?(hecksagon_file)
+# THE REAL, MULTI-FILE-AWARE LOADING PATH — not a hand-rolled basename
+# guess. This used to Kernel.load exactly ONE file per domain
+# ("#{basename}.bluebook", "#{basename}.hecksagon"), so a domain split
+# across several files (hecks_conception/aggregates/conductor: claim,
+# lease, merge_queue, sweeper, worker, none named conductor.bluebook)
+# either loaded silently incomplete (framework/agent: only agent.bluebook
+# ever ran, auth_identity.bluebook and role.bluebook never did, no
+# warning) or raised a plain LoadError (conductor: no matching file at
+# all). i752.
+#
+# `Ports::Loading::Adapters::Folder#load_domain` (the same driven
+# adapter `Loader#boot` itself uses) globs `*.port`/`*.adapter`/
+# `*.bluebook`/`*.hecksagon`/`*.world` under the directory, sorted —
+# every file for the domain loads, not a naming-convention guess.
+# `load_library`/`load_project` are included too, for the same reason
+# `Loader#boot` calls them : a domain can declare its own local ports/
+# adapters, and a multi-domain corpus (hecks_conception) can share ones
+# above it (hecks_conception/adapters) that `shared_root` discovers by
+# walking up from the domain directory.
+loading   = Hecksagain::Ports::Loading.bootstrap
+directory = loading.bluebook_directory(domain)
+root      = loading.shared_root(nil, directory)
+
+Hecksagain.with_registry(target_registry) do
+  # DEFER MULTI-FILE VALIDATION THE SAME WAY `Loader#boot` DOES
+  # (meta_validator.rb / registry.rb's own `loading?` doc has the full
+  # reasoning) — without this, a domain like conductor whose files
+  # reference each other out of alphabetical order (claim.bluebook's
+  # `belongs_to Worker`, declared later in worker.bluebook) would judge
+  # each file's partial view alone the moment it loads, exactly the bug
+  # this session already fixed for ordinary boot. project_rust has its
+  # own separate load sequence, so it needs its own registry.loading
+  # toggle -- inheriting the fix required this, not just the earlier one.
+  target_registry.loading = true
+  loading.load_library
+  loading.load_project(root)
+  loading.load_domain(directory)
+  target_registry.loading = false
+
+  target_registry.bluebooks.each_key do |name|
+    target_registry.add_bluebook(Hecksagain::Bluebook::MetaValidator.call(target_registry.bluebooks[name]))
+  end
 end
 
 # Still .keys.first, unchanged from before .hecksagon was ever loaded
