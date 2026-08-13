@@ -11,5 +11,5 @@
 # bind alone is the whole wiring. The discriminating adapter that proves the
 # binding — not the heki default — selects the backend.
 Hecks.adapter "Memory" do
-  family "persistence"
+  port "persistence"
 end

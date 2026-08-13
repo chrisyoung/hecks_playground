@@ -15,6 +15,10 @@
 # subsystem this migration flagged as its single biggest remaining gap
 # (success/failure are structural no-op stubs, see hecksagon_builder.rb).
 Hecks.port "screenshot_buffer" do
-  verb   "buffered_by"
-  signal :effect
+  verb     "buffered_by"
+  signal   :effect
+  # Added parser-removal plan, Phase 1a: the corpus's now-dead
+  # screenshot_buffer.family declared this — "the basename a conforming
+  # handler must emit on success" — real documented contract, not decoration.
+  produces :path
 end

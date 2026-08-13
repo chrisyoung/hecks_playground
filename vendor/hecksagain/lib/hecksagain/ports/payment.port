@@ -9,6 +9,10 @@
 # async-verdict edge, still part of this migration's single biggest
 # confirmed-unimplemented gap (success/failure are structural no-op stubs).
 Hecks.port "payment" do
-  verb   "charged_by"
-  signal :effect
+  verb     "charged_by"
+  signal   :effect
+  # Added parser-removal plan, Phase 1a: every corpus copy of the now-dead
+  # payment.family declared this — "the verdict data a conforming handler
+  # must emit on success" — real documented contract, not decoration.
+  produces :payment_ref
 end

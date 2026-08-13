@@ -48,6 +48,20 @@ module Hecksagain
     def world(name, &block)     = collect(:add_world,     Bluebook::DSL::WorldBuilder.build(name, &block))
     def data_translation(name, from:, to:, &block) = collect(:add_translation, Bluebook::DSL::TranslationBuilder.build(name, from: from, to: to, &block))
 
+    # Vendored addition, not (yet) upstream hecksagain (i745 — the
+    # behaviors runtime, built before the Rust parser is deleted). NOT
+    # routed through `collect` — a `.behaviors` suite is never part of a
+    # live domain's Registry the way a bluebook/hecksagon/world is ; it is
+    # a test artifact a RUNNER reads on demand, so `Hecks.behaviors` works
+    # whether or not a boot is open, and simply remembers the last suite
+    # built. Mirrors the family's own "last thing parsed" convention (the
+    # old Ruby DSL's `Hecks.last_domain`) rather than inventing a new one.
+    def behaviors(name, &block)
+      @last_behaviors_suite = Bluebook::DSL::BehaviorsBuilder.build(name, &block)
+    end
+
+    attr_reader :last_behaviors_suite
+
     private
 
     def collect(method, item)

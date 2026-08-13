@@ -115,23 +115,38 @@ jobs:
           echo "smoke: all pass"
 
       - name: Behaviors corpus
-        # Walks every .behaviors file across the three checked-out repos
-        # whose same-stem .bluebook lives in the same directory. Mirrors
-        # the pre-push hook's coverage. miette_family/ is included only
-        # when checked out (optional sibling).
+        # i745 Phase 2 — swapped from the retired Rust `storehouse` binary
+        # to hecksagain-cli, the live Ruby runtime (parser-removal plan).
+        # Hard-blocking, by explicit choice : the real hecksagain-cli sweep
+        # against hecks_conception/aggregates — the root THIS step actually
+        # sweeps — is 335 pass / 18 fail / 342 error / 6 parse-error, 78
+        # files / 695 tests (this session's own measured baseline against
+        # this exact root, not the whole-hecks_conception figure quoted
+        # elsewhere). CI is EXPECTED to go red until that corpus is triaged.
+        # That triage is a separate pass ; this step only wires the gate.
+        #
+        # `hecksagain-cli behaviors <root>` already recurses a directory
+        # (Dir.glob root/**/*.behaviors) and already carries a correct
+        # exit code (05e64d9b7 : nonzero on failed+errored+parse_errors>0),
+        # so this replaces BOTH the old per-file `find | while read` walker
+        # AND the old "Behaviors corpus (storehouse test)" step below it
+        # (there is no `test` subcommand in hecksagain-cli — a directory
+        # sweep already covers what that second step did). One call per
+        # root instead of one call per file.
+        #
+        # The old per-file orphan-.bluebook pre-filter and the hardcoded
+        # framework/projection/terraform.behaviors skip have no equivalent
+        # in a directory sweep and are dropped — checked (2026-08-13) that
+        # zero orphan .behaviors files exist across any current root, so
+        # this is a documented latent risk, not a live one. terraform's
+        # known pre-existing failure now surfaces as part of the accepted
+        # red-until-triaged tradeoff instead of being skipped.
+        #
+        # Roots mirror the pre-push hook's coverage ; miette/miette_family
+        # are included only when checked out (optional siblings).
         run: |
-          HECKS="$GITHUB_WORKSPACE/hecks/rust/target/release/storehouse"
+          HECKS="ruby $GITHUB_WORKSPACE/hecks/hecksagain_runtime/bin/hecksagain-cli"
           ROOTS="$GITHUB_WORKSPACE/hecks/hecks_conception/aggregates"
-          # i499 audit (2026-05-08) extended coverage to adapters and
-          # framework dirs (tools, discipline, runtime, bluebook,
-          # codegen, integrations). Mirrors tooling/git-hooks/pre-push
-          # roots.
-          # i499 follow-up (2026-05-08) — catalog/ joined the gate
-          # after the wire-orphan agent fixed boot/mind/appeal/rvdc.
-          # i499 follow-up CLOSED (2026-06-29) — cli/ behaviors are green
-          # now, so cli/ joins, alongside the active root adapters/ tree
-          # (serving + storage, distinct from hecks_conception/adapters)
-          # and hecks_conception/storehouse/. All green.
           [ -d "$GITHUB_WORKSPACE/hecks/hecks_conception/adapters" ] && ROOTS="$ROOTS $GITHUB_WORKSPACE/hecks/hecks_conception/adapters"
           [ -d "$GITHUB_WORKSPACE/hecks/hecks_conception/catalog" ] && ROOTS="$ROOTS $GITHUB_WORKSPACE/hecks/hecks_conception/catalog"
           [ -d "$GITHUB_WORKSPACE/hecks/tools" ] && ROOTS="$ROOTS $GITHUB_WORKSPACE/hecks/tools"
@@ -146,91 +161,16 @@ jobs:
           [ -d "$GITHUB_WORKSPACE/miette" ] && ROOTS="$ROOTS $GITHUB_WORKSPACE/miette"
           [ -d "$GITHUB_WORKSPACE/miette_family" ] && ROOTS="$ROOTS $GITHUB_WORKSPACE/miette_family"
           fail=0
-          # Known pre-existing drift (reproduces at the hecks-rewrite
-          # merge-base, NOT introduced by this PR) : terraform.behaviors'
-          # third test dispatches the ProjectAdapter transition without a
-          # self-ref id, hitting the "transition commands need self id"
-          # contract. Tracked as a follow-up ; skipped here so the rest of
-          # the corpus gates. Remove this skip once the TerraformProjector
-          # ProjectAdapter test threads its self-ref id.
-          while IFS= read -r b; do
-            parent=$(dirname "$b")
-            stem=$(basename "$b" .behaviors)
-            [ ! -f "$parent/$stem.bluebook" ] && continue
-            case "$b" in
-              *framework/projection/terraform.behaviors) continue ;;
-            esac
-            if ! "$HECKS" behaviors "$b" >/dev/null 2>&1; then
-              fail=$((fail + 1))
-              echo "::error::behaviors $b failed"
-              "$HECKS" behaviors "$b" 2>&1 | tail -5
-            fi
-          # shellcheck disable=SC2086
-          done < <(find $ROOTS -name "*.behaviors")
-          [ "$fail" -gt 0 ] && exit 1
-          echo "behaviors: all pass"
-
-      - name: Behaviors corpus (storehouse test)
-        # i500 Stage 1 — parallel gate to the per-file `behaviors`
-        # walker above. `storehouse test <root>` walks each domain
-        # root and runs every .behaviors with a same-stem .bluebook,
-        # mirroring the pre-commit Gate 6b in tooling/git-hooks/pre-commit.
-        # Roots match the pre-push gate. Both blocks gate during the
-        # migration window ; once the per-file walker retires, this
-        # one stays.
-        #
-        # i499 follow-up (2026-05-08) — catalog/ joined the gate after
-        # the :pending scrub + i511 fixes (RegisterDomains + behaviors_runner
-        # singleton lifecycle default). Catalog now reports 1175/0/0.
-        run: |
-          HECKS="$GITHUB_WORKSPACE/hecks/rust/target/release/storehouse"
-          ROOTS=""
-          # Enumerate the aggregates categories explicitly so we can skip
-          # framework/projection : terraform.behaviors carries a known
-          # pre-existing self-ref-seeding gap (its ProjectAdapter test
-          # dispatches a reference_to(TerraformProjector) transition with
-          # no seeded instance, which the behaviors runner can't satisfy
-          # in-isolation). The per-file walker above skips the same file.
-          # Same follow-up : seed the projector in the behaviors runner.
-          AGG="$GITHUB_WORKSPACE/hecks/hecks_conception/aggregates"
-          if [ -d "$AGG" ]; then
-            for sub in "$AGG"/*; do
-              [ -d "$sub" ] || continue
-              if [ "$(basename "$sub")" = "framework" ]; then
-                for fsub in "$sub"/*; do
-                  [ -d "$fsub" ] || continue
-                  [ "$(basename "$fsub")" = "projection" ] && continue
-                  ROOTS="$ROOTS $fsub"
-                done
-              else
-                ROOTS="$ROOTS $sub"
-              fi
-            done
-          fi
-          [ -d "$GITHUB_WORKSPACE/hecks/hecks_conception/adapters" ]   && ROOTS="$ROOTS $GITHUB_WORKSPACE/hecks/hecks_conception/adapters"
-          [ -d "$GITHUB_WORKSPACE/hecks/hecks_conception/catalog" ]    && ROOTS="$ROOTS $GITHUB_WORKSPACE/hecks/hecks_conception/catalog"
-          [ -d "$GITHUB_WORKSPACE/hecks/tools" ]                       && ROOTS="$ROOTS $GITHUB_WORKSPACE/hecks/tools"
-          [ -d "$GITHUB_WORKSPACE/hecks/discipline" ]                  && ROOTS="$ROOTS $GITHUB_WORKSPACE/hecks/discipline"
-          [ -d "$GITHUB_WORKSPACE/hecks/runtime" ]                     && ROOTS="$ROOTS $GITHUB_WORKSPACE/hecks/runtime"
-          [ -d "$GITHUB_WORKSPACE/hecks/cli" ]                         && ROOTS="$ROOTS $GITHUB_WORKSPACE/hecks/cli"
-          [ -d "$GITHUB_WORKSPACE/hecks/bluebook" ]                    && ROOTS="$ROOTS $GITHUB_WORKSPACE/hecks/bluebook"
-          [ -d "$GITHUB_WORKSPACE/hecks/codegen" ]                     && ROOTS="$ROOTS $GITHUB_WORKSPACE/hecks/codegen"
-          [ -d "$GITHUB_WORKSPACE/hecks/integrations" ]                && ROOTS="$ROOTS $GITHUB_WORKSPACE/hecks/integrations"
-          fail=0
           for root in $ROOTS; do
             name=$(basename "$root")
-            out="/tmp/behaviors_test_${name}.out"
-            if ! "$HECKS" test "$root" >"$out" 2>&1; then
-              # A leaf root with no .behaviors at all is a benign skip
-              # (enumerating aggregates subdirs surfaces dirs that carry
-              # only a .bluebook). Only a real test failure/error gates.
-              if grep -q "no .behaviors files found" "$out"; then
-                continue
-              fi
+            out="/tmp/behaviors_${name}.json"
+            err="/tmp/behaviors_${name}.err"
+            if ! $HECKS behaviors "$root" >"$out" 2>"$err"; then
               fail=$((fail + 1))
-              echo "::error::storehouse test $root failed"
-              tail -20 "$out"
+              echo "::error::behaviors $root failed"
+              jq -r '.summary // empty, (.files[]? | select(.parse_error or ((.runs // []) | any(.status=="fail" or .status=="error"))) | .suite)' "$out" 2>/dev/null || cat "$out"
+              [ -s "$err" ] && { echo "stderr:"; cat "$err"; }
             fi
           done
           [ "$fail" -gt 0 ] && exit 1
-          echo "behaviors (storehouse test): all pass"
+          echo "behaviors: all pass"

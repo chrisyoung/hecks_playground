@@ -18,6 +18,6 @@
 # resolves IFF DiskBuffer's declared family (screenshot_buffer) carries the
 # `buffered_by` verb — the typed attach checkpoint.
 Hecks.adapter "DiskBuffer" do
-  family  "screenshot_buffer"
+  port    "screenshot_buffer"
   handler "tools/web_debug/disk-buffer-handler"
 end

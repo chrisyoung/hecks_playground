@@ -33,9 +33,6 @@ module HecksagainRuntime
     MOONS = ["🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘"].freeze
     PRUNE = %w[.git node_modules target vendor .wrangler dist build .next coverage .venv].freeze
     MAX_DEPTH = 4
-    # Client work never surfaces on the ambient statusline — Chris's own
-    # projects render, client projects stay off it (2026-08-12).
-    CLIENT_DIRS = %w[embryonaut_clients].freeze
 
     State = Struct.new(
       :consciousness, :sleep_summary, :sleep_stage, :sleep_cycle, :sleep_total,
@@ -278,7 +275,7 @@ module HecksagainRuntime
         path = File.join(dir, name)
         next if File.symlink?(path)
         next unless File.directory?(path)
-        next if name.start_with?(".") || PRUNE.include?(name) || CLIENT_DIRS.include?(name)
+        next if name.start_with?(".") || PRUNE.include?(name)
 
         collect_channels(path, depth + 1, out)
       end
@@ -286,19 +283,37 @@ module HecksagainRuntime
       nil
     end
 
+    # A channel declares its OWN ambient visibility, in its own descriptor :
+    #
+    #     ambient: true
+    #
+    # Opt-IN, and deliberately so. The predecessor of this rule was a
+    # CLIENT_DIRS list of directory names living here in the runtime, which
+    # failed twice over : it re-created the central registry i528 retired,
+    # and it only ever caught clients that happened to sit under one parent
+    # folder — seven client inboxes filed directly under ~/Projects sailed
+    # straight past it while the commit claimed client work was off the bar.
+    # An opt-OUT default fails silently and in the wrong direction : a client
+    # inbox appears on the ambient bar because someone forgot to exclude it.
+    # Opt-in fails toward silence instead, and the runtime never learns any
+    # project's name.
     def parse_channel(desc, dir)
       text = File.read(desc)
       emoji = ""
       abbrev = ""
+      ambient = false
       frontmatter_lines(text).each do |line|
         t = line.strip
         if t.start_with?("emoji:")
           emoji = t.sub("emoji:", "").strip
         elsif t.start_with?("abbrev:")
           abbrev = t.sub("abbrev:", "").strip
+        elsif t.start_with?("ambient:")
+          ambient = t.sub("ambient:", "").strip == "true"
         end
       end
       return nil if emoji.empty?
+      return nil unless ambient
 
       { abbrev: abbrev, emoji: emoji, count: count_active_cards(dir) }
     rescue StandardError

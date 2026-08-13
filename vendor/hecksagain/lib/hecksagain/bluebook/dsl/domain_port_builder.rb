@@ -24,12 +24,24 @@ module Hecksagain
         # one shape or the other — never both.
         def verb(value) = @verb = value.to_s
 
+        # Vendored addition, not (yet) upstream hecksagain (parser-removal
+        # plan, Phase 1a): the verb-shaped inline form (`port "X" do verb
+        # "..." end`, inside a .hecksagon) previously hardcoded `signal:
+        # :reply` unconditionally -- correct for a genuine reply port, but a
+        # SILENT MIS-RECORD for an effect-family one declared this way (the
+        # real corpus has 6 of 9 families needing :effect). Defaults to
+        # :reply when unspecified, so every existing bare `verb "x"` caller
+        # keeps its current behavior unchanged. `produces` mirrors the
+        # top-level `PortBuilder`'s own addition -- see IR::Port's comment.
+        def signal(value)   = @signal = value.to_sym
+        def produces(value) = @produces = value.to_sym
+
         def build
           if @verb && !@operations.empty?
             raise Malformed, "#{@name} declares both a verb and operations — a port is one or the other, not both"
           end
 
-          return IR::Port.new(name: @name, verb: @verb, signal: :reply) if @verb
+          return IR::Port.new(name: @name, verb: @verb, signal: @signal || :reply, produces: @produces) if @verb
 
           raise Malformed, "#{@name} declares no verb and no operations" if @operations.empty?
 

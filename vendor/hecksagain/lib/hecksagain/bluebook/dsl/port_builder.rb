@@ -10,8 +10,12 @@ module Hecksagain
         def verb(value)   = @verb = value.to_s
         def signal(value) = @signal = value.to_sym
 
+        # Vendored addition, not (yet) upstream hecksagain (parser-removal
+        # plan, Phase 1a). See IR::Port's own comment for why this exists.
+        def produces(name) = @produces = name.to_sym
+
         def build
-          IR::Port.new(name: @name, verb: @verb, signal: @signal)
+          IR::Port.new(name: @name, verb: @verb, signal: @signal, produces: @produces)
         end
 
         def self.build(name, &block)

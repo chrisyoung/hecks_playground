@@ -15,6 +15,8 @@ require "hecksagain"
 require "json"
 require "fileutils"
 require "digest"
+require_relative "behaviors_runner"
+require_relative "validate_sweep"
 
 # Vendored addition, not (yet) upstream hecksagain (migration plan task
 # 8): `hecksagain/presentation` is DELIBERATELY not required by `require
@@ -233,7 +235,29 @@ module HecksagainRuntime
         current_count      = source_files.size.to_s
         count_changed      = !File.exist?(file_count_marker) || File.read(file_count_marker) != current_count
 
-        if !File.exist?(marker) || count_changed || (newest_source && File.mtime(marker) < newest_source)
+        # Found live (2026-08-13): count_changed alone is blind to a
+        # DIFFERENT bug than the deletion case above -- which BRANCH
+        # produced canon_globs (CANON_SUBDIRS / MIETTE_SUBDIRS /
+        # scattered_project?) can itself flip between calls if a
+        # directory this root depends on (hecks_conception/adapters,
+        # /storehouse) transiently vanishes from another process racing
+        # this one, then reappears. If the transient scattered-glob pass
+        # happens to stage the SAME file count as a later, correctly-
+        # shaped canon-glob pass, count_changed is false and the WRONG
+        # (broader, unscoped) file set silently survives for every
+        # subsequent call -- confirmed live : a scattered-glob stage
+        # pulled in framework/behavior_kinds/*.hecksagon (files with no
+        # "bluebook/" path segment, using a Hecks.behavior_kind DSL
+        # entrypoint vendor/hecksagain never defines), and every dispatch
+        # against the cached stage raised NoMethodError until the tmp dir
+        # was deleted by hand. Fingerprinting the glob PATTERNS
+        # themselves (not just what they matched) catches a branch flip
+        # even when file counts coincide.
+        shape_marker     = File.join(stage_root, ".staged_shape")
+        current_shape     = Digest::SHA256.hexdigest(canon_globs.sort.join("\n"))
+        shape_changed     = !File.exist?(shape_marker) || File.read(shape_marker) != current_shape
+
+        if !File.exist?(marker) || count_changed || shape_changed || (newest_source && File.mtime(marker) < newest_source)
           FileUtils.rm_rf(stage_root)
           FileUtils.mkdir_p(stage_dir)
           seen = Hash.new(0)
@@ -316,6 +340,7 @@ module HecksagainRuntime
           end
           FileUtils.touch(marker)
           File.write(file_count_marker, current_count)
+          File.write(shape_marker, current_shape)
         end
         stage_root
   end
@@ -410,7 +435,19 @@ module HecksagainRuntime
       ok: true,
       state: result.state,
       events: result.events.map { |e| { name: e.name, aggregate: e.aggregate, id: e.id, payload: e.payload } },
-    }
+      # THE EXECUTION PORT'S REPLY — present only for a command whose
+      # aggregate binds an `executed_by` adapter (Tools::ShellTool /
+      # FileTool / SearchTool). Carried explicitly rather than left to be
+      # read off the events: a re-entered Cascade.RecordResult's events do
+      # not land in this call's own `announced`, so without this a caller
+      # would watch a shell command genuinely run and still see nothing
+      # come back.
+      #
+      # Added conditionally rather than via `.compact` — compact would ALSO
+      # drop `state` on the port-operation path (nothing is hydrated there,
+      # so state is legitimately nil), silently changing the response shape
+      # of every dispatch to fix the one key that needed it.
+    }.tap { |payload| payload[:reply] = result.reply if result.reply }
   rescue StandardError => e
     { ok: false, error: e.message, error_class: e.class.name }
   end
@@ -441,11 +478,28 @@ module HecksagainRuntime
   # Replaces `storehouse validate`. hecksagain's own DSL builders raise
   # inline and Registry#verify! checks wiring at boot -- a clean Hecks.boot
   # already IS validity (Part 1's validator finding). No separate pass.
+  #
+  # PER-ROOT for a multi-domain corpus (i745 -- parser-removal plan, Phase
+  # 1b): a single combined boot over the WHOLE corpus reported valid:true
+  # while 36 of hecks_conception's own 58 sub-roots were individually
+  # invalid -- a crash anywhere makes the whole thing false with no "which
+  # root", and a name collision between two roots' declarations can make a
+  # broken root silently PASS (confirmed live this session: heki.adapter
+  # was missing field :dir and only "worked" because a DIFFERENT bug
+  # crashed it before it could load and shadow a better copy). See
+  # ValidateSweep's own header for the full reasoning.
+  #
+  # ALWAYS sweeps, single domain or many -- a single-domain root reduces to
+  # "1 root swept, valid or not", which is the same answer in a strictly
+  # more informative shape ({roots_swept, valid, invalid, results}, not a
+  # bare boolean). Kept ONE path deliberately: a root-count comparison to
+  # special-case the single-domain shape back to the old bare-boolean form
+  # turned out to compare an expanded path against a relative one and never
+  # actually match (caught by cli_smoke.mjs's own assertion needing an
+  # update, not by this comment) -- simpler to commit to one honest shape
+  # everywhere than carry a comparison that silently never took its branch.
   def self.validate(root)
-    Hecks.boot(stage_flat_corpus(root), install_facade: false)
-    { ok: true, valid: true }
-  rescue StandardError => e
-    { ok: true, valid: false, error: e.message, error_class: e.class.name }
+    ValidateSweep.run(root)
   end
 
   # Replaces storehouse__catalog / describe_aggregate / list_aggregates.
@@ -487,6 +541,21 @@ module HecksagainRuntime
   def self.list_aggregates(root)
     runtime = Hecks.boot(stage_flat_corpus(root), install_facade: false)
     { ok: true, aggregates: runtime.registry.bluebooks.values.flat_map { |b| b.aggregates.map(&:name) } }
+  rescue StandardError => e
+    { ok: false, error: e.message, error_class: e.class.name }
+  end
+
+  # i746 step 7 -- replaces bin/adapter-host's old shell-out to a
+  # nonexistent "storehouse dump-hecksagon" subcommand. Boots root, finds
+  # the named adapter, returns its declared `handler` path (or nil if the
+  # .adapter file never declared one -- bin/adapter-host's own "fail loud"
+  # check handles that, not this method).
+  def self.adapter_handler(root, adapter_name)
+    runtime = Hecks.boot(stage_flat_corpus(root), install_facade: false)
+    adapter = runtime.registry.adapters[adapter_name]
+    return { ok: false, error: "no such adapter #{adapter_name.inspect}", available: runtime.registry.adapters.keys } unless adapter
+
+    { ok: true, adapter: adapter_name, handler: adapter.handler }
   rescue StandardError => e
     { ok: false, error: e.message, error_class: e.class.name }
   end

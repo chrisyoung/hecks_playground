@@ -1,18 +1,40 @@
 module Hecksagain
   module Bluebook
     module IR
-      Port = Struct.new(:name, :verb, :signal, keyword_init: true) do
+      # Vendored addition, not (yet) upstream hecksagain (parser-removal
+      # plan, Phase 1a): `produces` names the verdict data a conforming
+      # effect-family handler must emit on success (payment's :payment_ref,
+      # screenshot_buffer's :path, ...). Was previously discarded silently
+      # at the family/port boundary -- 6 of the corpus's 9 families declare
+      # it with real documented meaning, not decoration. Still inert at
+      # runtime today (nothing branches on it, same as `signal` -- see i746
+      # for where it becomes load-bearing), but the IR keeps the fact
+      # rather than dropping it on the floor.
+      Port = Struct.new(:name, :verb, :signal, :produces, keyword_init: true) do
         def reply?  = signal == :reply
         def effect? = signal == :effect
       end
 
-      Adapter = Struct.new(:name, :port, :fields, :secrets, keyword_init: true) do
+      # `handler` — i746 step 7: the out-of-process program bin/adapter-host
+      # execs when this adapter's bound event fires (`handler "path/to/
+      # program"` in a .adapter file). Real now, not a no-op stub — read
+      # by HecksagainRuntime.adapter_handler, the hecksagain-cli
+      # adapter-handler subcommand bin/adapter-host calls instead of the
+      # nonexistent dump-hecksagon it used to shell out to.
+      Adapter = Struct.new(:name, :port, :fields, :secrets, :handler, keyword_init: true) do
         def declares?(field) = all_fields.include?(field.to_sym)
 
         def all_fields = (fields || []) + (secrets || [])
       end
 
-      Bind = Struct.new(:aggregate, :verb, :adapter, :role, keyword_init: true) do
+      # `on`/`success`/`failure` — i746: the effect-port async verdict
+      # pattern (Order.charged_by("Stripe", on: "OrderPlaced") do
+      # success "Order.Authorize" ; failure "Order.Decline" end). `on` is
+      # the triggering event name ; `success`/`failure` are bare or
+      # qualified command FQNs, filled in by BindingProxy/HecksagonBuilder
+      # at DSL-build time (binding_proxy.rb, hecksagon_builder.rb), read
+      # by Dispatcher#record_effect_outbound at dispatch time.
+      Bind = Struct.new(:aggregate, :verb, :adapter, :role, :on, :success, :failure, keyword_init: true) do
         def aggregate_name = Naming.demodulise(aggregate)
       end
 
@@ -27,15 +49,35 @@ module Hecksagain
         def to_h = { adapter_name: adapter_name, kind: kind, arg: arg, dispatch_command: dispatch_command }
       end
 
-      class Hecksagon
-        attr_reader :domain, :binds, :subscriptions, :framework_members, :driving_handlers
+      # i747 — the DRIVEN side's counterpart to Bind's on:/success/failure :
+      # `adapter "X" do driven on "Domain::Aggregate.Event" do dispatch
+      # "Domain::Aggregate.Command", field: "{event_field}" ; success "..." ;
+      # failure "..." end end`. Unlike Bind (a PORT-mediated effect, async,
+      # swappable adapter), a driven handler is a direct in-process
+      # cross-context call — "no port, no family, no adapter contract"
+      # (pizzas.hecksagon's own comment) — so it lives on the Hecksagon
+      # directly, not through Registry#port_for/check_verb the way Bind
+      # does. dispatch_args carries the `{field}` interpolation map ;
+      # success/failure are optional — a driven block with neither is a
+      # fire-and-forget dispatch (examples/pizzas' own "Deposit" adapter).
+      DrivenHandler = Struct.new(:adapter_name, :event, :dispatch_command, :dispatch_args, :success, :failure,
+                                  keyword_init: true) do
+        def to_h
+          { adapter_name: adapter_name, event: event, dispatch_command: dispatch_command,
+            dispatch_args: dispatch_args, success: success, failure: failure }
+        end
+      end
 
-        def initialize(domain:, binds: [], subscriptions: [], framework_members: [], driving_handlers: [])
+      class Hecksagon
+        attr_reader :domain, :binds, :subscriptions, :framework_members, :driving_handlers, :driven_handlers
+
+        def initialize(domain:, binds: [], subscriptions: [], framework_members: [], driving_handlers: [], driven_handlers: [])
           @domain             = domain.to_s
           @binds              = binds
           @subscriptions      = subscriptions
           @framework_members  = framework_members
           @driving_handlers   = driving_handlers
+          @driven_handlers    = driven_handlers
         end
 
         def bind_for(aggregate_name, verb)
@@ -53,7 +95,8 @@ module Hecksagain
         def to_h
           { domain: @domain, binds: @binds.map(&:to_h), subscriptions: @subscriptions.map(&:to_s),
             framework_members: @framework_members.map(&:to_s),
-            driving_handlers: @driving_handlers.map(&:to_h) }
+            driving_handlers: @driving_handlers.map(&:to_h),
+            driven_handlers: @driven_handlers.map(&:to_h) }
         end
       end
 

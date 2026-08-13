@@ -57,6 +57,21 @@ function runDispatch(aggregatesDir, command, attrArgs) {
 function render(result) {
   const headline = result.ok ? `✓ ${result.command}` : `✗ ${result.command} — ${result.error || "failed"}`;
   const lines = [headline, `  ${result.duration_ms}ms`];
+  // THE EXECUTION PORT'S REPLY, FIRST — present only when the dispatched
+  // command's aggregate binds an `executed_by` adapter (Tools::ShellTool /
+  // FileTool / SearchTool). It leads because for a tool call the output IS
+  // the answer; the record and its events are the audit trail around it.
+  //
+  // Without this the door executes correctly and still LOOKS dead: `state`
+  // echoes back only the attributes that were dispatched in, and the events
+  // list prints names without payloads, so a shell command that genuinely
+  // ran would surface no stdout anywhere. That was the shape of the
+  // original bug and it must not be reproducible one layer up.
+  if (result.reply) {
+    const { tool, output, exit_code: exitCode, ok, cascade_error: cascadeError } = result.reply;
+    lines.push("", `Output (${tool}, exit ${exitCode}${ok ? "" : " — FAILED"}):`, output ?? "");
+    if (cascadeError) lines.push(`  [outcome not recorded: ${cascadeError}]`);
+  }
   if (result.events?.length) {
     lines.push("", "Events:");
     result.events.forEach((e) => lines.push(`  ${e.name} (${e.aggregate}#${e.id})`));

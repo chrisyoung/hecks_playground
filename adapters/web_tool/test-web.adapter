@@ -15,6 +15,6 @@
 # at a `key<TAB>output` file where key is `<tool>:<url-or-query>`. A miss yields
 # the deterministic lenient placeholder `[test-web:unknown <tool>=<arg>]`.
 Hecks.adapter "TestWeb" do
-  family  "web_tool"
+  port    "web_tool"
   handler "adapters/web_tool/web-tool-handler"
 end

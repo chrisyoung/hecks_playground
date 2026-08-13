@@ -32,3 +32,11 @@ require_relative "driven/secure_random_identity"
 require_relative "driven/governance_authorization"
 require_relative "driven/identity_registry"
 require_relative "driven/google_authentication"
+# Vendored addition, not (yet) upstream hecksagain — the three execution-port
+# adapters. Unlike the identity_generation pair noted above, these are NOT
+# ambiguous: the execution port resolves per-aggregate through binds_for
+# (Ports::Execution), never by a global "who implements this port" scan, so
+# three adapters sharing one port is the intended shape here.
+require_relative "driven/shell"
+require_relative "driven/filesystem"
+require_relative "driven/search"

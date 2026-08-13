@@ -3,10 +3,24 @@
 # async, never locks.
 #
 # The bind `Pizzas::Order.persisted_by("Heki")` resolves IFF Heki's declared
-# family (persistence) carries the `persisted_by` verb — the typed attach
-# checkpoint. An adapter whose family lacks the verb fails the attach, loudly,
-# at wiring. Per-deployment values (the store `dir`) live in .world ; the
-# adapter declaration carries no values.
+# port (persistence) carries the `persisted_by` verb — the typed attach
+# checkpoint. An adapter whose port lacks the verb fails the attach, loudly,
+# at wiring. Per-deployment values (the store `dir`) live in .world ; this
+# declaration only NAMES the field, matching hecksagain's own vendored
+# heki.adapter exactly.
+#
+# `field :dir` added (parser-removal plan, Phase 1a) : this file's own
+# `family "persistence"` never actually parsed before this pass (`.family`/
+# `Hecks.adapter`'s old `family` call both crashed boot), so this corpus copy
+# never successfully registered — the vendored library's OWN "Heki" adapter
+# (which DOES declare `field :dir`) was silently the only one ever live.
+# Fixing the crash let THIS copy load for the first time, and
+# Registry#add_adapter is a flat name-keyed overwrite (load_library runs
+# before load_domain in the same boot) — so this copy now shadows the
+# library's, and needed the field it was always missing. Found live : every
+# .world file setting `dir:` on Heki failed with "Heki does not declare :dir"
+# across 26 domain roots the moment this file started loading successfully.
 Hecks.adapter "Heki" do
-  family "persistence"
+  port  "persistence"
+  field :dir
 end

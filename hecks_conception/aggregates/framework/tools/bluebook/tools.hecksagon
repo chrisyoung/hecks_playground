@@ -35,18 +35,37 @@ Hecks.hecksagon "Tools" do
 
   adapter :memory
 
-  # ── ShellTool ──
-  adapter :claude_tool, command: "Hecks::Framework::Tools::ShellTool.Bash",   tool: :bash,  result_into: "Hecks::Framework::Cascade::Cascade.RecordResult"
-
-  # ── FileTool ──
-  adapter :claude_tool, command: "Hecks::Framework::Tools::FileTool.Read",    tool: :read,  result_into: "Hecks::Framework::Cascade::Cascade.RecordResult"
-  adapter :claude_tool, command: "Hecks::Framework::Tools::FileTool.Edit",    tool: :edit,  result_into: "Hecks::Framework::Cascade::Cascade.RecordResult"
-  adapter :claude_tool, command: "Hecks::Framework::Tools::FileTool.Update",  tool: :write, result_into: "Hecks::Framework::Cascade::Cascade.RecordResult"
-  adapter :claude_tool, command: "Hecks::Framework::Tools::FileTool.Write",   tool: :write, result_into: "Hecks::Framework::Cascade::Cascade.RecordResult"
-
-  # ── SearchTool ──
-  adapter :claude_tool, command: "Hecks::Framework::Tools::SearchTool.Grep",  tool: :grep,  result_into: "Hecks::Framework::Cascade::Cascade.RecordResult"
-  adapter :claude_tool, command: "Hecks::Framework::Tools::SearchTool.Glob",  tool: :glob,  result_into: "Hecks::Framework::Cascade::Cascade.RecordResult"
+  # ── THE EXECUTION PORT (2026-08-12) ──
+  #
+  # These three binds replace seven `adapter :claude_tool, command: "...",
+  # tool: :bash, result_into: "..."` lines that had been here since the Rust
+  # runtime, and that DID NOTHING once hecksagain was vendored in.
+  # HecksagonBuilder#adapter parses that form into `@raw_adapters`, and
+  # #build never passes @raw_adapters into IR::Hecksagon — every one of them
+  # was discarded at boot. The door dispatched, recorded, emitted BashRan,
+  # and executed nothing ; a `Tools::ShellTool.Bash` writing a probe file
+  # reported ✓ and the file did not exist. Removed rather than left inert:
+  # a declaration that reads as wiring and isn't is worse than no
+  # declaration, because it makes the missing edge invisible.
+  #
+  # The replacement says the same thing in hecksagain's own idiom — an
+  # `execution` port (verb `executed_by`, signal :reply, declared at
+  # vendor/hecksagain/lib/hecksagain/ports/execution.port) with one adapter
+  # per tool category. These are ordinary binds, so Registry::Verification
+  # type-checks them at boot exactly as it does `persisted_by` : an adapter
+  # that does not implement `executed_by` now fails LOUDLY at wiring instead
+  # of silently doing nothing. The principle this file already stated —
+  # "the domain will compose the tool call and the adapter runs them" — is
+  # unchanged ; only the mechanism carrying it is real now.
+  #
+  # The outcome still chains into Cascade.RecordResult, but the dispatcher
+  # does it off the port's reply rather than each binding naming its own
+  # `result_into` — one place, and no stale FQN to drift (the old strings
+  # named "Hecks::Framework::Cascade::Cascade", and one of them
+  # "Cascade::Cascade::Cascade" ; the real verb is Cascade::Cascade).
+  Tools::ShellTool.executed_by("Shell")
+  Tools::FileTool.executed_by("Filesystem")
+  Tools::SearchTool.executed_by("Search")
 
   # ── WebTool : :web_tool adapter family (i569) ──
   #

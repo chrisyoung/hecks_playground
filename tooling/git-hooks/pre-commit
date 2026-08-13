@@ -96,24 +96,34 @@ WORLD_PARITY_TEST="$REPO/parity/world_parity_test.rb"
 # 2b just below is being upgraded to a real hecksagain-cli check
 # covering this ground with the new runtime instead.
 
-# ── Gate 2b: validator gate — REPLACED with hecksagain-cli (2026-08-11) ──
-# UPGRADED, not just retired, per Chris's explicit sign-off: the old
-# per-FILE `storehouse validate --check-references` doesn't map onto
-# hecksagain-cli's real contract (corpus ROOT only, no single-file
-# entry point — confirmed directly this same cutover pass), but the
-# check this gate exists for — "does a staged bluebook change still
-# boot clean" — is exactly what `hecksagain-cli validate <root>`
-# already does for real, proven clean all through this migration.
-# Whenever ANY .bluebook is staged, boot the whole hecks_conception
-# root through the new runtime once (not per-file — a clean boot IS
-# corpus-wide by construction) and block on a real defect.
+# ── Gate 2b: validator gate — PER-ROOT (parser-removal plan, Phase 1b) ──
+# UPGRADED again, past the 2026-08-11 hecksagain cutover: that pass fixed
+# WHICH runtime validates (hecksagain-cli, not the retired Rust binary),
+# but `hecksagain-cli validate <root>` still flattened the WHOLE corpus
+# into ONE combined boot and reported ONE verdict — i745 found it saying
+# valid:true while 36 of hecks_conception's own 58 sub-roots were
+# individually invalid (a crash anywhere makes the whole thing false with
+# no "which root", and a name collision between two roots can make a
+# broken root silently PASS). `HecksagainRuntime.validate` now sweeps
+# every domain root individually for a multi-root corpus (HecksagainRuntime
+# ::ValidateSweep) and the CLI's `validate` verb carries that straight
+# through — same command, honest shape. Print how many roots it actually
+# swept, so a green gate says how much it looked at, not just that it
+# found nothing wrong (i745's own standing lesson).
 HECKSAGAIN_CLI="$REPO/hecksagain_runtime/bin/hecksagain-cli"
 if [ -z "$VALIDATE_SKIP" ] && [ -x "$HECKSAGAIN_CLI" ]; then
     staged_bluebooks=$(git diff --cached --name-only --diff-filter=ACM | grep '\.bluebook$' || true)
     if [ -n "$staged_bluebooks" ]; then
         out=$("$HECKSAGAIN_CLI" validate "$CONCEPTION_DIR" 2>&1)
-        if ! printf '%s' "$out" | grep -q '"valid":true'; then
-            echo "COMMIT BLOCKED: hecksagain-cli validate found a real defect."
+        ok=$(printf '%s' "$out" | ruby -rjson -e 'puts (JSON.parse(STDIN.read)["ok"] == true) rescue puts "false"' 2>/dev/null || echo 'false')
+        swept=$(printf '%s' "$out" | ruby -rjson -e 'puts JSON.parse(STDIN.read)["roots_swept"]' 2>/dev/null || echo '?')
+        invalid=$(printf '%s' "$out" | ruby -rjson -e 'j=JSON.parse(STDIN.read); puts j["invalid"] || (j["valid"] == false ? 1 : 0)' 2>/dev/null || echo '?')
+        # `ok:false` covers the sweep finding ZERO domain roots (a bad path,
+        # or the discovery glob itself broke) -- "invalid:0 because nothing
+        # was checked" must never read as a clean pass, the same false-
+        # positive-on-nothing-found shape this whole gate exists to end.
+        if [ "$ok" != "true" ] || [ "$invalid" != "0" ]; then
+            echo "COMMIT BLOCKED: hecksagain-cli validate found a real defect (swept=$swept invalid=$invalid ok=$ok)."
             echo ""
             echo "$out"
             echo ""
@@ -121,6 +131,7 @@ if [ -z "$VALIDATE_SKIP" ] && [ -x "$HECKSAGAIN_CLI" ]; then
             echo "  Bypass (use only for emergencies) : VALIDATE_SKIP=1 git commit ..."
             exit 1
         fi
+        echo "✓ validate: $swept domain root(s) swept, all clean"
     fi
 fi
 
