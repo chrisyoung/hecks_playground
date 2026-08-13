@@ -1,0 +1,34 @@
+# session_verification — an impure-boundary PORT for verifying a session
+# credential, declared once and used by AuthIdentity's hexagon. Two-color
+# rule : sync domain, async adapter, NEVER a lock.
+#
+# NAMED "session_verification", not "authentication" (parser-removal plan,
+# Phase 1a, replacing the dead authentication.family — .family was never a
+# parsed hecksagain construct, confirmed : *.family isn't even in the
+# loader's DOMAIN_ORDER glob). hecksagain's own vendored library already
+# ships an `authentication.port` (verb authenticated_by, signal :reply — a
+# different, simpler synchronous-check concept). Registry#add_port is a flat
+# name-keyed overwrite, and load_library runs before load_domain in the SAME
+# boot (runtime/loader.rb) — reusing the name "authentication" here would
+# silently clobber one port with the other. Distinct name, distinct registry
+# slot, no collision.
+#
+# Signal is EFFECT (not reply), the exact shape of payment : AuthIdentity.Establish
+# EMITS Established, the verifier adapter does its async external check (validate the
+# token against the provider named by the credential), and the verdict RE-ENTERS the
+# same domain as a command — MarkVerified on success, Reject on failure. The whole
+# round-trip rides one how-verb — `verified_by` — hung off the aggregate FQN with its
+# triggering event (`on: "Established"`).
+#
+# This is authn 'via adapters' WITHOUT the two-color violation : verification is a
+# ONCE-PER-SESSION effect at Establish, never a per-dispatch blocking call. The
+# per-dispatch authenticate Gate stays IN-PROCESS, reading the verdict this effect
+# already recorded (AuthIdentity status active). The per-deployment VALUES (endpoint,
+# token, timeout) live in .world, declared on the adapter that implements this port
+# (SessionVerifier) — a port names verb/signal/produces only, never per-deployment
+# config.
+Hecks.port "session_verification" do
+  verb     "verified_by"
+  signal   :effect
+  produces :verification_ref   # the verdict data a conforming handler emits on success
+end

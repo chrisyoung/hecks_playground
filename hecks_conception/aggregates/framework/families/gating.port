@@ -1,0 +1,44 @@
+# gating — an IN-PROCESS, before-veto PORT for deciding allow/deny on an inbound
+# dispatch, declared once and used by every domain's hexagon (the bind
+# `Aggregate.gated_by("authorize")` references this port by its how-verb). The
+# shared vocabulary lives here ; a domain never redeclares it.
+#
+# Converted from the dead gating.family (parser-removal plan, Phase 1a —
+# `.family` was never a parsed hecksagain construct, confirmed : *.family isn't
+# even in the loader's DOMAIN_ORDER glob, so this file never actually blocked
+# anything — it just never registered the port it documents either). No naming
+# collision risk : "gating" doesn't exist in hecksagain's vendored port library.
+#
+# Two-color rule, the IN-PROCESS pole : where payment / session_verification are
+# EFFECT ports (out-of-process, the adapter host runs them async), a gate is a
+# REPLY port — and REPLY ALREADY MEANS in-process / DI'd / called inline (the
+# same property that makes persisted_by inline). A gate MUST be in-process : it
+# vetoes BEFORE the act and returns a verdict the dispatch waits on, so it can
+# never await an async edge without breaking the two-color rule.
+#
+# The gate is the inverse of a Driver (driving.bluebook) : a Driver names its own
+# inbound SCHEDULE and runs OUT-of-process ; a Gate names its own inbound CHECK
+# and runs IN-process, synchronous, blocking the dispatch it gates.
+#   Driver : Gate  ::  out-of-process clock : in-process check.
+#
+# The how-verb `gated_by` takes the CHECK as its argument, exactly as
+# `persisted_by` takes the adapter : `Aggregate.gated_by("authorize")`,
+# `gated_by("authenticate")`, or `gated_by("SomeAggregate.some_query")` (a bluebook
+# query run read-only with the caller's principal as the reserved `actor` kwarg,
+# allowing iff it returns a row). ONE verb covers authn and authz alike — the
+# difference is the check name + the order (authn orders before authz), never a
+# second verb.
+#
+# No `produces` : a reply port returns its verdict, it emits no produced fact
+# (unlike payment's :payment_ref or session_verification's :verification_ref).
+#
+# Today gates are authored through the storehouse door via Storehouse::Gate.Declare
+# (no DSL) ; the runtime's hydrate_middleware already PROJECTS the active Gate
+# records into the before/after middleware stack. This port is currently
+# unbound by any live .hecksagon — zero binds reference `gated_by` anywhere in
+# the corpus, confirmed by grep — kept as accurate documentation of the intended
+# vocabulary, not aspirational prose that silently fails to parse.
+Hecks.port "gating" do
+  verb   "gated_by"   # the how-verb the bind hangs off the aggregate FQN ; the CHECK is its argument
+  signal :reply       # returns an allow/deny verdict INLINE — and reply => in-process (the gate vetoes before the act)
+end

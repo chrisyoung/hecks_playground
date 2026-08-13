@@ -12,5 +12,5 @@
 # pure-projection domains bind, declaring them transient on purpose rather than
 # riding the heki default by accident.
 Hecks.adapter "Memory" do
-  family "persistence"
+  port "persistence"
 end

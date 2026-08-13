@@ -1,0 +1,26 @@
+# messaging — an impure-boundary PORT for inter-agent messaging, declared once.
+# Two-color rule : sync domain, async adapter, NEVER a lock.
+#
+# Converted from the dead adapters/agent/messaging.family (parser-removal
+# plan, Phase 1a — `.family` was never a parsed hecksagain construct,
+# confirmed : *.family isn't even in the loader's DOMAIN_ORDER glob).
+#
+# Lives at the repo-root ports/ directory, not inside adapters/agent/ —
+# Loader#load_project globs `ports/*.port` at whatever root `shared_root`
+# resolves to (the nearest ancestor directory carrying a ports/ or adapters/
+# folder), never `adapters/*/*.port`. Found live : examples/pizzas boots by
+# walking up from its own bluebook/ dir to the repo root (nothing closer up
+# the tree has a ports/ or adapters/ folder), so this is where a shared port
+# any adapter under adapters/ might need actually has to live to be found.
+#
+# Signal is REPLY : the adapter sends a message to a running agent and RETURNS the
+# agent's reply to the synchronous domain. Unlike tts (fire-and-forget effect) the
+# round-trip rides one how-verb — `messaged_by` — and the reply re-enters as a value.
+# Because the adapter runs OUT-OF-PROCESS it may BLOCK on the agent's reply (the
+# domain already moved on at the bus boundary). The medium is storehouse itself
+# (i708 stigmergy) : the AgentInbox blackboard, not a direct channel.
+Hecks.port "messaging" do
+  verb     "messaged_by"
+  signal   :reply
+  produces :reply
+end

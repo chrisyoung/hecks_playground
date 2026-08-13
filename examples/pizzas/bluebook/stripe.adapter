@@ -8,6 +8,6 @@
 # Stripe's family (payment) carries `charged_by`. Endpoint, token, and the retry
 # budget live in .world.
 Hecks.adapter "Stripe" do
-  family "payment"
+  port "payment"
   handler "examples/adapter_host_demo/stripe-handler"
 end

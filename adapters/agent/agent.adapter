@@ -5,6 +5,6 @@
 # out-of-process). The handler is the compiled send-message bin : mint a correlation
 # id, dispatch AgentMessage.Send, block-poll `state` for the reply, print it.
 Hecks.adapter "Agent" do
-  family "messaging"
+  port "messaging"
   handler "adapters/agent/send-message"
 end

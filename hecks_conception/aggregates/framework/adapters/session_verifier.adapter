@@ -1,14 +1,23 @@
-# SessionVerifier — a concrete async AUTHENTICATION adapter. Declares its family
-# (authentication) — the inverted arrow. Named for its IDENTITY (it verifies a
+# SessionVerifier — a concrete async AUTHENTICATION adapter. Declares its port
+# (session_verification) — the inverted arrow. Named for its IDENTITY (it verifies a
 # session credential), NOT its transport : that it speaks OAuth, checks a signature,
 # or calls a provider is a detail of HOW it verifies, configured in .world — never
 # the adapter's name. Always async, never locks.
 #
+# NAMED "session_verification", not "authentication" (parser-removal plan, Phase
+# 1a) — hecksagain's own vendored library already ships an `authentication.port`
+# (verb authenticated_by, signal :reply : a different, simpler synchronous-check
+# concept). Registry#add_port is a flat name-keyed overwrite and load_library runs
+# before load_domain in the SAME boot (runtime/loader.rb) — reusing the name
+# "authentication" here would silently clobber the library's port with this
+# effect-shaped one, or vice versa depending on load order. Distinct name, distinct
+# registry slot, no collision.
+#
 # The bind `AuthIdentity::AuthIdentity.verified_by("SessionVerifier", on: "Established")`
-# resolves IFF SessionVerifier's family (authentication) carries `verified_by`. On
+# resolves IFF SessionVerifier's port (session_verification) carries `verified_by`. On
 # the verdict it dispatches AuthIdentity.MarkVerified (success) or .Reject (failure)
 # — the success/failure branches of the effect. Endpoint, token, and timeout live in
 # .world.
 Hecks.adapter "SessionVerifier" do
-  family "authentication"
+  port "session_verification"
 end

@@ -13,6 +13,6 @@
 # Ruby + Rust handlers are behaviour-parity siblings (tts-handler.rb / tts-handler.rs) ;
 # the host runs whichever the deployment selects.
 Hecks.adapter "ElevenLabs" do
-  family "tts"
+  port "tts"
   handler "adapters/tts/tts-handler"
 end

@@ -1,7 +1,16 @@
 module Hecksagain
   module Bluebook
     module IR
-      Port = Struct.new(:name, :verb, :signal, keyword_init: true) do
+      # Vendored addition, not (yet) upstream hecksagain (parser-removal
+      # plan, Phase 1a): `produces` names the verdict data a conforming
+      # effect-family handler must emit on success (payment's :payment_ref,
+      # screenshot_buffer's :path, ...). Was previously discarded silently
+      # at the family/port boundary -- 6 of the corpus's 9 families declare
+      # it with real documented meaning, not decoration. Still inert at
+      # runtime today (nothing branches on it, same as `signal` -- see i746
+      # for where it becomes load-bearing), but the IR keeps the fact
+      # rather than dropping it on the floor.
+      Port = Struct.new(:name, :verb, :signal, :produces, keyword_init: true) do
         def reply?  = signal == :reply
         def effect? = signal == :effect
       end

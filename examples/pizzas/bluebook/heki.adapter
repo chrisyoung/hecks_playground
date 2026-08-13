@@ -8,5 +8,5 @@
 # at wiring. Per-deployment values (the store `dir`) live in .world ; the
 # adapter declaration carries no values.
 Hecks.adapter "Heki" do
-  family "persistence"
+  port "persistence"
 end

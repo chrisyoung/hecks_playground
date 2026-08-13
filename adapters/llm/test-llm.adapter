@@ -15,6 +15,6 @@
 # OOP path lands the IDENTICAL completion the in-process llm_dispatcher lands
 # (same SHA-256(prompt) -> same fixture).
 Hecks.adapter "TestLlm" do
-  family  "llm"
+  port    "llm"
   handler "adapters/llm/llm-handler"
 end

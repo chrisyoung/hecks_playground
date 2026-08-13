@@ -12,5 +12,5 @@
 # merge fold are the adapter's irreducible kernel leaf (sibling of heki.rs) ;
 # everything above is declaration.
 Hecks.adapter "AppendLog" do
-  family "persistence"
+  port "persistence"
 end
