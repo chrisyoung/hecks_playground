@@ -33,7 +33,22 @@ module HecksagainRuntime
           return error_result(test, "cross_cascade test but no corpus_root given") unless corpus_root
           dir = staged_root || HecksagainRuntime.stage_flat_corpus(corpus_root)
         else
-          dir = isolated_dir_for(source)
+          # `:cascade`/`:driving_tick` (slice 1.3, driving-adapter-grammar
+          # port) -- narrow, scoped widening of the isolated-dir case, NOT
+          # a switch to the full staged corpus. A `:cascade` test proves a
+          # cross-FILE fan-out (tools.behaviors's own "ShellAdapter +
+          # Sprint14SmokeFanout" -- two SEPARATE `.hecksagon` files, this
+          # source bluebook's own sibling `hecksagons/` folder), and
+          # `:driving_tick` proves a `driving on cron/interval` handler
+          # actually fires -- neither exists without that folder's
+          # content also present in the isolated dir. Deliberately NOT
+          # applied to every kind: agent_tool.hecksagon (`driven on
+          # Tools::AgentTool.AgentMessageSent`) lives in the SAME sibling
+          # folder, and the three plain `SendMessage` tests
+          # (`expect emits: ["AgentMessageSent"]`, exact) would gain an
+          # unwanted extra cascade if it loaded for them too.
+          include_hecksagons = %i[cascade driving_tick].include?(test.kind)
+          dir = isolated_dir_for(source, include_hecksagons: include_hecksagons)
         end
 
         runtime    = Hecks.boot(dir, install_facade: false)
@@ -42,6 +57,8 @@ module HecksagainRuntime
 
         bluebook = runtime.registry.bluebook(domain_name)
         test.setups.each { |s| runtime.dispatch(qualify(s.command, test.on_aggregate, domain_name, bluebook), **s.args) }
+
+        return run_driving_tick(test, runtime) if test.driving_tick?
 
         test.query? ? run_query(test, runtime, domain_name) : run_command(test, runtime, domain_name)
       rescue *REFUSAL_CLASSES => e
@@ -71,6 +88,25 @@ module HecksagainRuntime
           exp    = normalize(expected)
           return fail_result(test, "expected #{key}: #{expected.inspect}, got #{actual.inspect}") unless actual == exp
         end
+
+        pass_result(test)
+      end
+
+      # `kind: :driving_tick` (slice 1.3) -- proves a `driving on
+      # cron/interval` handler dispatches, deterministically (no real
+      # clock wait). Fires every CRON handler exactly once via
+      # Hecksagain::Runtime::DrivingScheduler#fire_all! -- `kinds:
+      # ["cron"]` deliberately excludes `interval` handlers loaded from
+      # the same sibling `hecksagons/` folder (interval_adapter.hecksagon
+      # sits right beside cron_adapter.hecksagon), matching this test's
+      # own comment ("the runner fires every cron handler once").
+      def run_driving_tick(test, runtime)
+        scheduler = Hecksagain::Runtime::DrivingScheduler.new(runtime)
+        results   = scheduler.fire_all!(kinds: ["cron"])
+        actual    = results.flat_map { |r| r.events.map(&:name) }
+
+        expected = test.expect[:emits]
+        return fail_result(test, "expected emits: #{expected.inspect}, got #{actual.inspect}") if expected && actual != expected
 
         pass_result(test)
       end
@@ -136,9 +172,18 @@ module HecksagainRuntime
         "#{domain_name}::#{resolved}.#{command}"
       end
 
-      def isolated_dir_for(source)
+      # `include_hecksagons:` (slice 1.3) -- see run_one's own comment on
+      # the two kinds that pass true. The sibling folder sits one level up
+      # from `source`'s own directory (`.../tools/bluebook/tools.bluebook`
+      # -> `.../tools/hecksagons/`), the exact convention tools.behaviors's
+      # own header names.
+      def isolated_dir_for(source, include_hecksagons: false)
         dir = Dir.mktmpdir("behaviors-")
         FileUtils.cp(source, File.join(dir, File.basename(source)))
+        if include_hecksagons
+          sibling = File.join(File.dirname(File.dirname(source)), "hecksagons")
+          Dir.glob(File.join(sibling, "*.hecksagon")).each { |f| FileUtils.cp(f, File.join(dir, File.basename(f))) }
+        end
         dir
       end
 
