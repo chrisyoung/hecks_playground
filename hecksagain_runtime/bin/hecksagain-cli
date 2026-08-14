@@ -25,7 +25,16 @@
 #   hecksagain-cli statusline                 (prints a PLAIN line, not JSON --
 #                                               statusline-command.sh's exec contract)
 
-$LOAD_PATH.unshift File.expand_path("../../vendor/hecksagain/lib", __dir__)
+# hecksagain-cutover PRD, slice 2.1: `hecksagain` now resolves through the
+# Bundler `git:` dependency pinned in ../../Gemfile (hecks-hecksagain,
+# ref-pinned), not the hand-maintained ../../vendor/hecksagain/lib copy.
+# BUNDLE_GEMFILE is set explicitly (not left to Dir.pwd) because this
+# script is spawned directly (tooling/storehouse-mcp's cli_dispatch.mjs
+# execs the file, not `bundle exec ruby ...`) from whatever cwd the
+# spawning process happens to have.
+ENV["BUNDLE_GEMFILE"] ||= File.expand_path("../../Gemfile", __dir__)
+require "bundler/setup"
+
 $LOAD_PATH.unshift File.expand_path("../lib", __dir__)
 
 require "hecksagain_runtime"

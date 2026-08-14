@@ -1,14 +1,19 @@
 # hecksagain_runtime.rb — the storehouse-mcp-facing Ruby runtime layer over
-# vendored hecksagain. Replaces rust/cli's job (dispatch/query/state/dump/
+# hecksagain. Replaces rust/cli's job (dispatch/query/state/dump/
 # describe/validate/macrophage) without preserving its shape — each entry
 # point here is designed around what hecksagain's own Loader/Dispatcher/
 # Router/Handle/Exporter already return, not around the old CLI's stdout
 # contract. See Part 5 of
 # /Users/christopheryoung/.claude/plans/okay-so-could-we-elegant-goose.md.
 #
+# hecksagain-cutover PRD, slice 2.1: `hecksagain` now resolves through the
+# Bundler `git:` dependency pinned in the top-level Gemfile (hecks-hecksagain,
+# ref-pinned), not `vendor/hecksagain/lib` — that copy stays on disk as a
+# fallback for the rest of the wave but is no longer on any live load path.
+#
 # Usage (one boot per process, cold-spawn correctness-first per the plan --
 # the warm daemon is a follow-up once this is proven, not a prerequisite):
-#   ruby -Ivendor/hecksagain/lib -Ihecksagain_runtime/lib \
+#   BUNDLE_GEMFILE=Gemfile bundle exec ruby -Ihecksagain_runtime/lib \
 #     -r hecksagain_runtime -e 'puts HecksagainRuntime.dispatch(root, verb, args).to_json'
 
 require "hecksagain"
