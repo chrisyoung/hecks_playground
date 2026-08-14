@@ -31,7 +31,7 @@ module RustProjection
       "crate::kernel::Refusal::TypeMismatch(format!(#{template.inspect}, #{value_var}.inspect()))"
     end
 
-    SCALAR_JSON_ACCESSOR = { "String" => "as_str", "Integer" => "as_i64", "Float" => "as_f64" }.freeze
+    SCALAR_JSON_ACCESSOR = { "String" => "as_str", "Integer" => "as_i64", "Float" => "as_f64", "FalseClass" => "as_bool" }.freeze
 
     # `default:` — `Value.build`'s own fallback (bridging.rb's
     # `creation_default_rhs` comment, the same rule applied here instead of
@@ -77,9 +77,10 @@ module RustProjection
 
     def scalar_to_json_expr(scalar_type, rust_expr)
       case scalar_type
-      when "String"  then "crate::kernel::Json::Str(#{rust_expr}.clone())"
-      when "Integer" then "crate::kernel::Json::int(#{rust_expr})"
-      when "Float"   then "crate::kernel::Json::Num(#{rust_expr})"
+      when "String"     then "crate::kernel::Json::Str(#{rust_expr}.clone())"
+      when "Integer"    then "crate::kernel::Json::int(#{rust_expr})"
+      when "Float"      then "crate::kernel::Json::Num(#{rust_expr})"
+      when "FalseClass" then "crate::kernel::Json::Bool(#{rust_expr})"
       end
     end
 
@@ -418,9 +419,10 @@ module RustProjection
         scalar = effective_scalar_type(attr[:type])
         value_expr =
           case scalar
-          when "String"  then "crate::kernel::Json::Str(self.#{ident}.to_string())"
-          when "Integer" then "crate::kernel::Json::int(self.#{ident})"
-          when "Float"   then "crate::kernel::Json::Num(self.#{ident})"
+          when "String"     then "crate::kernel::Json::Str(self.#{ident}.to_string())"
+          when "Integer"    then "crate::kernel::Json::int(self.#{ident})"
+          when "Float"      then "crate::kernel::Json::Num(self.#{ident})"
+          when "FalseClass" then "crate::kernel::Json::Bool(self.#{ident})"
           end
         Exemplar.render("to_json_field", '"tmpl_field_name"' => key.inspect, "tmpl_json_value_placeholder()" => value_expr)
       end

@@ -10,6 +10,7 @@
 # `--no-default-features --features <name>`.
 [features]
 default = ["bin_buddy"]
+plan = []
 bin_buddy = []
 bin-buddy = []
 agent = []

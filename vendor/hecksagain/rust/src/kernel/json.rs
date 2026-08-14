@@ -119,6 +119,17 @@ impl Json {
         }
     }
 
+    /// `FalseClass` scalar's own accessor — `naming.rb`'s `SCALAR` map picks
+    /// this name as the IR's canonical boolean type (Ruby has no unified
+    /// Boolean class), and `json_codec.rb`'s `SCALAR_JSON_ACCESSOR` calls
+    /// this exact method name for that scalar, mirroring `as_str`/`as_i64`.
+    pub fn as_bool(&self) -> Option<bool> {
+        match self {
+            Json::Bool(b) => Some(*b),
+            _ => None,
+        }
+    }
+
     pub fn as_array(&self) -> Option<&[Json]> {
         match self {
             Json::Array(items) => Some(items),

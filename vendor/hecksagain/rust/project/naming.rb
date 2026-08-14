@@ -2,8 +2,18 @@ module RustProjection
   module Projector
     module_function
 
-    SCALAR      = { "String" => "String", "Integer" => "i64", "Float" => "f64" }.freeze
-    SCALAR_KIND = { "String" => :string, "Integer" => :int, "Float" => :float }.freeze
+    # "FalseClass" -- not "Boolean" -- is genuinely the canonical type
+    # name here : Ruby has no single Boolean class, and attribute_
+    # collector.rb's own `normalize_boolean_alias` deliberately picks
+    # FalseClass as boolean attributes' stand-in IR type name regardless
+    # of the field's actual true/false value. Found live : a bare
+    # `FalseClass` type reaching this map unrecognized emitted `pub
+    # value: FalseClass` (E0425, no such Rust type) and `FalseClass::
+    # from_json(...)` (E0433) -- `crate::kernel::Json::Bool` already
+    # exists and already round-trips real booleans (kernel/json.rs), this
+    # was purely a missing scalar-map entry, not a kernel gap.
+    SCALAR      = { "String" => "String", "Integer" => "i64", "Float" => "f64", "FalseClass" => "bool" }.freeze
+    SCALAR_KIND = { "String" => :string, "Integer" => :int, "Float" => :float, "FalseClass" => :bool }.freeze
 
     # `Reference<X>` is not a scalar per the IR's own vocabulary, but it
     # behaves like one for codegen purposes: aggregates-and-value-objects.md's
@@ -86,9 +96,10 @@ module RustProjection
 
     def scalar_to_value(type_name, rust_expr)
       case type_name
-      when "String"  then "Value::Str(#{rust_expr}.clone())"
-      when "Integer" then "Value::Int(#{rust_expr})"
-      when "Float"   then "Value::Float(#{rust_expr})"
+      when "String"     then "Value::Str(#{rust_expr}.clone())"
+      when "Integer"    then "Value::Int(#{rust_expr})"
+      when "Float"      then "Value::Float(#{rust_expr})"
+      when "FalseClass" then "Value::Bool(#{rust_expr})"
       end
     end
 
