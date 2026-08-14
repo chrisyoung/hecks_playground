@@ -257,7 +257,12 @@ module RustProjection
             fields_assignment << "#{rust_ident_field(id_attr[:name])}: #{mint}"
           end
           if entity[:lifecycle] && !present.include?(entity[:lifecycle][:field].to_s)
-            fields_assignment << "#{rust_ident_field(entity[:lifecycle][:field])}: #{entity[:lifecycle][:default].inspect}.to_string()"
+            # i754 -- the entity's own lifecycle field, minted at append
+            # time the same way its identity is just above: its REAL
+            # declared type (found in entity[:attributes], same shape as
+            # every other field here), not a hardcoded String.
+            entity_lifecycle_type = entity[:attributes].find { |a| a[:name] == entity[:lifecycle][:field].to_sym }&.dig(:type) || "String"
+            fields_assignment << "#{rust_ident_field(entity[:lifecycle][:field])}: #{scalar_literal_rhs(entity[:lifecycle][:default], entity_lifecycle_type, value_objects_by_name)}"
           end
         end
 
@@ -267,11 +272,23 @@ module RustProjection
           "tmpl_fields_placeholder()" => "#{vo_type} { #{fields_assignment.join(', ')} }"
         )
       when :set
-        if mutation[:target] == lifecycle_field
+        # i754 -- the lifecycle field is now always looked up the SAME way
+        # every other target is: it's a normal declared attribute (see
+        # `lifecycle_field_declared?`), so it carries its own real type
+        # (often a closed-set VO enum, not the bare "String" this branch
+        # used to hardcode) AND its own real Option-wrapping rule via the
+        # `wrap` check below -- a record's lifecycle field IS blanket
+        # Option-wrapped like every other record field (`optional` is true
+        # here), which the old special-cased branch never wrapped in
+        # `Some(...)` at all, a real E0308 once the duplicate plain-String
+        # field was removed. Falls back to a plain, unwrapped String only
+        # in the defensive case of a lifecycle field with no matching
+        # declared attribute -- not reachable via the current grammar.
+        target_attr = aggregate[:attributes].find { |a| a[:name] == mutation[:target] }
+        if target_attr.nil? && mutation[:target] == lifecycle_field
           rhs = mutation_set_rhs(mutation[:source], "String", command, value_objects_by_name)
           Exemplar.render("mutation_set_plain", "tmpl_field" => target_field, "tmpl_rhs_placeholder2()" => rhs)
         else
-          target_attr = aggregate[:attributes].find { |a| a[:name] == mutation[:target] }
           rhs = mutation_set_rhs(mutation[:source], target_attr[:type], command, value_objects_by_name)
           source_attr = mutation[:source][:kind] == "argument" ? command[:attributes].find { |a| a[:name].to_s == mutation[:source][:name].to_s } : nil
 

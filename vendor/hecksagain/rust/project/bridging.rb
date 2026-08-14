@@ -138,12 +138,44 @@ module RustProjection
     # falls through to the raw literal unwrapped rather than guess which
     # field a lone scalar belongs to -- there is no bluebook shape that
     # writes a bare literal at a multi-field VO target in the first place.
+    #
+    # i754 -- a bare literal can ALSO be headed at a CLOSED-SET VO target
+    # (a real Rust enum) -- every `transition "Cmd" => "to_state"` row and
+    # every `then_set :status, to: "sold"` on a lifecycle field is exactly
+    # this: a plain string that names one member's own value, not a field
+    # to wrap into. Resolved by finding the member row whose value matches
+    # and emitting the enum variant directly (`Status::Pending`), the same
+    # `closed_set_variant` naming `literal_hash_rhs`'s own closed-set arm
+    # already uses for a Hash-shaped literal.
     def scalar_literal_rhs(value, target_type, value_objects_by_name)
       vo = value_objects_by_name[target_type]
-      return literal_rhs(value) unless vo && !vo[:closed_set] && vo[:attributes].size == 1
+      return literal_rhs(value) unless vo
+
+      if vo[:closed_set]
+        row = vo[:members].find { |member| member.any? { |_field, v| v.to_s == value.to_s } }
+        return row ? "#{rust_ident(target_type)}::#{closed_set_variant(row)}" : literal_rhs(value)
+      end
+
+      return literal_rhs(value) unless vo[:attributes].size == 1
 
       attr = vo[:attributes].first
       "#{rust_ident(target_type)} { #{rust_ident_field(attr[:name])}: #{literal_rhs(value)} }"
+    end
+
+    # i754 -- whether NODE's lifecycle field is ALSO one of its own
+    # declared attributes. True for every aggregate/entity in this corpus
+    # today -- a lifecycle field is always declared as `attribute :status,
+    # Status do transition ... end`, so the DSL makes a field-less
+    # lifecycle structurally unreachable -- but checked, not assumed: this
+    # guards every "the lifecycle field gets its own hardcoded String
+    # struct-field/reflection-arm/JSON-field" call site (fielded.rb,
+    # types.rb, domain_generator.rb, commands.rb), all of which used to
+    # fire UNCONDITIONALLY and duplicate the attribute-driven emission
+    # that already covers the field with its real, possibly-VO type.
+    def lifecycle_field_declared?(node)
+      return false unless node[:lifecycle]
+
+      node[:attributes].any? { |a| a[:name].to_s == node[:lifecycle][:field].to_s }
     end
 
     def integer_field_of(vo)

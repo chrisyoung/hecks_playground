@@ -170,7 +170,15 @@ module RustProjection
         type = "Option<#{type}>" if attr[:optional]
         { "TmplFieldType" => type, "tmpl_field" => rust_ident_field(attr[:name]) }
       end
-      field_subs_list << { "TmplFieldType" => "String", "tmpl_field" => rust_ident_field(entity[:lifecycle][:field]) } if entity[:lifecycle]
+      # i754 -- only synthesize a bare-String lifecycle field/arm when the
+      # lifecycle field ISN'T already one of the entity's own declared
+      # attributes (`Projector.lifecycle_field_declared?`). When it IS (the
+      # normal case), the attribute-driven `field_subs_list.map` above and
+      # `emit_fielded_flat`'s own per-attribute loop already cover it with
+      # its real, possibly-VO type — adding a second `String` field here
+      # duplicated the struct field (a real E0062/E0124) and mismatched the
+      # reflection arm's type against it (E0308).
+      field_subs_list << { "TmplFieldType" => "String", "tmpl_field" => rust_ident_field(entity[:lifecycle][:field]) } if entity[:lifecycle] && !lifecycle_field_declared?(entity)
       struct_part = Exemplar.compose("plain_struct", { "TmplType" => name }, field_id: "struct_field", field_subs_list: field_subs_list)
 
       # An entity command's own TransitionCheck reads this field generically
@@ -179,7 +187,7 @@ module RustProjection
       # is this struct's one, in the flat (non-Option) shape emit_entity's
       # own field actually has.
       lifecycle_arm =
-        if entity[:lifecycle]
+        if entity[:lifecycle] && !lifecycle_field_declared?(entity)
           field = rust_field(entity[:lifecycle][:field])
           ident = rust_ident_field(entity[:lifecycle][:field])
           [%(            "#{field}" => Some(Field::Value(Value::Str(self.#{ident}.clone()))),)]
@@ -210,7 +218,10 @@ module RustProjection
         type = "Option<#{type}>" if !attr[:list] || list_attr_creation_optional?(aggregate, attr[:name])
         { "TmplFieldType" => type, "tmpl_field" => rust_ident_field(attr[:name]) }
       end
-      field_subs_list << { "TmplFieldType" => "String", "tmpl_field" => rust_ident_field(aggregate[:lifecycle][:field]) } if aggregate[:lifecycle]
+      # i754 -- see emit_entity's own comment just above: skip the
+      # synthetic String lifecycle field when it's already covered by the
+      # attribute-driven map above.
+      field_subs_list << { "TmplFieldType" => "String", "tmpl_field" => rust_ident_field(aggregate[:lifecycle][:field]) } if aggregate[:lifecycle] && !lifecycle_field_declared?(aggregate)
       struct_part = Exemplar.compose("plain_struct", { "TmplType" => name }, field_id: "struct_field", field_subs_list: field_subs_list)
 
       "#{struct_part}\n\n#{emit_fielded_record(aggregate, value_objects_by_name)}"

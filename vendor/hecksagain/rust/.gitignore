@@ -1,2 +1,6 @@
 /target
 /dist
+# bin/project_rust's own output -- regenerated per invocation, never
+# hand-edited, and the default-feature selection in Cargo.toml churns
+# with whichever domain was last generated. Never committed (i754).
+/src/generated

@@ -112,7 +112,16 @@ module RustProjection
           Exemplar.render("fielded_arm_optional_nested", '"tmpl_field"' => key.inspect, "tmpl_ident" => ident)
         end
       end
-      if aggregate[:lifecycle]
+      # i754 -- skip when the lifecycle field is already one of the
+      # aggregate's own declared attributes (the normal case): the
+      # attribute-driven loop just above already handles it with its real
+      # type (a String-wrapping VO gets `fielded_arm_optional_nested`; a
+      # closed-set VO currently gets no arm at all, matching every other
+      # closed-set attribute -- Kind included -- a pre-existing, separate
+      # gap, not this one). Adding a hardcoded `Value::Str` arm on top
+      # unconditionally produced a real type mismatch (E0308) whenever the
+      # field's declared type wasn't a plain String.
+      if aggregate[:lifecycle] && !lifecycle_field_declared?(aggregate)
         key   = rust_field(aggregate[:lifecycle][:field])
         ident = rust_ident_field(aggregate[:lifecycle][:field])
         arms << Exemplar.render("fielded_lifecycle_arm", '"tmpl_field"' => key.inspect, "tmpl_ident" => ident)

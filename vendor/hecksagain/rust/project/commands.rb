@@ -10,7 +10,11 @@ module RustProjection
       return "then_set append field(s): #{append_problems.join('; ')}" if append_problems.any?
 
       lifecycle_field = aggregate[:lifecycle] && aggregate[:lifecycle][:field].to_sym
-      target_type_for = ->(target) { target == lifecycle_field ? "String" : aggregate[:attributes].find { |a| a[:name] == target }&.dig(:type) }
+      # i754 -- the lifecycle field is a normal declared attribute now (see
+      # `lifecycle_field_declared?`), so it resolves through the SAME
+      # attribute lookup every other target does; "String" is only a
+      # fallback for the (currently unreachable) field-less lifecycle case.
+      target_type_for = ->(target) { aggregate[:attributes].find { |a| a[:name] == target }&.dig(:type) || (target == lifecycle_field ? "String" : nil) }
 
       # A `:set` mutation's literal source is EITHER a bare scalar (`to:
       # "sold"`) or a raw Ruby Hash (`to: { value: "good" }` —
@@ -267,7 +271,21 @@ module RustProjection
       # dispatch() step. Covers commands with no explicit then_set on the
       # lifecycle field (Banking's Freeze/Unfreeze have none) — Purchase's
       # own explicit then_set above already covers itself, redundantly.
-      mutation_lines << "        record.#{rust_ident_field(transition[:field])} = #{transition[:to_state].inspect}.to_string();" if transition
+      #
+      # i754 -- `to_state` is a plain string naming a member of the
+      # lifecycle field's REAL declared type (a closed-set VO enum for
+      # this corpus, formerly assumed to always be a bare String) --
+      # scalar_literal_rhs wraps it into the right shape (enum variant or
+      # single-field VO), the same helper i753 introduced for defaults.
+      if transition
+        # i754 -- an aggregate RECORD's non-list fields are UNCONDITIONALLY
+        # Option-wrapped (`emit_record`'s own blanket rule, types.rb) --
+        # the lifecycle field is no exception now that it's a normal
+        # declared attribute, so the assignment needs `Some(...)` around
+        # the (possibly VO-wrapped) literal, not the bare value.
+        transition_target_type = aggregate[:attributes].find { |a| a[:name] == transition[:field].to_sym }&.dig(:type) || "String"
+        mutation_lines << "        record.#{rust_ident_field(transition[:field])} = Some(#{scalar_literal_rhs(transition[:to_state], transition_target_type, value_objects_by_name)});"
+      end
       mutation_lines = ["        let _ = record;"] if mutation_lines.empty? # nothing to apply — silence the unused-param warning
 
       if creates
@@ -300,7 +318,13 @@ module RustProjection
             default_rhs ? "            #{field}: Some(#{default_rhs})," : "            #{field}: None,"
           end
         end
-        record_fields << "            #{rust_ident_field(aggregate[:lifecycle][:field])}: #{aggregate[:lifecycle][:default].inspect}.to_string()," if aggregate[:lifecycle]
+        # i754 -- only synthesize this default field when the lifecycle
+        # field ISN'T already one of aggregate[:attributes] (the normal
+        # case): the `record_fields` map just above already built its
+        # entry, VO-aware, via `creation_default_rhs` (i753). Appending a
+        # second, hardcoded-String entry duplicated the field in the
+        # generated struct literal (E0062) whenever the two disagreed.
+        record_fields << "            #{rust_ident_field(aggregate[:lifecycle][:field])}: #{aggregate[:lifecycle][:default].inspect}.to_string()," if aggregate[:lifecycle] && !lifecycle_field_declared?(aggregate)
 
         hydrate = <<~RUST.rstrip
           crate::kernel::Hydrate::Create {
@@ -413,7 +437,21 @@ module RustProjection
         end
 
       mutation_lines = command[:mutations].map { |m| emit_mutation_line(m, entity, command, value_objects_by_name, optional: false) }
-      mutation_lines << "        record.#{rust_ident_field(transition[:field])} = #{transition[:to_state].inspect}.to_string();" if transition
+      # i754 -- same fix as emit_command's own advance_lifecycle line above,
+      # for the entity's own lifecycle field.
+      if transition
+        # i754 -- unlike an aggregate record, an ENTITY field is Option-
+        # wrapped only when its OWN attribute is `optional: true` (fed by
+        # a caller-omittable argument -- `emit_entity`'s own rule,
+        # types.rb) -- a lifecycle field's default means it's never fed
+        # that way in this corpus, so it stays plain, but resolved from
+        # the real attribute rather than assumed either way.
+        transition_attr = entity[:attributes].find { |a| a[:name] == transition[:field].to_sym }
+        transition_target_type = transition_attr&.dig(:type) || "String"
+        transition_rhs = scalar_literal_rhs(transition[:to_state], transition_target_type, value_objects_by_name)
+        transition_rhs = "Some(#{transition_rhs})" if transition_attr&.dig(:optional)
+        mutation_lines << "        record.#{rust_ident_field(transition[:field])} = #{transition_rhs};"
+      end
       mutation_lines = ["        let _ = record;"] if mutation_lines.empty?
 
       qualified_command_name = "#{entity[:name]}.#{command[:name]}"
