@@ -173,13 +173,39 @@ module RustProjection
     def identity_components(aggregate, command)
       aggregate[:identified_by].map do |path|
         head, *rest = path.split(".")
-        if rest.any?
-          { expr: "args.#{rust_ident_field(head)}.#{rest.map { |seg| rust_ident_field(seg) }.join('.')}.to_string()", param: nil }
-        elsif command[:attributes].any? { |a| a[:name].to_s == head }
-          { expr: "args.#{rust_ident_field(head)}.to_string()", param: nil }
+        # THE BUG THIS FIXES: the dotted-path arm (`"city_name.value"`,
+        # every VO-wrapped identified_by) used to build `args.<head>...`
+        # UNCONDITIONALLY, never checking whether `head` is actually one of
+        # THIS command's own declared attributes -- only the bare-path arm
+        # (`owner_id`, no dot) checked that. A creating command whose
+        # aggregate's identified_by names a field the command itself never
+        # declares (a singleton "service" aggregate's synthetic fixed id,
+        # e.g. CreditCardProcessing's `service_name` -- none of its real
+        # commands take a service_name arg at all ; same shape for a
+        # lookup command like CityCalendar.LookupByAddress) generated
+        # `args.city_name.value...` against an Args struct with no such
+        # field -- confirmed live, a real compile error, not hypothetical.
+        # Declared-attribute presence is now checked FIRST, before
+        # deciding dotted vs. bare, so both arms fall through to the same
+        # "extra parameter, not JSON-routable" treatment the bare-path arm
+        # already had for `owner_id` -- skipped loudly by name and reason
+        # (command_skip_reason), not silently miscompiled.
+        if command[:attributes].any? { |a| a[:name].to_s == head }
+          if rest.any?
+            { expr: "args.#{rust_ident_field(head)}.#{rest.map { |seg| rust_ident_field(seg) }.join('.')}.to_string()", param: nil }
+          else
+            { expr: "args.#{rust_ident_field(head)}.to_string()", param: nil }
+          end
         else
+          # `.to_string()` here, not a bare `param` -- the OTHER two
+          # branches above always produce a String (`.to_string()` is
+          # baked into both), and `build_identity_expr` returns a single
+          # component's `expr` UNCHANGED when there's only one component
+          # (no `format!` wrapper to coerce the type for it). A bare `&str`
+          # parameter reached `id: #{expr}` directly and failed to compile
+          # (E0308, expected String found &str) -- confirmed live.
           param = rust_ident_field(head)
-          { expr: param, param: "#{param}: &str" }
+          { expr: "#{param}.to_string()", param: "#{param}: &str" }
         end
       end
     end
