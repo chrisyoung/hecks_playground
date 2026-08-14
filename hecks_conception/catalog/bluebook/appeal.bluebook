@@ -165,9 +165,28 @@ end
     emits "BluebookExported"
   end
 
-  query "ByKind" do |kind|
-    where(kind: kind)
-  end
+  # ByKind removed (i751). It asked `where(kind: kind)` at the Explorer
+  # level, but `kind` only ever existed nested inside ExplorerEntry, one
+  # level down inside `aggregate_names` -- Explorer itself never declared
+  # a top-level `kind`. Investigated rather than patched blind: no real
+  # caller anywhere in the repo (grepped clean -- only this declaration,
+  # its own generic behaviors smoke test, and doc/template copies of the
+  # same appeal.bluebook in chapters/, hecks_genetics/, ruby/hecks/).
+  # The query DSL does support dotted list-nested paths at the
+  # DECLARATION/validator level (QuerySpecification::FieldPath.leaf_attribute
+  # walks through a list_of's member type fine), but NOT at the VALUE
+  # side -- FieldPath.dig reduces a dotted path segment-by-segment via
+  # plain Hash/record reads, which cannot descend into an Array to filter
+  # its elements. Building nested-list-filter semantics into `where` to
+  # make `"aggregate_names.kind" => kind` genuinely work would be real,
+  # unscoped runtime work.
+  #
+  # Moot regardless : `aggregate_names` is never populated by ANY command
+  # on Explorer today (LoadDomain emits DomainLoaded with no then_set at
+  # all) -- filed separately as its own gap, not fixed here (see inbox).
+  # A where-clause over a field that both doesn't exist AND has no real
+  # data path behind it is dead code twice over -- removed, not patched
+  # to satisfy the validator with semantics nobody could exercise.
 end
 
   aggregate "Document" do
@@ -469,7 +488,7 @@ end
   description "A feature to build. Decomposes into domain additions tracked against the live IR."
   attribute :title, Title
   attribute :description, Description
-  attribute :status, Status, default: "draft"
+  attribute :status, Status, default: { value: "draft" }
 
   attribute :additions, list_of(DomainAddition)
   attribute :total_additions, TotalAdditions
@@ -874,9 +893,9 @@ end
     end
 
   description "AI assistant for domain modeling. Ask questions, get suggestions, apply changes."
-  attribute :adapter_mode, AdapterMode, default: "memory"
+  attribute :adapter_mode, AdapterMode, default: { value: "memory" }
 
-  attribute :thinking, Thinking, default: "idle"
+  attribute :thinking, Thinking, default: { value: "idle" }
 
   attribute :messages, list_of(Message)
   attribute :suggestions, list_of(Suggestion)
@@ -1488,7 +1507,7 @@ end
     end
 
   description "Automated test runner. Dispatches every domain command and validates the event log."
-  attribute :status, Status, default: "idle"
+  attribute :status, Status, default: { value: "idle" }
 
   attribute :results, list_of(TestResult)
   attribute :passed, Passed
@@ -1810,9 +1829,16 @@ end
     description "Clear all sandbox state and events"
     end
 
-  query "RecentEvents" do
-    where(timestamp: "recent")
-  end
+  # RecentEvents removed (i751 sweep). Same shape as Explorer.ByKind :
+  # `timestamp` only ever existed nested inside PlaygroundEvent (inside
+  # `list_of(events)`), never as a top-level Playground field --
+  # `where(timestamp: "recent")` asked for a field that doesn't exist.
+  # Also dead by the ORIGINAL author's own admission (appeal.behaviors'
+  # own comment, kept here for the record) : "where(timestamp: "recent")
+  # is a literal-value filter ; ExecuteCommand doesn't set timestamp to
+  # "recent" so the record [never matches]" -- and ExecuteCommand never
+  # even appends to `events` in the first place (no then_set at all).
+  # Removed rather than patched -- there was never a real value behind it.
 end
 
   aggregate "Workbench" do
@@ -2364,7 +2390,10 @@ end
 policy "SwitchToEditorOnFileOpen" do
   on "FileOpened"
   trigger "SelectTab"
-  defaults tab: "editor"
+  # `defaults` was never a real PolicyBuilder verb (undefined method,
+  # caught by validate -- i751 sweep). `map` is the real one: merges a
+  # literal key/value into the triggered command's args.
+  map tab: "editor"
 end
 
 end

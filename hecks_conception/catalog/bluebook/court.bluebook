@@ -63,7 +63,7 @@ Hecks.bluebook "Court", version: "2026.05.12.1" do
     attribute :target, Target
     attribute :detail, Detail
     attribute :occurred_at, OccurredAt
-    attribute :status, Status, default: "unfiled"
+    attribute :status, Status, default: { value: "unfiled" }
 
     attribute :laws_applicable, LawsApplicable
     attribute :laws_passed, LawsPassed

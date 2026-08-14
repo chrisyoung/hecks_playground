@@ -48,7 +48,7 @@ Hecks.bluebook "Law", version: "2026.05.12.1" do
     attribute :domain_scope, DomainScope
     attribute :check_expression, CheckExpression
     attribute :severity, Severity
-    attribute :status, Status, default: "draft"
+    attribute :status, Status, default: { value: "draft" }
 
     attribute :violation_count, ViolationCount
 
@@ -153,7 +153,7 @@ Hecks.bluebook "Law", version: "2026.05.12.1" do
     attribute :location, Location
     attribute :detail, Detail
     attribute :detected_at, DetectedAt
-    attribute :resolution, Resolution, default: "open"
+    attribute :resolution, Resolution, default: { value: "open" }
 
 
     command "Report" do
@@ -227,7 +227,7 @@ Hecks.bluebook "Law", version: "2026.05.12.1" do
     attribute :laws_passed, LawsPassed
     attribute :laws_violated, LawsViolated
     attribute :enforced_at, EnforcedAt
-    attribute :verdict, Verdict, default: "unchecked"
+    attribute :verdict, Verdict, default: { value: "unchecked" }
 
 
     command "Enforce" do

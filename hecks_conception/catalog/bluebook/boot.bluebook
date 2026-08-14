@@ -59,7 +59,7 @@ Hecks.bluebook "Boot", version: "2026.05.12.1" do
     end
 
     attribute :engine, Engine
-    attribute :status, Status, default: "off"
+    attribute :status, Status, default: { value: "off" }
 
     attribute :started_at, StartedAt
     attribute :organ_count, OrganCount

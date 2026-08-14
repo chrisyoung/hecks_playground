@@ -55,7 +55,7 @@ Hecks.bluebook "Catalog", version: "2026.05.12.1" do
     attribute :command_count, CommandCount
     attribute :policy_count, PolicyCount
     attribute :lines, Lines
-    attribute :status, Status, default: "pending"
+    attribute :status, Status, default: { value: "pending" }
 
 
     command "RegisterDomain" do

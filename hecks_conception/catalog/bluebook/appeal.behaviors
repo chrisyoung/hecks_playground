@@ -80,12 +80,6 @@ Hecks.behaviors "Appeal" do
     expect ok: "true"
   end
 
-  test "ByKind returns matching records" do
-    tests "ByKind", on: "Explorer", kind: :query
-    setup  "OpenFile", path: "sample", domain: "sample"
-    expect count: 1
-  end
-
 
   # ── Document aggregate ──────────────────────────────────────────
 
@@ -643,15 +637,6 @@ Hecks.behaviors "Appeal" do
   test "ResetPlayground runs" do
     tests "ResetPlayground", on: "Playground"
     expect ok: "true"
-  end
-
-  # i101 — `where(timestamp: "recent")` is a literal-value filter ;
-  # ExecuteCommand doesn't set timestamp to "recent" so the record
-  # doesn't match. count: 0 verifies query plumbing post-i101.
-  test "RecentEvents returns matching records" do
-    tests "RecentEvents", on: "Playground", kind: :query
-    setup  "Hecks::Catalog::Appeal::Playground.ExecuteCommand", aggregate_name: "sample", command_name: "sample", attributes: "sample"
-    expect count: 0
   end
 
 

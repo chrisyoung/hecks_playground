@@ -106,7 +106,7 @@ Hecks.bluebook "Pizzas" do
       attribute :status_label, default: "pending"
     end
 
-    attribute :status, Status, default: "pending"
+    attribute :status, Status, default: { value: "pending" }
     lifecycle :status, default: "pending" do
       transition "CancelOrder" => "cancelled"
     end
