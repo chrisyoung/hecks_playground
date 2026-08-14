@@ -105,14 +105,10 @@ Hecks.bluebook "Pizzas" do
       end
     end
 
-    value_object "OrderStatus" do
-      attribute :value, String
-    end
-
-    attribute :status, OrderStatus, default: "pending" do
-      transition "Authorize"    => "authorized"
-      transition "Decline"      => "declined"
-      transition "CancelOrder"  => "cancelled"
+    lifecycle :status, default: "pending" do
+      transition "Authorize"    => "authorized", from: "pending"
+      transition "Decline"      => "declined",   from: "pending"
+      transition "CancelOrder"  => "cancelled",  from: "pending"
     end
 
     command "PlaceOrder" do
@@ -193,17 +189,13 @@ Hecks.bluebook "Pizzas" do
       attribute :value, String
     end
 
-    value_object "DepositStatus" do
-      attribute :value, String
-    end
-
     # pending until the bank answers. The SAME shape as Order's payment
     # lifecycle, because it is the same situation seen from the other side :
     # money in motion, an outside party deciding, and a verdict that comes
     # back later.
-    attribute :status, DepositStatus, default: "pending" do
-      transition "Clear"  => "cleared"
-      transition "Bounce" => "bounced"
+    lifecycle :status, default: "pending" do
+      transition "Clear"  => "cleared",  from: "pending"
+      transition "Bounce" => "bounced",  from: "pending"
     end
 
     command "Make" do
@@ -298,11 +290,11 @@ Hecks.bluebook "Pizzas" do
     # Kitchen command expresses no fan-out, mirroring the recurring-tick shape
     # every Driver-fired sweep uses. One Kitchen per pizzeria.
     description "The pizzeria's recurring-sweep singleton — the driving-side exemplar. A Driver (pizzas.hecksagon) fires ExpireStale on an interval ; ExpireStale records the tick + emits StaleOrdersExpired, and the runtime cancels each stale pending order off that event. One Kitchen per pizzeria."
-    identified_by :name
+    identified_by { name.value }
 
     attribute :name,          KitchenName
-    attribute :last_swept_at, SweptAt,    default: "—"
-    attribute :stale_after_seconds, StaleWindow, default: 1800
+    attribute :last_swept_at, SweptAt,    default: { value: "—" }
+    attribute :stale_after_seconds, StaleWindow, default: { value: 1800 }
 
     value_object "KitchenName" do
       # Singleton key — one Kitchen per pizzeria. Default "kitchen".
