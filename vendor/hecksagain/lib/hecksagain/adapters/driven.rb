@@ -40,3 +40,6 @@ require_relative "driven/google_authentication"
 require_relative "driven/shell"
 require_relative "driven/filesystem"
 require_relative "driven/search"
+# i757 -- the fourth execution-port adapter, Gmail. Same non-ambiguous
+# per-aggregate resolution as the three above.
+require_relative "driven/email"
