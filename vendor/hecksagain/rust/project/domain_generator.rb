@@ -73,11 +73,58 @@ module RustProjection
       end
     end
 
+    # A value_object sharing its OWN OWNING AGGREGATE's exact name is a
+    # real, live pattern -- an aggregate referencing another instance of
+    # itself wraps the reference in a same-named id VO (bin-buddy's AddOn
+    # aggregate holds a `value_object "AddOn"` for its own "which add-on
+    # is this attached to" self-reference; Route/ServiceAddress/
+    # Subscription do the same). Sound in Ruby -- each aggregate is its
+    # own namespace -- but domain_generator.rb emits one Rust file PER
+    # AGGREGATE (`"#{aggregate[:name].downcase}.rs"`), and the VO's own
+    # struct lands in the SAME file as the aggregate's own record struct:
+    # `pub struct AddOn` twice, confirmed live (E0428 "defined multiple
+    # times", cascading into ~700 further errors -- duplicate to_json/
+    # from_json, Debug conflicts, mismatched fields). A VO named after a
+    # DIFFERENT aggregate is fine -- that aggregate gets its own separate
+    # file/module, no collision -- so this deliberately only touches the
+    # self-named case, not every possible name collision.
+    def disambiguate_self_named_value_object!(aggregate)
+      vo = aggregate[:value_objects].find { |v| v[:name] == aggregate[:name] }
+      return unless vo
+
+      old_name = vo[:name]
+      vo[:name] = "#{old_name}Ref"
+      retype!(aggregate, old_name, vo[:name])
+    end
+
+    # Generic deep-walk, not a hand-enumerated list of `:attributes`/
+    # `:commands`/`:entities`/`:ports` paths -- robust to wherever a
+    # `{type: "AddOn", ...}` shaped hash actually lives in the aggregate
+    # subtree (an entity's own command's own attribute, a port operation's
+    # attribute, ...) without needing to know every one of those shapes
+    # ahead of time. Scoped to ONE aggregate's own subtree (the caller
+    # passes `aggregate`, never `ir[:aggregates]`), so it can never touch
+    # a different aggregate's own, unrelated attribute of the same type
+    # name -- a VO is only ever referenced by attributes inside the SAME
+    # aggregate that declares it. `Reference<AddOn>` (a genuine cross-
+    # aggregate pointer, unrelated to this self-named VO) is untouched --
+    # the exact string never equals the bare old_name.
+    def retype!(node, old_name, new_name)
+      case node
+      when Hash
+        node[:type] = new_name if node[:type] == old_name
+        node.each_value { |v| retype!(v, old_name, new_name) }
+      when Array
+        node.each { |v| retype!(v, old_name, new_name) }
+      end
+    end
+
     def call(ir, source_label, mod_dir, mod_name)
       FileUtils.mkdir_p(mod_dir)
       domain_name = ir[:name]
       generated_aggregates = []
       registry_aggregates = []
+      ir[:aggregates].each { |a| disambiguate_self_named_value_object!(a) }
       aggregates_by_name = ir[:aggregates].to_h { |a| [a[:name], a] }
       unsupported_names = ir[:aggregates].select do |a|
         vo_by_name = a[:value_objects].to_h { |vo| [vo[:name], vo] }
