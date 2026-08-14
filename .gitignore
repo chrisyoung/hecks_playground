@@ -113,6 +113,13 @@ hecks_conception/data/
 
 # Runtime heki stores under aggregates (per-domain .heki dirs) — runtime state, not source.
 hecks_conception/aggregates/**/.heki/
+
+# Same thing, un-dotted : the storehouse door's FileTool/ShellTool audit
+# trail and any Heki-persisted aggregate write a plain `data/` dir next
+# to `bluebook/`, not `.heki/` — the rule above never matched it (caught
+# committing test_automation/data/ by accident, i759). Runtime state,
+# never source, wherever it appears under aggregates.
+hecks_conception/aggregates/**/data/
 hecks_conception/drafting/
 hecks_conception/clients/
 

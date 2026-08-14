@@ -1,0 +1,74 @@
+Hecks.bluebook "TestAutomation" do
+  vision "Fuzzing campaigns, as a domain record. A MutationRun is a bounded campaign against one target -- mutate inputs, run them, keep what crashes. Distinct lifecycle and identity from Locator (a mutation run explores toward the unknown ; a locator heals back to a known target) -- same 'fan out, perturb, converge' instinct, but a sibling aggregate under the shared TestAutomation domain, never merged into Locator."
+  category "test_automation"
+
+  aggregate "MutationRun", "A bounded fuzzing campaign against one target -- what was run, and what it found." do
+    identified_by { ref.value }
+
+    attribute :ref,      Ref
+    attribute :target,   Target
+    attribute :findings, list_of(Finding)
+
+    value_object "Ref" do
+      attribute :value, String
+    end
+
+    value_object "Target" do
+      # What's being fuzzed -- a function name, an endpoint, a parser entry point.
+      attribute :value, String
+    end
+
+    value_object "InputSample" do
+      # The mutated input that triggered a finding -- kept for repro.
+      attribute :value, String
+    end
+
+    value_object "CrashSignature" do
+      # A short fingerprint of the failure (exception class + top frame, a
+      # hash of the stack) -- how findings get deduplicated. Dedup is the
+      # fuzzer's own job, done before RecordFinding is ever dispatched.
+      attribute :value, String
+    end
+
+    lifecycle :status, default: "running" do
+      transition "Stop" => "stopped", from: "running"
+    end
+
+    entity "Finding" do
+      identified_by { crash_signature.value }
+      attribute :input_sample,    InputSample
+      attribute :crash_signature, CrashSignature
+    end
+
+    command "Start" do
+      role "Fuzzer"
+      description "Begin a mutation run against one target."
+      attribute :ref,    Ref
+      attribute :target, Target
+      then_set :ref,    to: :ref
+      then_set :target, to: :target
+      emits "MutationRunStarted"
+    end
+
+    command "RecordFinding" do
+      role "Fuzzer"
+      description "A mutated input crashed the target."
+      reference_to(MutationRun)
+      attribute :input_sample,    InputSample
+      attribute :crash_signature, CrashSignature
+      then_set :findings, append: { input_sample: :input_sample, crash_signature: :crash_signature }
+      emits "FindingRecorded"
+    end
+
+    command "Stop" do
+      role "Fuzzer"
+      description "End the campaign. running -> stopped."
+      reference_to(MutationRun)
+      emits "MutationRunStopped"
+    end
+
+    query "Findings" do
+      description "Every crash this run has found so far."
+    end
+  end
+end

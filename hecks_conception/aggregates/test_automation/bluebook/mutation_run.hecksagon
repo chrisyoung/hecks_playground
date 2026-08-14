@@ -1,0 +1,3 @@
+Hecks.hecksagon "TestAutomation" do
+  TestAutomation::MutationRun.persisted_by("Heki")
+end

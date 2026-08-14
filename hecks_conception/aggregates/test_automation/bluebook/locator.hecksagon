@@ -1,0 +1,15 @@
+Hecks.hecksagon "TestAutomation" do
+  # Persistence only for now. The BrowserScan effect port --
+  #   TestAutomation::Locator.rescanned_by("BrowserScan", on: "ResolutionFailed") do
+  #     success "TestAutomation::Locator.Heal"
+  #     failure "TestAutomation::Locator.MarkBroken"
+  #   end
+  # -- is the deliberate next increment. Writing that bind here before a real
+  # BrowserScan adapter exists would fail Registry#verify! at boot for the
+  # WHOLE domain (proven live today, i757 -- a bind with no resolvable adapter
+  # doesn't fail quietly, it refuses the corpus). Bluebook first means the
+  # shape is already decided -- ReportMiss/Heal/MarkBroken, ResolutionFailed
+  # already emitted in locator.bluebook -- the adapter is a separate, honest
+  # next step, not a stub pretending to scan a DOM it never touches.
+  TestAutomation::Locator.persisted_by("Heki")
+end

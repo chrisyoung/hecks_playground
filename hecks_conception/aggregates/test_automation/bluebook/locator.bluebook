@@ -1,0 +1,65 @@
+Hecks.bluebook "TestAutomation" do
+  vision "Self-healing UI test locators. A Locator is registered against a live element's attribute fingerprint (id, class, text, tag, position -- never one brittle selector). When a test run can't find the element, that's a domain event (ResolutionFailed), not a domain bug -- rescanning the live DOM and scoring candidate matches is impure work that belongs to an adapter, not the aggregate. The adapter's verdict re-enters as a plain Heal or MarkBroken -- the same effect-port shape Pizzas uses for charged_by/payment."
+  category "test_automation"
+
+  aggregate "Locator", "A named reference to a UI element, held as an attribute fingerprint rather than one brittle selector -- so the element can still be found after the DOM shifts." do
+    identified_by { name.value }
+
+    attribute :name,        Name
+    attribute :fingerprint, list_of(Attribute)
+
+    value_object "Name" do
+      # The locator's own name, e.g. "checkout-button" -- what a test step calls it.
+      attribute :value, String
+    end
+
+    value_object "Attribute" do
+      # One fact about the element : key ("id", "class", "text", "tag",
+      # "position") and its current value. The fingerprint is the whole list.
+      attribute :key,   String
+      attribute :value, String
+    end
+
+    lifecycle :status, default: "fresh" do
+      transition "Heal"       => "healed", from: "fresh"
+      transition "MarkBroken" => "broken", from: "fresh"
+    end
+
+    command "Register" do
+      role "Author"
+      description "Declare a locator's initial attribute fingerprint, captured from a real element on a real page."
+      attribute :name,        Name
+      attribute :fingerprint, list_of(Attribute)
+      then_set :name,        to: :name
+      then_set :fingerprint, to: :fingerprint
+      emits "LocatorRegistered"
+    end
+
+    command "ReportMiss" do
+      role "TestRunner"
+      description "A test run couldn't find this locator's element on the live page. Emits ResolutionFailed -- the signal a BrowserScan effect port (not yet wired -- see locator.hecksagon) fans out to rescan the DOM and score candidate matches. Its verdict re-enters as Heal or MarkBroken."
+      reference_to(Locator)
+      emits "ResolutionFailed"
+    end
+
+    command "Heal" do
+      role "System"
+      description "The rescan found a confident match -- adopt its fingerprint. The 'flip the bit' : fresh -> healed."
+      reference_to(Locator)
+      attribute :fingerprint, list_of(Attribute)
+      then_set :fingerprint, to: :fingerprint
+      emits "LocatorHealed"
+    end
+
+    command "MarkBroken" do
+      role "System"
+      description "The rescan found no confident match -- this locator needs a human. fresh -> broken."
+      reference_to(Locator)
+      emits "LocatorBroken"
+    end
+
+    query "Current" do
+      description "The locator's current fingerprint and status -- what a test step should match against right now."
+    end
+  end
+end
