@@ -178,6 +178,33 @@ module RustProjection
       node[:attributes].any? { |a| a[:name].to_s == node[:lifecycle][:field].to_s }
     end
 
+    # i758 -- the lifecycle field's generic reflection arm, type-aware.
+    # `kernel::dispatch`/`dispatch_entity`'s own TransitionCheck guard
+    # (dispatch.rs) reads the CURRENT state via `record.field(check.
+    # field)`, regardless of whether the field's declared type is a
+    # closed-set VO (a real Rust enum) -- but `emit_fielded_record`'s
+    # normal per-attribute loop deliberately SKIPS closed-set types (no
+    # arm at all, the same gap Kind has always had, harmless there since
+    # nothing reads Kind reflectively). The lifecycle field is the one
+    # exception : something DOES read it reflectively, unconditionally.
+    # So a closed-set lifecycle field needs its own arm mapping the
+    # current variant back to its raw state string, wherever the normal
+    # loop left a gap. A plain String-backed field (or the defensive
+    # not-a-declared-attribute case) keeps the original unwrapped shape.
+    def lifecycle_reflection_arm(key, ident, target_type, value_objects_by_name, optional:)
+      vo = value_objects_by_name[target_type]
+      return "#{key.inspect} => Some(Field::Value(Value::Str(self.#{ident}.clone())))," unless vo && vo[:closed_set]
+
+      enum_type = rust_ident(target_type)
+      match_arms = vo[:members].map { |row| "#{enum_type}::#{closed_set_variant(row)} => #{literal_rhs(row.first.last)}" }.join(", ")
+
+      if optional
+        "#{key.inspect} => self.#{ident}.as_ref().map(|v| Field::Value(Value::Str(match v { #{match_arms} }))).or(Some(Field::Value(Value::Nil))),"
+      else
+        "#{key.inspect} => Some(Field::Value(Value::Str(match &self.#{ident} { #{match_arms} }))),"
+      end
+    end
+
     def integer_field_of(vo)
       return nil unless vo && !vo[:closed_set]
 

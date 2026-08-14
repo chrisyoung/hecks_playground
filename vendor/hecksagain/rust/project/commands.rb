@@ -257,9 +257,17 @@ module RustProjection
       end
 
       transition = lifecycle_transition_for(command, aggregate)
+      # i755 -- an unconstrained transition (a `transition "Cmd" =>
+      # "to_state"` row with no `from:`, i.e. a nil `from_state`) admits
+      # from ANY current state -- represented as `from_states: None`, not
+      # a `nil` literal leaked into the &[&str] slice (a straight compile
+      # error). `nil` present anywhere in the row set means the WHOLE
+      # transition is unconstrained (an unconstrained row already
+      # subsumes any specific one).
       transition_arg =
         if transition
-          "Some(crate::kernel::TransitionCheck { field: #{transition[:field].inspect}, from_states: &[#{transition[:from_states].map(&:inspect).join(', ')}] })"
+          from_states_expr = transition[:from_states].include?(nil) ? "None" : "Some(&[#{transition[:from_states].map(&:inspect).join(', ')}])"
+          "Some(crate::kernel::TransitionCheck { field: #{transition[:field].inspect}, from_states: #{from_states_expr} })"
         else
           "None"
         end
@@ -429,9 +437,12 @@ module RustProjection
       # `entity` here is exactly that, not a special case either helper
       # needs to know about.
       transition = lifecycle_transition_for(command, entity)
+      # i755 -- see emit_command's own comment above: an unconstrained
+      # transition emits from_states: None, not a leaked `nil` literal.
       transition_arg =
         if transition
-          "Some(crate::kernel::TransitionCheck { field: #{transition[:field].inspect}, from_states: &[#{transition[:from_states].map(&:inspect).join(', ')}] })"
+          from_states_expr = transition[:from_states].include?(nil) ? "None" : "Some(&[#{transition[:from_states].map(&:inspect).join(', ')}])"
+          "Some(crate::kernel::TransitionCheck { field: #{transition[:field].inspect}, from_states: #{from_states_expr} })"
         else
           "None"
         end

@@ -187,10 +187,18 @@ module RustProjection
       # is this struct's one, in the flat (non-Option) shape emit_entity's
       # own field actually has.
       lifecycle_arm =
-        if entity[:lifecycle] && !lifecycle_field_declared?(entity)
-          field = rust_field(entity[:lifecycle][:field])
-          ident = rust_ident_field(entity[:lifecycle][:field])
-          [%(            "#{field}" => Some(Field::Value(Value::Str(self.#{ident}.clone()))),)]
+        if entity[:lifecycle]
+          lc_attr = entity[:attributes].find { |a| a[:name].to_s == entity[:lifecycle][:field].to_s }
+          target_type = lc_attr ? lc_attr[:type] : "String"
+          lc_vo = value_objects_by_name[target_type]
+          if lc_attr && lc_vo && !lc_vo[:closed_set]
+            []
+          else
+            field = rust_field(entity[:lifecycle][:field])
+            ident = rust_ident_field(entity[:lifecycle][:field])
+            optional = lc_attr ? !!lc_attr[:optional] : false
+            ["            #{lifecycle_reflection_arm(field, ident, target_type, value_objects_by_name, optional: optional)}"]
+          end
         else
           []
         end

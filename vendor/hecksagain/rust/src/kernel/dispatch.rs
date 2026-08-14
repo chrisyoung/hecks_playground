@@ -54,7 +54,11 @@ pub struct EnsuresSpec {
 /// field is.
 pub struct TransitionCheck {
     pub field: &'static str,
-    pub from_states: &'static [&'static str],
+    /// `None` admits the transition from ANY current state -- a bluebook
+    /// `transition "Cmd" => "to_state"` row with no `from:` clause
+    /// (i755). `Some(&[...])` constrains admission to exactly those
+    /// states, the ORIGINAL always-constrained shape.
+    pub from_states: Option<&'static [&'static str]>,
 }
 
 /// How this dispatch obtains its starting record — the one real branch
@@ -138,11 +142,13 @@ where
     if let Some(check) = &transition {
         match record.field(check.field) {
             Some(Field::Value(Value::Str(current))) => {
-                if !check.from_states.contains(&current.as_str()) {
-                    return Err(Refusal::LifecycleRefused(format!(
-                        "{command_name} cannot run from {current:?} — admits {:?}",
-                        check.from_states
-                    )));
+                if let Some(states) = check.from_states {
+                    if !states.contains(&current.as_str()) {
+                        return Err(Refusal::LifecycleRefused(format!(
+                            "{command_name} cannot run from {current:?} — admits {:?}",
+                            states
+                        )));
+                    }
                 }
             }
             // Not a codegen-emitted mismatch a real dispatch should ever hit —
@@ -274,11 +280,13 @@ where
     if let Some(check) = &transition {
         match element.field(check.field) {
             Some(Field::Value(Value::Str(current))) => {
-                if !check.from_states.contains(&current.as_str()) {
-                    return Err(Refusal::LifecycleRefused(format!(
-                        "{command_name} cannot run from {current:?} — admits {:?}",
-                        check.from_states
-                    )));
+                if let Some(states) = check.from_states {
+                    if !states.contains(&current.as_str()) {
+                        return Err(Refusal::LifecycleRefused(format!(
+                            "{command_name} cannot run from {current:?} — admits {:?}",
+                            states
+                        )));
+                    }
                 }
             }
             _ => {

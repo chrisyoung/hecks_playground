@@ -112,19 +112,26 @@ module RustProjection
           Exemplar.render("fielded_arm_optional_nested", '"tmpl_field"' => key.inspect, "tmpl_ident" => ident)
         end
       end
-      # i754 -- skip when the lifecycle field is already one of the
-      # aggregate's own declared attributes (the normal case): the
-      # attribute-driven loop just above already handles it with its real
-      # type (a String-wrapping VO gets `fielded_arm_optional_nested`; a
-      # closed-set VO currently gets no arm at all, matching every other
-      # closed-set attribute -- Kind included -- a pre-existing, separate
-      # gap, not this one). Adding a hardcoded `Value::Str` arm on top
-      # unconditionally produced a real type mismatch (E0308) whenever the
-      # field's declared type wasn't a plain String.
-      if aggregate[:lifecycle] && !lifecycle_field_declared?(aggregate)
-        key   = rust_field(aggregate[:lifecycle][:field])
-        ident = rust_ident_field(aggregate[:lifecycle][:field])
-        arms << Exemplar.render("fielded_lifecycle_arm", '"tmpl_field"' => key.inspect, "tmpl_ident" => ident)
+      # i754/i758 -- the attribute-driven loop just above already handles
+      # the lifecycle field correctly WHEN it's declared with a real,
+      # non-closed-set type (a String-wrapping VO gets `fielded_arm_
+      # optional_nested`) -- skip in that case, adding a second arm would
+      # duplicate it. But a CLOSED-SET lifecycle type needs its OWN arm
+      # here regardless : the per-attribute loop deliberately skips every
+      # closed-set field (harmless for Kind, which nothing reads
+      # reflectively -- NOT harmless for the lifecycle field, which
+      # `kernel::dispatch`'s own TransitionCheck guard reads via `record.
+      # field(...)` unconditionally). `lifecycle_reflection_arm` picks the
+      # right shape either way.
+      if aggregate[:lifecycle]
+        lc_attr = aggregate[:attributes].find { |a| a[:name].to_s == aggregate[:lifecycle][:field].to_s }
+        target_type = lc_attr ? lc_attr[:type] : "String"
+        lc_vo = value_objects_by_name[target_type]
+        unless lc_attr && lc_vo && !lc_vo[:closed_set]
+          key   = rust_field(aggregate[:lifecycle][:field])
+          ident = rust_ident_field(aggregate[:lifecycle][:field])
+          arms << lifecycle_reflection_arm(key, ident, target_type, value_objects_by_name, optional: true)
+        end
       end
       arms = arms.map { |a| "            #{a}" }
 
