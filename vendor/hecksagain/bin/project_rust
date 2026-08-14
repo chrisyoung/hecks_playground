@@ -98,7 +98,12 @@ FileUtils.rm_rf(File.join(out_root, "meta"))
 # that has ever been generated, never a directory of its own.
 FileUtils.rm_rf(File.join(out_root, "active"))
 
-target_mod_name = File.basename(domain)
+# `File.basename(domain)` is the target's own directory name, which is
+# NOT guaranteed to be a valid Rust identifier -- a repo/domain directory
+# named with a hyphen ("bin-buddy") produced `pub mod bin-buddy;`, a
+# syntax error, until this sanitized it. Every other non-identifier
+# character gets the same treatment, not just hyphens.
+target_mod_name = File.basename(domain).gsub(/[^a-zA-Z0-9_]/, "_")
 FileUtils.rm_rf(File.join(out_root, target_mod_name))
 RustProjection::DomainGenerator.call(meta_ir, "the self-hosted language (lib/hecksagain/language/bluebook)", File.join(out_root, "meta"), "meta")
 target_aggregates = RustProjection::DomainGenerator.call(target_ir, domain, File.join(out_root, target_mod_name), target_mod_name)

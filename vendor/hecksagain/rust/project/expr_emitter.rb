@@ -56,6 +56,10 @@ module RustProjection
       when r::SignTest
         "Expr::SignTest { op: #{emit_comparison(node.operator)}, receiver: Box::new(#{emit_resolver(node.receiver)}) }"
       when r::Empty  then "Expr::Empty(Box::new(#{emit_resolver(node.receiver)}))"
+      when r::Presence
+        "Expr::Presence { receiver: Box::new(#{emit_resolver(node.receiver)}), negated: #{node.negated} }"
+      when r::StartsWith
+        "Expr::StartsWith { receiver: Box::new(#{emit_resolver(node.receiver)}), substring: #{node.substring.inspect}.to_string() }"
       when r::ToS    then "Expr::ToS(Box::new(#{emit_resolver(node.receiver)}))"
       when r::Modulo then "Expr::Modulo { receiver: Box::new(#{emit_resolver(node.receiver)}), divisor: Box::new(#{emit_resolver(node.divisor)}) }"
       when r::Size   then "Expr::Size(Box::new(#{emit_resolver(node.receiver)}))"

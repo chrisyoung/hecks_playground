@@ -130,6 +130,16 @@ pub enum Expr {
     Add(Box<Expr>, Box<Expr>),
     SignTest { op: Comparison, receiver: Box<Expr> },
     Empty(Box<Expr>),
+    // `.present?`/`.blank?` -- mirrors Ruby's Resolver::Presence exactly
+    // (bluebook/expression/resolver.rb's own `blank?`): nil or false is
+    // blank ; a String/List is blank iff empty ; every other Value (Int,
+    // Float, non-empty Str/List) is never blank. `negated: true` is
+    // `.blank?`, `negated: false` is `.present?` -- same shape Ruby's own
+    // struct carries, so the emitter reads `node.negated` straight through.
+    Presence { receiver: Box<Expr>, negated: bool },
+    // `.start_with?("literal")` -- mirrors Resolver::StartsWith exactly.
+    // String-only, same as Ruby's own `starts_with?` (resolver.rb).
+    StartsWith { receiver: Box<Expr>, substring: String },
     ToS(Box<Expr>),
     Modulo { receiver: Box<Expr>, divisor: Box<Expr> },
     Size(Box<Expr>),
@@ -184,6 +194,23 @@ pub fn interpret(expr: &Expr, ctx: &EvalContext) -> Result<Value, Refusal> {
             Value::Str(s) => Value::Bool(s.is_empty()),
             Value::List(n) => Value::Bool(n == 0),
             v => return Err(eval_error(format!("empty? expects a list or string, got {v:?}"))),
+        },
+        // Mirrors Ruby's `blank?` exactly (resolver.rb): nil or false is
+        // blank ; String/List is blank iff empty ; everything else is
+        // never blank. `present?` == `!blank?` == `!negated` reading.
+        Presence { receiver, negated } => {
+            let blank = match interpret(receiver, ctx)? {
+                Value::Nil => true,
+                Value::Bool(b) => !b,
+                Value::Str(s) => s.is_empty(),
+                Value::List(n) => n == 0,
+                Value::Int(_) | Value::Float(_) => false,
+            };
+            Value::Bool(if *negated { blank } else { !blank })
+        }
+        StartsWith { receiver, substring } => match interpret(receiver, ctx)? {
+            Value::Str(s) => Value::Bool(s.starts_with(substring.as_str())),
+            v => return Err(eval_error(format!("start_with? expects a string, got {v:?}"))),
         },
         ToS(r) => match interpret(r, ctx)? {
             Value::Str(s) => Value::Str(s),
