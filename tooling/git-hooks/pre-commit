@@ -21,16 +21,23 @@
 #   6b. Behaviors corpus — `storehouse test` over each root
 #       (parallel to Gate 6 during the i500 migration window)
 #   7. LoC ratchet — non-bluebook LoC may not increase vs origin/main
-#   8. cargo check --tests — all integration test targets compile
-#   9. Specializer byte-identity — codegen output equals rust/src/<name>.rs
-#      for all tracked shapes
+#   8. cargo check --tests — all integration test targets compile, in
+#      hecks-hecksagain's storehouse/ (i768 slice 2.2c: rust/ retired
+#      from hecks ; gate now runs against the fork's checkout)
+#   9. Specializer byte-identity — codegen output equals storehouse/src/<name>.rs
+#      for all tracked shapes (same fork checkout as Gate 8)
 #   10. wasm32 build guard — the storehouse lib still compiles for
 #       wasm32-unknown-unknown (the deciderate / bin-buddy worker target),
-#       skipped gracefully when rustup or the wasm32 target is absent
+#       skipped gracefully when rustup or the wasm32 target is absent,
+#       or when no hecks-hecksagain checkout is found
 #
-# These Rust-cargo gates moved to the storehouse repo's CI during the
-# extraction (a37f3d8bc) and returned with the engine graft (rust/ back
-# in-tree) — re-homed here so hecks gates the engine it now ships.
+# Gates 3/8/9/10 run against hecks-hecksagain's storehouse/ crate, not a
+# path inside this repo (i768 slice 2.2c blocker C) — rust/ retired from
+# hecks in full ; the engine these gates test now lives in the fork,
+# checked out as a sibling of this repo (HECKS_HECKSAGAIN_REPO overrides
+# the sibling-repo guess). Each gate SKIPS with a loud stderr line (not a
+# silent no-op) when no such checkout is found, same discipline as
+# pre-push's integrity gate.
 #
 # Exit 0 = commit allowed. Exit 1 = commit blocked.
 # Set PARITY_SKIP=1 to bypass gate 1 (an antibody failure).
@@ -55,7 +62,30 @@
 # Mirrors the i565 worktree-awareness already in the smoke script.
 REPO="$(git rev-parse --show-toplevel 2>/dev/null)"
 [ -n "$REPO" ] || REPO="$(cd "$(dirname "$0")/../.." && pwd)"
-STOREHOUSE="$REPO/rust/target/release/storehouse"
+
+# hecksagain cutover (i768 slice 2.2c blocker C): rust/ retired from
+# hecks — the engine's own crate, and the binary Gate 4 shells out to,
+# now live in hecks-hecksagain's storehouse/ instead. Same sibling-repo
+# convention blocker B wired into pre-push (env override first, then a
+# conventional on-disk path), so one HECKS_HECKSAGAIN_REPO controls
+# both hooks' lookup. HECKSAGAIN_STOREHOUSE is the crate's SOURCE tree
+# (Gates 3/8/9/10 `cd` into it and run cargo directly against fork
+# sources, not a path-dep) ; STOREHOUSE below is a built BINARY (Gate 4
+# shells out to it, same as pre-push's integrity gate) — different
+# artifacts, same repo.
+HECKSAGAIN_REPO="${HECKS_HECKSAGAIN_REPO:-$(dirname "$REPO")/hecks-hecksagain}"
+HECKSAGAIN_STOREHOUSE="$HECKSAGAIN_REPO/storehouse"
+STOREHOUSE="${HECKS_HECKSAGAIN_BIN:-}"
+if [ -z "$STOREHOUSE" ]; then
+    for candidate in \
+        "$HECKSAGAIN_STOREHOUSE/target/release/storehouse" \
+        "$HECKSAGAIN_STOREHOUSE/target/debug/storehouse"; do
+        if [ -x "$candidate" ]; then
+            STOREHOUSE="$candidate"
+            break
+        fi
+    done
+fi
 CONCEPTION_DIR="$REPO/hecks_conception"
 PARITY_TEST="$REPO/parity/parity_test.rb"
 HECKSAGON_PARITY_TEST="$REPO/parity/hecksagon_parity_test.rb"
@@ -139,18 +169,22 @@ fi
 # Bluebook conceiver and behaviors conceiver must keep the same
 # shape: same files, same Conceiver trait, same surface. Guard fixed
 # on re-home -- the pre-extraction guard had decayed to `[ -d "/rust" ]`
-# (literal root, always skipped) ; now correctly anchored at $REPO/rust.
-if [ -d "$REPO/rust" ]; then
-if ! (cd "$REPO/rust" \
+# (literal root, always skipped) ; now anchored at hecks-hecksagain's
+# storehouse/ (i768 slice 2.2c blocker C -- rust/ retired from hecks,
+# would otherwise have silently decayed to a no-op again the same way).
+if [ -d "$HECKSAGAIN_STOREHOUSE" ]; then
+if ! (cd "$HECKSAGAIN_STOREHOUSE" \
         && cargo test --release --test conceiver_parity_test \
              >/tmp/conceiver_parity.out 2>&1); then
     echo "COMMIT BLOCKED: conceiver parity test failed (drift between conceivers)."
     echo ""
     tail -30 /tmp/conceiver_parity.out
     echo ""
-    echo "Re-run: (cd rust && cargo test --release --test conceiver_parity_test)"
+    echo "Re-run: (cd $HECKSAGAIN_STOREHOUSE && cargo test --release --test conceiver_parity_test)"
     exit 1
 fi
+else
+    echo "pre-commit: Gate 3 (conceiver parity) skipped — no hecks-hecksagain/storehouse checkout found at $HECKSAGAIN_STOREHOUSE (set HECKS_HECKSAGAIN_REPO?)."
 fi
 
 # ── Gate 4: Miette enforce ─────────────────────────────────────────
@@ -327,15 +361,21 @@ fi
 # warm, ~60s cold).
 #
 # Set CARGO_CHECK_SKIP=1 to bypass (an antibody failure for emergencies).
-if [ -z "$CARGO_CHECK_SKIP" ] && [ -f "$REPO/rust/Cargo.toml" ]; then
-if ! ( cd "$REPO/rust" && cargo check --tests --quiet ) >/tmp/cargo_check_tests.out 2>&1; then
+# Repointed at hecks-hecksagain's storehouse/ (i768 slice 2.2c blocker C) --
+# rust/ retired from hecks ; see HECKSAGAIN_STOREHOUSE's definition above.
+if [ -z "$CARGO_CHECK_SKIP" ] && [ -f "$HECKSAGAIN_STOREHOUSE/Cargo.toml" ]; then
+if ! ( cd "$HECKSAGAIN_STOREHOUSE" && cargo check --tests --quiet --workspace ) >/tmp/cargo_check_tests.out 2>&1; then
     cat /tmp/cargo_check_tests.out
     echo ""
     echo "COMMIT BLOCKED: cargo check --tests failed."
-    echo "  Re-run : cd rust && cargo check --tests"
+    echo "  Re-run : cd $HECKSAGAIN_STOREHOUSE && cargo check --tests --workspace"
     echo "  Bypass (use only for emergencies) : CARGO_CHECK_SKIP=1 git commit ..."
     exit 1
 fi
+else
+    if [ -z "$CARGO_CHECK_SKIP" ]; then
+        echo "pre-commit: Gate 8 (cargo check --tests) skipped — no hecks-hecksagain/storehouse checkout found at $HECKSAGAIN_STOREHOUSE (set HECKS_HECKSAGAIN_REPO?)."
+    fi
 fi
 
 # == Gate 9: specializer byte-identity -- codegen output matches tracked files ==
@@ -347,20 +387,26 @@ fi
 # IS the file. Runs in ~0.2s on a warm release cache.
 #
 # Set SPECIALIZER_SKIP=1 to bypass (an antibody failure for emergencies).
-if [ -z "$SPECIALIZER_SKIP" ] && [ -f "$REPO/rust/tests/specializer_golden_test.rs" ]; then
-if ! ( cd "$REPO/rust" && cargo test --release --test specializer_golden_test --quiet ) >/tmp/specializer_goldens.out 2>&1; then
+# Repointed at hecks-hecksagain's storehouse/ (i768 slice 2.2c blocker C) --
+# rust/ retired from hecks ; see HECKSAGAIN_STOREHOUSE's definition above.
+if [ -z "$SPECIALIZER_SKIP" ] && [ -f "$HECKSAGAIN_STOREHOUSE/tests/specializer_golden_test.rs" ]; then
+if ! ( cd "$HECKSAGAIN_STOREHOUSE" && cargo test --release --test specializer_golden_test --quiet ) >/tmp/specializer_goldens.out 2>&1; then
     cat /tmp/specializer_goldens.out
     echo ""
     echo "COMMIT BLOCKED: specializer byte-identity goldens drifted."
-    echo "  One or more rust/src/<name>.rs files no longer match what the"
+    echo "  One or more $HECKSAGAIN_STOREHOUSE/src/<name>.rs files no longer match what the"
     echo "  specializer would emit from codegen/<shape>/snippets/*.rs.frag."
     echo ""
     echo "  Fix : sync the codegen fragment(s) so the specializer's output"
-    echo "  equals the production file. Never edit rust/src/<name>.rs by hand."
-    echo "  Re-run : cd rust && cargo test --release --test specializer_golden_test"
+    echo "  equals the production file. Never edit src/<name>.rs by hand."
+    echo "  Re-run : cd $HECKSAGAIN_STOREHOUSE && cargo test --release --test specializer_golden_test"
     echo "  Bypass (use only for emergencies) : SPECIALIZER_SKIP=1 git commit ..."
     exit 1
 fi
+else
+    if [ -z "$SPECIALIZER_SKIP" ]; then
+        echo "pre-commit: Gate 9 (specializer byte-identity) skipped — no hecks-hecksagain/storehouse checkout found at $HECKSAGAIN_STOREHOUSE (set HECKS_HECKSAGAIN_REPO?)."
+    fi
 fi
 
 # == Gate 10: wasm32 build guard -- the storehouse lib stays wasm-safe ==
@@ -373,17 +419,23 @@ fi
 # gate skips gracefully rather than blocking.
 #
 # Set WASM_SKIP=1 to bypass (an antibody failure for emergencies).
-if [ -z "$WASM_SKIP" ] && [ -f "$REPO/rust/Cargo.toml" ] && command -v rustup >/dev/null 2>&1 \
+# Repointed at hecks-hecksagain's storehouse/ (i768 slice 2.2c blocker C) --
+# rust/ retired from hecks ; see HECKSAGAIN_STOREHOUSE's definition above.
+if [ -z "$WASM_SKIP" ] && [ -f "$HECKSAGAIN_STOREHOUSE/Cargo.toml" ] && command -v rustup >/dev/null 2>&1 \
 && rustup target list --installed 2>/dev/null | grep -q '^wasm32-unknown-unknown$'; then
-if ! ( cd "$REPO/rust" && rustup run stable cargo check --target wasm32-unknown-unknown -p storehouse --no-default-features --quiet ) >/tmp/wasm_check.out 2>&1; then
+if ! ( cd "$HECKSAGAIN_STOREHOUSE" && rustup run stable cargo check --target wasm32-unknown-unknown -p storehouse --no-default-features --quiet ) >/tmp/wasm_check.out 2>&1; then
     cat /tmp/wasm_check.out
     echo ""
     echo "COMMIT BLOCKED: storehouse lib failed wasm32-unknown-unknown build."
     echo "  The deciderate / bin-buddy worker target consumes this crate."
-    echo "  Re-run : cd rust && rustup run stable cargo check --target wasm32-unknown-unknown -p storehouse --no-default-features"
+    echo "  Re-run : cd $HECKSAGAIN_STOREHOUSE && rustup run stable cargo check --target wasm32-unknown-unknown -p storehouse --no-default-features"
     echo "  Bypass (use only for emergencies) : WASM_SKIP=1 git commit ..."
     exit 1
 fi
+else
+    if [ -z "$WASM_SKIP" ] && [ ! -f "$HECKSAGAIN_STOREHOUSE/Cargo.toml" ]; then
+        echo "pre-commit: Gate 10 (wasm32 build guard) skipped — no hecks-hecksagain/storehouse checkout found at $HECKSAGAIN_STOREHOUSE (set HECKS_HECKSAGAIN_REPO?)."
+    fi
 fi
 
 exit 0

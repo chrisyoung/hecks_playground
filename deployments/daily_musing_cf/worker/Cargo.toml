@@ -8,16 +8,47 @@ description = "Daily-Musing command bus — WASM Cloudflare Worker exposing the 
 crate-type = ["cdylib"]
 
 [dependencies]
-worker                    = "0.8.3"
+# Pinned to exactly 0.8.3 (not a floating "0.8.3" caret) -- mirrors
+# pigeoncoop/worker (i766, deployed+verified live in production). A
+# floating caret resolves worker to whatever is newest (0.8.5 as of
+# this writing), which drags in a wasm-bindgen-family bump that hits
+# a "externref table required for catch wrappers" wasm-bindgen 0.2.127
+# build failure. Discovered + fixed during i768 slice 2.2 verification.
+worker                    = "=0.8.3"
 console_error_panic_hook  = "0.1"
 serde                     = { version = "1", features = ["derive"] }
 serde_json                = "1"
 
-# Path-dep on the storehouse library so the worker has the same
-# parser / validator / heki / runtime modules the standalone binary
-# does. Filed in inbox/i105 to switch to a published-crate dependency
-# once storehouse publishes.
-storehouse                = { path = "../../../rust", default-features = false }
+# The wasm-bindgen crate family cross-links on EXACT versions (js-sys
+# 0.3.104 hard-requires wasm-bindgen =0.2.127, etc.), so worker's own
+# caret ranges float the whole family to whatever is newest on
+# crates.io -- currently 0.2.127, which has a "externref table
+# required for catch wrappers" wasm-bindgen CLI build bug. pigeoncoop's
+# frozen lock (0.2.121) doesn't work here either -- the currently
+# installed worker-build enforces a floor of wasm-bindgen@0.2.125.
+# 0.2.126 satisfies that floor and matches what hecksagain/rust/web
+# and opt-website-launch/worker already pin successfully.
+wasm-bindgen              = "=0.2.126"
+
+# Git-sourced dependency on the storehouse fork -- mirrors the Gemfile's
+# `gem "hecksagain", git: "...", ref: "..."` cutover (slice 2.1) so both
+# ecosystems resolve the SAME fork commit the same way : pinned via an
+# explicit `rev:` (not a floating `branch:`), reproducible, no manual
+# local checkout required. Cargo auto-discovers the `storehouse` crate
+# inside the cloned repo (it isn't at the repo root) purely by matching
+# [package] name -- no `path =` needed alongside `git =`. Bump the `rev`
+# explicitly (new commit + `cargo update -p storehouse`) to pick up fork
+# changes, same discipline as the Gemfile's `ref:` bump. Was `path =
+# "../../../rust"` (hecks's own vendored copy) before i768 slice 2.2 ;
+# verified building + serving real traffic against this git dependency
+# (workerd via `wrangler dev --local`) as part of that cutover.
+# hecks/rust/ itself (and hecks/summer/, which used to path-dep on it)
+# are deleted as of i768 slice 2.2c -- every consumer left in hecks now
+# resolves storehouse from this fork, not a local path.
+#
+# hecks-hecksagain is a PRIVATE repo -- see worker/.cargo/config.toml
+# for the `git-fetch-with-cli` fix this dependency needs to authenticate.
+storehouse                = { git = "https://github.com/chrisyoung/hecks-hecksagain", rev = "77fdc103f8d1ded56cc6e69369fd688e0ce4be1a", default-features = false }
 
 [profile.release]
 opt-level     = "s"      # optimise for binary size, not speed — fits the CF Worker 1MB compressed limit

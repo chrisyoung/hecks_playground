@@ -668,6 +668,14 @@ fn humanize_runtime_error(err: &storehouse::runtime::RuntimeError) -> HumanizedE
             suggestion: Some(format!("The check `{}` did not hold for this command.", expression)),
             field: None,
         },
+        E::UnjudgeableGiven { expression, clause } => HumanizedError {
+            message: format!("Precondition `{}` could not be evaluated.", expression),
+            suggestion: Some(format!(
+                "The clause `{}` did not resolve to true/false — check for a typo'd attribute or unsupported expression.",
+                clause,
+            )),
+            field: None,
+        },
         E::PersistenceRefused(reason) => HumanizedError {
             message: format!("Persistence refused : {}", reason),
             suggestion: Some("The aggregate's storage adapter failed at boot — check the binding.".into()),
