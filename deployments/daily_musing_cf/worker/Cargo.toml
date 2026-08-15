@@ -41,10 +41,10 @@ wasm-bindgen              = "=0.2.126"
 # changes, same discipline as the Gemfile's `ref:` bump. Was `path =
 # "../../../rust"` (hecks's own vendored copy) before i768 slice 2.2 ;
 # verified building + serving real traffic against this git dependency
-# (workerd via `wrangler dev --local`) as part of that cutover. NOTE :
-# hecks/rust/ itself is NOT deleted yet -- summer/Cargo.toml still
-# path-deps on it (`storehouse = { path = "../rust" }`) and was out of
-# this slice's scope to repoint/verify. See the i768 slice 2.2 handoff.
+# (workerd via `wrangler dev --local`) as part of that cutover.
+# hecks/rust/ itself (and hecks/summer/, which used to path-dep on it)
+# are deleted as of i768 slice 2.2c -- every consumer left in hecks now
+# resolves storehouse from this fork, not a local path.
 #
 # hecks-hecksagain is a PRIVATE repo -- see worker/.cargo/config.toml
 # for the `git-fetch-with-cli` fix this dependency needs to authenticate.
