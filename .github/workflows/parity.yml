@@ -15,27 +15,46 @@ jobs:
     name: Ruby DSL ↔ Rust storehouse
     runs-on: ubuntu-latest
 
-    # Multi-repo layout — same shape as test.yml. The Rust specializer
-    # for `system_prompt` reads from `<hecks-root>/../miette/self/...`
-    # ; checking out miette as a sibling under $GITHUB_WORKSPACE makes
-    # `../miette` resolve correctly from the cloned hecks dir. Without
-    # this, the rust_specializer_produces_byte_identical_system_prompt_rs
-    # cargo test panics with "cannot read shape ... No such file or
-    # directory" because miette isn't checked out.
+    # Multi-repo layout — same shape as test.yml, now THREE siblings under
+    # $GITHUB_WORKSPACE : hecks/, hecks-hecksagain/ (the storehouse fork,
+    # i768 slice 2.2b — hecks/rust/ retired), miette/ (optional). The Rust
+    # specializer/establishment tests that read a miette-sibling bluebook
+    # (system_prompt_establishment_test.rs, mindstream_establishment_test.rs)
+    # resolve it via `env!("CARGO_MANIFEST_DIR")/../../miette/...` from
+    # inside the storehouse crate — CARGO_MANIFEST_DIR is
+    # hecks-hecksagain/storehouse, so two levels up lands back at
+    # $GITHUB_WORKSPACE, where miette/ is checked out below. Both of those
+    # tests skip loudly (not fail) when the miette sibling is absent — see
+    # their own "skipped — miette sibling repo absent" guard — so
+    # miette's checkout can stay optional here same as before.
     steps:
       - name: Checkout hecks
         uses: actions/checkout@v4
         with:
           path: hecks
 
+      - name: Checkout hecks-hecksagain (storehouse fork)
+        # PRIVATE — needs a real token, not the default GITHUB_TOKEN (which
+        # is scoped to this repo only). No continue-on-error : this IS the
+        # crate the rest of the job builds/tests, not optional corpus like
+        # miette below. PINNED to the same rev summer/Cargo.toml and the
+        # daily-musing worker's Cargo.toml resolve (i768 slice 2.2b) —
+        # bump all three together.
+        uses: actions/checkout@v4
+        with:
+          repository: chrisyoung/hecks-hecksagain
+          ref: 77fdc103f8d1ded56cc6e69369fd688e0ce4be1a
+          token: ${{ secrets.HECKSAGAIN_TOKEN }}
+          path: hecks-hecksagain
+
       - name: Checkout miette (sibling, optional)
         # chrisyoung/miette is PRIVATE ; the default workflow GITHUB_TOKEN
         # is scoped to this (public) hecks repo and gets "Not Found" on it,
         # which would otherwise fail the whole job at the checkout step.
-        # The only parity step that reads ../miette is the
-        # system_prompt specializer golden, which skips gracefully when the
-        # sibling is absent. continue-on-error keeps the job alive so the
-        # parser/fixtures/hecksagon/world parity suites + cargo tests run.
+        # The only parity steps that read ../../miette from the storehouse
+        # crate are the system_prompt / mindstream establishment tests,
+        # which skip gracefully when the sibling is absent. continue-on-error
+        # keeps the job alive so the cargo tests + validate step still run.
         continue-on-error: true
         uses: actions/checkout@v4
         with:
@@ -56,15 +75,15 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            hecks/rust/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('hecks/rust/Cargo.lock', 'hecks/rust/Cargo.toml') }}
+            hecks-hecksagain/storehouse/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('hecks-hecksagain/storehouse/Cargo.lock', 'hecks-hecksagain/storehouse/Cargo.toml') }}
 
       - name: Build storehouse (release)
         # --workspace : the `storehouse` [[bin]] lives in the storehouse-cli
-        # member crate (rust/cli) ; the workspace root package is the lib,
-        # so a bare `cargo build` never produces the binary the cargo tests
-        # and the lifecycle step spawn.
-        working-directory: hecks/rust
+        # member crate (hecks-hecksagain/storehouse/cli) ; the workspace
+        # root package is the lib, so a bare `cargo build` never produces
+        # the binary the cargo tests and the lifecycle step spawn.
+        working-directory: hecks-hecksagain/storehouse
         run: cargo build --release --workspace --quiet
 
       - name: Cargo tests (incl. conceiver_parity_test)
@@ -72,7 +91,7 @@ jobs:
         # the storehouse-cli and storehouse-sqlite member crates' own
         # integration tests (CARGO_BIN_EXE-based CLI pins among them)
         # would run nowhere in CI.
-        working-directory: hecks/rust
+        working-directory: hecks-hecksagain/storehouse
         run: cargo test --release --workspace --quiet
 
       # ── Ruby-DSL ↔ Rust IR parity suites — RETIRED (parser-removal plan,

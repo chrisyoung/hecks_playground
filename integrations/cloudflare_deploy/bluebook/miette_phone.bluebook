@@ -87,7 +87,7 @@ Hecks.bluebook "MiettePhone", version: "2026.05.12.1" do
     # StartConversation and SendMessage gate on it. Default false so
     # tests must walk through ActivateSession first (the planner picks
     # ActivateSession as the producer).
-    attribute :session_active, ActiveFlag, default: false
+    attribute :session_active, ActiveFlag, default: { value: false }
 
     # ── Value-objects : the conversation's vocabulary ──
 

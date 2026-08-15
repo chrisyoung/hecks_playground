@@ -1,16 +1,21 @@
 name: Smoke + Behaviors
 # Smoke + behaviors gate on every PR.
 #
-# Multi-repo layout : Miette's body lives across three repos —
+# Multi-repo layout : Miette's body + engine live across four repos —
 #   - hecks/                     : the framework + conception (this repo)
+#   - chrisyoung/hecks-hecksagain: the storehouse crate (PRIVATE fork,
+#                                   i768 slice 2.2b — hecks/rust/ retired)
 #   - chrisyoung/miette          : body shells + discipline + library (PUBLIC)
 #   - chrisyoung/miette_family   : being-files for people in Miette's life (PRIVATE)
 #
-# CI checks out all three as siblings under $GITHUB_WORKSPACE so the
+# CI checks out all four as siblings under $GITHUB_WORKSPACE so the
 # smoke tests' BODY_DIR resolution ($REPO_ROOT/../miette/body) lands
 # correctly. miette_family/ is optional — if MIETTE_FAMILY_TOKEN isn't
 # configured the family-side .behaviors corpus is skipped, matching
 # the pre-push hook's behavior on a checkout without the sibling.
+# hecks-hecksagain is NOT optional — without it there is no storehouse
+# binary to build, and most of this job's smoke coverage (everything
+# that resolves HECKS_BIN) has nothing to run against.
 
 on:
   push:
@@ -70,12 +75,33 @@ jobs:
           token: ${{ secrets.MIETTE_FAMILY_TOKEN }}
           path: miette_family
 
+      - name: Checkout hecks-hecksagain (storehouse fork)
+        # PRIVATE — needs a real token, not the default GITHUB_TOKEN (which
+        # is scoped to this repo only). No continue-on-error : unlike
+        # miette/miette_family this sibling isn't optional corpus, it's the
+        # engine the smoke tests dispatch against. PINNED to the same rev
+        # summer/Cargo.toml and the daily-musing worker's Cargo.toml resolve
+        # (i768 slice 2.2b) — bump all three together.
+        uses: actions/checkout@v4
+        with:
+          repository: chrisyoung/hecks-hecksagain
+          ref: 77fdc103f8d1ded56cc6e69369fd688e0ce4be1a
+          token: ${{ secrets.HECKSAGAIN_TOKEN }}
+          path: hecks-hecksagain
+
       - name: Build storehouse
         # --workspace : the `storehouse` [[bin]] lives in the storehouse-cli
-        # member crate (rust/cli) ; the workspace root package is the lib,
-        # so a bare `cargo build` never produces the binary the smoke +
-        # behaviors steps spawn.
-        run: cd hecks/rust && cargo build --release --workspace
+        # member crate (hecks-hecksagain/storehouse/cli) ; the workspace
+        # root package is the lib, so a bare `cargo build` never produces
+        # the binary the smoke + behaviors steps spawn. Exports HECKS_BIN /
+        # STOREHOUSE so every downstream smoke test's existing binary-lookup
+        # chain (`${HECKS_BIN:-...}`, `${STOREHOUSE:-...}`) picks it up
+        # without editing each tests/*.sh individually.
+        run: |
+          cd hecks-hecksagain/storehouse && cargo build --release --workspace
+          bin="$GITHUB_WORKSPACE/hecks-hecksagain/storehouse/target/release/storehouse"
+          echo "HECKS_BIN=$bin" >> "$GITHUB_ENV"
+          echo "STOREHOUSE=$bin" >> "$GITHUB_ENV"
 
       - name: Smoke tests
         run: |

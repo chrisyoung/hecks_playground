@@ -8,5 +8,5 @@ RDoc::Task.new do |rdoc|
   rdoc.markup = "markdown"
   rdoc.rdoc_dir = "doc"
   rdoc.options << "--copy-files" << "hecks_logo.png"
-  rdoc.rdoc_files.include("README.md", "FEATURES.md", "*/lib/**/*.rb", "docs/**/*.md")
+  rdoc.rdoc_files.include("README.md", "FEATURES.md", "*/lib/**/*.rb")
 end

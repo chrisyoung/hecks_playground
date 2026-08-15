@@ -1,14 +1,19 @@
 # hecksagain_runtime.rb — the storehouse-mcp-facing Ruby runtime layer over
-# vendored hecksagain. Replaces rust/cli's job (dispatch/query/state/dump/
+# hecksagain. Replaces rust/cli's job (dispatch/query/state/dump/
 # describe/validate/macrophage) without preserving its shape — each entry
 # point here is designed around what hecksagain's own Loader/Dispatcher/
 # Router/Handle/Exporter already return, not around the old CLI's stdout
 # contract. See Part 5 of
 # /Users/christopheryoung/.claude/plans/okay-so-could-we-elegant-goose.md.
 #
+# hecksagain-cutover PRD, slice 2.1: `hecksagain` now resolves through the
+# Bundler `git:` dependency pinned in the top-level Gemfile (hecks-hecksagain,
+# ref-pinned), not `vendor/hecksagain/lib` — that copy stays on disk as a
+# fallback for the rest of the wave but is no longer on any live load path.
+#
 # Usage (one boot per process, cold-spawn correctness-first per the plan --
 # the warm daemon is a follow-up once this is proven, not a prerequisite):
-#   ruby -Ivendor/hecksagain/lib -Ihecksagain_runtime/lib \
+#   BUNDLE_GEMFILE=Gemfile bundle exec ruby -Ihecksagain_runtime/lib \
 #     -r hecksagain_runtime -e 'puts HecksagainRuntime.dispatch(root, verb, args).to_json'
 
 require "hecksagain"
@@ -71,17 +76,36 @@ module HecksagainRuntime
   # Vendored addition, not (yet) upstream hecksagain (migration plan task
   # 4/5): miette's own root has a DIFFERENT top-level shape than
   # hecks_conception's (body/library/self/mind/discipline/framework/
-  # world, not aggregates/storehouse/adapters) -- a second, PARALLEL
-  # canon-subdir list rather than generalizing CANON_SUBDIRS to "any
-  # directory with bluebook content recursively", which would silently
-  # swallow hecks_conception's own deliberately-excluded catalog/ too.
-  # Scoped to the five directories the corpus's own inventory (Part 1
-  # item 10) already confirmed carry bluebook content -- framework/
-  # world/deploy/tooling/tools/surface/inbox confirmed empty of it (inbox/
-  # especially: 728 files of Miette's own working memory, never bluebook
-  # syntax -- an unscoped glob risking a parse attempt on prose is exactly
-  # what this list avoids).
-  MIETTE_SUBDIRS = %w[body library self mind discipline].freeze
+  # world/surface/storehouse/catalog/..., not aggregates/storehouse/
+  # adapters) -- a second, PARALLEL canon-subdir list rather than
+  # generalizing CANON_SUBDIRS to "any directory with bluebook content
+  # recursively", which would silently swallow hecks_conception's own
+  # deliberately-excluded catalog/ too.
+  # Scoped to directories the corpus's own inventory confirms carry real
+  # bluebook content -- deploy/tooling/tools/inbox/docs/information/
+  # spikes/tests/data confirmed empty of it (inbox/ especially: 728+
+  # files of Miette's own working memory, never bluebook syntax -- an
+  # unscoped glob risking a parse attempt on prose is exactly what this
+  # list avoids).
+  #
+  # 2026-08-14 (hecks->hecksagain cutover PRD, slice 3.1): framework/,
+  # world/, and surface/ were already miette top-level dirs BEFORE this
+  # slice but were left off this list under the (now stale) claim they
+  # were "confirmed empty" of bluebook content -- framework/adapters/ and
+  # surface/bluebook/ already carried real content at the time. This
+  # slice's hecks_conception import made the gap much larger by landing
+  # eight more real-content top-level dirs (storehouse/catalog/demo/plan/
+  # correspondence/language/test_automation/drafting) that were silently
+  # invisible to any bare-root dispatch/query/catalog/list call --
+  # confirmed by comparing hecksagain-cli list against hecks_conception's
+  # root (returns ~200 aggregates, everything below included) versus
+  # against miette's new root pre-fix (ArgumentError on the five-dir
+  # flatten, and even had it succeeded, none of the eight new dirs'
+  # aggregates would have been in the result at all).
+  MIETTE_SUBDIRS = %w[
+    body library self mind discipline framework world surface
+    storehouse catalog demo plan correspondence language test_automation drafting
+  ].freeze
 
   def self.stage_flat_corpus(root)
         # SCOPED CALLERS PASS THROUGH UNCHANGED: a caller pointing at one
@@ -179,7 +203,26 @@ module HecksagainRuntime
 
         canon_globs =
           if CANON_SUBDIRS.all? { |d| File.directory?(File.join(root, d)) }
-            CANON_SUBDIRS.map { |d| File.join(root, d, "**", "bluebook", "*.{bluebook,hecksagon,world,fixtures,behaviors}") }
+            # Slice 1.3 (driving-adapter-grammar port) fix, real and
+            # confirmed live: hecks_conception's own documented convention
+            # for `driving on`/`driven on` adapters is a SIBLING
+            # `hecksagons/` folder next to `bluebook/`
+            # (aggregates/framework/tools/hecksagons/{shell_adapter,
+            # sprint14_smoke_fanout,cron_adapter,interval_adapter,
+            # agent_tool}.hecksagon -- tools.behaviors's own comment names
+            # it "the conventional location") -- NOT a file nested inside
+            # `bluebook/` itself. The glob below only ever matched the
+            # latter, so every file in `hecksagons/` was silently absent
+            # from EVERY full-corpus boot (validate, catalog, a
+            # :cross_cascade behaviors test) -- confirmed by staging the
+            # real corpus and finding zero matches for any of the five
+            # filenames above. Added as its own glob per canon subdir
+            # rather than folded into the existing pattern, so a directory
+            # that legitimately has both stays covered by both.
+            CANON_SUBDIRS.flat_map do |d|
+              [File.join(root, d, "**", "bluebook", "*.{bluebook,hecksagon,world,fixtures,behaviors}"),
+               File.join(root, d, "**", "hecksagons", "*.hecksagon")]
+            end
           elsif MIETTE_SUBDIRS.all? { |d| File.directory?(File.join(root, d)) }
             MIETTE_SUBDIRS.map { |d| File.join(root, d, "**", "bluebook", "*.{bluebook,hecksagon,world,fixtures,behaviors}") }
           elsif scattered_project?(root)
