@@ -26,7 +26,7 @@ Hecks.bluebook "Antibody", version: "2026.04.21.1" do
     attribute :touched_files, list_of(FilePath)
     attribute :flagged_files, list_of(FilePath)
     attribute :exemption_reasons, list_of(Reason)
-    attribute :verdict, Verdict, default: "pending"
+    attribute :verdict, Verdict, default: { value: "pending" }
 
 
     value_object "FilePath" do
@@ -117,7 +117,7 @@ Hecks.bluebook "Antibody", version: "2026.04.21.1" do
     attribute :flagged_files, list_of(FilePath)
     attribute :per_commit_verdicts, list_of(CommitVerdict)
     attribute :mode, Mode
-    attribute :result, Result, default: "pending"
+    attribute :result, Result, default: { value: "pending" }
 
     value_object "CommitVerdict" do
       attribute :sha, CommitSha
@@ -202,7 +202,7 @@ Hecks.bluebook "Antibody", version: "2026.04.21.1" do
     attribute :message_path, FilePath
     attribute :exemption_reasons, list_of(Reason)
     attribute :mode, Mode
-    attribute :result, Result, default: "pending"
+    attribute :result, Result, default: { value: "pending" }
 
 
     value_object "FilePath" do
@@ -298,7 +298,7 @@ Hecks.bluebook "Antibody", version: "2026.04.21.1" do
   # by RegisterExemption / RetireExemption.
 
   aggregate "ExemptRegistry", "One non-bluebook file path allowed past the bluebook-first macrophage — kernel-surface or transitional" do
-    identified_by :path
+    identified_by { path.value }
 
     # Repo-relative path (suffix-matched against the edited file).
     attribute :path, FilePath
