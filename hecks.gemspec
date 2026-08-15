@@ -1,8 +1,18 @@
-require_relative "ruby/hecks/version"
+# Read the version string directly rather than `require_relative`-ing
+# ruby/hecks/version.rb — that file opens `module Hecks`, and defining
+# that constant at Gemfile-eval time collides with hecksagain's own
+# "Hecks" domain (Bundler evals every gemspec on `bundle install`/
+# `bundler/setup`, so this ran before `require "hecksagain"` ever got a
+# chance, silently breaking "no domain \"Hecks\" loaded" dispatch for
+# any bluebook FQN starting with a bare `Hecks::` prefix). The old
+# ruby/hecks_cli files that still reference `Hecks::VERSION` directly
+# are unaffected — they define/require the module themselves if ever
+# invoked standalone; this file only needed the version STRING.
+hecks_version = File.read(File.expand_path("ruby/hecks/version.rb", __dir__))[/VERSION\s*=\s*"([^"]+)"/, 1]
 
 Gem::Specification.new do |spec|
   spec.name          = "hecks"
-  spec.version       = Hecks::VERSION
+  spec.version       = hecks_version
   spec.authors       = ["Christopher Young"]
   spec.summary       = "Hexagonal DDD framework for Ruby"
   spec.description   = "Domain compiler: DSL, IR, runtime, generators, CLI, workshop, and AI tools"
