@@ -42,8 +42,48 @@ REPO="$(git rev-parse --show-toplevel)"
 # MAIN_REPO is the main worktree's top, derived from the shared git
 # common dir. Worktrees inherit the built storehouse binary from main
 # (no per-worktree rebuild). On a main-tree push MAIN_REPO == REPO.
-MAIN_REPO="$(dirname "$(git rev-parse --git-common-dir)")"
-STOREHOUSE="$MAIN_REPO/rust/target/release/storehouse"
+#
+# `git rev-parse --git-common-dir` returns an ABSOLUTE path when the
+# common dir sits outside the cwd's tree (the worktree case) but a
+# RELATIVE ".git" when cwd already IS the main repo root — which it
+# always is for a real push from the main checkout, git invokes hooks
+# with cwd at the working tree's top. Wrapping in `cd … && pwd` forces
+# MAIN_REPO absolute either way (found while wiring blocker B's sibling-
+# repo lookup below — a relative MAIN_REPO silently broke it whenever
+# pushing from the main checkout directly, i768 slice 2.2c).
+MAIN_REPO="$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd)"
+
+# hecksagain cutover (i768 slice 2.2c blocker B): the referential-
+# integrity gate below used to run hecks/rust's OWN storehouse binary.
+# rust/ is retired ; the binary now comes from hecks-hecksagain's
+# storehouse/ crate instead. Same "find a built binary outside this
+# repo" problem bin/loc-ratchet already solves for HECKS_BIN — same
+# shape here : an env override first, then a conventional on-disk path,
+# with NO auto-build (a hook that might trigger a multi-minute cargo
+# build on every push is a broken hook) and NO silent no-op (the old
+# code had no existence guard at all — a missing binary made every
+# `"$STOREHOUSE" integrity …` call fail as a shell "command not found",
+# which the `if !` below would have reported as a false "dangling
+# reference" push-block, not the true "binary missing" cause).
+#
+# hecks-hecksagain is checked out as a SIBLING of hecks on this
+# machine (same convention every slice of this cutover has assumed —
+# Gemfile's git: source, the CF worker's git dep, this session's own
+# worktrees), so the default guess is "hecks"'s sibling with the repo
+# name swapped in. HECKS_HECKSAGAIN_BIN overrides directly for anyone
+# whose layout differs.
+HECKSAGAIN_REPO="${HECKS_HECKSAGAIN_REPO:-$(dirname "$MAIN_REPO")/hecks-hecksagain}"
+STOREHOUSE="${HECKS_HECKSAGAIN_BIN:-}"
+if [ -z "$STOREHOUSE" ]; then
+    for candidate in \
+        "$HECKSAGAIN_REPO/storehouse/target/release/storehouse" \
+        "$HECKSAGAIN_REPO/storehouse/target/debug/storehouse"; do
+        if [ -x "$candidate" ]; then
+            STOREHOUSE="$candidate"
+            break
+        fi
+    done
+fi
 
 # Gate 6b worktree detection — when pushing from a git worktree, .git is
 # a file (pointing to the common gitdir) rather than a directory.
@@ -128,15 +168,28 @@ fi
 # against the live store ; a dangler blocks the push HERE, not hours later in
 # forensics. Main-repo only (worktrees deferred to CI above, like behaviors).
 if [ -d "$MAIN_REPO/hecks_conception/aggregates" ]; then
-    echo "pre-push: running storehouse integrity (referential-integrity gate)…"
-    if ! "$STOREHOUSE" integrity "$MAIN_REPO/hecks_conception/aggregates" >/tmp/prepush_integrity.log 2>&1; then
-        cat /tmp/prepush_integrity.log
-        echo "PUSH BLOCKED: dangling cross-aggregate reference(s)."
-        echo "  Run : storehouse integrity hecks_conception/aggregates"
-        exit 1
+    if [ -z "$STOREHOUSE" ] || [ ! -x "$STOREHOUSE" ]; then
+        echo "pre-push: storehouse binary not found — integrity gate deferred."
+        echo "  Looked for HECKS_HECKSAGAIN_BIN, then a built binary under"
+        echo "  $HECKSAGAIN_REPO/storehouse/target/{release,debug}/storehouse."
+        echo "  Build it (cd $HECKSAGAIN_REPO/storehouse && cargo build --release)"
+        echo "  or set HECKS_HECKSAGAIN_BIN to run this gate locally ; CI is"
+        echo "  authoritative either way."
+    else
+        echo "pre-push: running storehouse integrity (referential-integrity gate)…"
+        if ! "$STOREHOUSE" integrity "$MAIN_REPO/hecks_conception/aggregates" >/tmp/prepush_integrity.log 2>&1; then
+            cat /tmp/prepush_integrity.log
+            echo "PUSH BLOCKED: dangling cross-aggregate reference(s)."
+            echo "  Run : $STOREHOUSE integrity hecks_conception/aggregates"
+            exit 1
+        fi
+        echo "pre-push: integrity green — no dangling references."
     fi
-    echo "pre-push: integrity green — no dangling references."
 fi
 
-echo "pre-push: all $total .behaviors file(s) green."
+# NOTE: the .behaviors gate this hook's header describes was RETIRED in
+# the hecksagain cutover (see the comment block above) — nothing above
+# this point actually runs it, so there is no "$total" file count to
+# report. The referential-integrity gate is this hook's one remaining
+# enforced check.
 exit 0
