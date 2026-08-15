@@ -10,7 +10,7 @@
 
 mod domain_index;
 
-use storehouse::{heki, boot};
+use storehouse::heki;
 use std::env;
 use std::io::{self, Read, Write};
 use std::path::Path;
@@ -20,7 +20,7 @@ fn main() {
     let project_dir = resolve_home();
 
     if args.len() < 2 {
-        boot::run(&project_dir, false, "Spring");
+        boot_banner(&project_dir, "Spring");
         interactive(&project_dir);
         return;
     }
@@ -28,7 +28,7 @@ fn main() {
     match args[1].as_str() {
         "boot" => {
             let dir = if args.len() > 2 { &args[2] } else { &project_dir };
-            boot::run(dir, false, "Spring");
+            boot_banner(dir, "Spring");
         }
         "list" => {
             let start = std::time::Instant::now();
@@ -50,6 +50,24 @@ fn main() {
             std::process::exit(1);
         }
     }
+}
+
+// Startup banner — replaces the retired `storehouse::boot::run(dir, headless,
+// being)` (deleted upstream at hecks e2896be65, "boot is now one dispatch" ;
+// summer's import of it was already dead weight before this port, drifted
+// silently through the hecks_life -> rust -> storehouse crate renames). The
+// old function's job was to hydrate a project dir and print domain vitals ;
+// `run_boot::run` is NOT the replacement — it's gated on a Miette-specific
+// `BootRun`/`BeginBoot` aggregate pair that example domains like pizzas/
+// banking don't declare, so it would silently refuse to run for anything but
+// hecks_conception itself. `DomainIndex::compile` is the domain-generic
+// mechanism this crate already uses (see `interactive` below) and is what
+// actually stands in for the old boot.rs's "walk + parse + count" behaviour
+// for ANY project dir, not just the being-boot pipeline.
+fn boot_banner(project_dir: &str, being: &str) {
+    let idx = domain_index::DomainIndex::compile(project_dir);
+    eprintln!("\x1b[33m🌱 {}\x1b[0m booted — {} domains, {} aggregates, {} commands ({})",
+        being, idx.domain_count(), idx.aggregate_count(), idx.command_count(), project_dir);
 }
 
 fn resolve_home() -> String {
@@ -236,8 +254,11 @@ fn transmit(project_dir: &str, command: &str, result: &str) {
     record.insert("command".into(), serde_json::json!(command));
     record.insert("result".into(), serde_json::json!(result));
     record.insert("transmitted_at".into(),
-        serde_json::json!(heki::now_iso8601_internal()));
-    let _ = heki::append(&store_path, &record);
+        serde_json::json!(storehouse::clock::now_iso8601_internal()));
+    let _ = heki::append(&store_path, &record, heki::WriteContext::OutOfBand {
+        reason: "spring interactive shell — transmits its own command/result log \
+                 through the psychic link ; not a bluebook dispatch",
+    });
 }
 
 // === Terminal rendering ===
