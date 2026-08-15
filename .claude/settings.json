@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/christopheryoung/Projects/hecks/bin/agent-discipline-check",
+            "command": "/Users/christopheryoung/Projects/miette/tools/bin/agent-discipline-check",
             "timeout": 6
           }
         ]
