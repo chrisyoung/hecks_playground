@@ -65,14 +65,19 @@ fn establishment_policy_seeds_the_worker_config() {
     let rec = recs[0];
     let get = |k: &str| bare(rec.get(k));
 
-    // The exact rows the retired fixture carried.
+    // The exact rows the retired fixture carried. build_command was
+    // updated i768 slice 2.2 : an unpinned `cargo install -q
+    // worker-build` silently upgrades to whatever's newest on every
+    // fresh install, and 0.8.5 fails with "externref table required
+    // for catch wrappers" against wasm-bindgen in this toolchain. Pin
+    // worker-build to the last known-good 0.8.3.
     assert_eq!(get("name"), "daily-musing-worker");
     assert_eq!(get("compatibility_date"), "2026-05-10");
     assert_eq!(get("account_id"), "d64266851dc554da77687e13c058917c");
     assert_eq!(get("main_entrypoint"), "build/worker/shim.mjs");
     assert_eq!(
         get("build_command"),
-        "cargo install -q worker-build && worker-build --release"
+        "cargo install -q worker-build --version 0.8.3 && worker-build --release"
     );
     assert_eq!(get("r2_binding"), "DAILY_MUSING_R2_BUCKET");
     assert_eq!(get("r2_bucket"), "daily-musing-heki");

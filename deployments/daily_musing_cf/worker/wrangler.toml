@@ -15,7 +15,7 @@ binding     = "DAILY_MUSING_R2_BUCKET"
 bucket_name = "daily-musing-heki"
 
 [build]
-command = "cargo install -q worker-build && worker-build --release"
+command = "cargo install -q worker-build --version 0.8.3 && worker-build --release"
 
 [observability]
 enabled = true

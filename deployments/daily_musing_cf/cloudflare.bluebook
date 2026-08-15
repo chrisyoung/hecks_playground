@@ -25,7 +25,15 @@ Hecks.bluebook "DailyMusingCloudflare", version: "2026.05.23.1" do
     attribute :compatibility_date, CompatibilityDate, default: "2026-05-10"
     attribute :account_id, AccountId
     attribute :main_entrypoint, MainEntrypoint, default: "build/worker/shim.mjs"
-    attribute :build_command, BuildCommand, default: "cargo install -q worker-build && worker-build --release"
+    # worker-build is pinned to 0.8.3 (not floating) : an unpinned
+    # `cargo install -q worker-build` silently upgrades to whatever is
+    # newest on crates.io on every fresh install, and 0.8.5 passes
+    # `--experimental-reset-state-function` to wasm-bindgen
+    # unconditionally, which fails with "externref table required for
+    # catch wrappers" against every wasm-bindgen version tried (0.2.121,
+    # 0.2.126, 0.2.127) in this environment. Discovered + fixed during
+    # i768 slice 2.2 (hecks-hecksagain storehouse cutover verification).
+    attribute :build_command, BuildCommand, default: "cargo install -q worker-build --version 0.8.3 && worker-build --release"
     # Persisted (heki -> R2). r2_binding is the env binding name lib.rs
     # reads (env.bucket("DAILY_MUSING_R2_BUCKET")) ; r2_bucket is the
     # R2 bucket those bytes live in. The derived wrangler.toml carries
@@ -99,7 +107,7 @@ Hecks.bluebook "DailyMusingCloudflare", version: "2026.05.23.1" do
     with "compatibility_date", "2026-05-10"
     with "account_id", "d64266851dc554da77687e13c058917c"
     with "main_entrypoint", "build/worker/shim.mjs"
-    with "build_command", "cargo install -q worker-build && worker-build --release"
+    with "build_command", "cargo install -q worker-build --version 0.8.3 && worker-build --release"
     with "r2_binding", "DAILY_MUSING_R2_BUCKET"
     with "r2_bucket", "daily-musing-heki"
     with "observability", "enabled"
