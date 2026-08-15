@@ -13,7 +13,7 @@ gem "websocket"
 # ref explicitly (new commit + `bundle install`) to pick up fork changes;
 # `vendor/hecksagain` stays in place as a fallback until the rest of the
 # wave verifies (do not delete yet).
-gem "hecksagain", git: "https://github.com/chrisyoung/hecks-hecksagain", branch: "main", ref: "77fdc103f8d1ded56cc6e69369fd688e0ce4be1a"
+gem "hecksagain", git: "https://github.com/chrisyoung/hecks-hecksagain", branch: "main", ref: "48d2210"
 
 group :development, :test do
   gem "rake"

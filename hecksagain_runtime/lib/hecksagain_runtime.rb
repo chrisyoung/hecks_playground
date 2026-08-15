@@ -203,7 +203,26 @@ module HecksagainRuntime
 
         canon_globs =
           if CANON_SUBDIRS.all? { |d| File.directory?(File.join(root, d)) }
-            CANON_SUBDIRS.map { |d| File.join(root, d, "**", "bluebook", "*.{bluebook,hecksagon,world,fixtures,behaviors}") }
+            # Slice 1.3 (driving-adapter-grammar port) fix, real and
+            # confirmed live: hecks_conception's own documented convention
+            # for `driving on`/`driven on` adapters is a SIBLING
+            # `hecksagons/` folder next to `bluebook/`
+            # (aggregates/framework/tools/hecksagons/{shell_adapter,
+            # sprint14_smoke_fanout,cron_adapter,interval_adapter,
+            # agent_tool}.hecksagon -- tools.behaviors's own comment names
+            # it "the conventional location") -- NOT a file nested inside
+            # `bluebook/` itself. The glob below only ever matched the
+            # latter, so every file in `hecksagons/` was silently absent
+            # from EVERY full-corpus boot (validate, catalog, a
+            # :cross_cascade behaviors test) -- confirmed by staging the
+            # real corpus and finding zero matches for any of the five
+            # filenames above. Added as its own glob per canon subdir
+            # rather than folded into the existing pattern, so a directory
+            # that legitimately has both stays covered by both.
+            CANON_SUBDIRS.flat_map do |d|
+              [File.join(root, d, "**", "bluebook", "*.{bluebook,hecksagon,world,fixtures,behaviors}"),
+               File.join(root, d, "**", "hecksagons", "*.hecksagon")]
+            end
           elsif MIETTE_SUBDIRS.all? { |d| File.directory?(File.join(root, d)) }
             MIETTE_SUBDIRS.map { |d| File.join(root, d, "**", "bluebook", "*.{bluebook,hecksagon,world,fixtures,behaviors}") }
           elsif scattered_project?(root)
