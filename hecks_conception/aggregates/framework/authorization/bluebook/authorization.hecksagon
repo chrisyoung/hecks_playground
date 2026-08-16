@@ -1,0 +1,29 @@
+# The Authorization context had NO hecksagon at all -- so BindingPolicy's
+# `default_binding` applied silently, and BOTH Policy and RoleAssignment
+# were persisted_by("Memory") : wiped every single CLI/MCP dispatch, a
+# fresh OS process each time. Confirmed live (2026-08-15, i774) :
+# `Authorization::RoleAssignment.Active` returned `rows: []` and
+# `state pr-agent` returned null immediately after a session that had
+# supposedly just established 75 role assignments -- nothing survived the
+# process boundary. The roster's own doc string ("Idempotent : the roster
+# re-asserts each boot") only means anything if the roster is DURABLE
+# across boots, which it never was.
+#
+# i773 misdiagnosed this as an upsert-by-natural-key DUPLICATION bug
+# ("68 -> 75 records"). It isn't : a Heki-backed repro of the exact same
+# identified_by-block + no-reference_to Assign shape proves the runtime
+# correctly raises AlreadyExists on a repeat natural key (hydrate's
+# `creates?` branch, hecksagain gem, `runtime/command_interpreter.rb` --
+# deliberate, mutation-test-provenanced, not touched here). And that
+# refusal is SAFE to re-assert against : `PolicyInterpreter#deliver`
+# rescues every `DOMAIN_REFUSALS` member (AlreadyExists included) per
+# policy, logs `delivered: false`, and does not fail the cascade. So
+# binding these two aggregates to Heki does not risk a second `establish`
+# exploding -- it only makes the FIRST successful assertion durable.
+#
+# See aggregates/framework/authorization/bluebook/authorization.world for
+# the `dir :default` value half of this wiring.
+Hecks.hecksagon "Authorization" do
+  Authorization::Policy.persisted_by("Heki")
+  Authorization::RoleAssignment.persisted_by("Heki")
+end

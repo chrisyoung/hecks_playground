@@ -1,0 +1,22 @@
+Hecks.bluebook "Boot", version: "2026.08.15.1" do
+  vision "The boot-establishment keystone. `storehouse establish <root>` resolves this bluebook (walking up from root to find runtime/boot/bluebook/boot.bluebook, mirroring how the Procfile's `boot:` member locates it) and dispatches BootRun.CompleteBoot, which emits BootCompleted — the genesis event every domain's establishment policies (authorization.bluebook's RBAC roster, agent_instrumentation.bluebook's agent defs, mindstream.bluebook's stream establishment) react to. This is a MINIMAL restore (2026-08-15, i772 follow-up) after the original 9-phase pipeline bluebook was deleted as collateral damage in the i768 hecksagain-cutover sweep of the old Ruby runtime/ tree (commit 99803ed99) -- it was never actually dead, just unreferenced by that sweep's grep. The full pipeline (DiscoverOrgans, WriteCensus, ClassifyStores, GenerateSystemPrompt, EnsureDaemons, PrintVitals, SurfaceWakeReport) is NOT restored here : WakeReview.ComposeWakeReview now covers the wake report, and mindstream.bluebook's fixtures-to-policies establishment now covers stream/daemon supervision via the Procfile directly. Whether that pipeline is still wanted at all is Chris's call, not silently re-assumed by this fix. Restoring only what BootRun.CompleteBoot needs keeps `establish` honest about what it actually exercises."
+  category "runtime"
+
+  aggregate "BootRun" do
+    description "A single boot-establishment pass. Singleton ; the completion runtime restages it at the CompleteBoot transition's from-state every dispatch (stage_pipeline_settled in run_boot/complete.rs), so a fresh :memory-persisted instance never trips the lifecycle gate."
+
+    attribute :phase, PhaseName, default: { value: "completing" } do
+      transition "CompleteBoot" => "completed", from: "completing"
+    end
+
+    value_object "PhaseName" do
+      attribute :value, String
+    end
+
+    command "CompleteBoot" do
+      role "System"
+      goal "Emit BootCompleted -- the genesis event every domain's establishment policies react to, seeding standing state (RBAC roster, agent defs, mindstream establishment)"
+      emits "BootCompleted"
+    end
+  end
+end

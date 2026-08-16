@@ -1,0 +1,9 @@
+Hecks.hecksagon "Boot" do
+  # Minimal restore (2026-08-15, i772 follow-up) : establish() only merges
+  # BootRun's aggregate/policy IR into the corpus and dispatches
+  # BootRun.CompleteBoot -- it never walks daemons or any other adapter
+  # (that was `storehouse run`'s job, not restored here). The only wiring
+  # `establish` actually needs is a persistence bind so
+  # repo_lookup_key(&rt.repositories, "BootRun") resolves.
+  Boot::BootRun.persisted_by("Memory")
+end
