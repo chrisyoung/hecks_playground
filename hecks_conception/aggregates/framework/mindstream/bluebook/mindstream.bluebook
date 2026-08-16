@@ -193,7 +193,7 @@ Hecks.bluebook "Mindstream", version: "2026.05.12.1" do
     trigger "MindstreamMember.Register"
     with "name", "boot"
     with "mindstream", "boot"
-    with "command", "{ line: \"/Users/christopheryoung/Projects/hecks/rust/target/release/storehouse run /Users/christopheryoung/Projects/hecks/runtime/boot/bluebook/boot.bluebook\" }"
+    with "command", "{ line: \"/Users/christopheryoung/.local/bin/storehouse run /Users/christopheryoung/Projects/hecks/runtime/boot/bluebook/boot.bluebook\" }"
     with "lifespan", "{ kind: \"one_shot\", may_exit: true, restart_on_failure: false }"
     with "order", "1"
   end
@@ -203,7 +203,7 @@ Hecks.bluebook "Mindstream", version: "2026.05.12.1" do
     trigger "MindstreamMember.Register"
     with "name", "establish"
     with "mindstream", "boot"
-    with "command", "{ line: \"/Users/christopheryoung/Projects/hecks/rust/target/release/storehouse establish /Users/christopheryoung/Projects/hecks/hecks_conception\" }"
+    with "command", "{ line: \"/Users/christopheryoung/.local/bin/storehouse establish /Users/christopheryoung/Projects/hecks/hecks_conception\" }"
     with "lifespan", "{ kind: \"one_shot\", may_exit: true, restart_on_failure: false }"
     with "order", "2"
   end
@@ -213,7 +213,7 @@ Hecks.bluebook "Mindstream", version: "2026.05.12.1" do
     trigger "MindstreamMember.Register"
     with "name", "heart"
     with "mindstream", "boot"
-    with "command", "{ line: \"/Users/christopheryoung/Projects/hecks/rust/target/release/storehouse loop /Users/christopheryoung/Projects/miette/body/.. Heart::Heart.Beat --every 1s\" }"
+    with "command", "{ line: \"/Users/christopheryoung/.local/bin/storehouse loop /Users/christopheryoung/Projects/miette/body/.. Heart::Heart.Beat --every 1s\" }"
     with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
     with "order", "3"
   end
@@ -223,7 +223,7 @@ Hecks.bluebook "Mindstream", version: "2026.05.12.1" do
     trigger "MindstreamMember.Register"
     with "name", "breath"
     with "mindstream", "boot"
-    with "command", "{ line: \"/Users/christopheryoung/Projects/hecks/rust/target/release/storehouse loop /Users/christopheryoung/Projects/miette/body/.. Breath::Breath.Inhale,Breath::Breath.Exhale --every 4.5s\" }"
+    with "command", "{ line: \"/Users/christopheryoung/.local/bin/storehouse loop /Users/christopheryoung/Projects/miette/body/.. Breath::Breath.Inhale,Breath::Breath.Exhale --every 4.5s\" }"
     with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
     with "order", "4"
   end
@@ -233,7 +233,7 @@ Hecks.bluebook "Mindstream", version: "2026.05.12.1" do
     trigger "MindstreamMember.Register"
     with "name", "circadian"
     with "mindstream", "boot"
-    with "command", "{ line: \"/Users/christopheryoung/Projects/hecks/rust/target/release/storehouse clock /Users/christopheryoung/Projects/miette/body/.. --segment 5-6:Circadian::Circadian.MarkDawn --segment 7-11:Circadian::Circadian.MarkMorning --segment 12-16:Circadian::Circadian.MarkAfternoon --segment 17-19:Circadian::Circadian.MarkDusk --segment 20-4:Circadian::Circadian.MarkNight --poll 60s\" }"
+    with "command", "{ line: \"/Users/christopheryoung/.local/bin/storehouse clock /Users/christopheryoung/Projects/miette/body/.. --segment 5-6:Circadian::Circadian.MarkDawn --segment 7-11:Circadian::Circadian.MarkMorning --segment 12-16:Circadian::Circadian.MarkAfternoon --segment 17-19:Circadian::Circadian.MarkDusk --segment 20-4:Circadian::Circadian.MarkNight --poll 60s\" }"
     with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
     with "order", "5"
   end
@@ -243,7 +243,7 @@ Hecks.bluebook "Mindstream", version: "2026.05.12.1" do
     trigger "MindstreamMember.Register"
     with "name", "ultradian"
     with "mindstream", "boot"
-    with "command", "{ line: \"/Users/christopheryoung/Projects/hecks/rust/target/release/storehouse loop /Users/christopheryoung/Projects/miette/body/.. Ultradian::Ultradian.EnterPeak,Ultradian::Ultradian.EnterTrough --every 5400s\" }"
+    with "command", "{ line: \"/Users/christopheryoung/.local/bin/storehouse loop /Users/christopheryoung/Projects/miette/body/.. Ultradian::Ultradian.EnterPeak,Ultradian::Ultradian.EnterTrough --every 5400s\" }"
     with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
     with "order", "6"
   end
@@ -253,7 +253,7 @@ Hecks.bluebook "Mindstream", version: "2026.05.12.1" do
     trigger "MindstreamMember.Register"
     with "name", "inbox"
     with "mindstream", "boot"
-    with "command", "{ line: \"/Users/christopheryoung/Projects/hecks/rust/target/release/storehouse loop /Users/christopheryoung/Projects/hecks/hecks_conception/aggregates Inbox::Inbox.Check --every 900s\" }"
+    with "command", "{ line: \"/Users/christopheryoung/.local/bin/storehouse loop /Users/christopheryoung/Projects/hecks/hecks_conception/aggregates Inbox::Inbox.Check --every 900s\" }"
     with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
     with "order", "7"
   end
@@ -263,7 +263,7 @@ Hecks.bluebook "Mindstream", version: "2026.05.12.1" do
     trigger "MindstreamMember.Register"
     with "name", "inbox_poller"
     with "mindstream", "boot"
-    with "command", "{ line: \"/Users/christopheryoung/Projects/hecks/rust/target/release/storehouse drive /Users/christopheryoung/Projects/hecks/hecks_conception/aggregates --adapter InboxPollClock --poll 2s\" }"
+    with "command", "{ line: \"/Users/christopheryoung/.local/bin/storehouse drive /Users/christopheryoung/Projects/hecks/hecks_conception/aggregates --adapter InboxPollClock --poll 2s\" }"
     with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
     with "order", "8"
   end
@@ -273,7 +273,7 @@ Hecks.bluebook "Mindstream", version: "2026.05.12.1" do
     trigger "MindstreamMember.Register"
     with "name", "mind_reconcile"
     with "mindstream", "boot"
-    with "command", "{ line: \"/Users/christopheryoung/Projects/hecks/rust/target/release/storehouse loop /Users/christopheryoung/Projects/mietteai MietteMind::Reconciler.Reconcile --every 5s\" }"
+    with "command", "{ line: \"/Users/christopheryoung/.local/bin/storehouse loop /Users/christopheryoung/Projects/mietteai MietteMind::Reconciler.Reconcile --every 5s\" }"
     with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
     with "order", "9"
   end
@@ -283,7 +283,7 @@ Hecks.bluebook "Mindstream", version: "2026.05.12.1" do
     trigger "MindstreamMember.Register"
     with "name", "process_macrophage"
     with "mindstream", "boot"
-    with "command", "{ line: \"/Users/christopheryoung/Projects/hecks/rust/target/release/storehouse loop /Users/christopheryoung/Projects/hecks/hecks_conception/aggregates ProcessHealth::ProcessMacrophage.Sweep --every 30s\" }"
+    with "command", "{ line: \"/Users/christopheryoung/.local/bin/storehouse loop /Users/christopheryoung/Projects/hecks/hecks_conception/aggregates ProcessHealth::ProcessMacrophage.Sweep --every 30s\" }"
     with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
     with "order", "10"
   end
@@ -293,7 +293,7 @@ Hecks.bluebook "Mindstream", version: "2026.05.12.1" do
     trigger "MindstreamMember.Register"
     with "name", "conductor_sweep"
     with "mindstream", "boot"
-    with "command", "{ line: \"/Users/christopheryoung/Projects/hecks/rust/target/release/storehouse loop /Users/christopheryoung/Projects/hecks/hecks_conception/aggregates Conductor::Sweeper.Tick sweeper_id=fleet --every 60s\" }"
+    with "command", "{ line: \"/Users/christopheryoung/.local/bin/storehouse loop /Users/christopheryoung/Projects/hecks/hecks_conception/aggregates Conductor::Sweeper.Tick sweeper_id=fleet --every 60s\" }"
     with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
     with "order", "11"
   end
@@ -303,7 +303,7 @@ Hecks.bluebook "Mindstream", version: "2026.05.12.1" do
     trigger "MindstreamMember.Register"
     with "name", "speech_stream"
     with "mindstream", "boot"
-    with "command", "{ line: \"/Users/christopheryoung/Projects/hecks/rust/target/release/storehouse loop /Users/christopheryoung/Projects/miette/body SpeechStream::SpeechStream.Advance --every 200ms\" }"
+    with "command", "{ line: \"/Users/christopheryoung/.local/bin/storehouse loop /Users/christopheryoung/Projects/miette/body SpeechStream::SpeechStream.Advance --every 200ms\" }"
     with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
     with "order", "12"
   end
@@ -313,7 +313,7 @@ Hecks.bluebook "Mindstream", version: "2026.05.12.1" do
     trigger "MindstreamMember.Register"
     with "name", "serve_socket"
     with "mindstream", "boot"
-    with "command", "{ line: \"/Users/christopheryoung/Projects/hecks/rust/target/release/storehouse serve-socket /Users/christopheryoung/Projects/hecks/hecks_conception\" }"
+    with "command", "{ line: \"/Users/christopheryoung/.local/bin/storehouse serve-socket /Users/christopheryoung/Projects/hecks/hecks_conception\" }"
     with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
     with "order", "13"
   end
@@ -323,7 +323,7 @@ Hecks.bluebook "Mindstream", version: "2026.05.12.1" do
     trigger "MindstreamMember.Register"
     with "name", "consolidate"
     with "mindstream", "boot"
-    with "command", "{ line: \"/Users/christopheryoung/Projects/hecks/rust/target/release/storehouse drive /Users/christopheryoung/Projects/hecks/hecks_conception/aggregates --adapter LogConsolidation --poll 5s\" }"
+    with "command", "{ line: \"/Users/christopheryoung/.local/bin/storehouse drive /Users/christopheryoung/Projects/hecks/hecks_conception/aggregates --adapter LogConsolidation --poll 5s\" }"
     with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
     with "order", "14"
   end
