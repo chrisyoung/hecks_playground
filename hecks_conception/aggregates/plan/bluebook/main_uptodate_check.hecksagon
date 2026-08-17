@@ -1,0 +1,25 @@
+Hecks.hecksagon "Plan" do
+  # ci-fence-main-up-to-date (sprint 20) : main_up_to_date as a REAL inline
+  # live-check, replacing the missing bin/check-main-uptodate. Re-expressed
+  # (i782) from the retired `run`/`result_into` driven-block leaf --
+  # confirmed a hard no-op in the vendored gem (`DrivenCapture#run(_cmd,
+  # result_into: nil) = nil` is an explicit stub ; this check has never
+  # actually fired) -- onto the same spawned_by mechanism i780 already
+  # proved for the sibling checks (CheckWorktree/CheckMerged/CheckTests/
+  # CheckVerbResolves, plan.hecksagon). RecordMainUpToDateCheckResult was
+  # widened (i782, plan.bluebook) to accept adapter-host's unconditional
+  # 5-key verdict shape (id/tool/output/exit_code/ok) directly, so success
+  # and failure target it straight -- no Cascade::Cascade.RecordResult
+  # indirection, no unbuilt Cascade.ResultRecorded -> Story bridge needed.
+  # success == failure : the same command records either outcome via its
+  # own :ok attribute, matching every other spawned_by conversion here.
+  #
+  # bin/main_uptodate_check runs the exact `git diff --quiet main
+  # origin/main` this file used to run inline : exit 0 iff the trees are
+  # identical (no unpushed AND no unpulled) ; a divergent or stale local
+  # main produces a non-empty diff -> exit 1 -> main_up_to_date = false.
+  Plan::Story.spawned_by("MainUpToDateCheck", on: "StoryChecksRequested") do
+    success "Plan::Story.RecordMainUpToDateCheckResult"
+    failure "Plan::Story.RecordMainUpToDateCheckResult"
+  end
+end

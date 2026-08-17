@@ -261,7 +261,7 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       reference_to(Sprint)
       attribute :story_ref, Story
       given("unplanned work preempts only an active sprint") { state == "active" }
-      sets :unplanned_refs, append: :story_ref
+      sets :unplanned_refs, append: { value: :story_ref }
       emits "UnplannedStoryAdded"
     end
 
@@ -552,7 +552,13 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
     # (Claimable query) still filters projection-side until the per-record
     # cross-aggregate-where JOIN lands in the query executor (gap :
     # runtime-cross-aggregate-where, read side only now).
-    reference_to Story, as: :dependencies
+    # `has_many Stories, as: :dependencies` retired (ADR 0025) -- reference_to
+    # mints a SCALAR, but dependencies is appended to (a genuine membership
+    # list), so this is list_of(Story) (the local identity-string VO above),
+    # not a single reference. Corrects a first-pass migration mistake that
+    # blindly followed the retirement's own "reference_to mints the same
+    # bare name" wording, which is only true for has_one/belongs_to.
+    attribute :dependencies, list_of(Story)
 
     # ---- Lifecycle ----
     attribute :state,          State, default: { value: "untasked" }
@@ -958,7 +964,7 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       goal "Record that this story depends on another story. Appends the dependency' ref to the dependencies list. A story is blocked (for Claimable purposes) while any dependency is not done. No lifecycle change ; valid from any state."
       reference_to(Story)
       attribute :dependency, Story
-      sets :dependencies, append: :dependency
+      sets :dependencies, append: { value: :dependency }
       sets :unresolved_dep_count, increment: 1
       emits "DependencyAdded"
     end
@@ -1155,20 +1161,50 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
 
     command "RecordPrMergeableCheckResult" do
       role "Cascade"
-      goal "Cascade-internal : record the pr_mergeable check outcome on Story.pr_mergeable. Fired by the RunPrMergeableCheckOnChecksRequested policy via Primitive::Process.Spawn. The check confirms: branch pushed, PR open, CI checks green, no conflicts vs current main. Must NOT be dispatched manually."
+      goal "Cascade-internal : record the pr_mergeable check outcome on Story.pr_mergeable. Fired directly as the spawned_by success/failure target of the PrMergeableCheck adapter (i782 -- retires the stale Primitive::Process.Spawn / RunPrMergeableCheckOnChecksRequested description this goal previously carried, which no longer exists). The check confirms: branch pushed, PR open, CI checks green, no conflicts vs current main. tool/output/exit_code carry adapter-host's own unconditional verdict shape (id/tool/output/exit_code/ok) alongside ok -- recorded for debugging a failed check, not otherwise consumed. Must NOT be dispatched manually."
       reference_to(Story)
       attribute :ok, CheckOk
+      attribute :tool, ToolKind
+      attribute :output, CheckOutput
+      attribute :exit_code, CheckExitCode
       sets :pr_mergeable, to: :ok
       emits "PrMergeableCheckRecorded"
     end
 
     command "RecordMainUpToDateCheckResult" do
       role "Cascade"
-      goal "Cascade-internal : record the main_up_to_date check outcome on Story.main_up_to_date. Fired by RunMainUpToDateCheckOnChecksRequested via Primitive::Process.Spawn -> bin/check-main-uptodate. The check passes (ok: true) only when BOTH rev-lists are empty: git rev-list origin/main..HEAD (no unpushed commits) AND git rev-list HEAD..origin/main (no unpulled commits). A divergent or unpushed branch returns ok: false. This flag is a required input for pr_mergeable: bin/check-pr-mergeable must verify main_up_to_date as a precondition (projection-side AND) so closure is never computed against a stale local main. Must NOT be dispatched manually."
+      goal "Cascade-internal : record the main_up_to_date check outcome on Story.main_up_to_date. Fired directly as the spawned_by success/failure target of the MainUpToDateCheck adapter (i782 -- retires the stale Primitive::Process.Spawn / RunMainUpToDateCheckOnChecksRequested description this goal previously carried, which no longer exists). The check passes (ok: true) only when BOTH rev-lists are empty: git rev-list origin/main..HEAD (no unpushed commits) AND git rev-list HEAD..origin/main (no unpulled commits). A divergent or unpushed branch returns ok: false. This flag is a required input for pr_mergeable: bin/check-pr-mergeable must verify main_up_to_date as a precondition (projection-side AND) so closure is never computed against a stale local main. tool/output/exit_code carry adapter-host's own unconditional verdict shape alongside ok -- recorded for debugging, not otherwise consumed. Must NOT be dispatched manually."
       reference_to(Story)
       attribute :ok, CheckOk
+      attribute :tool, ToolKind
+      attribute :output, CheckOutput
+      attribute :exit_code, CheckExitCode
       sets :main_up_to_date, to: :ok
       emits "MainUpToDateCheckRecorded"
+    end
+
+    value_object "ToolKind" do
+      # Which adapter produced the result -- "PrMergeableCheck" or
+      # "MainUpToDateCheck", matching adapter-host's ADAPTER_NAME. Added
+      # i782 so these two spawned_by-converted commands accept
+      # adapter-host's unconditional 5-key verdict shape directly, the
+      # same way Cascade::Cascade.RecordResult already does -- avoids
+      # needing an unbuilt Cascade.ResultRecorded -> Story bridge.
+      attribute :value, String
+    end
+
+    value_object "CheckOutput" do
+      # Captured stdout/stderr from the check's shell invocation (gh pr
+      # view's jq output, or a diagnostic on failure). Debugging aid, not
+      # consumed by any policy or invariant.
+      attribute :value, String
+    end
+
+    value_object "CheckExitCode" do
+      # Process exit code from the check's shell invocation. 0 means the
+      # check passed (mirrored onto :ok) ; non-zero carries no further
+      # meaning beyond "failed."
+      attribute :value, Integer
     end
 
     invariant "ready_means_verified" do
@@ -1428,32 +1464,32 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
   # only a real check re-arms them : a flag cannot be hand-set into ready.
   policy "ReadyOnVerbResolvesCheck" do
     on "Story.VerbResolvesCheckRecorded"
-    trigger Hecks::Plan::Story::MarkReady
+    trigger Plan::Story::MarkReady
   end
 
   policy "ReadyOnMergedCheck" do
     on "Story.MergedCheckRecorded"
-    trigger Hecks::Plan::Story::MarkReady
+    trigger Plan::Story::MarkReady
   end
 
   policy "ReadyOnWorktreeCheck" do
     on "Story.WorktreeCheckRecorded"
-    trigger Hecks::Plan::Story::MarkReady
+    trigger Plan::Story::MarkReady
   end
 
   policy "ReadyOnTestsCheck" do
     on "Story.TestsCheckRecorded"
-    trigger Hecks::Plan::Story::MarkReady
+    trigger Plan::Story::MarkReady
   end
 
   policy "ReadyOnPrMergeableCheck" do
     on "Story.PrMergeableCheckRecorded"
-    trigger Hecks::Plan::Story::MarkReady
+    trigger Plan::Story::MarkReady
   end
 
   policy "ReadyOnMainUpToDateCheck" do
     on "Story.MainUpToDateCheckRecorded"
-    trigger Hecks::Plan::Story::MarkReady
+    trigger Plan::Story::MarkReady
   end
 
   # ===== Task aggregate (task-completion-state, sprint 14) =====
@@ -1593,22 +1629,22 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
   # counter command.
   policy "BumpOnTaskAdded" do
     on "Task.TaskAdded"
-    trigger Hecks::Plan::Story::BumpPendingTaskCount
+    trigger Plan::Story::BumpPendingTaskCount
   end
 
   policy "DropOnTaskCompleted" do
     on "Task.TaskCompleted"
-    trigger Hecks::Plan::Story::DropPendingTaskCount
+    trigger Plan::Story::DropPendingTaskCount
   end
 
   policy "DropOnTaskCancelled" do
     on "Task.TaskCancelled"
-    trigger Hecks::Plan::Story::DropPendingTaskCount
+    trigger Plan::Story::DropPendingTaskCount
   end
 
   policy "BumpOnTaskReopened" do
     on "Task.TaskReopened"
-    trigger Hecks::Plan::Story::BumpPendingTaskCount
+    trigger Plan::Story::BumpPendingTaskCount
   end
 
   # ===== from board/board.bluebook =====
@@ -1628,17 +1664,37 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
     # ---- Sprint roster ----
     # Owner-side : the Board holds the sprints currently scheduled (placed + active).
     # Distinct from Project.has_many Sprints (which is the lifecycle ownership).
-    reference_to Sprint, as: :queued_sprints
-    reference_to Sprint, as: :active_sprints
+    # list_of, not reference_to (scalar) -- both are appended-to membership
+    # lists (PlaceSprint/ActivateSprint), matching what Reorder/
+    # ReorderSprints already declare (attribute :cards, list_of(Story) /
+    # attribute :queued_sprints, list_of(Sprint)) for their full-replace form.
+    attribute :queued_sprints, list_of(Sprint)
+    attribute :active_sprints, list_of(Sprint)
 
     # ---- Manual card order across the board ----
-    reference_to Story, as: :cards
+    attribute :cards, list_of(Story)
 
     # ---- Work-in-progress limit (across all active sprints) ----
     # Max number of stories allowed in `started` state on the board at once.
     # Lives on the Board because WIP discipline is about the work crossing
     # the board, not a property of any one sprint. 0 = unlimited.
     attribute :wip_limit,           WipLimit, default: { value: 0 }
+
+    # Migration plan task 4: local identity-string VOs -- "Sprint" / "Story"
+    # here mean "carries a sprint/story ref," not a structural
+    # cross-aggregate reference. Same convention as Backlog's own "Story"
+    # (that file's comment explains the reasoning). Duplicated per-
+    # aggregate on purpose ; VO duplication across aggregates is this
+    # corpus's own established, accepted convention -- and required, since
+    # a value_object is scoped to its own aggregate, not resolvable across
+    # aggregate boundaries the way a same-bluebook command reference is.
+    value_object "Sprint" do
+      attribute :value, String
+    end
+
+    value_object "Story" do
+      attribute :value, String
+    end
 
     value_object "Name" do
       # Singleton identity. Conventionally "board" — there is one.
@@ -1676,7 +1732,7 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       goal "Place a planned sprint onto the board — it joins the queued roster, becoming activatable. The deliberate step between Sprint.Plan and Sprint.Activate. 'On the board' means a member of this list."
       reference_to(Board)
       attribute :sprint_ref, Sprint
-      sets :queued_sprints, append: :sprint_ref
+      sets :queued_sprints, append: { value: :sprint_ref }
       emits "SprintPlacedOnBoard"
     end
 
@@ -1686,7 +1742,7 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       reference_to(Board)
       attribute :sprint_ref, Sprint
       given("only a sprint placed on the board may be activated") { queued_sprints.include?(sprint_ref) }
-      sets :active_sprints, append: :sprint_ref
+      sets :active_sprints, append: { value: :sprint_ref }
       emits "SprintActivatedOnBoard"
     end
 
@@ -1706,7 +1762,7 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       goal "Append a card ref to the board's manual card order. A story pulled in lands at the end. Cards from any active sprint share this single ordered list ; columns re-group by Story.state at render."
       reference_to(Board)
       attribute :card_ref, Story
-      sets :cards, append: :card_ref
+      sets :cards, append: { value: :card_ref }
       emits "CardPlaced"
     end
 
@@ -1791,7 +1847,7 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       attribute :project,   Project
       attribute :story_ref, Story
       sets :project
-      sets :ordered_refs, append: :story_ref
+      sets :ordered_refs, append: { value: :story_ref }
       emits "StoryBacklogged"
     end
 
@@ -1970,11 +2026,23 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
     # ---- Owned membership (owner-side has_many ; children carry NO back-pointer) ----
     # Epic.sprints / Epic.stories hold the membership truth, appended via
     # AddSprint / AddStory. No FK on the child side - references-not-ids.
-    reference_to Sprint
-    reference_to Story
+    # list_of, not reference_to (scalar) -- same correction as Story.
+    # dependencies above ; both are appended-to membership lists.
+    attribute :sprints, list_of(Sprint)
+    attribute :stories, list_of(Story)
 
     # ---- Lifecycle ----
     attribute :status,      Status, default: { value: "active" }
+
+    # Local identity-string VOs -- same convention as Board's own Sprint /
+    # Story (see that aggregate's own comment for the reasoning).
+    value_object "Sprint" do
+      attribute :value, String
+    end
+
+    value_object "Story" do
+      attribute :value, String
+    end
 
     value_object "Name" do
       # The epic slug / identifier. E.g. "adapters", "payments". Stable for the
@@ -2026,7 +2094,7 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       goal "Group a sprint under this epic - appends the sprint identity to Epic.sprints. The epic owns the membership truth ; Sprint has no back-pointer (no FK). Optional grouping ; mirrors Sprint.AddStory."
       reference_to(Epic)
       attribute :sprint, Sprint
-      sets :sprints, append: :sprint
+      sets :sprints, append: { value: :sprint }
       emits "SprintAddedToEpic"
     end
 
@@ -2035,7 +2103,7 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       goal "Group a story under this epic - appends the story identity to Epic.stories. The epic owns the membership truth ; Story has no back-pointer (no FK). An epic-level story need not belong to one of the epic sprints."
       reference_to(Epic)
       attribute :story, Story
-      sets :stories, append: :story
+      sets :stories, append: { value: :story }
       emits "StoryAddedToEpic"
     end
 
@@ -2084,9 +2152,14 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
     attribute :description, Description
 
     # ---- Owned planning structure ----
+    # Backlog / Sprint: vestigial scalar refs, never mutated by any command
+    # (no genuine consumer, same as Story's own dead reference_to UseCase) --
+    # left as-is. Epic IS mutated (AddEpic appends to it) so it needs
+    # list_of, not a scalar reference_to -- same correction as Story.
+    # dependencies / Epic.sprints / Epic.stories above.
     reference_to Backlog
     reference_to Sprint
-    reference_to Epic
+    attribute :epics, list_of(Epic)
 
     # ---- Lifecycle ----
     attribute :status,      Status, default: { value: "active" }
@@ -2098,6 +2171,12 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
     attribute :active_sprint, ActiveSprint, default: { value: "" }
 
     # ── Value objects ──────────────────────────────────────────────
+
+    # Local identity-string VO -- same convention as Board's own Sprint /
+    # Story (see that aggregate's own comment for the reasoning).
+    value_object "Epic" do
+      attribute :value, String
+    end
 
     value_object "Name" do
       # The project slug / identifier. E.g. "framework", "mel", "opt",
@@ -2141,7 +2220,7 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       goal "Add an Epic to the project - appends the epic identity to Project.epics. The project owns the membership truth ; Epic has no back-pointer (no FK). Mirrors Sprint.AddStory at the Project-Epics level."
       reference_to(Project)
       attribute :epic, Epic
-      sets :epics, append: :epic
+      sets :epics, append: { value: :epic }
       emits "EpicAddedToProject"
     end
 

@@ -1,14 +1,18 @@
 #!/bin/bash
 # bin/check-worktree — sq/policy-cmd-bin-wrappers convention
 #
-# Inputs (from the spawn primitive) :
-#   $AGG_ID                 — the story id (e.g. shell-adapter-end-to-end)
-#   $AGG_TYPE / $EVENT_NAME — for the audit trail
-#   stdin                   — STOREHOUSE_TRIGGER_EVENT payload JSON
+# Contract fixed (i782, measured live against bin/adapter-host, not
+# guessed) : this script predates adapter-host's rewrite (i780/i781) and
+# was reading $AGG_ID, which adapter-host never sets (it exports only
+# ADAPTER_ROOT/STOREHOUSE/ADAPTER_NAME). On every real invocation through
+# adapter-host this hit the "no_agg_id" guard below and exited 2 —
+# declared-working, actually broken. The real contract : the triggering
+# event's payload arrives as clean, VO-unwrapped JSON on stdin (e.g.
+# {"id":"probe1",...}) ; read the story id off THAT.
 # Output :
 #   one JSON line on stdout ; exit 0 if the story's worktree is clean,
-#   non-zero otherwise. The cascade lifts (ok, exit_code, output) back
-#   into the Record*CheckResult command.
+#   non-zero otherwise. adapter-host lifts (id/tool/output/exit_code/ok)
+#   into the verdict dispatch — this script's own stdout becomes `output`.
 #
 # Convention : the story's worktree lives at
 # .claude/worktrees/<branch> where the branch follows the sq/<id>
@@ -16,10 +20,10 @@
 # repo root — lying becomes "the main repo is dirty".
 set -u
 REPO_ROOT="${REPO_ROOT:-/Users/christopheryoung/Projects/hecks}"
-STORY_ID="${AGG_ID:-}"
+STORY_ID=$(cat | jq -r '.id // empty')
 
 if [ -z "$STORY_ID" ]; then
-  echo '{"check":"worktree","ok":false,"status":"no_agg_id","reason":"AGG_ID env var empty"}'
+  echo '{"check":"worktree","ok":false,"status":"no_agg_id","reason":"no id in triggering event payload"}'
   exit 2
 fi
 

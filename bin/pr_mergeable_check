@@ -1,0 +1,28 @@
+#!/bin/sh
+# bin/pr_mergeable_check — spawn-effect-port handler for PrMergeableCheck
+# (i782, re-expressing pr_mergeable_check.hecksagon's old `run`/
+# result_into leaf, a confirmed hard no-op in the vendored gem, onto the
+# proven spawned_by mechanism).
+#
+# Invoked by bin/adapter-host: no CLI args, no env vars beyond
+# ADAPTER_ROOT/STOREHOUSE/ADAPTER_NAME (id is NOT among them — adapter-host
+# supplies the triggering event's own id automatically on the verdict
+# dispatch, this script never needs to read it). The triggering event's
+# payload arrives as clean, VO-unwrapped JSON on stdin (measured live,
+# i782) — read the story's own id out of it to build the sq/<id> branch
+# name gh needs.
+#
+# Read-only: a single `gh pr view` call, no mutation. Exit 0 + stdout
+# "mergeable" iff the story's PR is OPEN, MERGEABLE (conflict-free vs
+# current main), and every check has a SUCCESS (or null/pending) verdict.
+# Non-zero otherwise, with jq's own halt_error diagnostic on stderr.
+set -eu
+
+id=$(cat | jq -r '.id // empty')
+if [ -z "$id" ]; then
+  echo "pr_mergeable_check: no id in triggering event payload" >&2
+  exit 2
+fi
+
+gh pr view "sq/${id}" --json state,mergeable,statusCheckRollup --jq \
+  'if .state=="OPEN" and .mergeable=="MERGEABLE" and ([.statusCheckRollup[]|select(.conclusion!="SUCCESS" and .conclusion!=null)]|length==0) then "mergeable" else halt_error(1) end'

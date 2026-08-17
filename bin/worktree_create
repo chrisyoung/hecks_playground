@@ -1,0 +1,20 @@
+#!/bin/sh
+# bin/worktree_create — spawn-effect-port handler for WorktreeCreate
+# (i782, re-expressing worktree_create.hecksagon's old `run` leaf — a
+# confirmed hard no-op in the vendored gem — onto the proven spawned_by
+# mechanism). MUTATING: creates a real git worktree. Converted only with
+# Chris's explicit sign-off (i782 -> /goal execute 1-3).
+#
+# Lease.identified_by :worktree_path — the Lease's own id IS the path, so
+# adapter-host's automatic id=<source_id> on the verdict dispatch is
+# already the right value; no extra fields needed. Read it off the
+# triggering event's payload (clean, VO-unwrapped JSON on stdin).
+set -eu
+
+path=$(cat | jq -r '.id // empty')
+if [ -z "$path" ]; then
+  echo "worktree_create: no id (worktree_path) in triggering event payload" >&2
+  exit 2
+fi
+
+git worktree add --detach "$path"

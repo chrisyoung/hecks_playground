@@ -1,10 +1,12 @@
 #!/bin/bash
 # bin/check-verb-resolves — sq/policy-cmd-bin-wrappers convention
 #
-# Inputs (from the spawn primitive) :
-#   $AGG_ID                 — the story id (e.g. shell-adapter-end-to-end)
-#   $AGG_TYPE / $EVENT_NAME — for the audit trail
-#   stdin                   — STOREHOUSE_TRIGGER_EVENT payload JSON
+# Contract fixed (i782, measured live against bin/adapter-host, not
+# guessed) : this script predates adapter-host's rewrite (i780/i781) and
+# was reading $AGG_ID, which adapter-host never sets. The real contract :
+# the triggering event's payload arrives as clean, VO-unwrapped JSON on
+# stdin — read the story id off THAT. See bin/check-worktree's header for
+# the full measured-contract note.
 # Output :
 #   one JSON line on stdout ; exit 0 if the story's `target` resolves
 #   through storehouse (the bluebook at that path parses), non-zero
@@ -20,10 +22,10 @@ set -u
 REPO_ROOT="${REPO_ROOT:-/Users/christopheryoung/Projects/hecks}"
 AGG_ROOT="${REPO_ROOT}/hecks_conception/aggregates"
 STORY_HEKI="${AGG_ROOT}/plan/.heki/plan/story.heki"
-STORY_ID="${AGG_ID:-}"
+STORY_ID=$(cat | jq -r '.id // empty')
 
 if [ -z "$STORY_ID" ]; then
-  echo '{"check":"verb_resolves","ok":false,"status":"no_agg_id","reason":"AGG_ID env var empty"}'
+  echo '{"check":"verb_resolves","ok":false,"status":"no_agg_id","reason":"no id in triggering event payload"}'
   exit 2
 fi
 
