@@ -27,8 +27,9 @@ Hecks.bluebook "Relationship", version: "2026.06.18.2" do
   # Primitives wrapped in typed value-objects per no-primitive-envy : a Verb
   # is not a String, a Scope is not a String — each carries its concept.
 
-  aggregate "Relationship", "One relationship declaration on an owner aggregate, read in English : the verb that names it (list_of / reference_to inside ; has_one / has_many / belongs_to across) carries both the boundary and the cardinality, and the leaf it targets. Keyed by the phrase that authors it." do
-    identified_by { phrase.value }
+  aggregate "Relationship" do
+    description "One relationship declaration on an owner aggregate, read in English : the verb that names it (list_of / reference_to inside ; has_one / has_many / belongs_to across) carries both the boundary and the cardinality, and the leaf it targets. Keyed by the phrase that authors it."
+    identified_by :phrase
 
     attribute :phrase,      Phrase
     attribute :owner,       AggregateName
@@ -56,15 +57,7 @@ Hecks.bluebook "Relationship", version: "2026.06.18.2" do
       # The English relationship verb. The verb alone carries the boundary :
       #   list_of / reference_to -> INSIDE (by local identity)
       #   has_one / has_many / belongs_to -> ACROSS (by global identity)
-      attribute :value, String
-
-      one_of do
-        member value: "list_of"
-        member value: "reference_to"
-        member value: "has_one"
-        member value: "has_many"
-        member value: "belongs_to"
-      end
+      attribute :value, String, one_of: %w[list_of reference_to has_one has_many belongs_to]
     end
 
     value_object "LeafName" do
@@ -79,64 +72,46 @@ Hecks.bluebook "Relationship", version: "2026.06.18.2" do
       # Read off the verb, never authored :
       #   inside = list_of / reference_to  (a member of my boundary, local id)
       #   cross  = has_one / has_many / belongs_to  (another root, global id)
-      attribute :value, String
-
-      one_of do
-        member value: "inside"
-        member value: "cross"
-        member value: "unresolved"
-      end
+      attribute :value, String, one_of: %w[inside cross unresolved]
     end
 
     value_object "Nature" do
       # Read off the scope :
       #   composition (inside) — the leaf lives in me, persisted with me.
       #   reference (cross) — I hold the leaf root's identity, never embed it.
-      attribute :value, String
-
-      one_of do
-        member value: "composition"
-        member value: "reference"
-        member value: "unresolved"
-      end
+      attribute :value, String, one_of: %w[composition reference unresolved]
     end
 
     value_object "Cardinality" do
       # Read off the verb : reference_to / has_one / belongs_to -> one ;
       # list_of / has_many -> many.
-      attribute :value, String
-
-      one_of do
-        member value: "one"
-        member value: "many"
-        member value: "unresolved"
-      end
+      attribute :value, String, one_of: %w[one many unresolved]
     end
 
     command "Declare" do
       role "Modeler"
-      description "Author a relationship in English — owner verb leaf ; the verb carries the boundary and cardinality"
+      goal "Author a relationship in English — owner verb leaf ; the verb carries the boundary and cardinality"
       attribute :phrase, Phrase
       attribute :owner,  AggregateName
       attribute :verb,   Verb
       attribute :leaf,   LeafName
       emits "RelationshipDeclared"
-      then_set :phrase, to: :phrase
-      then_set :owner,  to: :owner
-      then_set :verb,   to: :verb
-      then_set :leaf,   to: :leaf
+      sets :phrase
+      sets :owner
+      sets :verb
+      sets :leaf
     end
 
     command "Resolve" do
       role "System"
-      description "Resolve scope, nature, and cardinality from the verb — never authored, always derived"
+      goal "Resolve scope, nature, and cardinality from the verb — never authored, always derived"
       attribute :scope,       Scope
       attribute :nature,      Nature
       attribute :cardinality, Cardinality
       emits "RelationshipResolved"
-      then_set :scope,       to: :scope
-      then_set :nature,      to: :nature
-      then_set :cardinality, to: :cardinality
+      sets :scope
+      sets :nature
+      sets :cardinality
     end
 
     # ── Invariants — the validator's rules, as state predicates ──

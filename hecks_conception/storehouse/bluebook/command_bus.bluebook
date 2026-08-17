@@ -46,7 +46,8 @@ Hecks.bluebook "CommandBus", version: "2026.05.10.1" do
   # (the underlying StoreHouse the bus filters from). See i528 for
   # the full arc and the four-segment phrase convention.
 
-  aggregate "CommandBus", "An app-scoped slice of the universal bus" do
+  aggregate "CommandBus" do
+    description "An app-scoped slice of the universal bus"
 
     value_object "App" do
       # The project folder name — the first segment of every phrase
@@ -100,34 +101,23 @@ Hecks.bluebook "CommandBus", version: "2026.05.10.1" do
       # Which heki backend persists this bus's events. The hecksagon
       # declares the I/O for each value ; the world file picks one
       # and supplies its credentials.
-      attribute :value, String
       # Migration plan task 4/5: was an ad-hoc `invariant do %w[...].
       # include?(value) end` -- hecksagain's own canonical-expression
       # evaluator has no support for a %w[] array literal (raises
       # "cannot resolve ... no such attribute or argument" the moment a
       # real dispatch actually evaluates it, not just at parse time), and
       # hecksagain already has a proper, first-class closed-set construct
-      # for exactly this shape (member value: "x", the same MutationOp/
-      # QueryComparator idiom this migration already extended earlier).
-      # Re-expressed, not worked around.
-      one_of do
-        member value: "fs"
-        member value: "r2"
-        member value: "in_memory"
-      end
+      # for exactly this shape. The `one_of do member ... end` wrapper this
+      # was written against is itself since retired (ADR 0025) in favour of
+      # the inline `one_of: [...]` keyword on the attribute directly.
+      attribute :value, String, one_of: %w[fs r2 in_memory]
     end
 
     value_object "Host" do
       # Where the bus's WASM runs. cf_worker is the bin-buddy
       # target ; cli is the laptop ; aws_lambda + axum_local are
       # filed for later iterations.
-      attribute :value, String
-      one_of do
-        member value: "cf_worker"
-        member value: "aws_lambda"
-        member value: "cli"
-        member value: "axum_local"
-      end
+      attribute :value, String, one_of: %w[cf_worker aws_lambda cli axum_local]
     end
 
     value_object "AuthScheme" do
@@ -135,49 +125,43 @@ Hecks.bluebook "CommandBus", version: "2026.05.10.1" do
       # is service-to-service (worker secret) ; :jwt + :oauth are
       # tenant / user scopes for portal-originated traffic ; :none
       # for local CLI hosts that don't authenticate.
-      attribute :value, String
-      one_of do
-        member value: "bearer"
-        member value: "jwt"
-        member value: "oauth"
-        member value: "none"
-      end
+      attribute :value, String, one_of: %w[bearer jwt oauth none]
     end
 
-    attribute App
-    attribute StorageBackend
-    attribute Host
-    attribute AuthScheme
+    attribute :app,             App
+    attribute :storage_backend, StorageBackend
+    attribute :host,            Host
+    attribute :auth_scheme,     AuthScheme
 
     # ── Commands ───────────────────────────────────────────────
 
     command "Configure" do
       role "System"
-      description "Read this deployment's storage backend, host, and auth scheme from the world file's command_bus block, validate the values against the known enums, and emit Configured. Fired once at bus boot before Scope ; the hecksagon's :host adapter binding triggers it with the world-file values."
-      attribute StorageBackend, as: :storage_backend
-      attribute Host,           as: :host
-      attribute AuthScheme,     as: :auth_scheme
+      goal "Read this deployment's storage backend, host, and auth scheme from the world file's command_bus block, validate the values against the known enums, and emit Configured. Fired once at bus boot before Scope ; the hecksagon's :host adapter binding triggers it with the world-file values."
+      attribute :storage_backend, StorageBackend
+      attribute :host, Host
+      attribute :auth_scheme, AuthScheme
       emits "Configured"
     end
 
     command "Scope" do
       role "System"
-      description "Materialize the filtered phrase set for this bus by walking Lexicon's index and selecting entries where app == self.app. Emits Scoped with the phrase count. Re-run after any Lexicon.Compile to refresh ; the runtime triggers this automatically when the lexicon changes."
-      attribute App, as: :app
+      goal "Materialize the filtered phrase set for this bus by walking Lexicon's index and selecting entries where app == self.app. Emits Scoped with the phrase count. Re-run after any Lexicon.Compile to refresh ; the runtime triggers this automatically when the lexicon changes."
+      attribute :app, App
       emits "Scoped"
     end
 
     command "ListPhrases" do
       role "Caller"
-      description "Read the currently materialized PhraseSet. Returns the JSON-encoded list of phrases this bus serves. Binds to the HTTP route GET /lexicon via the :http adapter."
+      goal "Read the currently materialized PhraseSet. Returns the JSON-encoded list of phrases this bus serves. Binds to the HTTP route GET /lexicon via the :http adapter."
       emits "PhrasesListed"
     end
 
     command "Route" do
       role "Caller"
-      description "Filtered Dispatch.Route. Asserts the phrase's first segment matches self.app ; out-of-scope phrases surface as a runtime error before any dispatch. On accept, delegates to Dispatch.Route and re-emits the resulting Dispatched event as Routed. Binds to the HTTP route POST /route. Only PascalCase fourth segments accepted here — snake_case phrases (queries) route through Query.Run via the same HTTP surface but a different handler."
-      attribute Phrase, as: :phrase
-      attribute Params, as: :params
+      goal "Filtered Dispatch.Route. Asserts the phrase's first segment matches self.app ; out-of-scope phrases surface as a runtime error before any dispatch. On accept, delegates to Dispatch.Route and re-emits the resulting Dispatched event as Routed. Binds to the HTTP route POST /route. Only PascalCase fourth segments accepted here — snake_case phrases (queries) route through Query.Run via the same HTTP surface but a different handler."
+      attribute :phrase, Phrase
+      attribute :params, Params
       # PRECONDITION, stated and NOT machine-checked : phrase is in this bus's scope.
       #   phrase.start_with?(app.value + "::")
       # The expression floor cannot evaluate this — cross-aggregate lookups,
@@ -197,14 +181,14 @@ Hecks.bluebook "CommandBus", version: "2026.05.10.1" do
 
     command "Expose" do
       role "System"
-      description "Declares the bus's HTTP routes — POST /route → Route, GET /lexicon → ListPhrases, GET /query → Query.Read or Query.Run depending on the path's fourth segment case, GET /health → HealthCheck. The :http adapter binding in the hecksagon resolves these abstract route paths to its transport's idiom (CF Worker fetch handler, Lambda API Gateway proxy integration, axum router). Emitted once at bus boot."
-      attribute RouteCount, as: :route_count
+      goal "Declares the bus's HTTP routes — POST /route → Route, GET /lexicon → ListPhrases, GET /query → Query.Read or Query.Run depending on the path's fourth segment case, GET /health → HealthCheck. The :http adapter binding in the hecksagon resolves these abstract route paths to its transport's idiom (CF Worker fetch handler, Lambda API Gateway proxy integration, axum router). Emitted once at bus boot."
+      attribute :route_count, RouteCount
       emits "Exposed"
     end
 
     command "HealthCheck" do
       role "Caller"
-      description "Reports the bus's status — the app it serves, the materialized phrase count, the storage adapter binding, the auth binding. Binds to the HTTP route GET /health. Used by deploy smoke tests, monitoring probes, and portal readiness checks."
+      goal "Reports the bus's status — the app it serves, the materialized phrase count, the storage adapter binding, the auth binding. Binds to the HTTP route GET /health. Used by deploy smoke tests, monitoring probes, and portal readiness checks."
       emits "HealthChecked"
     end
   end

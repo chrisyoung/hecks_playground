@@ -4,8 +4,9 @@ Hecks.bluebook "BehaviorExample", version: "2026.04.28.1" do
 
   # Lifted out of training_corpus.bluebook in i112 split.
 
-  aggregate "BehaviorExample", "A specific behavior Miette exhibits — paired with the organ that governs it" do
-    identified_by { behavior.value }
+  aggregate "BehaviorExample" do
+    description "A specific behavior Miette exhibits — paired with the organ that governs it"
+    identified_by :behavior
     attribute :behavior,       Behavior
     attribute :organ_name,     OrganName
     attribute :trigger,        Trigger
@@ -39,18 +40,18 @@ Hecks.bluebook "BehaviorExample", version: "2026.04.28.1" do
 
     command "RecordBehavior" do
       role "System"
-      description "Capture a behavior-to-organ mapping as training data"
+      goal "Capture a behavior-to-organ mapping as training data"
       attribute :behavior,       Behavior
       attribute :organ_name,     OrganName
       attribute :trigger,        Trigger
       attribute :example_input,  ExampleInput
       attribute :example_output, ExampleOutput
       emits "BehaviorRecorded"
-      then_set :behavior,       to: :behavior
-      then_set :organ_name,     to: :organ_name
-      then_set :trigger,        to: :trigger
-      then_set :example_input,  to: :example_input
-      then_set :example_output, to: :example_output
+      sets :behavior
+      sets :organ_name
+      sets :trigger
+      sets :example_input
+      sets :example_output
     end
   end
 end

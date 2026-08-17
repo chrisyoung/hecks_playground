@@ -35,8 +35,9 @@ Hecks.bluebook "StorehouseDeploy", version: "2026.05.25.1" do
   #   new → building → packaged → shipped → verified → failed
   #   (failed is a terminal state; start a fresh Deploy to retry)
 
-  aggregate "Deploy", "One storehouse warm-runtime deploy attempt. Tracks the binary + aggregates root + heki stores from build through verified-live. Identified by id for audit-trail across attempts." do
-    identified_by { id.value }
+  aggregate "Deploy" do
+    description "One storehouse warm-runtime deploy attempt. Tracks the binary + aggregates root + heki stores from build through verified-live. Identified by id for audit-trail across attempts."
+    identified_by :id
 
     # ── Value-objects ──
 
@@ -70,16 +71,7 @@ Hecks.bluebook "StorehouseDeploy", version: "2026.05.25.1" do
       #   shipped   — binary running on target, serve-socket bound
       #   verified  — warm dispatch confirmed (round-trip succeeded)
       #   failed    — any step failed; terminal, start a new Deploy
-      attribute :value, String
-
-      one_of do
-        member value: "new"
-        member value: "building"
-        member value: "packaged"
-        member value: "shipped"
-        member value: "verified"
-        member value: "failed"
-      end
+      attribute :value, String, one_of: %w[new building packaged shipped verified failed]
     end
 
     value_object "SocketPath" do
@@ -115,67 +107,67 @@ Hecks.bluebook "StorehouseDeploy", version: "2026.05.25.1" do
 
     command "Begin" do
       role "Operator"
-      description "Start a new deploy attempt. Records the aggregates root and target arch. Status transitions to 'new'. The binary does not exist yet — Build follows."
+      goal "Start a new deploy attempt. Records the aggregates root and target arch. Status transitions to 'new'. The binary does not exist yet — Build follows."
       attribute :id,              DeployId
       attribute :aggregates_root, AggregatesRoot
       attribute :target_arch,     TargetArch
       attribute :started_at,      Timestamp
       emits "DeployBegun"
-      then_set :id,              to: :id
-      then_set :aggregates_root, to: :aggregates_root
-      then_set :target_arch,     to: :target_arch
-      then_set :started_at,      to: :started_at
-      then_set :status,          to: "new"
+      sets :id
+      sets :aggregates_root
+      sets :target_arch
+      sets :started_at
+      sets :status,          to: "new"
     end
 
     command "Build" do
       role "Operator"
-      description "Record that the storehouse binary was compiled for the target arch. binary_path is the path to the compiled artifact. Status transitions to 'building' (call when build starts) or 'packaged' (call when binary is confirmed on disk). In the scaffolded script, Build is dispatched once with the release binary path after cargo build --release completes."
+      goal "Record that the storehouse binary was compiled for the target arch. binary_path is the path to the compiled artifact. Status transitions to 'building' (call when build starts) or 'packaged' (call when binary is confirmed on disk). In the scaffolded script, Build is dispatched once with the release binary path after cargo build --release completes."
       reference_to Deploy
       attribute :binary_path, BinaryPath
       emits "Built"
-      then_set :binary_path, to: :binary_path
-      then_set :status,      to: "building"
+      sets :binary_path
+      sets :status,      to: "building"
     end
 
     command "Package" do
       role "Operator"
-      description "Record that the binary, aggregates root, and heki stores are staged together as a coherent deployable unit. In the Mac Studio target this is a no-op filesystem step (files are already co-located); in a container target this is the docker build that COPYs all three. Status transitions to 'packaged'."
+      goal "Record that the binary, aggregates root, and heki stores are staged together as a coherent deployable unit. In the Mac Studio target this is a no-op filesystem step (files are already co-located); in a container target this is the docker build that COPYs all three. Status transitions to 'packaged'."
       reference_to Deploy
       emits "Packaged"
-      then_set :status, to: "packaged"
+      sets :status, to: "packaged"
     end
 
     command "Ship" do
       role "Operator"
-      description "Record that the warm runtime is running on the target host and the unix-domain socket is bound. socket_path is the path the daemon bound (derived from aggregates-root per sock_path_for_root). In the Mac Studio target, Ship means overmind started serve_socket. In a container target, Ship means the container is up and the socket is reachable from the co-located MCP client."
+      goal "Record that the warm runtime is running on the target host and the unix-domain socket is bound. socket_path is the path the daemon bound (derived from aggregates-root per sock_path_for_root). In the Mac Studio target, Ship means overmind started serve_socket. In a container target, Ship means the container is up and the socket is reachable from the co-located MCP client."
       reference_to Deploy
       attribute :socket_path, SocketPath
       attribute :shipped_at,  Timestamp
       emits "Shipped"
-      then_set :socket_path, to: :socket_path
-      then_set :shipped_at,  to: :shipped_at
-      then_set :status,      to: "shipped"
+      sets :socket_path
+      sets :shipped_at
+      sets :status,      to: "shipped"
     end
 
     command "Verify" do
       role "Operator"
-      description "Record that a round-trip warm dispatch succeeded against the running socket. Confirmation that the runtime is live and accepting commands. Status transitions to 'verified' — the terminal success state."
+      goal "Record that a round-trip warm dispatch succeeded against the running socket. Confirmation that the runtime is live and accepting commands. Status transitions to 'verified' — the terminal success state."
       reference_to Deploy
       attribute :verified_at, Timestamp
       emits "Verified"
-      then_set :verified_at, to: :verified_at
-      then_set :status,      to: "verified"
+      sets :verified_at
+      sets :status,      to: "verified"
     end
 
     command "Fail" do
       role "Operator"
-      description "Record a fatal failure at any step. fail_reason describes what broke. Terminal state — start a new Deploy to retry."
+      goal "Record a fatal failure at any step. fail_reason describes what broke. Terminal state — start a new Deploy to retry."
       reference_to Deploy
       attribute :fail_reason, FailReason
       emits "DeployFailed"
-      then_set :fail_reason, to: :fail_reason
-      then_set :status,      to: "failed"
+      sets :fail_reason
+      sets :status,      to: "failed"
     end
 
     # ── Queries ──
@@ -196,6 +188,6 @@ Hecks.bluebook "StorehouseDeploy", version: "2026.05.25.1" do
   # When a deploy ships, attempt verification automatically.
   policy "VerifyOnShip" do
     on "Shipped"
-    trigger "Verify"
+    trigger Verify
   end
 end

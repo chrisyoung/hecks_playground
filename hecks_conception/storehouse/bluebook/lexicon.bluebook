@@ -44,7 +44,8 @@ Hecks.bluebook "Lexicon", version: "2026.05.10.1" do
   # for the full storehouse arc and the four-segment phrase
   # convention.
 
-  aggregate "Lexicon", "Singleton index of every callable phrase across the conception" do
+  aggregate "Lexicon" do
+    description "Singleton index of every callable phrase across the conception"
 
     value_object "ServiceName" do
       attribute :value, String
@@ -107,7 +108,7 @@ Hecks.bluebook "Lexicon", version: "2026.05.10.1" do
       attribute :value, String
     end
 
-    attribute ServiceName
+    attribute :service_name, ServiceName
 
     # The singleton carries no mutable state ; what matters lives in
     # events. Compile emits LexiconCompiled with the timestamp and
@@ -120,10 +121,10 @@ Hecks.bluebook "Lexicon", version: "2026.05.10.1" do
 
     command "Compile" do
       role "System"
-      description "Walk every *.bluebook in the given SourceSet, extract every callable phrase + its app/domain/aggregate/command context + its attribute list, and emit LexiconCompiled with the timestamp and total count. Idempotent. Re-run after any bluebook change to keep the index fresh ; the runtime triggers this automatically when sources change."
-      attribute SourceSet,   as: :source_set
-      attribute CompiledAt,  as: :compiled_at
-      attribute PhraseCount, as: :phrase_count
+      goal "Walk every *.bluebook in the given SourceSet, extract every callable phrase + its app/domain/aggregate/command context + its attribute list, and emit LexiconCompiled with the timestamp and total count. Idempotent. Re-run after any bluebook change to keep the index fresh ; the runtime triggers this automatically when sources change."
+      attribute :source_set, SourceSet
+      attribute :compiled_at, CompiledAt
+      attribute :phrase_count, PhraseCount
       # The postcondition this command used to state as `guarantees
       # "phrase_count reflects the new total"` is already kept by
       # PhraseCount's own invariant (non-negative), judged at the door.
@@ -132,15 +133,15 @@ Hecks.bluebook "Lexicon", version: "2026.05.10.1" do
 
     command "Lookup" do
       role "Caller"
-      description "Resolve a four-segment Phrase (app::domain::Aggregate::Command) to its target aggregate + command + attribute list. Used by Dispatch.Route to validate params before routing. Resolution is exact — no ambiguity to disambiguate because every segment is required."
-      attribute Phrase, as: :phrase
+      goal "Resolve a four-segment Phrase (app::domain::Aggregate::Command) to its target aggregate + command + attribute list. Used by Dispatch.Route to validate params before routing. Resolution is exact — no ambiguity to disambiguate because every segment is required."
+      attribute :phrase, Phrase
       emits "PhraseLookedUp"
     end
 
     command "List" do
       role "Caller"
-      description "Browse the lexicon. Filter is matched as a substring against each phrase ; an empty filter returns the full lexicon. Used by Spring's REPL completion and Glass's palette search."
-      attribute Filter, as: :filter
+      goal "Browse the lexicon. Filter is matched as a substring against each phrase ; an empty filter returns the full lexicon. Used by Spring's REPL completion and Glass's palette search."
+      attribute :filter, Filter
       emits "PhrasesListed"
     end
   end

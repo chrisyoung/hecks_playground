@@ -48,8 +48,9 @@ Hecks.bluebook "Storehouse", version: "2026.06.27.1" do
   # state ; the runtime treats `retired` as not-routable but the
   # record survives for audit). No re-conceive — retired is terminal.
 
-  aggregate "Primitive", "One imperative runtime leaf as a first-class bluebook record. Declares the dispatch name (Process.Spawn / ClaudeTool.Invoke / etc.), the dispatcher kind, the command signature, and the Rust handler the runtime registry consults. PrimitiveRegistry walks these at boot ; the macrophage enforces one declaration per [antibody-exempt] kernel-floor leaf." do
-    identified_by { name.value }
+  aggregate "Primitive" do
+    description "One imperative runtime leaf as a first-class bluebook record. Declares the dispatch name (Process.Spawn / ClaudeTool.Invoke / etc.), the dispatcher kind, the command signature, and the Rust handler the runtime registry consults. PrimitiveRegistry walks these at boot ; the macrophage enforces one declaration per [antibody-exempt] kernel-floor leaf."
+    identified_by :name
 
     # ---- Identity ----
     attribute :name,           Name
@@ -111,38 +112,38 @@ Hecks.bluebook "Storehouse", version: "2026.06.27.1" do
 
     command "Conceive" do
       role "Miette"
-      description "Mint a new Primitive record — the bluebook declaration of one kernel-floor imperative leaf. The runtime PrimitiveRegistry picks this up on next boot ; the macrophage stops complaining about the matching rust/ source file. name IS the identity — one Primitive per name."
+      goal "Mint a new Primitive record — the bluebook declaration of one kernel-floor imperative leaf. The runtime PrimitiveRegistry picks this up on next boot ; the macrophage stops complaining about the matching rust/ source file. name IS the identity — one Primitive per name."
       attribute :name,           Name
       attribute :kind,           Kind
       attribute :signature,      Signature
       attribute :implementation, Implementation
-      then_set :name,           to: :name
-      then_set :kind,           to: :kind
-      then_set :signature,      to: :signature
-      then_set :implementation, to: :implementation
-      then_set :status,         to: "active"
+      sets :name
+      sets :kind
+      sets :signature
+      sets :implementation
+      sets :status,         to: "active"
       emits "PrimitiveConceived"
     end
 
     command "Amend" do
       role "Miette"
-      description "Re-describe an existing Primitive — update kind / signature / implementation without touching lifecycle. Used when the underlying dispatcher refactors and the registry key changes. Pure content mutation ; valid in any lifecycle state."
+      goal "Re-describe an existing Primitive — update kind / signature / implementation without touching lifecycle. Used when the underlying dispatcher refactors and the registry key changes. Pure content mutation ; valid in any lifecycle state."
       reference_to(Primitive)
       attribute :kind,           Kind
       attribute :signature,      Signature
       attribute :implementation, Implementation
-      then_set :kind,           to: :kind
-      then_set :signature,      to: :signature
-      then_set :implementation, to: :implementation
+      sets :kind
+      sets :signature
+      sets :implementation
       emits "PrimitiveAmended"
     end
 
     command "Retire" do
       role "Miette"
-      description "Soft-delete a Primitive — the underlying Rust handler has been removed. Moves status to retired ; the audit row survives. The PrimitiveRegistry skips retired primitives at boot ; the macrophage stops expecting a matching source file."
+      goal "Soft-delete a Primitive — the underlying Rust handler has been removed. Moves status to retired ; the audit row survives. The PrimitiveRegistry skips retired primitives at boot ; the macrophage stops expecting a matching source file."
       reference_to(Primitive)
       given("primitive must currently be active") { status == "active" }
-      then_set :status, to: "retired"
+      sets :status, to: "retired"
       emits "PrimitiveRetired"
     end
 
@@ -220,8 +221,9 @@ Hecks.bluebook "Storehouse", version: "2026.06.27.1" do
   # framework/agent/{agent,role}.bluebook — the RBAC identity + permission
   #   domains the authorize check's role read-model is built from.
 
-  aggregate "Gate", "One inbound wrapper across a domain's dispatches : the phase it runs in (before|after the aggregate handler), the check the runtime resolves to an in-process verdict function, the match pattern selecting which dispatches it wraps, and the order it runs in. Keyed by name (e.g. 'authorize', 'authenticate'). Declared through the storehouse door via Gate.Declare — no DSL, no hexagon form. A before-Gate is VETOING (Deny aborts + records a Violation) ; an after-Gate observes. The inverse of a Driver : a Driver names its own inbound schedule and runs out-of-process ; a Gate names its own inbound check and runs in-process, synchronous, blocking the dispatch it gates." do
-    identified_by { name.value }
+  aggregate "Gate" do
+    description "One inbound wrapper across a domain's dispatches : the phase it runs in (before|after the aggregate handler), the check the runtime resolves to an in-process verdict function, the match pattern selecting which dispatches it wraps, and the order it runs in. Keyed by name (e.g. 'authorize', 'authenticate'). Declared through the storehouse door via Gate.Declare — no DSL, no hexagon form. A before-Gate is VETOING (Deny aborts + records a Violation) ; an after-Gate observes. The inverse of a Driver : a Driver names its own inbound schedule and runs out-of-process ; a Gate names its own inbound check and runs in-process, synchronous, blocking the dispatch it gates."
+    identified_by :name
 
     # ---- Identity ----
     attribute :name,    GateName
@@ -248,12 +250,7 @@ Hecks.bluebook "Storehouse", version: "2026.06.27.1" do
       # When the gate runs relative to the aggregate handler. "before"
       # gates are VETOING (may Deny and abort) ; "after" gates observe the
       # result only.
-      attribute :value, String
-
-      one_of do
-        member value: "before"
-        member value: "after"
-      end
+      attribute :value, String, one_of: %w[before after]
     end
 
     value_object "Check" do
@@ -291,39 +288,34 @@ Hecks.bluebook "Storehouse", version: "2026.06.27.1" do
       # Lifecycle token : active | retired. Active gates hydrate into the
       # runtime stack ; retired ones stay on the audit row but are NOT in
       # the stack (the Active query excludes them).
-      attribute :value, String
-
-      one_of do
-        member value: "active"
-        member value: "retired"
-      end
+      attribute :value, String, one_of: %w[active retired]
     end
 
     # ── Commands ───────────────────────────────────────────────────
 
     command "Declare" do
       role "Framework"
-      description "Bring a Gate into being — declared through the storehouse door (a normal dispatch, no DSL). Declares the phase, the check (a built-in verdict key like 'authorize' / 'authenticate', OR a bluebook query named Aggregate.Query), the match pattern, and the order. Idempotent on name : re-declaring replaces the phase/check/pattern/order. The runtime picks up the change on next boot, or on the in-session re-hydrate that follows a Gate lifecycle event."
+      goal "Bring a Gate into being — declared through the storehouse door (a normal dispatch, no DSL). Declares the phase, the check (a built-in verdict key like 'authorize' / 'authenticate', OR a bluebook query named Aggregate.Query), the match pattern, and the order. Idempotent on name : re-declaring replaces the phase/check/pattern/order. The runtime picks up the change on next boot, or on the in-session re-hydrate that follows a Gate lifecycle event."
       attribute :name,    GateName
       attribute :phase,   Phase
       attribute :check,   Check
       attribute :pattern, Pattern
       attribute :order,   Order
-      then_set :name,    to: :name
-      then_set :phase,   to: :phase
-      then_set :check,   to: :check
-      then_set :pattern, to: :pattern
-      then_set :order,   to: :order
-      then_set :status,  to: "active"
+      sets :name
+      sets :phase
+      sets :check
+      sets :pattern
+      sets :order
+      sets :status,  to: "active"
       emits "Declared"
     end
 
     command "Retire" do
       role "Framework"
-      description "Detach a Gate — soft-delete. Moves status to retired ; the audit row survives so the history of which gates were attached when is preserved. The Active query excludes it, so the next boot (or in-session re-hydrate) drops it from the runtime stack. Retired is terminal — re-attach by Declare-ing a fresh record."
+      goal "Detach a Gate — soft-delete. Moves status to retired ; the audit row survives so the history of which gates were attached when is preserved. The Active query excludes it, so the next boot (or in-session re-hydrate) drops it from the runtime stack. Retired is terminal — re-attach by Declare-ing a fresh record."
       reference_to(Gate)
       given("gate must currently be active") { status == "active" }
-      then_set :status, to: "retired"
+      sets :status, to: "retired"
       emits "Retired"
     end
 

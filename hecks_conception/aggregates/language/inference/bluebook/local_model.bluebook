@@ -9,8 +9,9 @@ Hecks.bluebook "LocalModel", version: "2026.04.28.1" do
   # Lifted out of inference.bluebook in i112. Sibling aggregates
   # moved to language/ : context_window, few_shot, prompt.
 
-  aggregate "LocalModel", "The locally-running model that receives the context" do
-    identified_by { name.value }
+  aggregate "LocalModel" do
+    description "The locally-running model that receives the context"
+    identified_by :name
     attribute :name,           Name
     attribute :context_length, ContextLength
     attribute :serving,        ServingState
@@ -38,15 +39,15 @@ Hecks.bluebook "LocalModel", version: "2026.04.28.1" do
 
     command "StartModel" do
       role "System"
-      description "Launch the local model — ollama, llama.cpp, or vllm"
+      goal "Launch the local model — ollama, llama.cpp, or vllm"
       attribute :name,           Name
       attribute :context_length, ContextLength
       attribute :backend,        Backend
       emits "ModelStarted"
-      then_set :name,           to: :name
-      then_set :context_length, to: :context_length
-      then_set :backend,        to: :backend
-      then_set :serving,        to: "running"
+      sets :name
+      sets :context_length
+      sets :backend
+      sets :serving,        to: "running"
     end
   end
 end

@@ -18,8 +18,9 @@ Hecks.bluebook "IssueLog", version: "2026.05.14.1" do
   # Legacy: queued → done via Close (backwards compat; done cards stay done).
   # Companion capability: capabilities/inbox/inbox.bluebook (CLI surface).
 
-  aggregate "Inbox", "One filed TODO — short ref, body, priority, lifecycle, optional dream-wish receipt, card-as-lock authorization fields" do
-    identified_by { ref.value }
+  aggregate "Inbox" do
+    description "One filed TODO — short ref, body, priority, lifecycle, optional dream-wish receipt, card-as-lock authorization fields"
+    identified_by :ref
 
     # ---- Identity ----
     # ref : the short id humans type ("i42"). Monotonic, stable.
@@ -147,56 +148,56 @@ Hecks.bluebook "IssueLog", version: "2026.05.14.1" do
 
     command "Add" do
       role "Chris"
-      description "File a new TODO. The runtime allocates the next monotonic ref (NextRef query), stamps posted_at, and writes the row with status=queued. When wish_id is supplied, also fires DreamWish.MarkFiled so the wish exits the unfiled seed pool — the filing alone is the receipt, no implementation required."
+      goal "File a new TODO. The runtime allocates the next monotonic ref (NextRef query), stamps posted_at, and writes the row with status=queued. When wish_id is supplied, also fires DreamWish.MarkFiled so the wish exits the unfiled seed pool — the filing alone is the receipt, no implementation required."
       attribute :ref,       Ref
       attribute :priority,  Priority
       attribute :body,      Body
       attribute :posted_at, Timestamp
       attribute :wish_id,   WishId
-      then_set :ref,        to: :ref
-      then_set :priority,   to: :priority
-      then_set :body,       to: :body
-      then_set :posted_at,  to: :posted_at
-      then_set :wish_id,    to: :wish_id
-      then_set :status,     to: "queued"
+      sets :ref
+      sets :priority
+      sets :body
+      sets :posted_at
+      sets :wish_id
+      sets :status,     to: "queued"
       emits "InboxAdded"
     end
 
     command "Close" do
       role "Chris"
-      description "Mark a queued item as done (legacy path — predates the card-as-lock lifecycle). Stamps completed_at and records a one-line resolution (commit sha, PR url, or free-text note). Reversible via Reopen. Cards entering the modeled → locked chain should use MarkModeled rather than Close."
+      goal "Mark a queued item as done (legacy path — predates the card-as-lock lifecycle). Stamps completed_at and records a one-line resolution (commit sha, PR url, or free-text note). Reversible via Reopen. Cards entering the modeled → locked chain should use MarkModeled rather than Close."
       reference_to(Inbox)
       attribute :completed_at, Timestamp
       attribute :resolution,   Resolution
       given("must be queued") { status == "queued" }
-      then_set :status,       to: "done"
-      then_set :completed_at, to: :completed_at
-      then_set :resolution,   to: :resolution
+      sets :status,       to: "done"
+      sets :completed_at
+      sets :resolution
       emits "InboxClosed"
     end
 
     command "Reopen" do
       role "Chris"
-      description "Move a done item back to queued — a closing was premature. Clears completed_at and resolution so the row reads cleanly as freshly queued. The ref is preserved."
+      goal "Move a done item back to queued — a closing was premature. Clears completed_at and resolution so the row reads cleanly as freshly queued. The ref is preserved."
       reference_to(Inbox)
       given("must be done") { status == "done" }
-      then_set :status,       to: "queued"
-      then_set :completed_at, to: ""
-      then_set :resolution,   to: ""
+      sets :status,       to: "queued"
+      sets :completed_at, to: ""
+      sets :resolution,   to: ""
       emits "InboxReopened"
     end
 
     command "Drop" do
       role "Chris"
-      description "Abandon a row genuinely — spam, mistakes, garbage. Marks the row as dropped so any subscribers see the transition before the row is hard-deleted. Use Archive instead for the normal completed-work case ; Drop is for rows that should never have been filed. The ref is not reassigned — historical mentions become dangling."
+      goal "Abandon a row genuinely — spam, mistakes, garbage. Marks the row as dropped so any subscribers see the transition before the row is hard-deleted. Use Archive instead for the normal completed-work case ; Drop is for rows that should never have been filed. The ref is not reassigned — historical mentions become dangling."
       reference_to(Inbox)
-      then_set :status, to: "dropped"
+      sets :status, to: "dropped"
       emits "InboxDropped"
     end
 
     command "Archive" do
       role "Chris"
-      description "Move a closed card out of the active inbox directory (hecks_conception/inbox/) into the sibling archive directory (hecks_conception/inbox/archive/). Preserves every field — ref, body, priority, posted_at, completed_at, resolution, wish_id, status — so historical mentions ('see i42') resolve against the archive. Only done or dropped rows are eligible ; archiving a queued row is a guard error. Idempotent at the ref level : archiving an already-archived ref is a no-op (the active directory no longer contains it). The runtime motion is a file-system rename from inbox/iN.md to inbox/archive/iN.md."
+      goal "Move a closed card out of the active inbox directory (hecks_conception/inbox/) into the sibling archive directory (hecks_conception/inbox/archive/). Preserves every field — ref, body, priority, posted_at, completed_at, resolution, wish_id, status — so historical mentions ('see i42') resolve against the archive. Only done or dropped rows are eligible ; archiving a queued row is a guard error. Idempotent at the ref level : archiving an already-archived ref is a no-op (the active directory no longer contains it). The runtime motion is a file-system rename from inbox/iN.md to inbox/archive/iN.md."
       reference_to(Inbox)
       given("must be done or dropped") { status == "done" || status == "dropped" }
       emits "InboxArchived"
@@ -205,62 +206,62 @@ Hecks.bluebook "IssueLog", version: "2026.05.14.1" do
     # ── Card-as-lock lifecycle commands (i602, 2026-05-14) ───────
 
     command "MarkModeled" do
-      description "queued → modeled. Domain shape committed. Stamps modeled_at + modeled_commit."
+      goal "queued → modeled. Domain shape committed. Stamps modeled_at + modeled_commit."
       reference_to(Inbox)
       attribute :modeled_commit, CommitSha
       attribute :modeled_at,     Timestamp
       given("must be queued") { status == "queued" }
-      then_set :status,          to: "modeled"
-      then_set :modeled_commit,  to: :modeled_commit
-      then_set :modeled_at,      to: :modeled_at
+      sets :status,          to: "modeled"
+      sets :modeled_commit
+      sets :modeled_at
       emits "InboxModeled"
     end
 
     command "MarkDesigned" do
-      description "modeled → designed. Design artifacts committed. Stamps designed_at + designed_commit."
+      goal "modeled → designed. Design artifacts committed. Stamps designed_at + designed_commit."
       reference_to(Inbox)
       attribute :designed_commit, CommitSha
       attribute :designed_at,     Timestamp
       given("must be modeled") { status == "modeled" }
-      then_set :status,           to: "designed"
-      then_set :designed_commit,  to: :designed_commit
-      then_set :designed_at,      to: :designed_at
+      sets :status,           to: "designed"
+      sets :designed_commit
+      sets :designed_at
       emits "InboxDesigned"
     end
 
     command "RecordSignoff" do
-      description "designed → signed_off. Records signoff_by, signoff_commit, signoff_scope (path patterns this card gates). LockOnSignoff policy auto-fires Lock on SignoffRecorded."
+      goal "designed → signed_off. Records signoff_by, signoff_commit, signoff_scope (path patterns this card gates). LockOnSignoff policy auto-fires Lock on SignoffRecorded."
       reference_to(Inbox)
       attribute :signoff_by,     ClientName
       attribute :signoff_commit, CommitSha
       attribute :signoff_scope,  list_of(PathPattern)
       attribute :signoff_at,     Timestamp
       given("must be designed") { status == "designed" }
-      then_set :status,          to: "signed_off"
-      then_set :signoff_by,      to: :signoff_by
-      then_set :signoff_commit,  to: :signoff_commit
-      then_set :signoff_scope,   to: :signoff_scope
-      then_set :signoff_at,      to: :signoff_at
+      sets :status,          to: "signed_off"
+      sets :signoff_by
+      sets :signoff_commit
+      sets :signoff_scope
+      sets :signoff_at
       emits "SignoffRecorded"
     end
 
     command "Lock" do
-      description "signed_off → locked. Card becomes a live change-authorization token. Stamps locked_at. Auto-fired by LockOnSignoff; manual path also available."
+      goal "signed_off → locked. Card becomes a live change-authorization token. Stamps locked_at. Auto-fired by LockOnSignoff; manual path also available."
       reference_to(Inbox)
       attribute :locked_at, Timestamp
       given("must be signed_off") { status == "signed_off" }
-      then_set :status,     to: "locked"
-      then_set :locked_at,  to: :locked_at
+      sets :status,     to: "locked"
+      sets :locked_at
       emits "InboxLocked"
     end
 
     command "Supersede" do
-      description "locked → superseded. Card leaves the lock pool; superseded_by points at the replacement card."
+      goal "locked → superseded. Card leaves the lock pool; superseded_by points at the replacement card."
       reference_to(Inbox)
       attribute :superseded_by, CardRef
       given("must be locked") { status == "locked" }
-      then_set :status,        to: "superseded"
-      then_set :superseded_by, to: :superseded_by
+      sets :status,        to: "superseded"
+      sets :superseded_by
       emits "InboxSuperseded"
     end
 
@@ -293,7 +294,7 @@ Hecks.bluebook "IssueLog", version: "2026.05.14.1" do
 
     policy "LockOnSignoff" do
       on "SignoffRecorded"
-      trigger "Lock"
+      trigger Lock
       map ref: :ref
     end
 

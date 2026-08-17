@@ -8,8 +8,9 @@ Hecks.bluebook "TrainingPairCorpus", version: "2026.04.28.1" do
   # the aggregate name stays "TrainingPair" since each bluebook is
   # parsed independently. Pattern follows NurseryCorpus / Corpus.
 
-  aggregate "TrainingPair", "A single training example — bluebook source + parsed IR + validation result" do
-    identified_by { ref.value }
+  aggregate "TrainingPair" do
+    description "A single training example — bluebook source + parsed IR + validation result"
+    identified_by :ref
     attribute :ref,             Ref
     attribute :bluebook_source, BluebookSource
     attribute :ir_json,         IrJson
@@ -50,16 +51,16 @@ Hecks.bluebook "TrainingPairCorpus", version: "2026.04.28.1" do
 
     command "MintPair" do
       role "System"
-      description "Create a training pair from a bluebook"
+      goal "Create a training pair from a bluebook"
       attribute :bluebook_source, BluebookSource
       attribute :ir_json,         IrJson
       attribute :valid,           Validity
       attribute :tier,            TierName
       emits "PairCreated"
-      then_set :bluebook_source, to: :bluebook_source
-      then_set :ir_json,         to: :ir_json
-      then_set :valid,           to: :valid
-      then_set :tier,            to: :tier
+      sets :bluebook_source
+      sets :ir_json
+      sets :valid
+      sets :tier
     end
   end
 end

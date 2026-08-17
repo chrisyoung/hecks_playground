@@ -17,8 +17,9 @@ Hecks.bluebook "Rule", version: "2026.04.28.1" do
   # Innate rules: structural (always apply)
   # Adaptive rules: learned from corrections (antibodies)
 
-  aggregate "Rule", "One validation rule — innate or adaptive" do
-    identified_by { name.value }
+  aggregate "Rule" do
+    description "One validation rule — innate or adaptive"
+    identified_by :name
     attribute :name,        Name
     attribute :category,    Category
     attribute :description, Description
@@ -45,16 +46,16 @@ Hecks.bluebook "Rule", version: "2026.04.28.1" do
     end
 
     command "RegisterRule" do
-      description "Register a validation rule"
+      goal "Register a validation rule"
       attribute :name,        Name
       attribute :category,    Category
       attribute :description, Description
       attribute :severity,    Severity
       emits "RuleRegistered"
-      then_set :name,        to: :name
-      then_set :category,    to: :category
-      then_set :description, to: :description
-      then_set :severity,    to: :severity
+      sets :name
+      sets :category
+      sets :description
+      sets :severity
     end
 
     query ListRules do

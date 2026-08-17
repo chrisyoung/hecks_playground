@@ -50,7 +50,8 @@ Hecks.bluebook "StorehouseApiAdapter", version: "2026.05.11.1" do
   # via this port the same way an in-process call would, just
   # with HTTP under the hood.
 
-  aggregate "Binding", "Wires a remote StoreHouse Worker into an app" do
+  aggregate "Binding" do
+    description "Wires a remote StoreHouse Worker into an app"
     value_object "BaseUrl" do
       # The deployed worker URL, e.g.
       # "https://bin-buddy-worker.chris.workers.dev". Read at
@@ -92,29 +93,29 @@ Hecks.bluebook "StorehouseApiAdapter", version: "2026.05.11.1" do
       end
     end
 
-    attribute BaseUrl
-    attribute Bearer
-    attribute RoutePath
-    attribute TimeoutSeconds
+    attribute :base_url, BaseUrl
+    attribute :bearer, Bearer
+    attribute :route_path, RoutePath
+    attribute :timeout_seconds, TimeoutSeconds
 
     command "BindWorker" do
       role "System"
-      description "Wire the adapter to a deployed Worker — base_url + bearer are resolved from env-vars at boot ; route_path + timeout come from the hecksagon binding."
-      attribute BaseUrl,        as: :base_url
-      attribute Bearer,         as: :bearer
-      attribute RoutePath,      as: :route_path
-      attribute TimeoutSeconds, as: :timeout_seconds
+      goal "Wire the adapter to a deployed Worker — base_url + bearer are resolved from env-vars at boot ; route_path + timeout come from the hecksagon binding."
+      attribute :base_url, BaseUrl
+      attribute :bearer, Bearer
+      attribute :route_path, RoutePath
+      attribute :timeout_seconds, TimeoutSeconds
       emits "WorkerBound"
-      then_set :base_url,        to: :base_url
-      then_set :bearer,          to: :bearer
-      then_set :route_path,      to: :route_path
-      then_set :timeout_seconds, to: :timeout_seconds
+      sets :base_url
+      sets :bearer
+      sets :route_path
+      sets :timeout_seconds
     end
   end
 
   # The adapter is bound at boot — same lifecycle hook as r2
   policy "BindOnBoot" do
     on "InterpreterBooted"
-    trigger "BindWorker"
+    trigger BindWorker
   end
 end

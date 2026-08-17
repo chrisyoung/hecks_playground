@@ -19,7 +19,8 @@ Hecks.bluebook "OllamaAdapter", version: "2026.05.11.1" do
   # Declared in the hecksagon. The bluebook says Speak.
   # The adapter resolves HOW to speak.
 
-  aggregate "Connection", "The ollama server connection" do
+  aggregate "Connection" do
+    description "The ollama server connection"
     value_object "Url" do
       # The ollama HTTP endpoint, e.g. "http://localhost:11434".
       # The adapter posts inference requests against this base URL.
@@ -47,18 +48,18 @@ Hecks.bluebook "OllamaAdapter", version: "2026.05.11.1" do
       end
     end
 
-    attribute Url
-    attribute Model
-    attribute Status
+    attribute :url, Url
+    attribute :model, Model
+    attribute :status, Status
 
     command "Connect" do
-      description "Establish connection to ollama"
-      attribute Url,   as: :url
-      attribute Model, as: :model
+      goal "Establish connection to ollama"
+      attribute :url, Url
+      attribute :model, Model
       emits "Connected"
-      then_set :url, to: :url
-      then_set :model, to: :model
-      then_set :status, to: "ready"
+      sets :url
+      sets :model
+      sets :status, to: "ready"
     end
 
     query CheckHealth do
@@ -66,7 +67,8 @@ Hecks.bluebook "OllamaAdapter", version: "2026.05.11.1" do
     end
   end
 
-  aggregate "Inference", "One LLM call — prompt in, response out" do
+  aggregate "Inference" do
+    description "One LLM call — prompt in, response out"
     value_object "Prompt" do
       # The text sent to ollama. Built upstream from voice
       # personality + input ; the adapter relays it verbatim.
@@ -95,15 +97,15 @@ Hecks.bluebook "OllamaAdapter", version: "2026.05.11.1" do
       end
     end
 
-    attribute Prompt
-    attribute Response
-    attribute Model
+    attribute :prompt, Prompt
+    attribute :response, Response
+    attribute :model, Model
 
     command "Infer" do
-      description "Send a prompt to ollama, get a response"
-      attribute Prompt, as: :prompt
+      goal "Send a prompt to ollama, get a response"
+      attribute :prompt, Prompt
       emits "Inferred"
-      then_set :prompt, to: :prompt
+      sets :prompt
     end
 
     query ReadResponse do

@@ -36,8 +36,9 @@ Hecks.bluebook "Cargo", version: "2026.05.29.1" do
   # The adapter passes it as `current_dir` to the cargo process.
   # Callers supply it ; the adapter errors cleanly if absent.
 
-  aggregate "Cargo", "Cargo CLI invocations as typed Door commands. State carries the last output via last_output so downstream policies can read build / test results without re-running. Pure invocation record : each Build / Test / Check / Clippy mints a fresh record keyed by id." do
-    identified_by { id.value }
+  aggregate "Cargo" do
+    description "Cargo CLI invocations as typed Door commands. State carries the last output via last_output so downstream policies can read build / test results without re-running. Pure invocation record : each Build / Test / Check / Clippy mints a fresh record keyed by id."
+    identified_by :id
 
     attribute :id, Id
     attribute :last_output, RenderResult, default: { value: "" }
@@ -77,7 +78,7 @@ Hecks.bluebook "Cargo", version: "2026.05.29.1" do
 
     command "Build" do
       role "Miette"
-      description "Compile the workspace. Passes --release when profile == 'release', omits the flag for debug. Captures stdout+stderr on last_output and emits BuildCompleted so downstream policies can gate on a clean build."
+      goal "Compile the workspace. Passes --release when profile == 'release', omits the flag for debug. Captures stdout+stderr on last_output and emits BuildCompleted so downstream policies can gate on a clean build."
       attribute :id, Id
       attribute :profile, Profile
       attribute :repo_root, RepoRoot
@@ -86,7 +87,7 @@ Hecks.bluebook "Cargo", version: "2026.05.29.1" do
 
     command "Test" do
       role "Miette"
-      description "Run the test suite. Passes target as a positional argument when non-empty (scoping to a module / test name). Captures stdout+stderr on last_output and emits TestsRun. The tests_passing gate dispatches this to self-verify."
+      goal "Run the test suite. Passes target as a positional argument when non-empty (scoping to a module / test name). Captures stdout+stderr on last_output and emits TestsRun. The tests_passing gate dispatches this to self-verify."
       attribute :id, Id
       attribute :target, TargetSpec
       attribute :repo_root, RepoRoot
@@ -95,7 +96,7 @@ Hecks.bluebook "Cargo", version: "2026.05.29.1" do
 
     command "Check" do
       role "Miette"
-      description "Fast type-check without producing a binary (cargo check). Cheaper than Build for verifying compilation ; useful in tight feedback loops. Captures stdout+stderr on last_output and emits CheckCompleted."
+      goal "Fast type-check without producing a binary (cargo check). Cheaper than Build for verifying compilation ; useful in tight feedback loops. Captures stdout+stderr on last_output and emits CheckCompleted."
       attribute :id, Id
       attribute :repo_root, RepoRoot
       emits "CheckCompleted"
@@ -103,7 +104,7 @@ Hecks.bluebook "Cargo", version: "2026.05.29.1" do
 
     command "Clippy" do
       role "Miette"
-      description "Lint the workspace via cargo clippy. Captures stdout+stderr on last_output and emits ClippyCompleted so downstream policies can gate on a clean lint pass."
+      goal "Lint the workspace via cargo clippy. Captures stdout+stderr on last_output and emits ClippyCompleted so downstream policies can gate on a clean lint pass."
       attribute :id, Id
       attribute :repo_root, RepoRoot
       emits "ClippyCompleted"

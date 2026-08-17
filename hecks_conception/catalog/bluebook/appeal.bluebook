@@ -34,37 +34,35 @@ Hecks.bluebook "Appeal", version: "2026.05.12.1" do
   attribute :status, Status
 
   command "OpenProject" do
-    description "Load an existing domain from a directory"
+    goal "Load an existing domain from a directory"
     attribute :path, Path
     emits "ProjectOpened"
   end
 
   command "InitProject" do
-    description "Initialize a new domain with a name"
+    goal "Initialize a new domain with a name"
     attribute :name, Name
     attribute :path, Path
     emits "ProjectInitialized"
   end
 
   command "CloseProject" do
-    description "Close the current project and release resources"
+    goal "Close the current project and release resources"
     emits "ProjectClosed"
   end
 
   command "DiscoverProjects" do
-    description "Scan a directory for hecks apps -- looks for hecks/*.bluebook"
+    goal "Scan a directory for hecks apps -- looks for hecks/*.bluebook"
     attribute :search_path, SearchPath
     emits "ProjectsDiscovered"
   end
 
   command "LoadProjects" do
-    description "Discover and open all projects in a directory"
+    goal "Discover and open all projects in a directory"
     attribute :search_path, SearchPath
     emits "ProjectsLoaded"
   end
 
-  validation :name, presence: true
-  validation :path, presence: true
 end
 
   aggregate "Explorer" do
@@ -120,7 +118,7 @@ end
   attribute :last_opened_domain, LastOpenedDomain
 
   value_object "ExplorerEntry" do
-    description "A named item in the domain structure"
+    # "A named item in the domain structure"
     attribute :name, String
     attribute :kind, String
   end
@@ -128,26 +126,26 @@ end
   reference_to(Project)
 
   command "LoadDomain" do
-    description "Parse the project domain and populate the explorer tree"
+    goal "Parse the project domain and populate the explorer tree"
     reference_to(Project)
     emits "DomainLoaded"
   end
 
   command "InspectAggregate" do
-    description "Show details of an aggregate"
+    goal "Show details of an aggregate"
     attribute :aggregate_name, AggregateName
     emits "AggregateInspected"
   end
 
   command "InspectCommand" do
-    description "Show details of a command"
+    goal "Show details of a command"
     attribute :aggregate_name, AggregateName
     attribute :command_name, CommandName
     emits "CommandInspected"
   end
 
   command "OpenFile" do
-    description "Open a file from the project tree and record it as the last opened"
+    goal "Open a file from the project tree and record it as the last opened"
     reference_to(Project)
     attribute :path, Path
     attribute :domain, Domain
@@ -155,12 +153,12 @@ end
   end
 
   command "GetLastOpened" do
-    description "Return the last opened file path and domain"
+    goal "Return the last opened file path and domain"
     emits "LastOpenedReturned"
   end
 
   command "ExportBluebook" do
-    description "Export the current domain as a .bluebook file"
+    goal "Export the current domain as a .bluebook file"
     attribute :format, Format
     emits "BluebookExported"
   end
@@ -217,7 +215,7 @@ end
   attribute :diagnostics, list_of(Diagnostic)
 
   value_object "Diagnostic" do
-    description "A validation finding at a source location"
+    # "A validation finding at a source location"
     attribute :line, Integer
     attribute :column, Integer
     attribute :severity, String
@@ -227,29 +225,28 @@ end
   reference_to(Project)
 
   command "OpenDocument" do
-    description "Load a .bluebook / .hecksagon / .world file into the editor"
+    goal "Load a .bluebook / .hecksagon / .world file into the editor"
     reference_to(Project)
     attribute :filename, Filename
     emits "DocumentOpened"
   end
 
   command "EditDocument" do
-    description "Apply a text change to the document"
+    goal "Apply a text change to the document"
     attribute :content, Content
     emits "DocumentEdited"
   end
 
   command "SaveDocument" do
-    description "Persist the document back to disk"
+    goal "Persist the document back to disk"
     emits "DocumentSaved"
   end
 
   command "ValidateDocument" do
-    description "Parse and validate the document, producing diagnostics"
+    goal "Parse and validate the document, producing diagnostics"
     emits "DocumentValidated"
   end
 
-  validation :filename, presence: true
 end
 
   aggregate "Timeline" do
@@ -278,7 +275,7 @@ end
   attribute :cursor, Cursor
 
   value_object "TimelineEntry" do
-    description "A recorded change with before/after content"
+    # "A recorded change with before/after content"
     attribute :action, String
     attribute :detail, String
     attribute :timestamp, String
@@ -287,18 +284,18 @@ end
   reference_to(Document)
 
   command "RecordChange" do
-    description "Append a change to the timeline"
+    goal "Append a change to the timeline"
     reference_to(Document)
     attribute :action, Action
     attribute :detail, Detail
   end
 
   command "Undo" do
-    description "Move the cursor back one step and revert the change"
+    goal "Move the cursor back one step and revert the change"
     end
 
   command "Redo" do
-    description "Move the cursor forward and reapply the change"
+    goal "Move the cursor forward and reapply the change"
     end
 end
 
@@ -335,7 +332,7 @@ end
   attribute :artifacts, list_of(Artifact)
 
   value_object "Artifact" do
-    description "A generated file with its content and diff status"
+    # "A generated file with its content and diff status"
     attribute :filename, String
     attribute :content, String
     attribute :changed, String
@@ -344,26 +341,25 @@ end
   reference_to(Project)
 
   command "SelectTarget" do
-    description "Choose a build target -- ruby, go, rails, sinatra"
+    goal "Choose a build target -- ruby, go, rails, sinatra"
     reference_to(Project)
     attribute :target, Target
   end
 
   command "BuildTarget" do
-    description "Generate all code for the selected target"
+    goal "Generate all code for the selected target"
     end
 
   command "PreviewArtifact" do
-    description "Show the content of a single generated file"
+    goal "Show the content of a single generated file"
     attribute :filename, Filename
   end
 
   command "CompareArtifact" do
-    description "Compare generated output against existing file on disk"
+    goal "Compare generated output against existing file on disk"
     attribute :filename, Filename
   end
 
-  validation :target, presence: true
 end
 
   aggregate "Pattern" do
@@ -409,7 +405,7 @@ end
   attribute :parameters, list_of(PatternParameter)
 
   value_object "PatternParameter" do
-    description "A configurable parameter when applying a pattern"
+    # "A configurable parameter when applying a pattern"
     attribute :name, String
     attribute :param_type, String
     attribute :default_value, String
@@ -417,14 +413,14 @@ end
   end
 
   command "CoinPattern" do
-    description "Define a new reusable pattern from an existing aggregate shape"
+    goal "Define a new reusable pattern from an existing aggregate shape"
     attribute :name, Name
     attribute :category, Category
     attribute :template, Template
   end
 
   command "ApplyPattern" do
-    description "Scaffold an aggregate by applying a pattern with parameters"
+    goal "Scaffold an aggregate by applying a pattern with parameters"
     reference_to(Project)
     attribute :pattern_name, PatternName
     attribute :aggregate_name, AggregateName
@@ -432,11 +428,10 @@ end
   end
 
   command "ListPatterns" do
-    description "Show all available patterns, optionally filtered by category"
+    goal "Show all available patterns, optionally filtered by category"
     attribute :category, Category
   end
 
-  validation :name, presence: true
 end
 
   aggregate "Feature" do
@@ -495,7 +490,7 @@ end
   attribute :completed_additions, CompletedAdditions
 
   value_object "DomainAddition" do
-    description "A planned domain change — aggregate, command, event, attribute, or policy"
+    # "A planned domain change — aggregate, command, event, attribute, or policy"
     attribute :kind, String
     attribute :name, String
     attribute :parent, String
@@ -504,20 +499,20 @@ end
   end
 
   command "DraftFeature" do
-    description "Define a new feature with a title and description"
+    goal "Define a new feature with a title and description"
     attribute :title, Title
     attribute :description, Description
     emits "FeatureDrafted"
   end
 
   command "PlanFeature" do
-    description "Ask the AI agent to plan all domain additions for this feature"
+    goal "Ask the AI agent to plan all domain additions for this feature"
     reference_to(Feature)
     emits "FeaturePlanned"
   end
 
   command "AddDomainAddition" do
-    description "Manually add a planned domain change to the feature"
+    goal "Manually add a planned domain change to the feature"
     attribute :kind, Kind
     attribute :name, Name
     attribute :parent, Parent
@@ -526,19 +521,19 @@ end
   end
 
   command "VerifyAdditions" do
-    description "Check the live domain IR for each planned addition"
+    goal "Check the live domain IR for each planned addition"
     reference_to(Feature)
     emits "AdditionsVerified"
   end
 
   command "BuildFeature" do
-    description "Ask the AI agent to implement all remaining additions"
+    goal "Ask the AI agent to implement all remaining additions"
     reference_to(Feature)
     emits "FeatureBuildStarted"
   end
 
   command "CompleteFeature" do
-    description "Mark the feature as done — all additions verified"
+    goal "Mark the feature as done — all additions verified"
     reference_to(Feature)
     emits "FeatureCompleted"
   end
@@ -550,7 +545,6 @@ end
     transition "CompleteFeature" => "done", from: "planned"
   end
 
-  validation :title, presence: true
 end
 
   aggregate "Backlog" do
@@ -579,31 +573,30 @@ end
   attribute :features, list_of(BacklogEntry)
 
   value_object "BacklogEntry" do
-    description "A feature in the backlog with its position"
+    # "A feature in the backlog with its position"
     attribute :feature_title, String
     attribute :position, Integer
     attribute :status, String
   end
 
   command "AddToBacklog" do
-    description "Add a feature to the backlog"
+    goal "Add a feature to the backlog"
     attribute :feature_title, FeatureTitle
     emits "AddedToBacklog"
   end
 
   command "Prioritize" do
-    description "Reorder a feature within the backlog"
+    goal "Reorder a feature within the backlog"
     attribute :feature_title, FeatureTitle
     attribute :position, Position
     emits "Reprioritized"
   end
 
   command "TrackProgress" do
-    description "Recalculate completion across all features"
+    goal "Recalculate completion across all features"
     emits "ProgressTracked"
   end
 
-  validation :name, presence: true
 end
 
   aggregate "ProductExecutor" do
@@ -632,26 +625,26 @@ end
   attribute :conversations, list_of(AgentConversation)
 
   value_object "AgentConversation" do
-    description "A named agent's chat history"
+    # "A named agent's chat history"
     attribute :agent_name, String
     attribute :messages, list_of(String)
   end
 
   command "SendToAgent" do
-    description "Send a message to a named agent"
+    goal "Send a message to a named agent"
     attribute :agent_name, AgentName
     attribute :content, Content
     emits "AgentMessageSent"
   end
 
   command "SwitchAgent" do
-    description "Switch the active agent tab"
+    goal "Switch the active agent tab"
     attribute :agent_name, AgentName
     emits "AgentSwitched"
   end
 
   command "ClearAgent" do
-    description "Clear an agent's conversation"
+    goal "Clear an agent's conversation"
     attribute :agent_name, AgentName
     emits "AgentCleared"
   end
@@ -684,18 +677,18 @@ end
   attribute :permanent, Permanent
 
   command "RaiseFlag" do
-    description "Raise a feature flag when a feature ships"
+    goal "Raise a feature flag when a feature ships"
     attribute :feature_title, FeatureTitle
     emits "FlagRaised"
   end
 
   command "ToggleFlag" do
-    description "Enable or disable a feature flag at runtime"
+    goal "Enable or disable a feature flag at runtime"
     emits "FlagToggled"
   end
 
   command "RemoveFlag" do
-    description "Remove the flag — feature becomes permanent"
+    goal "Remove the flag — feature becomes permanent"
     emits "FlagRemoved"
   end
 end
@@ -749,7 +742,7 @@ end
   attribute :comments, list_of(ReviewComment)
 
   value_object "ReviewComment" do
-    description "A comment on a proposed domain change"
+    # "A comment on a proposed domain change"
     attribute :author, String
     attribute :body, String
     attribute :element_name, String
@@ -757,31 +750,30 @@ end
   end
 
   command "ProposeChange" do
-    description "Open a review for a set of domain changes"
+    goal "Open a review for a set of domain changes"
     attribute :title, Title
     attribute :author, Author
     attribute :changes_summary, ChangesSummary
   end
 
   command "AddComment" do
-    description "Comment on the proposed changes"
+    goal "Comment on the proposed changes"
     attribute :author, Author
     attribute :body, Body
     attribute :element_name, ElementName
   end
 
   command "ApproveReview" do
-    description "Approve the proposed domain changes"
+    goal "Approve the proposed domain changes"
     attribute :author, Author
   end
 
   command "RejectReview" do
-    description "Reject the proposed changes with a reason"
+    goal "Reject the proposed changes with a reason"
     attribute :author, Author
     attribute :reason, Reason
   end
 
-  validation :title, presence: true
 end
 
   aggregate "Annotation" do
@@ -823,25 +815,25 @@ end
   attribute :replies, list_of(Reply)
 
   value_object "Reply" do
-    description "A threaded reply to an annotation"
+    # "A threaded reply to an annotation"
     attribute :author, String
     attribute :body, String
     attribute :timestamp, String
   end
 
   command "Annotate" do
-    description "Attach a comment to a domain element"
+    goal "Attach a comment to a domain element"
     attribute :element_type, ElementType
     attribute :element_name, ElementName
     attribute :body, Body
   end
 
   command "ResolveAnnotation" do
-    description "Mark an annotation as resolved"
+    goal "Mark an annotation as resolved"
     end
 
   command "ReplyToAnnotation" do
-    description "Add a threaded reply to an existing annotation"
+    goal "Add a threaded reply to an existing annotation"
     attribute :author, Author
     attribute :body, Body
   end
@@ -902,14 +894,14 @@ end
   attribute :loaded_domain, LoadedDomain
 
   value_object "Message" do
-    description "A conversation message -- user or assistant"
+    # "A conversation message -- user or assistant"
     attribute :role, String
     attribute :content, String
     attribute :timestamp, String
   end
 
   value_object "Suggestion" do
-    description "A proposed domain change with rationale and diff preview"
+    # "A proposed domain change with rationale and diff preview"
     attribute :title, String
     attribute :rationale, String
     attribute :diff_preview, String
@@ -917,35 +909,35 @@ end
   end
 
   command "SendMessage" do
-    description "Send a message to the AI assistant about the domain"
+    goal "Send a message to the AI assistant about the domain"
     attribute :content, Content
     emits "MessageReceived"
   end
 
   command "ToggleAdapter" do
-    description "Switch between memory and live LLM adapter"
+    goal "Switch between memory and live LLM adapter"
     attribute :mode, Mode
     emits "AdapterChanged"
   end
 
   command "ClearConversation" do
-    description "Reset the conversation history"
+    goal "Reset the conversation history"
     emits "ConversationCleared"
   end
 
   command "ApplySuggestion" do
-    description "Accept and apply a suggested domain change"
+    goal "Accept and apply a suggested domain change"
     attribute :title, Title
     emits "SuggestionApplied"
   end
 
   command "RequestReview" do
-    description "Ask the AI to review the current domain"
+    goal "Ask the AI to review the current domain"
     emits "ReviewRequested"
   end
 
   command "LoadDomainContext" do
-    description "Set which domain the agent introspects for tools and system prompt"
+    goal "Set which domain the agent introspects for tools and system prompt"
     attribute :domain_name, DomainName
     emits "DomainContextLoaded"
   end
@@ -997,7 +989,7 @@ end
   attribute :score, Score
 
   value_object "Finding" do
-    description "A single analysis finding with severity and recommendation"
+    # "A single analysis finding with severity and recommendation"
     attribute :rule, String
     attribute :severity, String
     attribute :element_name, String
@@ -1006,18 +998,18 @@ end
   end
 
   command "AnalyzeDomain" do
-    description "Run all analysis rules against the current domain"
+    goal "Run all analysis rules against the current domain"
     attribute :scope, Scope
   end
 
   command "DismissInsight" do
-    description "Acknowledge and hide a specific finding"
+    goal "Acknowledge and hide a specific finding"
     attribute :rule, Rule
     attribute :element_name, ElementName
   end
 
   command "ConfigureRules" do
-    description "Enable or disable specific analysis rules"
+    goal "Enable or disable specific analysis rules"
     attribute :rule, Rule
     attribute :enabled, Enabled
   end
@@ -1051,7 +1043,7 @@ end
   attribute :changes, list_of(DomainChange)
 
   value_object "DomainChange" do
-    description "A detected change -- added, removed, renamed, or modified element"
+    # "A detected change -- added, removed, renamed, or modified element"
     attribute :kind, String
     attribute :element_type, String
     attribute :element_name, String
@@ -1059,16 +1051,16 @@ end
   end
 
   command "DetectChanges" do
-    description "Compare current bluebook against a previous version"
+    goal "Compare current bluebook against a previous version"
     attribute :from_version, FromVersion
   end
 
   command "GenerateMigration" do
-    description "Produce a migration script for the detected changes"
+    goal "Produce a migration script for the detected changes"
     end
 
   command "ApplyMigration" do
-    description "Execute the migration against a target environment"
+    goal "Execute the migration against a target environment"
     end
 end
 
@@ -1094,7 +1086,7 @@ end
   attribute :differences, list_of(Difference)
 
   value_object "Difference" do
-    description "A single difference between two domain versions"
+    # "A single difference between two domain versions"
     attribute :element_type, String
     attribute :element_name, String
     attribute :change_kind, String
@@ -1104,19 +1096,19 @@ end
   end
 
   command "CompareVersions" do
-    description "Diff two versions of the domain"
+    goal "Diff two versions of the domain"
     attribute :left_version, LeftVersion
     attribute :right_version, RightVersion
   end
 
   command "HighlightBreaking" do
-    description "Filter the comparison to show only breaking changes"
+    goal "Filter the comparison to show only breaking changes"
     end
 end
 
 policy "ShowDiagramOnTabSelect" do
   on "TabSelected"
-  trigger "GenerateDiagram"
+  trigger GenerateDiagram
   condition do |event|
     data = event.respond_to?(:to_h) ? event.to_h : (event.respond_to?(:data) ? event.data : event)
     tab = data.is_a?(Hash) ? (data[:active_tab] || data["active_tab"]) : nil
@@ -1161,21 +1153,21 @@ end
   attribute :edges, list_of(DiagramEdge)
 
   value_object "DiagramNode" do
-    description "An element in the diagram -- aggregate, command, event, or value object"
+    # "An element in the diagram -- aggregate, command, event, or value object"
     attribute :name, String
     attribute :kind, String
     attribute :metadata, String
   end
 
   value_object "DiagramEdge" do
-    description "A relationship between two nodes"
+    # "A relationship between two nodes"
     attribute :from_node, String
     attribute :to_node, String
     attribute :relationship, String
   end
 
   command "GenerateDiagram" do
-    description "Build a diagram for a file. Uses Explorer.last_opened_path when path is not provided."
+    goal "Build a diagram for a file. Uses Explorer.last_opened_path when path is not provided."
     attribute :view_type, ViewType
     attribute :path, Path
     attribute :domain, Domain
@@ -1183,25 +1175,25 @@ end
   end
 
   command "GenerateOverview" do
-    description "Build a cross-domain relationship diagram showing all domains and their connections"
+    goal "Build a cross-domain relationship diagram showing all domains and their connections"
     attribute :scope, Scope
     emits "OverviewGenerated"
   end
 
   command "SelectView" do
-    description "Switch between aggregate map, event flow, or command graph"
+    goal "Switch between aggregate map, event flow, or command graph"
     attribute :view_type, ViewType
     emits "ViewSelected"
   end
 
   command "FilterByAggregate" do
-    description "Show only nodes related to a specific aggregate"
+    goal "Show only nodes related to a specific aggregate"
     attribute :aggregate_name, AggregateName
     emits "DiagramFiltered"
   end
 
   command "RunAnalysis" do
-    description "Analyze domain patterns — coupling, cohesion, naming issues"
+    goal "Analyze domain patterns — coupling, cohesion, naming issues"
     emits "AnalysisCompleted"
   end
 end
@@ -1248,7 +1240,7 @@ end
   attribute :stickies, list_of(Sticky)
 
   value_object "Sticky" do
-    description "A virtual sticky note -- event, command, policy, hotspot, or external system"
+    # "A virtual sticky note -- event, command, policy, hotspot, or external system"
     attribute :label, String
     attribute :kind, String
     attribute :color, String
@@ -1258,28 +1250,27 @@ end
   end
 
   command "StartStorm" do
-    description "Begin a new event storming session"
+    goal "Begin a new event storming session"
     attribute :name, Name
   end
 
   command "AddSticky" do
-    description "Place a new sticky note on the board"
+    goal "Place a new sticky note on the board"
     attribute :label, Label
     attribute :kind, Kind
   end
 
   command "MoveSticky" do
-    description "Reposition a sticky on the board"
+    goal "Reposition a sticky on the board"
     attribute :label, Label
     attribute :position_x, PositionX
     attribute :position_y, PositionY
   end
 
   command "ConvertToDomain" do
-    description "Transform stickies into Bluebook DSL aggregates, commands, and events"
+    goal "Transform stickies into Bluebook DSL aggregates, commands, and events"
     end
 
-  validation :name, presence: true
 end
 
   aggregate "Glossary" do
@@ -1342,7 +1333,7 @@ end
   attribute :terms, list_of(Term)
 
   value_object "Term" do
-    description "A domain term with its definition and category"
+    # "A domain term with its definition and category"
     attribute :name, String
     attribute :definition, String
     attribute :category, String
@@ -1350,31 +1341,31 @@ end
   end
 
   command "ShowGlossary" do
-    description "Display the full glossary of domain terms"
+    goal "Display the full glossary of domain terms"
     emits "GlossaryShown"
   end
 
   command "DefineTerm" do
-    description "Add a new term to the glossary"
+    goal "Add a new term to the glossary"
     attribute :name, Name
     attribute :definition, Definition
     attribute :category, Category
   end
 
   command "RenameTerm" do
-    description "Rename a term and update all references"
+    goal "Rename a term and update all references"
     attribute :old_name, OldName
     attribute :new_name, NewName
   end
 
   command "FlagAmbiguity" do
-    description "Mark a term as ambiguous -- needs clarification"
+    goal "Mark a term as ambiguous -- needs clarification"
     attribute :term_name, TermName
     attribute :reason, Reason
   end
 
   command "LinkTerms" do
-    description "Declare a relationship between two terms"
+    goal "Declare a relationship between two terms"
     attribute :from_term, FromTerm
     attribute :to_term, ToTerm
     attribute :relationship, Relationship
@@ -1431,7 +1422,7 @@ end
   attribute :form, list_of(FormField)
 
   value_object "FormField" do
-    description "A generated input field from a command attribute"
+    # "A generated input field from a command attribute"
     attribute :name, String
     attribute :field_type, String
     attribute :required, String
@@ -1440,32 +1431,32 @@ end
   end
 
   value_object "ConsoleEvent" do
-    description "An event recorded from command execution in the console"
+    # "An event recorded from command execution in the console"
     attribute :event_name, String
     attribute :payload, String
     attribute :timestamp, String
   end
 
   command "OpenConsole" do
-    description "Open the console -- loads available aggregates and commands"
+    goal "Open the console -- loads available aggregates and commands"
     emits "ConsoleOpened"
   end
 
   command "SelectCommand" do
-    description "Pick an aggregate and command -- generates the input form"
+    goal "Pick an aggregate and command -- generates the input form"
     attribute :aggregate_name, AggregateName
     attribute :command_name, CommandName
     emits "CommandSelected"
   end
 
   command "SubmitForm" do
-    description "Execute the selected command with the filled form values"
+    goal "Execute the selected command with the filled form values"
     attribute :values, Values
     emits "CommandExecuted"
   end
 
   command "ViewResult" do
-    description "Display the result of the last command execution"
+    goal "Display the result of the last command execution"
     emits "ResultViewed"
   end
 end
@@ -1515,7 +1506,7 @@ end
   attribute :total, Total
 
   value_object "TestResult" do
-    description "Result of a single command dispatch test"
+    # "Result of a single command dispatch test"
     attribute :command_name, String
     attribute :aggregate_name, String
     attribute :status, String
@@ -1524,19 +1515,19 @@ end
   end
 
   command "RunAll" do
-    description "Dispatch every command and validate events are emitted"
+    goal "Dispatch every command and validate events are emitted"
     emits "AllTestsCompleted"
   end
 
   command "RunCommand" do
-    description "Test a single command dispatch"
+    goal "Test a single command dispatch"
     attribute :aggregate_name, AggregateName
     attribute :command_name, CommandName
     emits "CommandTested"
   end
 
   command "Reset" do
-    description "Clear all test results"
+    goal "Clear all test results"
     emits "TestsReset"
   end
 
@@ -1595,7 +1586,7 @@ end
   attribute :filter_event_type, FilterEventType
 
   value_object "StreamEvent" do
-    description "A domain event captured from any running aggregate"
+    # "A domain event captured from any running aggregate"
     attribute :event_name, String
     attribute :aggregate_name, String
     attribute :aggregate_id, String
@@ -1606,39 +1597,39 @@ end
   end
 
   command "SubscribeToEvents" do
-    description "Start streaming events from a project's domains"
+    goal "Start streaming events from a project's domains"
     emits "EventsSubscribed"
   end
 
   command "StopStreaming" do
-    description "Stop streaming events"
+    goal "Stop streaming events"
     emits "StreamingStopped"
   end
 
   command "PauseStream" do
-    description "Temporarily pause the event stream without disconnecting"
+    goal "Temporarily pause the event stream without disconnecting"
     emits "StreamPaused"
   end
 
   command "ResumeStream" do
-    description "Resume a paused event stream"
+    goal "Resume a paused event stream"
     emits "StreamResumed"
   end
 
   command "ClearEvents" do
-    description "Remove all events from the stream display"
+    goal "Remove all events from the stream display"
     emits "EventsCleared"
   end
 
   command "FilterEvents" do
-    description "Filter the stream by aggregate name or event type"
+    goal "Filter the stream by aggregate name or event type"
     attribute :aggregate_name, AggregateName
     attribute :event_type, EventType
     emits "EventsFiltered"
   end
 
   command "InspectEvent" do
-    description "Expand an event row to show its full payload data"
+    goal "Expand an event row to show its full payload data"
     attribute :event_name, EventName
     attribute :timestamp, Timestamp
     emits "EventInspected"
@@ -1693,7 +1684,7 @@ end
   attribute :result, Result
 
   value_object "Step" do
-    description "A single step in a scenario -- given, when, or then"
+    # "A single step in a scenario -- given, when, or then"
     attribute :phase, String
     attribute :aggregate_name, String
     attribute :command_name, String
@@ -1702,12 +1693,12 @@ end
   end
 
   command "DraftScenario" do
-    description "Define a new scenario with a name"
+    goal "Define a new scenario with a name"
     attribute :name, Name
   end
 
   command "AddStep" do
-    description "Append a given/when/then step to the scenario"
+    goal "Append a given/when/then step to the scenario"
     attribute :phase, Phase
     attribute :aggregate_name, AggregateName
     attribute :command_name, CommandName
@@ -1715,15 +1706,14 @@ end
   end
 
   command "RunScenario" do
-    description "Execute all steps and record pass/fail"
+    goal "Execute all steps and record pass/fail"
     end
 
   command "RecordResult" do
-    description "Store the outcome of a scenario run"
+    goal "Store the outcome of a scenario run"
     attribute :result, Result
   end
 
-  validation :name, presence: true
 end
 
   aggregate "Fixture" do
@@ -1752,28 +1742,27 @@ end
   attribute :entries, list_of(FixtureEntry)
 
   value_object "FixtureEntry" do
-    description "A single data record -- aggregate name, attribute values"
+    # "A single data record -- aggregate name, attribute values"
     attribute :aggregate_name, String
     attribute :attributes, String
   end
 
   command "ComposeFixture" do
-    description "Define a new fixture set"
+    goal "Define a new fixture set"
     attribute :name, Name
   end
 
   command "AddEntry" do
-    description "Add a data record to the fixture"
+    goal "Add a data record to the fixture"
     attribute :aggregate_name, AggregateName
     attribute :attributes, Attributes
   end
 
   command "ApplyToScenario" do
-    description "Load this fixture as the given state for a scenario"
+    goal "Load this fixture as the given state for a scenario"
     reference_to(Scenario)
   end
 
-  validation :name, presence: true
 end
 
   aggregate "Playground" do
@@ -1807,26 +1796,26 @@ end
   attribute :state_snapshot, StateSnapshot
 
   value_object "PlaygroundEvent" do
-    description "A recorded event from command execution"
+    # "A recorded event from command execution"
     attribute :name, String
     attribute :payload, String
     attribute :timestamp, String
   end
 
   command "ExecuteCommand" do
-    description "Run a domain command in the sandbox"
+    goal "Run a domain command in the sandbox"
     attribute :aggregate_name, AggregateName
     attribute :command_name, CommandName
     attribute :attributes, Attributes
   end
 
   command "InspectState" do
-    description "View current aggregate state in the sandbox"
+    goal "View current aggregate state in the sandbox"
     attribute :aggregate_name, AggregateName
   end
 
   command "ResetPlayground" do
-    description "Clear all sandbox state and events"
+    goal "Clear all sandbox state and events"
     end
 
   # RecentEvents removed (i751 sweep). Same shape as Explorer.ByKind :
@@ -1887,44 +1876,44 @@ end
   attribute :active_aggregate, ActiveAggregate
 
   command "ShowWorkbench" do
-    description "Open the workbench REPL for this domain"
+    goal "Open the workbench REPL for this domain"
     emits "WorkbenchShown"
   end
 
   command "SelectProject" do
-    description "Set the active project for command dispatch"
+    goal "Set the active project for command dispatch"
     attribute :project_name, ProjectName
     emits "ProjectSelected"
   end
 
   command "SelectAggregate" do
-    description "Set the active aggregate for inspection"
+    goal "Set the active aggregate for inspection"
     attribute :aggregate_name, AggregateName
     emits "AggregateSelected"
   end
 
   command "ExecuteCommand" do
-    description "Dispatch a command against the active project's runtime"
+    goal "Dispatch a command against the active project's runtime"
     attribute :command_name, CommandName
     attribute :args, Args
     emits "CommandExecuted"
   end
 
   command "InspectRepository" do
-    description "List all records in an aggregate's repository"
+    goal "List all records in an aggregate's repository"
     attribute :aggregate_name, AggregateName
     emits "RepositoryInspected"
   end
 
   command "FindRecord" do
-    description "Find a single record by ID"
+    goal "Find a single record by ID"
     attribute :aggregate_name, AggregateName
     attribute :record_id, RecordId
     emits "RecordFound"
   end
 
   command "ShowEventHistory" do
-    description "Show all events for the active project"
+    goal "Show all events for the active project"
     emits "EventHistoryShown"
   end
 end
@@ -1950,27 +1939,27 @@ end
   attribute :connection_status, ConnectionStatus
 
   command "EnterSketch" do
-    description "Switch to sketch mode for editing domain structure"
+    goal "Switch to sketch mode for editing domain structure"
     emits "SketchEntered"
   end
 
   command "EnterPlay" do
-    description "Switch to play mode for executing domain commands"
+    goal "Switch to play mode for executing domain commands"
     emits "PlayEntered"
   end
 
   command "Connect" do
-    description "Establish WebSocket connection to the IDE server"
+    goal "Establish WebSocket connection to the IDE server"
     emits "Connected"
   end
 
   command "Disconnect" do
-    description "Close the WebSocket connection"
+    goal "Close the WebSocket connection"
     emits "Disconnected"
   end
 
   command "RestoreConnection" do
-    description "Drop and re-establish the WebSocket connection"
+    goal "Drop and re-establish the WebSocket connection"
     emits "ConnectionRestored"
   end
 end
@@ -2023,7 +2012,7 @@ end
   attribute :events_panel_collapsed, EventsPanelCollapsed
 
   value_object "PanelState" do
-    description "State of a single IDE panel -- name, visibility, dimensions"
+    # "State of a single IDE panel -- name, visibility, dimensions"
     attribute :name, String
     attribute :open, String
     attribute :width, Integer
@@ -2033,25 +2022,25 @@ end
 
 
   command "OpenPanel" do
-    description "Show a hidden panel"
+    goal "Show a hidden panel"
     attribute :panel_name, PanelName
     emits "PanelOpened"
   end
 
   command "ClosePanel" do
-    description "Hide a panel"
+    goal "Hide a panel"
     attribute :panel_name, PanelName
     emits "PanelClosed"
   end
 
   command "SelectTab" do
-    description "Switch the active tab in the main area"
+    goal "Switch the active tab in the main area"
     attribute :tab_name, TabName
     emits "TabSelected"
   end
 
   command "ResizePanel" do
-    description "Change a panel's dimensions"
+    goal "Change a panel's dimensions"
     attribute :panel_name, PanelName
     attribute :width, Width
     attribute :height, Height
@@ -2059,22 +2048,22 @@ end
   end
 
   command "ToggleSidebar" do
-    description "Collapse or expand the sidebar"
+    goal "Collapse or expand the sidebar"
     emits "SidebarToggled"
   end
 
   command "ToggleEventsPanel" do
-    description "Collapse or expand the bottom events panel"
+    goal "Collapse or expand the bottom events panel"
     emits "EventsPanelToggled"
   end
 
   command "HideProjects" do
-    description "Hide the projects sidebar panel"
+    goal "Hide the projects sidebar panel"
     emits "ProjectsHidden"
   end
 
   command "ShowProjects" do
-    description "Show the projects sidebar panel"
+    goal "Show the projects sidebar panel"
     emits "ProjectsShown"
   end
 
@@ -2111,19 +2100,19 @@ end
   attribute :current_domain, CurrentDomain
 
   command "TrackCurrentFile" do
-    description "Record the currently open file and domain for context"
+    goal "Record the currently open file and domain for context"
     attribute :path, Path
     attribute :domain, Domain
     emits "CurrentFileTracked"
   end
 
   command "SaveState" do
-    description "Persist the current layout state to disk"
+    goal "Persist the current layout state to disk"
     emits "StateSaved"
   end
 
   command "RestoreState" do
-    description "Load persisted layout state from disk"
+    goal "Load persisted layout state from disk"
     emits "StateRestored"
   end
 end
@@ -2154,7 +2143,7 @@ end
   attribute :items, list_of(MenuItem)
 
   value_object "MenuItem" do
-    description "A single menu entry -- label, action, keyboard shortcut, enabled state"
+    # "A single menu entry -- label, action, keyboard shortcut, enabled state"
     attribute :label, String
     attribute :action, String
     attribute :shortcut, String
@@ -2163,18 +2152,18 @@ end
   end
 
   command "OpenMenu" do
-    description "Open a menu dropdown -- File, View, or Domain"
+    goal "Open a menu dropdown -- File, View, or Domain"
     attribute :menu_name, MenuName
     emits "MenuOpened"
   end
 
   command "CloseMenu" do
-    description "Close any open menu dropdown"
+    goal "Close any open menu dropdown"
     emits "MenuClosed"
   end
 
   command "SelectMenuItem" do
-    description "Execute a menu item action"
+    goal "Execute a menu item action"
     attribute :menu_name, MenuName
     attribute :action, Action
     emits "MenuItemSelected"
@@ -2214,7 +2203,7 @@ end
   attribute :command_name, CommandName
 
   command "BindShortcut" do
-    description "Register a keyboard shortcut for a command"
+    goal "Register a keyboard shortcut for a command"
     attribute :key, Key
     attribute :modifiers, Modifiers
     attribute :command_aggregate, CommandAggregate
@@ -2223,7 +2212,7 @@ end
   end
 
   command "TriggerShortcut" do
-    description "Fire the command associated with a key combination"
+    goal "Fire the command associated with a key combination"
     attribute :key, Key
     attribute :modifiers, Modifiers
     emits "ShortcutTriggered"
@@ -2263,7 +2252,7 @@ end
   attribute :dismissed, Dismissed
 
   command "Notify" do
-    description "Create a notification for the user"
+    goal "Create a notification for the user"
     attribute :severity, Severity
     attribute :message, Message
     attribute :context, Context
@@ -2271,7 +2260,7 @@ end
   end
 
   command "DismissNotification" do
-    description "Mark a notification as seen"
+    goal "Mark a notification as seen"
     emits "NotificationDismissed"
   end
 
@@ -2317,19 +2306,19 @@ end
   attribute :status, Status
 
   command "CaptureScreen" do
-    description "Save a screenshot frame from the browser"
+    goal "Save a screenshot frame from the browser"
     attribute :frame_data, FrameData
     attribute :timestamp, Timestamp
     emits "ScreenshotCaptured"
   end
 
   command "PauseCapture" do
-    description "Stop capturing screenshots"
+    goal "Stop capturing screenshots"
     emits "CapturePaused"
   end
 
   command "ResumeCapture" do
-    description "Resume capturing screenshots"
+    goal "Resume capturing screenshots"
     emits "CaptureResumed"
   end
 end
@@ -2361,7 +2350,7 @@ end
   attribute :result_count, ResultCount
 
   value_object "SearchResult" do
-    description "A single search match with context"
+    # "A single search match with context"
     attribute :element_type, String
     attribute :element_name, String
     attribute :domain_name, String
@@ -2370,18 +2359,18 @@ end
   end
 
   command "SearchDomain" do
-    description "Search across all domain elements for a query string"
+    goal "Search across all domain elements for a query string"
     attribute :query_text, QueryText
     emits "SearchCompleted"
   end
 
   command "ClearSearch" do
-    description "Reset search results"
+    goal "Reset search results"
     emits "SearchCleared"
   end
 
   command "FilterSearchResults" do
-    description "Narrow results by element type"
+    goal "Narrow results by element type"
     attribute :element_type, ElementType
     emits "SearchResultsFiltered"
   end
@@ -2389,7 +2378,7 @@ end
 
 policy "SwitchToEditorOnFileOpen" do
   on "FileOpened"
-  trigger "SelectTab"
+  trigger SelectTab
   # `defaults` was never a real PolicyBuilder verb (undefined method,
   # caught by validate -- i751 sweep). `map` is the real one: merges a
   # literal key/value into the triggered command's args.

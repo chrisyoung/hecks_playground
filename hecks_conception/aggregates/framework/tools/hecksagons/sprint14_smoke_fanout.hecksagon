@@ -18,9 +18,9 @@ Hecks.hecksagon "Sprint14SmokeFanout" do
   adapter "Sprint14SmokeFanout" do
     driven on "Tools::ShellTool.BashRan" do |event|
       dispatch "Tools::TaskTool.Get",
-               id: "sprint14-fanout-smoke",
-               task_id: "sprint14-fanout-smoke-task",
-               description: "Sprint-14 fan-out smoke check"
+               with: { id: "sprint14-fanout-smoke",
+                       task_id: "sprint14-fanout-smoke-task",
+                       description: "Sprint-14 fan-out smoke check" }
     end
   end
 end

@@ -4,8 +4,9 @@ Hecks.bluebook "InstructionPair", version: "2026.04.28.1" do
 
   # Lifted out of training_pipeline.bluebook in i112 split.
 
-  aggregate "InstructionPair", "A single training example — instruction + expected response" do
-    identified_by { ref.value }
+  aggregate "InstructionPair" do
+    description "A single training example — instruction + expected response"
+    identified_by :ref
     attribute :ref,         Ref
     attribute :instruction, Instruction
     attribute :response,    Response
@@ -33,14 +34,14 @@ Hecks.bluebook "InstructionPair", version: "2026.04.28.1" do
 
     command "MintInstructionPair" do
       role "System"
-      description "Build one training pair"
+      goal "Build one training pair"
       attribute :instruction, Instruction
       attribute :response,    Response
       attribute :category,    Category
       emits "InstructionPairCreated"
-      then_set :instruction, to: :instruction
-      then_set :response,    to: :response
-      then_set :category,    to: :category
+      sets :instruction
+      sets :response
+      sets :category
     end
   end
 end

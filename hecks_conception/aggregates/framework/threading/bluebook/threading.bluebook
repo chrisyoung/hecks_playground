@@ -39,8 +39,9 @@ Hecks.bluebook "Threading", version: "2026.05.31.1" do
   # back through the bus and the adapter calls back to spawn) is
   # deliberately deferred.
 
-  aggregate "Thread", "One runtime-managed concurrent unit. Identity is name. kind selects the substrate (tokio | std) ; runtime_handle is the adapter's opaque token (a tokio Handle id or std::thread name) the rust side parked the real spawn behind. Lifecycle walks idle → running → joined ; a panicked thread moves to poisoned (terminal) so per-actor failure isolation is observable from the bluebook." do
-    identified_by { name.value }
+  aggregate "Thread" do
+    description "One runtime-managed concurrent unit. Identity is name. kind selects the substrate (tokio | std) ; runtime_handle is the adapter's opaque token (a tokio Handle id or std::thread name) the rust side parked the real spawn behind. Lifecycle walks idle → running → joined ; a panicked thread moves to poisoned (terminal) so per-actor failure isolation is observable from the bluebook."
+    identified_by :name
 
     attribute :name,           Name
     attribute :kind,           Kind,          default: { value: "tokio" }
@@ -88,39 +89,39 @@ Hecks.bluebook "Threading", version: "2026.05.31.1" do
 
     command "Spawn" do
       role "System"
-      description "Request a new concurrent unit. name IS the thread identity ; kind picks the substrate (tokio | std). Pure record + emit ; the threading_adapter.hecksagon binds Thread.SpawnRequested to the actual spawn syscall. State stays idle on Spawn ; the adapter dispatches a follow-up MarkRunning when the substrate accepted the task. Until the binding lands the rust actor module still calls tokio::spawn directly and dispatches Spawn here as the audit trail of what was scheduled."
+      goal "Request a new concurrent unit. name IS the thread identity ; kind picks the substrate (tokio | std). Pure record + emit ; the threading_adapter.hecksagon binds Thread.SpawnRequested to the actual spawn syscall. State stays idle on Spawn ; the adapter dispatches a follow-up MarkRunning when the substrate accepted the task. Until the binding lands the rust actor module still calls tokio::spawn directly and dispatches Spawn here as the audit trail of what was scheduled."
       attribute :name,           Name
       attribute :kind,           Kind
       attribute :runtime_handle, RuntimeHandle
-      then_set :name,           to: :name
-      then_set :kind,           to: :kind
-      then_set :runtime_handle, to: :runtime_handle
-      then_set :state,          to: "idle"
+      sets :name
+      sets :kind
+      sets :runtime_handle
+      sets :state,          to: "idle"
       emits "SpawnRequested"
     end
 
     command "Drain" do
       role "System"
-      description "Mark the thread as actively running its workload. Dispatched by the threading_adapter once the spawn syscall accepted the task and a handle was stashed. Pure state mutation : idle → running. No-op if already running."
+      goal "Mark the thread as actively running its workload. Dispatched by the threading_adapter once the spawn syscall accepted the task and a handle was stashed. Pure state mutation : idle → running. No-op if already running."
       reference_to(Thread)
-      then_set :state, to: "running"
+      sets :state, to: "running"
       emits "ThreadDraining"
     end
 
     command "Join" do
       role "System"
-      description "Mark the thread as joined — the unit completed normally and its handle was awaited. Dispatched by the adapter / supervisor when the tokio task or std::thread returned without panic. Terminal for the happy path : the record stays around as audit, no further transitions except a fresh Spawn under a new name."
+      goal "Mark the thread as joined — the unit completed normally and its handle was awaited. Dispatched by the adapter / supervisor when the tokio task or std::thread returned without panic. Terminal for the happy path : the record stays around as audit, no further transitions except a fresh Spawn under a new name."
       reference_to(Thread)
       given("thread must have been running") { state == "running" }
-      then_set :state, to: "joined"
+      sets :state, to: "joined"
       emits "ThreadJoined"
     end
 
     command "MarkPoisoned" do
       role "System"
-      description "Per-actor failure isolation : the supervisor caught a panic and stamped this thread poisoned. Terminal. Sister aggregate (Mailbox) carries the same poisoned token so the actor registry can answer 'is this aggregate's mailbox available' from pure bluebook state."
+      goal "Per-actor failure isolation : the supervisor caught a panic and stamped this thread poisoned. Terminal. Sister aggregate (Mailbox) carries the same poisoned token so the actor registry can answer 'is this aggregate's mailbox available' from pure bluebook state."
       reference_to(Thread)
-      then_set :state, to: "poisoned"
+      sets :state, to: "poisoned"
       emits "ThreadPoisoned"
     end
 
@@ -152,8 +153,9 @@ Hecks.bluebook "Threading", version: "2026.05.31.1" do
     end
   end
 
-  aggregate "Mailbox", "Per-actor FIFO addressed by (aggregate_type, aggregate_id). Promoted from rust/src/runtime/actor/mailbox.rs sprint 14 (threading-bluebook) so the substrate is bluebook-declared. Identity is name (conventionally <AggregateType>:<aggregate_id>, e.g. Sprint:14). owner_aggregate records the (type, id) the mailbox serves. State walks idle → draining → idle ; poisoned is terminal for panic isolation." do
-    identified_by { name.value }
+  aggregate "Mailbox" do
+    description "Per-actor FIFO addressed by (aggregate_type, aggregate_id). Promoted from rust/src/runtime/actor/mailbox.rs sprint 14 (threading-bluebook) so the substrate is bluebook-declared. Identity is name (conventionally <AggregateType>:<aggregate_id>, e.g. Sprint:14). owner_aggregate records the (type, id) the mailbox serves. State walks idle → draining → idle ; poisoned is terminal for panic isolation."
+    identified_by :name
 
     attribute :name,             Name
     attribute :owner_aggregate,  OwnerAggregate, default: { value: "" }
@@ -198,46 +200,46 @@ Hecks.bluebook "Threading", version: "2026.05.31.1" do
 
     command "Register" do
       role "System"
-      description "Mint a new Mailbox under name + owner_aggregate. Creation command — the record does not exist until Register fires. Dispatched the first time the actor registry sees a deliver to this address."
+      goal "Mint a new Mailbox under name + owner_aggregate. Creation command — the record does not exist until Register fires. Dispatched the first time the actor registry sees a deliver to this address."
       attribute :name,            Name
       attribute :owner_aggregate, OwnerAggregate
-      then_set :name,             to: :name
-      then_set :owner_aggregate,  to: :owner_aggregate
-      then_set :state,            to: "idle"
+      sets :name
+      sets :owner_aggregate
+      sets :state,            to: "idle"
       emits "MailboxRegistered"
     end
 
     command "Enqueue" do
       role "System"
-      description "Record that one envelope was enqueued. Bumps pending by 1. The rust-side push is the syscall ; this command is the audit trail. Idempotency dedup happens at the rust mailbox boundary, not here."
+      goal "Record that one envelope was enqueued. Bumps pending by 1. The rust-side push is the syscall ; this command is the audit trail. Idempotency dedup happens at the rust mailbox boundary, not here."
       reference_to(Mailbox)
-      then_set :pending, increment: 1
+      sets :pending, increment: 1
       emits "EnvelopeEnqueued"
     end
 
     command "StartDraining" do
       role "System"
-      description "Mark the mailbox as actively draining. Dispatched by drain_all_in_parallel / drain_all_blocking when the registry picks this mailbox up. State idle → draining ; pending decrements on the rust side as envelopes pop. Named StartDraining (rather than Drain) so it does not collide with Thread.Drain in the same bluebook — setup-by-command-name in the behaviors runner resolves the first match across aggregates."
+      goal "Mark the mailbox as actively draining. Dispatched by drain_all_in_parallel / drain_all_blocking when the registry picks this mailbox up. State idle → draining ; pending decrements on the rust side as envelopes pop. Named StartDraining (rather than Drain) so it does not collide with Thread.Drain in the same bluebook — setup-by-command-name in the behaviors runner resolves the first match across aggregates."
       reference_to(Mailbox)
-      then_set :state,   to: "draining"
-      then_set :pending, to: 0
+      sets :state,   to: "draining"
+      sets :pending, to: 0
       emits "MailboxDraining"
     end
 
     command "MarkIdle" do
       role "System"
-      description "The drain completed — every envelope handled, no panic. State draining → idle. Mailbox is ready to receive again."
+      goal "The drain completed — every envelope handled, no panic. State draining → idle. Mailbox is ready to receive again."
       reference_to(Mailbox)
       given("must be draining") { state == "draining" }
-      then_set :state, to: "idle"
+      sets :state, to: "idle"
       emits "MailboxIdled"
     end
 
     command "MarkPoisoned" do
       role "System"
-      description "A handler panicked mid-drain ; supervisor isolated this mailbox. Terminal — no further envelopes are processed until a fresh Register under a new name. Per-actor failure isolation made observable."
+      goal "A handler panicked mid-drain ; supervisor isolated this mailbox. Terminal — no further envelopes are processed until a fresh Register under a new name. Per-actor failure isolation made observable."
       reference_to(Mailbox)
-      then_set :state, to: "poisoned"
+      sets :state, to: "poisoned"
       emits "MailboxPoisoned"
     end
 

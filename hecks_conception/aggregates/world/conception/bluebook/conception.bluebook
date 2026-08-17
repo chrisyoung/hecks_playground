@@ -7,8 +7,9 @@ Hecks.bluebook "Conception", version: "2026.04.16.1" do
   # event (DomainConceived) is observed by Gestation, NurseryCorpus,
   # and others across bluebook boundaries.
 
-  aggregate "Conception", "The spark — always multi-domain, never a monolith" do
-    identified_by { name.value }
+  aggregate "Conception" do
+    description "The spark — always multi-domain, never a monolith"
+    identified_by :name
     attribute :name,             Name
     attribute :vision,           Vision
     attribute :requested_by,     RequestedBy
@@ -54,7 +55,7 @@ Hecks.bluebook "Conception", version: "2026.04.16.1" do
 
     command "ConceiveDomain" do
       role "Miette"
-      description "Conceive a multi-domain project — identify bounded contexts from the start"
+      goal "Conceive a multi-domain project — identify bounded contexts from the start"
       attribute :name,             Name
       attribute :vision,           Vision
       attribute :requested_by,     RequestedBy
@@ -62,13 +63,13 @@ Hecks.bluebook "Conception", version: "2026.04.16.1" do
       attribute :category,         Category
       attribute :bounded_contexts, list_of(BoundedContextName)
       emits "DomainConceived"
-      then_set :name,             to: :name
-      then_set :vision,           to: :vision
-      then_set :requested_by,     to: :requested_by
-      then_set :source,           to: :source
-      then_set :category,         to: :category
-      then_set :bounded_contexts, to: :bounded_contexts
-      then_set :status,           to: "conceived"
+      sets :name
+      sets :vision
+      sets :requested_by
+      sets :source
+      sets :category
+      sets :bounded_contexts
+      sets :status,           to: "conceived"
     end
 
     lifecycle :status, default: "spark" do

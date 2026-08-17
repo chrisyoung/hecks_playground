@@ -58,8 +58,9 @@ Hecks.bluebook "Role", version: "2026.05.12.1" do
   #                  When permission validation lands, it'll resolve
   #                  every permission through Lexicon.Lookup.
 
-  aggregate "Role", "The type an Agent fills in a command's scope. Carries a name, a description, an optional parent role for composition, and a permissions list of dotted phrases." do
-    identified_by { name.value }
+  aggregate "Role" do
+    description "The type an Agent fills in a command's scope. Carries a name, a description, an optional parent role for composition, and a permissions list of dotted phrases."
+    identified_by :name
 
     # ── Value-objects : the domain's language ──
     #
@@ -109,12 +110,7 @@ Hecks.bluebook "Role", version: "2026.05.12.1" do
     # roles when it flattens ancestor chains, so an Agent bound to a
     # retired Role resolves to no permissions (fail closed).
     value_object "Status" do
-      attribute :value, String
-
-      one_of do
-        member value: "active"
-        member value: "retired"
-      end
+      attribute :value, String, one_of: %w[active retired]
     end
 
     attribute :name,        Name
@@ -148,7 +144,7 @@ Hecks.bluebook "Role", version: "2026.05.12.1" do
 
     command "Define" do
       role "Framework"
-      description "Conceive a new Role. Inputs : a name (the natural key), a one-line description, and an optional parent_name for composition (empty string when the role inherits from no other). Permissions are added through GrantPermission once the Role exists ; a defined Role starts with an empty permissions list."
+      goal "Conceive a new Role. Inputs : a name (the natural key), a one-line description, and an optional parent_name for composition (empty string when the role inherits from no other). Permissions are added through GrantPermission once the Role exists ; a defined Role starts with an empty permissions list."
       attribute :name,        Name
       attribute :description, Description
       attribute :parent_name, ParentName
@@ -157,7 +153,7 @@ Hecks.bluebook "Role", version: "2026.05.12.1" do
 
     command "GrantPermission" do
       role "Framework"
-      description "Add a Phrase to this Role's permissions. The phrase is the dotted Aggregate.Command form Lexicon already canonicalises. Idempotent : granting an already-granted phrase is a no-op event for the audit trail."
+      goal "Add a Phrase to this Role's permissions. The phrase is the dotted Aggregate.Command form Lexicon already canonicalises. Idempotent : granting an already-granted phrase is a no-op event for the audit trail."
       reference_to(Role)
       attribute :phrase, Phrase
       emits "PermissionGranted"
@@ -165,7 +161,7 @@ Hecks.bluebook "Role", version: "2026.05.12.1" do
 
     command "RevokePermission" do
       role "Framework"
-      description "Remove a Phrase from this Role's permissions. Revoking a phrase the Role doesn't hold is recorded but not an error ; the audit trail captures the intent."
+      goal "Remove a Phrase from this Role's permissions. Revoking a phrase the Role doesn't hold is recorded but not an error ; the audit trail captures the intent."
       reference_to(Role)
       attribute :phrase, Phrase
       emits "PermissionRevoked"
@@ -173,7 +169,7 @@ Hecks.bluebook "Role", version: "2026.05.12.1" do
 
     command "Retire" do
       role "Framework"
-      description "Mark a Role as retired. Revoke access by retiring the RoleAssignments that name it in the Authorization context ; cascades already in flight complete with the retired Role attribution intact."
+      goal "Mark a Role as retired. Revoke access by retiring the RoleAssignments that name it in the Authorization context ; cascades already in flight complete with the retired Role attribution intact."
       reference_to(Role)
       emits "Retired"
     end

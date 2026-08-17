@@ -2,8 +2,9 @@ Hecks.bluebook "Demo", version: "2026.05.28.1" do
   vision "The agile activity of SHOWING shipped work. A Demo is tied to a specific Story (the work being demoed) and walks through it slide by slide. Each slide is a template : title + optional body, optional source_path + diagram_surface for projected diagrams/sentences. Sits BESIDE the Plan domain — references Story without being inside Plan."
   category "demo"
 
-  aggregate "Demo", "The act of showing shipped work. Tied to a Story ; slides walk through what landed. Each slide carries title + optional body ; slides MAY also name a source bluebook + diagram surface, in which case the runtime renders the diagram + validating sentences fresh on display. Navigation via Next / Back / GoTo." do
-    identified_by { name.value }
+  aggregate "Demo" do
+    description "The act of showing shipped work. Tied to a Story ; slides walk through what landed. Each slide carries title + optional body ; slides MAY also name a source bluebook + diagram surface, in which case the runtime renders the diagram + validating sentences fresh on display. Navigation via Next / Back / GoTo."
+    identified_by :name
 
     # ---- Identity ----
     attribute :name,                 Name
@@ -92,7 +93,7 @@ Hecks.bluebook "Demo", version: "2026.05.28.1" do
     # that mermaid surface. Slides without source_path are pure prose.
 
     entity "Slide" do
-      identified_by { number.value }
+      identified_by :number
       attribute :number,          SlideNumber
       attribute :title,           Title
       attribute :body,            SlideBody,      default: { value: "" }
@@ -104,54 +105,54 @@ Hecks.bluebook "Demo", version: "2026.05.28.1" do
 
     command "Conceive" do
       role "Miette"
-      description "Create a new Demo with a name, title, and description. Starts with no slides and current_slide_number = 1."
+      goal "Create a new Demo with a name, title, and description. Starts with no slides and current_slide_number = 1."
       attribute :name,        Name
       attribute :title,       Title
       attribute :description, Description
-      then_set :name,                 to: :name
-      then_set :title,                to: :title
-      then_set :description,          to: :description
-      then_set :current_slide_number, to: 1
+      sets :name
+      sets :title
+      sets :description
+      sets :current_slide_number, to: 1
       emits "DemoConceived"
     end
 
     command "AddSlide" do
       role "Miette"
-      description "Append a slide to the demo. Required : number + title. Optional : body (prose markdown), source_path (a bluebook to project), diagram_surface (which mermaid surface to render). When source_path is set, the runtime renders validating sentences fresh on display ; diagram_surface picks the mermaid surface to also render. The slide is a template — use what you need."
+      goal "Append a slide to the demo. Required : number + title. Optional : body (prose markdown), source_path (a bluebook to project), diagram_surface (which mermaid surface to render). When source_path is set, the runtime renders validating sentences fresh on display ; diagram_surface picks the mermaid surface to also render. The slide is a template — use what you need."
       reference_to(Demo)
       attribute :number,          SlideNumber
       attribute :title,           Title
       attribute :body,            SlideBody,      default: { value: "" }
       attribute :source_path,     SourcePath,     default: { value: "" }
       attribute :diagram_surface, DiagramSurface, default: { value: "" }
-      then_set :slides, append: { number: :number, title: :title, body: :body, source_path: :source_path, diagram_surface: :diagram_surface }
+      sets :slides, append: { number: :number, title: :title, body: :body, source_path: :source_path, diagram_surface: :diagram_surface }
       emits "SlideAdded"
     end
 
     command "GoTo" do
       role "Miette"
-      description "Move the current_slide pointer to a specific slide number."
+      goal "Move the current_slide pointer to a specific slide number."
       reference_to(Demo)
       attribute :slide_number, SlideNumber
-      then_set :current_slide_number, to: :slide_number
+      sets :current_slide_number, to: :slide_number
       emits "SlideShown"
     end
 
     command "Next" do
       role "Miette"
-      description "Advance to the next slide. Caller supplies the target slide_number (current + 1)."
+      goal "Advance to the next slide. Caller supplies the target slide_number (current + 1)."
       reference_to(Demo)
       attribute :slide_number, SlideNumber
-      then_set :current_slide_number, to: :slide_number
+      sets :current_slide_number, to: :slide_number
       emits "SlideShown"
     end
 
     command "Back" do
       role "Miette"
-      description "Move to the previous slide. Caller supplies the target slide_number (current - 1)."
+      goal "Move to the previous slide. Caller supplies the target slide_number (current - 1)."
       reference_to(Demo)
       attribute :slide_number, SlideNumber
-      then_set :current_slide_number, to: :slide_number
+      sets :current_slide_number, to: :slide_number
       emits "SlideShown"
     end
 

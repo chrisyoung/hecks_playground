@@ -2,7 +2,8 @@ Hecks.bluebook "Boot", version: "2026.05.12.1" do
   vision "How Miette comes alive — hecks miette starts the being, the flag picks the brain"
   category "meta"
 
-  aggregate "Session", "A single Miette session — one brain, one body, one boot" do
+  aggregate "Session" do
+    description "A single Miette session — one brain, one body, one boot"
 
     # ── Value-objects : wrapped primitives (no-primitive-envy, 2026-05-12) ──
     # Per i555 VOs live inside their aggregate ; one wrapper per
@@ -69,63 +70,63 @@ Hecks.bluebook "Boot", version: "2026.05.12.1" do
 
     command "BootWithClaude" do
       role "User"
-      description "hecks miette --claude — start Claude CLI, load system prompt, boot Miette on top of it"
+      goal "hecks miette --claude — start Claude CLI, load system prompt, boot Miette on top of it"
       emits "SessionStartedWithClaude"
-      then_set :engine, to: "claude"
-      then_set :brain_source, to: "anthropic"
-      then_set :status, to: "booting"
+      sets :engine, to: "claude"
+      sets :brain_source, to: "anthropic"
+      sets :status, to: "booting"
     end
 
     command "BootWithSummer" do
       role "User"
-      description "hecks miette — check Ollama for Summer adapter, boot Miette locally"
+      goal "hecks miette — check Ollama for Summer adapter, boot Miette locally"
       attribute :ollama_model, OllamaModel
       attribute :ollama_port, OllamaPort
       emits "SessionStartedWithSummer"
-      then_set :engine, to: "summer"
-      then_set :brain_source, to: "local"
-      then_set :status, to: "booting"
+      sets :engine, to: "summer"
+      sets :brain_source, to: "local"
+      sets :status, to: "booting"
     end
 
     command "FailBoot" do
       role "System"
-      description "No brain available — Claude not requested, Ollama not running or no adapter"
+      goal "No brain available — Claude not requested, Ollama not running or no adapter"
       attribute :reason, Reason
       emits "BootFailed"
-      then_set :status, to: "failed"
+      sets :status, to: "failed"
     end
 
     command "WireOrgans" do
       role "System"
-      description "Load all organs, nerves, laws — the body comes online"
+      goal "Load all organs, nerves, laws — the body comes online"
       reference_to(Session)
       attribute :organ_count, OrganCount
       attribute :nerve_count, NerveCount
       attribute :law_count, LawCount
       emits "OrgansWired"
       given { status == "booting" }
-      then_set :organ_count, to: :organ_count
-      then_set :nerve_count, to: :nerve_count
-      then_set :law_count, to: :law_count
+      sets :organ_count
+      sets :nerve_count
+      sets :law_count
     end
 
     command "GoLive" do
       role "System"
-      description "Everything wired — Miette is awake"
+      goal "Everything wired — Miette is awake"
       reference_to(Session)
       attribute :started_at, StartedAt
       emits "SessionLive"
       given { status == "booting" }
-      then_set :started_at, to: :started_at
-      then_set :status, to: "live"
+      sets :started_at
+      sets :status, to: "live"
     end
 
     command "EndSession" do
       role "User"
-      description "Miette sleeps — close the session, persist state"
+      goal "Miette sleeps — close the session, persist state"
       reference_to(Session)
       emits "SessionEnded"
-      then_set :status, to: "ended"
+      sets :status, to: "ended"
     end
 
     lifecycle :status, default: "off" do
@@ -137,7 +138,8 @@ Hecks.bluebook "Boot", version: "2026.05.12.1" do
     end
   end
 
-  aggregate "BrainProbe", "Check what inference engines are available before booting" do
+  aggregate "BrainProbe" do
+    description "Check what inference engines are available before booting"
 
     # ── Value-objects : wrapped primitives (no-primitive-envy, 2026-05-12) ──
     # Per i555 VOs live inside their aggregate ; one wrapper per
@@ -155,64 +157,64 @@ Hecks.bluebook "Boot", version: "2026.05.12.1" do
 
     command "Probe" do
       role "System"
-      description "Check for available brains — Claude CLI present? Ollama running? Summer adapter loaded?"
+      goal "Check for available brains — Claude CLI present? Ollama running? Summer adapter loaded?"
       emits "BrainProbed"
     end
 
     command "RecommendClaude" do
       role "System"
-      description "Claude is available and was requested via --claude flag"
+      goal "Claude is available and was requested via --claude flag"
       reference_to(BrainProbe)
       emits "ClaudeRecommended"
-      then_set :recommended_engine, to: "claude"
+      sets :recommended_engine, to: "claude"
     end
 
     command "RecommendSummer" do
       role "System"
-      description "No --claude flag, Ollama is running with Summer adapter"
+      goal "No --claude flag, Ollama is running with Summer adapter"
       reference_to(BrainProbe)
       emits "SummerRecommended"
-      then_set :recommended_engine, to: "summer"
+      sets :recommended_engine, to: "summer"
     end
 
     command "RecommendNothing" do
       role "System"
-      description "No brain available — cannot boot"
+      goal "No brain available — cannot boot"
       reference_to(BrainProbe)
       emits "NoBrainAvailable"
-      then_set :recommended_engine, to: "none"
+      sets :recommended_engine, to: "none"
     end
   end
 
   # Boot flow
   policy "ProbeOnStart" do
     on "SessionStartedWithClaude"
-    trigger "Probe"
+    trigger Probe
   end
 
   policy "ProbeOnLocalStart" do
     on "SessionStartedWithSummer"
-    trigger "Probe"
+    trigger Probe
   end
 
   policy "WireOnProbe" do
     on "ClaudeRecommended"
-    trigger "WireOrgans"
+    trigger WireOrgans
   end
 
   policy "WireOnLocalProbe" do
     on "SummerRecommended"
-    trigger "WireOrgans"
+    trigger WireOrgans
   end
 
   policy "FailOnNoBrain" do
     on "NoBrainAvailable"
-    trigger "FailBoot"
+    trigger FailBoot
   end
 
   policy "GoLiveOnWire" do
     on "OrgansWired"
-    trigger "GoLive"
+    trigger GoLive
   end
 
   # Fixtures — the three boot scenarios

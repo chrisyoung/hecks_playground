@@ -56,7 +56,8 @@ Hecks.bluebook "Query", version: "2026.05.10.1" do
   # both commands and queries). See i528 for the full storehouse
   # arc and the four-segment convention.
 
-  aggregate "Query", "Singleton read bus over the conception" do
+  aggregate "Query" do
+    description "Singleton read bus over the conception"
 
     value_object "ServiceName" do
       attribute :value, String
@@ -118,22 +119,22 @@ Hecks.bluebook "Query", version: "2026.05.10.1" do
       end
     end
 
-    attribute ServiceName
+    attribute :service_name, ServiceName
 
     # ── Commands ───────────────────────────────────────────────
 
     command "Read" do
       role "Caller"
-      description "Parse the four-segment Path (app::domain::Aggregate::attribute), locate the aggregate's record in the configured storage adapter, read the latest record's named attribute, emit ValueRead with the flattened value as payload. Path-not-found surfaces as a runtime error before the command runs. For named queries (computed views with where-clauses and parameters), see Run."
-      attribute Path, as: :path
+      goal "Parse the four-segment Path (app::domain::Aggregate::attribute), locate the aggregate's record in the configured storage adapter, read the latest record's named attribute, emit ValueRead with the flattened value as payload. Path-not-found surfaces as a runtime error before the command runs. For named queries (computed views with where-clauses and parameters), see Run."
+      attribute :path, Path
       emits "ValueRead"
     end
 
     command "Run" do
       role "Caller"
-      description "Resolve the four-segment Phrase via Lexicon.Lookup, parse params into the target query's block parameters, evaluate the query's where/order/limit clauses against the configured storage adapter's index, and emit Queried with the result rows as payload. The fourth segment of the Phrase must be snake_case (the converted form of the bluebook-source PascalCase query name) ; PascalCase fourth segments are rejected — those go through Dispatch.Route."
-      attribute Phrase, as: :phrase
-      attribute Params, as: :params
+      goal "Resolve the four-segment Phrase via Lexicon.Lookup, parse params into the target query's block parameters, evaluate the query's where/order/limit clauses against the configured storage adapter's index, and emit Queried with the result rows as payload. The fourth segment of the Phrase must be snake_case (the converted form of the bluebook-source PascalCase query name) ; PascalCase fourth segments are rejected — those go through Dispatch.Route."
+      attribute :phrase, Phrase
+      attribute :params, Params
       # PRECONDITION, stated and NOT machine-checked : phrase resolves to a query in the lexicon.
       #   Lexicon.Lookup(phrase: phrase).present?
       # The expression floor cannot evaluate this — cross-aggregate lookups,

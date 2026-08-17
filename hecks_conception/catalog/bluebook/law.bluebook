@@ -2,7 +2,8 @@ Hecks.bluebook "Law", version: "2026.05.12.1" do
   vision "Enforceable rules — not advice, not memory. Laws are checked by contract and violations are reported."
   category "meta"
 
-  aggregate "Law", "A single enforceable rule — has a check, a severity, and a contract that can be run" do
+  aggregate "Law" do
+    description "A single enforceable rule — has a check, a severity, and a contract that can be run"
 
     # ── Value-objects : wrapped primitives (no-primitive-envy, 2026-05-12) ──
     # Per i555 VOs live inside their aggregate ; one wrapper per
@@ -54,55 +55,55 @@ Hecks.bluebook "Law", version: "2026.05.12.1" do
 
     command "Enact" do
       role "Architect"
-      description "Create a new law — an enforceable rule with a check expression and severity"
+      goal "Create a new law — an enforceable rule with a check expression and severity"
       attribute :name, Name
       attribute :description, Description
       attribute :domain_scope, DomainScope
       attribute :check_expression, CheckExpression
       attribute :severity, Severity
       emits "LawEnacted"
-      then_set :name, to: :name
-      then_set :description, to: :description
-      then_set :domain_scope, to: :domain_scope
-      then_set :check_expression, to: :check_expression
-      then_set :severity, to: :severity
-      then_set :status, to: "active"
-      then_set :violation_count, to: 0
+      sets :name
+      sets :description
+      sets :domain_scope
+      sets :check_expression
+      sets :severity
+      sets :status, to: "active"
+      sets :violation_count, to: 0
     end
 
     command "Amend" do
       role "Architect"
-      description "Change the check or description of an existing law"
+      goal "Change the check or description of an existing law"
       reference_to(Law)
       attribute :description, Description
       attribute :check_expression, CheckExpression
       emits "LawAmended"
-      then_set :description, to: :description
-      then_set :check_expression, to: :check_expression
+      sets :description
+      sets :check_expression
     end
 
     command "Suspend" do
       role "Architect"
-      description "Temporarily disable a law — it still exists but is not enforced"
+      goal "Temporarily disable a law — it still exists but is not enforced"
       reference_to(Law)
       emits "LawSuspended"
-      then_set :status, to: "suspended"
+      sets :status, to: "suspended"
     end
 
     command "Reinstate" do
       role "Architect"
-      description "Re-enable a suspended law"
+      goal "Re-enable a suspended law"
       reference_to(Law)
       emits "LawReinstated"
-      then_set :status, to: "active"
+      sets :status, to: "active"
     end
 
     command "RecordViolation" do
       role "Enforcer"
-      description "A contract check found this law was violated"
+      goal "A contract check found this law was violated"
       reference_to(Law)
       emits "ViolationRecorded"
-      then_set :violation_count, increment: 1
+      sets :violation_count, increment: 1
     end
 
     lifecycle :status, default: "draft" do
@@ -112,7 +113,8 @@ Hecks.bluebook "Law", version: "2026.05.12.1" do
     end
   end
 
-  aggregate "Violation", "A specific instance of a law being broken — who, where, when, what" do
+  aggregate "Violation" do
+    description "A specific instance of a law being broken — who, where, when, what"
 
     # ── Value-objects : wrapped primitives (no-primitive-envy, 2026-05-12) ──
     # Per i555 VOs live inside their aggregate ; one wrapper per
@@ -158,24 +160,24 @@ Hecks.bluebook "Law", version: "2026.05.12.1" do
 
     command "Report" do
       role "Enforcer"
-      description "Report a specific violation — which law, where, what happened"
+      goal "Report a specific violation — which law, where, what happened"
       attribute :law_name, LawName
       attribute :violator, Violator
       attribute :location, Location
       attribute :detail, Detail
       attribute :detected_at, DetectedAt
       emits "ViolationReported"
-      then_set :law_name, to: :law_name
-      then_set :violator, to: :violator
-      then_set :location, to: :location
-      then_set :detail, to: :detail
-      then_set :detected_at, to: :detected_at
-      then_set :resolution, to: "open"
+      sets :law_name
+      sets :violator
+      sets :location
+      sets :detail
+      sets :detected_at
+      sets :resolution, to: "open"
     end
 
     command "Resolve" do
       role "Architect"
-      description "Mark a violation as resolved — the offending code or domain was fixed"
+      goal "Mark a violation as resolved — the offending code or domain was fixed"
       reference_to(Violation)
       emits "ViolationResolved"
     end
@@ -186,7 +188,8 @@ Hecks.bluebook "Law", version: "2026.05.12.1" do
     end
   end
 
-  aggregate "Enforcement", "A run of all active laws against a scope — the contract check" do
+  aggregate "Enforcement" do
+    description "A run of all active laws against a scope — the contract check"
 
     # ── Value-objects : wrapped primitives (no-primitive-envy, 2026-05-12) ──
     # Per i555 VOs live inside their aggregate ; one wrapper per
@@ -232,19 +235,19 @@ Hecks.bluebook "Law", version: "2026.05.12.1" do
 
     command "Enforce" do
       role "Enforcer"
-      description "Run all active laws against a scope — check every contract, report every violation"
+      goal "Run all active laws against a scope — check every contract, report every violation"
       attribute :scope, Scope
       emits "EnforcementStarted"
-      then_set :scope, to: :scope
-      then_set :laws_checked, to: 0
-      then_set :laws_passed, to: 0
-      then_set :laws_violated, to: 0
-      then_set :verdict, to: "running"
+      sets :scope
+      sets :laws_checked, to: 0
+      sets :laws_passed, to: 0
+      sets :laws_violated, to: 0
+      sets :verdict, to: "running"
     end
 
     command "RecordCheck" do
       role "Enforcer"
-      description "Record the result of checking one law"
+      goal "Record the result of checking one law"
       reference_to(Enforcement)
       attribute :passed, TrueClass
       emits "LawChecked"
@@ -252,28 +255,28 @@ Hecks.bluebook "Law", version: "2026.05.12.1" do
 
     command "Conclude" do
       role "Enforcer"
-      description "All laws checked — render final verdict"
+      goal "All laws checked — render final verdict"
       reference_to(Enforcement)
       attribute :enforced_at, EnforcedAt
       emits "EnforcementConcluded"
-      then_set :enforced_at, to: :enforced_at
+      sets :enforced_at
     end
 
     command "PassAll" do
       role "Enforcer"
-      description "Every law passed — scope is lawful"
+      goal "Every law passed — scope is lawful"
       reference_to(Enforcement)
       emits "ScopeLawful"
       given("no violations") { laws_violated == 0 }
-      then_set :verdict, to: "lawful"
+      sets :verdict, to: "lawful"
     end
 
     command "FailSome" do
       role "Enforcer"
-      description "One or more laws were violated — scope is unlawful"
+      goal "One or more laws were violated — scope is unlawful"
       reference_to(Enforcement)
       emits "ScopeUnlawful"
-      then_set :verdict, to: "unlawful"
+      sets :verdict, to: "unlawful"
     end
 
     lifecycle :verdict, default: "unchecked" do
@@ -286,12 +289,12 @@ Hecks.bluebook "Law", version: "2026.05.12.1" do
   # Enforcement flow
   policy "ReportOnViolation" do
     on "ViolationRecorded"
-    trigger "Report"
+    trigger Report
   end
 
   policy "ConcludeOnAllChecked" do
     on "LawChecked"
-    trigger "Conclude"
+    trigger Conclude
   end
 
   # === The Laws ===

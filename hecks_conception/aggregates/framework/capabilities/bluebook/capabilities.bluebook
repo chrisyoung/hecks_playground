@@ -47,8 +47,9 @@ Hecks.bluebook "Capabilities", version: "2026.05.12.1" do
   # capability to `dormant`. The lifecycle block at the bottom of the
   # aggregate enforces these transitions ; the runtime walks them.
 
-  aggregate "Capability", "A registered ability — what a being can do, how it's wired, and where its dispatch surface lives. Each Capability record names one capability (tools, voice, chat_agent, …) and points at the bluebook that hosts its dispatch surface." do
-    identified_by { name.value }
+  aggregate "Capability" do
+    description "A registered ability — what a being can do, how it's wired, and where its dispatch surface lives. Each Capability record names one capability (tools, voice, chat_agent, …) and points at the bluebook that hosts its dispatch surface."
+    identified_by :name
 
     # ── Attributes (all wrapped in per-aggregate VOs) ──
 
@@ -86,18 +87,7 @@ Hecks.bluebook "Capabilities", version: "2026.05.12.1" do
       #   persistence : storage adapters (event_store, heki backends)
       #   substrate   : boot-time wiring with no dispatch surface
       #   framework   : framework-internal plumbing
-      attribute :value, String
-
-      one_of do
-        member value: "tools"
-        member value: "chat_agent"
-        member value: "crud"
-        member value: "websocket"
-        member value: "ui"
-        member value: "persistence"
-        member value: "substrate"
-        member value: "framework"
-      end
+      attribute :value, String, one_of: %w[tools chat_agent crud websocket ui persistence substrate framework]
     end
 
     value_object "Timestamp" do
@@ -128,13 +118,7 @@ Hecks.bluebook "Capabilities", version: "2026.05.12.1" do
       # the bluebook stays in the registry, the apply step skips).
       # The lifecycle block at the bottom of this aggregate enforces
       # the transitions ; never set this attribute directly.
-      attribute :value, String
-
-      one_of do
-        member value: "nursery"
-        member value: "active"
-        member value: "dormant"
-      end
+      attribute :value, String, one_of: %w[nursery active dormant]
     end
 
     value_object "AggregateName" do
@@ -158,7 +142,7 @@ Hecks.bluebook "Capabilities", version: "2026.05.12.1" do
     # aggregate ; for multi-aggregate, one Provider per aggregate.
 
     entity "Provider" do
-      identified_by { aggregate_name.value }
+      identified_by :aggregate_name
       description "One bluebook aggregate this capability exposes as a dispatch surface. A capability like 'tools' that spans multiple aggregates (ShellTool, FileTool, …) carries one Provider per aggregate ; a capability like 'chat_agent' that lives in a single aggregate carries exactly one Provider. The boot sequence walks providers to enumerate the dispatch surface a being inherits when the capability is on."
       attribute :aggregate_name, AggregateName
     end
@@ -177,44 +161,44 @@ Hecks.bluebook "Capabilities", version: "2026.05.12.1" do
 
     command "Register" do
       role "Framework"
-      description "Add a capability to the registry. Inputs : the capability name (lowercase snake_case, matches the hecksagon symbol form), the kind (one of the closed set : tools / chat_agent / crud / websocket / ui / persistence / substrate / framework), the registered_at timestamp, and the source (bluebook path or Ruby module path that defines the capability). Emits CapabilityRegistered so downstream policies (boot sequence, workshop UI, awareness) can react. New records land in `nursery` state by default — call Activate to promote."
+      goal "Add a capability to the registry. Inputs : the capability name (lowercase snake_case, matches the hecksagon symbol form), the kind (one of the closed set : tools / chat_agent / crud / websocket / ui / persistence / substrate / framework), the registered_at timestamp, and the source (bluebook path or Ruby module path that defines the capability). Emits CapabilityRegistered so downstream policies (boot sequence, workshop UI, awareness) can react. New records land in `nursery` state by default — call Activate to promote."
       attribute :name,          Name
       attribute :kind,          CapabilityKind
       attribute :registered_at, Timestamp
       attribute :source,        CapabilityProvider
       emits "CapabilityRegistered"
-      then_set :name,          to: :name
-      then_set :kind,          to: :kind
-      then_set :registered_at, to: :registered_at
-      then_set :source,        to: :source
+      sets :name
+      sets :kind
+      sets :registered_at
+      sets :source
     end
 
     command "AddProvider" do
       role "Framework"
-      description "Append one Provider entity to a registered capability. Called once per dispatch aggregate the capability exposes. For tools (the merge exemplar), one AddProvider call per aggregate listed in tools.bluebook. For single-aggregate capabilities, one call with the lone aggregate's name."
+      goal "Append one Provider entity to a registered capability. Called once per dispatch aggregate the capability exposes. For tools (the merge exemplar), one AddProvider call per aggregate listed in tools.bluebook. For single-aggregate capabilities, one call with the lone aggregate's name."
       reference_to(Capability)
       attribute :aggregate_name, AggregateName
       emits "ProviderAdded"
-      then_set :providers, append: { aggregate_name: :aggregate_name }
+      sets :providers, append: { aggregate_name: :aggregate_name }
     end
 
     command "Activate" do
       role "Framework"
-      description "Promote a capability from nursery (or dormant) to active. Active capabilities participate in the boot sequence — each being's hecksagon `capabilities :name` declarations resolve against active capabilities. Emits CapabilityActivated so the awareness layer can surface 'voice wired in' / 'tools wired in' moments."
+      goal "Promote a capability from nursery (or dormant) to active. Active capabilities participate in the boot sequence — each being's hecksagon `capabilities :name` declarations resolve against active capabilities. Emits CapabilityActivated so the awareness layer can surface 'voice wired in' / 'tools wired in' moments."
       reference_to(Capability)
       emits "CapabilityActivated"
     end
 
     command "Deactivate" do
       role "Framework"
-      description "Move an active capability to dormant. The record stays in the registry (the audit trail is preserved), but the boot sequence's apply step skips dormant entries. Future hecksagons referencing a dormant capability raise a parse-time warning rather than failing outright."
+      goal "Move an active capability to dormant. The record stays in the registry (the audit trail is preserved), but the boot sequence's apply step skips dormant entries. Future hecksagons referencing a dormant capability raise a parse-time warning rather than failing outright."
       reference_to(Capability)
       emits "CapabilityDeactivated"
     end
 
     command "Discover" do
       role "Framework"
-      description "Sweep known capability surfaces (ruby/hecks/capabilities/*.rb for the Ruby DSL ; framework/*/*.bluebook for native capabilities) and Register each one that isn't already in the registry. Emits CapabilitiesDiscovered with the count of new records added. The runtime substrate composes the underlying Tools.Glob + per-file Read + Register cascade ; this command is the dispatch entry point."
+      goal "Sweep known capability surfaces (ruby/hecks/capabilities/*.rb for the Ruby DSL ; framework/*/*.bluebook for native capabilities) and Register each one that isn't already in the registry. Emits CapabilitiesDiscovered with the count of new records added. The runtime substrate composes the underlying Tools.Glob + per-file Read + Register cascade ; this command is the dispatch entry point."
       attribute :registered_at, Timestamp
       emits "CapabilitiesDiscovered"
     end

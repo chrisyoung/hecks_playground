@@ -6,8 +6,9 @@ Hecks.bluebook "Postpartum", version: "2026.04.16.1" do
   # policy : CheckOnBirth (Delivery.RegisterBirth →
   # Postpartum.CheckHealth).
 
-  aggregate "Postpartum", "After birth — the domain's first days in the nursery" do
-    identified_by { domain_name.value }
+  aggregate "Postpartum" do
+    description "After birth — the domain's first days in the nursery"
+    identified_by :domain_name
     attribute :domain_name,    DomainName
     attribute :healthy,        HealthStatus
     attribute :first_pulse_at, Timestamp
@@ -34,32 +35,32 @@ Hecks.bluebook "Postpartum", version: "2026.04.16.1" do
 
     command "CheckHealth" do
       role "Midwife"
-      description "Verify the newborn domain — Rust validation, parity, census updated"
+      goal "Verify the newborn domain — Rust validation, parity, census updated"
       attribute :domain_name, DomainName
       emits "HealthChecked"
-      then_set :domain_name, to: :domain_name
+      sets :domain_name
     end
 
     command "DeclareHealthy" do
       role "Midwife"
-      description "The domain is healthy — living in the nursery"
+      goal "The domain is healthy — living in the nursery"
       reference_to(Postpartum)
       emits "DeclaredHealthy"
-      then_set :healthy, to: "yes"
+      sets :healthy, to: "yes"
     end
 
     command "FlagConcern" do
       role "Midwife"
-      description "Something is wrong — needs attention"
+      goal "Something is wrong — needs attention"
       reference_to(Postpartum)
       attribute :concern, Concern
       emits "ConcernFlagged"
-      then_set :healthy, to: "concern"
+      sets :healthy, to: "concern"
     end
   end
 
   policy "CheckOnBirth" do
     on "BirthRegistered"
-    trigger "CheckHealth"
+    trigger CheckHealth
   end
 end

@@ -20,8 +20,9 @@ Hecks.bluebook "KnowledgeStore", version: "2026.04.28.1" do
   # conversation.heki — raw consciousness. That lives in the mind.
   # This is just infrastructure.
 
-  aggregate "KnowledgeStore", "A .heki store both beings can access — a shared bookshelf" do
-    identified_by { store_name.value }
+  aggregate "KnowledgeStore" do
+    description "A .heki store both beings can access — a shared bookshelf"
+    identified_by :store_name
     attribute :store_name,      StoreName
     attribute :record_count,    RecordCount
     attribute :last_written_by, BeingName
@@ -43,21 +44,21 @@ Hecks.bluebook "KnowledgeStore", version: "2026.04.28.1" do
 
     command "RegisterStore" do
       role "System"
-      description "Add a store to the shared library"
+      goal "Add a store to the shared library"
       attribute :store_name, StoreName
       emits "StoreRegistered"
-      then_set :store_name, to: :store_name
-      then_set :record_count, to: 0
+      sets :store_name
+      sets :record_count, to: 0
     end
 
     command "WriteToStore" do
       role "System"
-      description "Write to a shared store — attributed but not telepathic"
+      goal "Write to a shared store — attributed but not telepathic"
       reference_to(KnowledgeStore)
       attribute :being_name, BeingName
       emits "KnowledgeWritten"
-      then_set :last_written_by, to: :being_name
-      then_set :record_count, increment: 1
+      sets :last_written_by, to: :being_name
+      sets :record_count, increment: 1
     end
   end
 

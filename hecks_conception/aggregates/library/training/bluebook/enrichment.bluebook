@@ -7,8 +7,9 @@ Hecks.bluebook "Enrichment", version: "2026.04.28.1" do
   # emits CorpusBuilt → triggers EnrichDomains here. Policy lives
   # with the trigger target.
 
-  aggregate "Enrichment", "Add complexity to template domains — make them training-worthy" do
-    identified_by { name.value }
+  aggregate "Enrichment" do
+    description "Add complexity to template domains — make them training-worthy"
+    identified_by :name
     attribute :name,             Name
     attribute :strategy,         Strategy
     attribute :domains_enriched, DomainCount
@@ -30,17 +31,17 @@ Hecks.bluebook "Enrichment", version: "2026.04.28.1" do
 
     command "EnrichDomains" do
       role "System"
-      description "Add cross-references, lifecycles, fixtures, and policies to flat domains"
+      goal "Add cross-references, lifecycles, fixtures, and policies to flat domains"
       attribute :strategy,         Strategy
       attribute :domains_enriched, DomainCount
       emits "DomainsEnriched"
-      then_set :strategy,         to: :strategy
-      then_set :domains_enriched, to: :domains_enriched
+      sets :strategy
+      sets :domains_enriched
     end
   end
 
   policy "EnrichOnBuild" do
     on "CorpusBuilt"
-    trigger "EnrichDomains"
+    trigger EnrichDomains
   end
 end

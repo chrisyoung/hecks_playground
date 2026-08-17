@@ -17,8 +17,9 @@ Hecks.bluebook "Composition", version: "2026.05.12.1" do
   # Connector, and Translation vocabulary. The domain now reads as
   # itself : a Phrase is not a String, a DomainName is not a String.
 
-  aggregate "Composition", "Two commands chained — the output of one feeds the input of the next" do
-    identified_by { phrase.value }
+  aggregate "Composition" do
+    description "Two commands chained — the output of one feeds the input of the next"
+    identified_by :phrase
     attribute :phrase,        Phrase
     attribute :from_domain,   DomainName
     attribute :from_command,  CommandName
@@ -79,7 +80,7 @@ Hecks.bluebook "Composition", version: "2026.05.12.1" do
 
     command "Compose" do
       role "System"
-      description "Register a valid cross-domain composition — types must align"
+      goal "Register a valid cross-domain composition — types must align"
       attribute :phrase,       Phrase
       attribute :from_domain,  DomainName
       attribute :from_command, CommandName
@@ -88,30 +89,30 @@ Hecks.bluebook "Composition", version: "2026.05.12.1" do
       attribute :bridge_type,  BridgeType
       attribute :connector,    Connector
       emits "CompositionCreated"
-      then_set :phrase, to: :phrase
-      then_set :from_domain, to: :from_domain
-      then_set :from_command, to: :from_command
-      then_set :to_domain, to: :to_domain
-      then_set :to_command, to: :to_command
-      then_set :bridge_type, to: :bridge_type
-      then_set :connector, to: :connector
+      sets :phrase
+      sets :from_domain
+      sets :from_command
+      sets :to_domain
+      sets :to_command
+      sets :bridge_type
+      sets :connector
     end
 
     command "TranslateComposition" do
       role "Linguist"
-      description "Add a natural language translation for this composition"
+      goal "Add a natural language translation for this composition"
       reference_to(Composition)
       attribute :natural_phrase, Translation
       emits "CompositionTranslated"
-      then_set :translations, append: :natural_phrase
+      sets :translations, append: :natural_phrase
     end
 
     command "MarkInvalid" do
       role "System"
-      description "Mark a composition as invalid — types don't bridge"
+      goal "Mark a composition as invalid — types don't bridge"
       reference_to(Composition)
       emits "CompositionInvalidated"
-      then_set :valid, to: "false"
+      sets :valid, to: "false"
     end
   end
 end

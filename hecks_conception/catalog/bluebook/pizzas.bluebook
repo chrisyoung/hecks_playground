@@ -60,7 +60,7 @@ Hecks.bluebook "Pizzas" do
       attribute :amount, Amount
 
       given("max 10 toppings") { toppings.size < 10 }
-      then_set :toppings, append: { name: :name, amount: :amount }
+      sets :toppings, append: { name: :name, amount: :amount }
       emits "ToppingAdded"
     end
 

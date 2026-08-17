@@ -9,8 +9,9 @@ Hecks.bluebook "Gestation", version: "2026.05.12.1" do
   # 2026-05-12 : primitives wrapped in typed value-objects per the
   # no-primitive-envy discipline.
 
-  aggregate "Gestation", "Multi-domain project growing — each bounded context gets its own bluebook" do
-    identified_by { project_name.value }
+  aggregate "Gestation" do
+    description "Multi-domain project growing — each bounded context gets its own bluebook"
+    identified_by :project_name
     attribute :project_name, ProjectName
     attribute :nursery_path, NurseryPath
     attribute :bounded_contexts, list_of(BoundedContextName)
@@ -67,55 +68,55 @@ Hecks.bluebook "Gestation", version: "2026.05.12.1" do
 
     command "StartGestation" do
       role "Miette"
-      description "Scaffold the hecks/ folder with one bluebook per bounded context"
+      goal "Scaffold the hecks/ folder with one bluebook per bounded context"
       attribute :project_name, ProjectName
       attribute :nursery_path, NurseryPath
       attribute :bounded_contexts, list_of(BoundedContextName)
       emits "GestationStarted"
-      then_set :project_name, to: :project_name
-      then_set :nursery_path, to: :nursery_path
-      then_set :bounded_contexts, to: :bounded_contexts
-      then_set :contractions, to: 0
+      sets :project_name
+      sets :nursery_path
+      sets :bounded_contexts
+      sets :contractions, to: 0
     end
 
     command "FormAggregate" do
       role "Miette"
-      description "An aggregate crystallizes within the forming domain"
+      goal "An aggregate crystallizes within the forming domain"
       reference_to(Gestation)
       attribute :aggregate_name, AggregateName
       emits "AggregateFormed"
-      then_set :aggregates, append: :aggregate_name
+      sets :aggregates, append: :aggregate_name
     end
 
     command "FormCommand" do
       role "Miette"
-      description "A command emerges within an aggregate"
+      goal "A command emerges within an aggregate"
       reference_to(Gestation)
       attribute :command_name, CommandName
       emits "CommandFormed"
-      then_set :commands, append: :command_name
+      sets :commands, append: :command_name
     end
 
     command "FormPolicy" do
       role "Miette"
-      description "A policy wires itself between aggregates"
+      goal "A policy wires itself between aggregates"
       reference_to(Gestation)
       attribute :policy_name, PolicyName
       emits "PolicyFormed"
-      then_set :policies, append: :policy_name
+      sets :policies, append: :policy_name
     end
 
     command "Contract" do
       role "Miette"
-      description "A contraction — the domain tightens, refines, gets closer to birth"
+      goal "A contraction — the domain tightens, refines, gets closer to birth"
       reference_to(Gestation)
       emits "Contracted"
-      then_set :contractions, increment: 1
+      sets :contractions, increment: 1
     end
   end
 
   policy "GestateOnConception" do
     on "DomainConceived"
-    trigger "StartGestation"
+    trigger StartGestation
   end
 end

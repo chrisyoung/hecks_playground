@@ -11,8 +11,9 @@ Hecks.bluebook "StoreClassification", version: "2026.05.12.1" do
   # no-primitive-envy rule. Per-aggregate VOs — duplication across
   # boot siblings is fine, the discipline is per-aggregate VO sets.
 
-  aggregate "StoreClassification", "Classify .heki stores as linked or private" do
-    identified_by { name.value }
+  aggregate "StoreClassification" do
+    description "Classify .heki stores as linked or private"
+    identified_by :name
     attribute :name,    Name
     attribute :linked,  list_of(StorePath)
     attribute :private, list_of(StorePath)
@@ -33,13 +34,13 @@ Hecks.bluebook "StoreClassification", version: "2026.05.12.1" do
 
     command "ClassifyStores" do
       role "System"
-      description "Sort stores into psychic link vs inner life"
+      goal "Sort stores into psychic link vs inner life"
       emits "StoresClassified"
     end
   end
 
   policy "ClassifyAfterHydration" do
     on "StoresHydrated"
-    trigger "ClassifyStores"
+    trigger ClassifyStores
   end
 end

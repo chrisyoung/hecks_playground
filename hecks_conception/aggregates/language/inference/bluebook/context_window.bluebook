@@ -11,8 +11,9 @@ Hecks.bluebook "ContextWindow", version: "2026.04.28.1" do
   # ValidateOnInference policy follows its trigger target
   # (ValidateOutput) into prompt.bluebook.
 
-  aggregate "ContextWindow", "Everything stuffed into the prompt — grammar, organs, examples" do
-    identified_by { name.value }
+  aggregate "ContextWindow" do
+    description "Everything stuffed into the prompt — grammar, organs, examples"
+    identified_by :name
     attribute :name,            Name
     attribute :system_prompt,   SystemPrompt
     attribute :grammar_tokens,  TokenCount
@@ -37,14 +38,14 @@ Hecks.bluebook "ContextWindow", version: "2026.04.28.1" do
 
     command "BuildContext" do
       role "System"
-      description "Assemble the context — system prompt + Bluebook grammar + few-shot examples + organ behaviors"
+      goal "Assemble the context — system prompt + Bluebook grammar + few-shot examples + organ behaviors"
       attribute :grammar_tokens, TokenCount
       attribute :example_tokens, TokenCount
       attribute :organ_tokens,   TokenCount
       emits "ContextBuilt"
-      then_set :grammar_tokens, to: :grammar_tokens
-      then_set :example_tokens, to: :example_tokens
-      then_set :organ_tokens,   to: :organ_tokens
+      sets :grammar_tokens
+      sets :example_tokens
+      sets :organ_tokens
     end
   end
 end

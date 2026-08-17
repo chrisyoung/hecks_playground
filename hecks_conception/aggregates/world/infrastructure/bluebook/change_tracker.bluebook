@@ -13,8 +13,9 @@ Hecks.bluebook "ChangeTracker", version: "2026.05.16.1" do
   # trigger (MarkProcessed) fires on this aggregate after a batch
   # completes elsewhere.
 
-  aggregate "ChangeTracker", "Track what changed since last beat — only process the delta" do
-    identified_by { name.value }
+  aggregate "ChangeTracker" do
+    description "Track what changed since last beat — only process the delta"
+    identified_by :name
     attribute :name,               TrackerName
     attribute :tracked_files,      FileCount
     attribute :changed_since_last, ChangeCount
@@ -42,25 +43,25 @@ Hecks.bluebook "ChangeTracker", version: "2026.05.16.1" do
 
     command "ScanForChanges" do
       role "System"
-      description "Compare file mtimes against last known state — find the delta"
+      goal "Compare file mtimes against last known state — find the delta"
       attribute :tracked_files,      FileCount
       attribute :changed_since_last, ChangeCount
       emits "ChangesScanned"
-      then_set :tracked_files, to: :tracked_files
-      then_set :changed_since_last, to: :changed_since_last
+      sets :tracked_files
+      sets :changed_since_last
     end
 
     command "MarkProcessed" do
       role "System"
-      description "Record that changes have been processed — reset the delta"
+      goal "Record that changes have been processed — reset the delta"
       reference_to(ChangeTracker)
       emits "ChangesProcessed"
-      then_set :changed_since_last, to: 0
+      sets :changed_since_last, to: 0
     end
   end
 
   policy "ProcessedOnBatch" do
     on "BatchCompleted"
-    trigger "MarkProcessed"
+    trigger MarkProcessed
   end
 end

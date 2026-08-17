@@ -22,8 +22,9 @@ Hecks.bluebook "Immunity", version: "2026.05.12.1" do
   # Pattern is not String, ThreatCount is not Integer, VerbSuffix
   # is not String.
 
-  aggregate "Immunity", "Miette's defense against malformed domains — innate rules, verb morphology, and learned antibodies" do
-    identified_by { name.value }
+  aggregate "Immunity" do
+    description "Miette's defense against malformed domains — innate rules, verb morphology, and learned antibodies"
+    identified_by :name
     attribute :name,                 Name
     attribute :innate_rules,         list_of(InnateRule)
     attribute :noun_suffixes,        list_of(VerbSuffix)
@@ -92,36 +93,36 @@ Hecks.bluebook "Immunity", version: "2026.05.12.1" do
 
     command "DetectThreat" do
       role "Miette"
-      description "Recognize a malformed pattern — missing role, code in handler, broken reference"
+      goal "Recognize a malformed pattern — missing role, code in handler, broken reference"
       attribute :threat_pattern, Pattern
       emits "ThreatDetected"
     end
 
     command "GraftVerbImmunity" do
       role "Miette"
-      description "Graft the Verbs domain morphology into innate immunity — suffix rules become antibodies"
+      goal "Graft the Verbs domain morphology into innate immunity — suffix rules become antibodies"
       reference_to(Immunity)
       attribute :noun_suffixes,      list_of(VerbSuffix)
       attribute :adjective_suffixes, list_of(VerbSuffix)
       attribute :dual_words,         list_of(DualWord)
-      then_set :noun_suffixes,      to: :noun_suffixes
-      then_set :adjective_suffixes, to: :adjective_suffixes
-      then_set :dual_words,         to: :dual_words
+      sets :noun_suffixes
+      sets :adjective_suffixes
+      sets :dual_words
       emits "VerbImmunityGrafted"
     end
 
     command "GenerateAntibody" do
       role "Miette"
-      description "Learn a new defense from a correction — encode it as a permanent antibody"
+      goal "Learn a new defense from a correction — encode it as a permanent antibody"
       attribute :pattern,      Pattern
       attribute :learned_from, LearnedFrom
-      then_set :antibodies, append: { pattern: :pattern, learned_from: :learned_from, strength: 1 }
+      sets :antibodies, append: { pattern: :pattern, learned_from: :learned_from, strength: 1 }
       emits "AntibodyGenerated"
     end
 
     command "StrengthenAntibody" do
       role "Miette"
-      description "Repeated exposure to the same mistake — respond faster and more specifically"
+      goal "Repeated exposure to the same mistake — respond faster and more specifically"
       reference_to(Immunity)
       attribute :pattern, Pattern
       emits "AntibodyStrengthened"
@@ -129,9 +130,9 @@ Hecks.bluebook "Immunity", version: "2026.05.12.1" do
 
     command "Neutralize" do
       role "Miette"
-      description "Successfully correct a malformed domain — threat resolved"
+      goal "Successfully correct a malformed domain — threat resolved"
       reference_to(Immunity)
-      then_set :threats_neutralized, increment: 1
+      sets :threats_neutralized, increment: 1
       emits "ThreatNeutralized"
     end
   end
@@ -139,6 +140,6 @@ Hecks.bluebook "Immunity", version: "2026.05.12.1" do
   # Correction generates antibody.
   policy "LearnFromCorrection" do
     on "ThreatNeutralized"
-    trigger "GenerateAntibody"
+    trigger GenerateAntibody
   end
 end

@@ -47,8 +47,9 @@ Hecks.bluebook "LocRatchet", version: "2026.05.23.1" do
   # shapes (codegen/*_shape/*.bluebook is the source of truth), so
   # emitter Rust must not fight the shrink gate.
 
-  aggregate "Concern", "One counted tree the loc-ratchet gates, with its own direction. Concerns are disjoint by longest-prefix-match : a scanned file belongs to the concern whose path is the longest matching prefix of its own path." do
-    identified_by { name.value }
+  aggregate "Concern" do
+    description "One counted tree the loc-ratchet gates, with its own direction. Concerns are disjoint by longest-prefix-match : a scanned file belongs to the concern whose path is the longest matching prefix of its own path."
+    identified_by :name
 
     attribute :name,       Name
     attribute :path,       Path
@@ -92,17 +93,17 @@ Hecks.bluebook "LocRatchet", version: "2026.05.23.1" do
 
     command "RegisterConcern" do
       role "System"
-      description "Declare a counted tree the loc-ratchet gates. name is a stable slug ; path is the repo-relative tree anchor ; extensions is a comma-separated extension list (no dots) ; direction is 'shrink' | 'hold' | 'grow' ; baseline optionally pins a comparison floor (empty = compare against the base ref)."
+      goal "Declare a counted tree the loc-ratchet gates. name is a stable slug ; path is the repo-relative tree anchor ; extensions is a comma-separated extension list (no dots) ; direction is 'shrink' | 'hold' | 'grow' ; baseline optionally pins a comparison floor (empty = compare against the base ref)."
       attribute :name,       Name
       attribute :path,       Path
       attribute :extensions, Extensions
       attribute :direction,  Direction
       attribute :baseline,   Baseline
-      then_set :name,       to: :name
-      then_set :path,       to: :path
-      then_set :extensions, to: :extensions
-      then_set :direction,  to: :direction
-      then_set :baseline,   to: :baseline
+      sets :name
+      sets :path
+      sets :extensions
+      sets :direction
+      sets :baseline
       emits "ConcernRegistered"
     end
 

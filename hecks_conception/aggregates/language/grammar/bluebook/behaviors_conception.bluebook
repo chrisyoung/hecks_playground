@@ -62,18 +62,19 @@ Hecks.bluebook "BehaviorsConception", version: "2026.06.13.1" do
   # ============================================================
   # TESTSUITE — root : the whole conceived behaviors file
   # ============================================================
-  aggregate "TestSuite", "The behaviors file conceived from one domain — its vision line, any suite-level gate-flag warnings, and one Behavior per command, cascade, and query. The single artifact `storehouse conceive-behaviors` prints. Identified by the domain it was conceived from." do
-    identified_by { domain_name.value }
+  aggregate "TestSuite" do
+    description "The behaviors file conceived from one domain — its vision line, any suite-level gate-flag warnings, and one Behavior per command, cascade, and query. The single artifact `storehouse conceive-behaviors` prints. Identified by the domain it was conceived from."
+    identified_by :domain_name
     attribute :domain_name, DomainName
     attribute :vision, Vision
     attribute :gate_flag_warnings, list_of(GateFlagWarning)
     # REMOVED during hecksagain migration (task 4): `has_many Behavior`
-    # here plus `belongs_to TestSuite` on Behavior below is a genuine
+    # here plus `reference_to TestSuite` on Behavior below is a genuine
     # bidirectional aggregate reference -- hecksagain's boot-time
     # validate_no_bidirectional_references! refuses it outright ("let
     # the other side be found through a query instead"), where the old
     # Rust runtime never enforced this. Behavior already owns the
-    # one-directional reference (belongs_to TestSuite); enumerate a
+    # one-directional reference (reference_to TestSuite); enumerate a
     # TestSuite's own Behaviors via a query instead, e.g.
     # `query "Behaviors" do where test_suite_id: :test_suite_id end`
     # (not yet added -- no caller needed it structurally for this pass).
@@ -96,21 +97,22 @@ Hecks.bluebook "BehaviorsConception", version: "2026.06.13.1" do
 
     command "Conceive" do
       role "Framework"
-      description "Conceive a behaviors suite from a domain. Its Behaviors are sibling records aggregated via has_many. The conceived artifact is a disposable projection of the bluebook (the intent) : conceiving ALWAYS overwrites any previously-generated suite — a preserved stale copy is a lying suite (2026-06-13)."
+      goal "Conceive a behaviors suite from a domain. Its Behaviors are sibling records aggregated via has_many. The conceived artifact is a disposable projection of the bluebook (the intent) : conceiving ALWAYS overwrites any previously-generated suite — a preserved stale copy is a lying suite (2026-06-13)."
       attribute :domain_name, DomainName
       attribute :vision, Vision
       emits "Conceived"
-      then_set :domain_name, to: :domain_name
-      then_set :vision, to: :vision
+      sets :domain_name
+      sets :vision
     end
   end
 
   # ============================================================
   # BEHAVIOR — one conceived test (command | cascade | query)
   # ============================================================
-  aggregate "Behavior", "One conceived test : the target it exercises, the aggregate it runs on, its kind, the setup chain that brings the aggregate to the required state, the input the target receives, and the expectation. Belongs to a TestSuite. The three kinds differ only in how expect is built — state assertion (command), emits assertion (cascade), count assertion (query)." do
-    identified_by { title.value }
-    belongs_to TestSuite
+  aggregate "Behavior" do
+    description "One conceived test : the target it exercises, the aggregate it runs on, its kind, the setup chain that brings the aggregate to the required state, the input the target receives, and the expectation. Belongs to a TestSuite. The three kinds differ only in how expect is built — state assertion (command), emits assertion (cascade), count assertion (query)."
+    identified_by :title
+    reference_to TestSuite
     attribute :title, Title
     attribute :tests, TargetName
     attribute :on, AggregateName
@@ -154,24 +156,25 @@ Hecks.bluebook "BehaviorsConception", version: "2026.06.13.1" do
 
     command "Compose" do
       role "Framework"
-      description "Compose a behavior — its title, target, aggregate, and kind. Setup, input, and expect attach via the list attributes."
+      goal "Compose a behavior — its title, target, aggregate, and kind. Setup, input, and expect attach via the list attributes."
       attribute :title, Title
       attribute :tests, TargetName
       attribute :on, AggregateName
       attribute :kind, BehaviorKind
       emits "Composed"
-      then_set :title, to: :title
-      then_set :tests, to: :tests
-      then_set :on, to: :on
-      then_set :kind, to: :kind
+      sets :title
+      sets :tests
+      sets :on
+      sets :kind
     end
   end
 
   # ============================================================
   # PRECONDITION — the taxonomy : how a `given` becomes a setup need
   # ============================================================
-  aggregate "Precondition", "One thing a command requires of aggregate state before it runs, parsed from a `given` expression. The taxonomy IS the data heart of the conception : each kind carries the source SHAPE it is parsed from and the STRATEGY that satisfies it. A given that matches no kind is unparseable, and the command's test is skipped. Belongs to nothing — it is a catalog of kinds, the closed set the planner knows." do
-    identified_by { kind.value }
+  aggregate "Precondition" do
+    description "One thing a command requires of aggregate state before it runs, parsed from a `given` expression. The taxonomy IS the data heart of the conception : each kind carries the source SHAPE it is parsed from and the STRATEGY that satisfies it. A given that matches no kind is unparseable, and the command's test is skipped. Belongs to nothing — it is a catalog of kinds, the closed set the planner knows."
+    identified_by :kind
     attribute :kind, PreconditionKind
     attribute :parse_shape, ParseShape
     attribute :satisfy_via, ProducerSeek
@@ -217,16 +220,16 @@ Hecks.bluebook "BehaviorsConception", version: "2026.06.13.1" do
 
     command "Catalog" do
       role "Framework"
-      description "Catalog one precondition kind — the shape it is parsed from, the producer it is satisfied via, and when defaults already hold."
+      goal "Catalog one precondition kind — the shape it is parsed from, the producer it is satisfied via, and when defaults already hold."
       attribute :kind, PreconditionKind
       attribute :parse_shape, ParseShape
       attribute :satisfy_via, ProducerSeek
       attribute :default_holds, DefaultRule
       emits "Cataloged"
-      then_set :kind, to: :kind
-      then_set :parse_shape, to: :parse_shape
-      then_set :satisfy_via, to: :satisfy_via
-      then_set :default_holds, to: :default_holds
+      sets :kind
+      sets :parse_shape
+      sets :satisfy_via
+      sets :default_holds
     end
 
     # ProducerSeek lives here because it is the satisfy half of each kind :
@@ -250,8 +253,9 @@ Hecks.bluebook "BehaviorsConception", version: "2026.06.13.1" do
   # ============================================================
   # SAMPLEVALUERULE — the trivial table : type -> literal
   # ============================================================
-  aggregate "SampleValueRule", "How a type becomes a placeholder literal in synthesized input, setup kwargs, and expect. Pure lookup — the simplest proof that the DATA layer is real and projectable today : a flat table, no algorithm. (sample_value.)" do
-    identified_by { type_name.value }
+  aggregate "SampleValueRule" do
+    description "How a type becomes a placeholder literal in synthesized input, setup kwargs, and expect. Pure lookup — the simplest proof that the DATA layer is real and projectable today : a flat table, no algorithm. (sample_value.)"
+    identified_by :type_name
     attribute :type_name, TypeName
     attribute :sample, SampleLiteral
 
@@ -269,20 +273,21 @@ Hecks.bluebook "BehaviorsConception", version: "2026.06.13.1" do
 
     command "Define" do
       role "Framework"
-      description "Define one type's sample literal."
+      goal "Define one type's sample literal."
       attribute :type_name, TypeName
       attribute :sample, SampleLiteral
       emits "Defined"
-      then_set :type_name, to: :type_name
-      then_set :sample, to: :sample
+      sets :type_name
+      sets :sample
     end
   end
 
   # ============================================================
   # SETUPPLAN — the ALGORITHM : the part that forces the interpreter
   # ============================================================
-  aggregate "SetupPlan", "The recursive, depth-capped planner that turns a command's preconditions into an ordered setup chain — or declares the command Unsatisfiable so its test is skipped. This is the conception's fault line made explicit : it is NOT a data table. It recurses (a producer may carry its own given), threads a ProducedState through the recursion (to subtract already-produced facts and stop double-seeding a min_size_list), and filters cascade-triggered producers that would advance state past the cascade's from_state. A section-concatenating specializer cannot project it ; only a kernel interpreter that EXECUTES these rules can. Modeled here so the interpreter arc has a contract to read, NOT so a specializer can chop it. (plan_setup_chain, plan_setup_chain_filtered, ProducedState.)" do
-    identified_by { target_command.value }
+  aggregate "SetupPlan" do
+    description "The recursive, depth-capped planner that turns a command's preconditions into an ordered setup chain — or declares the command Unsatisfiable so its test is skipped. This is the conception's fault line made explicit : it is NOT a data table. It recurses (a producer may carry its own given), threads a ProducedState through the recursion (to subtract already-produced facts and stop double-seeding a min_size_list), and filters cascade-triggered producers that would advance state past the cascade's from_state. A section-concatenating specializer cannot project it ; only a kernel interpreter that EXECUTES these rules can. Modeled here so the interpreter arc has a contract to read, NOT so a specializer can chop it. (plan_setup_chain, plan_setup_chain_filtered, ProducedState.)"
+    identified_by :target_command
     attribute :target_command, TargetName
     attribute :depth_cap, DepthCap
     attribute :outcome, PlanOutcome
@@ -321,14 +326,14 @@ Hecks.bluebook "BehaviorsConception", version: "2026.06.13.1" do
 
     command "Plan" do
       role "Framework"
-      description "Record a planning outcome for a target command — its depth cap and whether it produced a chain or proved unsatisfiable. The produced facts attach via the list attribute. NOTE : recording the outcome is data ; COMPUTING it is the recursion the interpreter must execute."
+      goal "Record a planning outcome for a target command — its depth cap and whether it produced a chain or proved unsatisfiable. The produced facts attach via the list attribute. NOTE : recording the outcome is data ; COMPUTING it is the recursion the interpreter must execute."
       attribute :target_command, TargetName
       attribute :depth_cap, DepthCap
       attribute :outcome, PlanOutcome
       emits "Planned"
-      then_set :target_command, to: :target_command
-      then_set :depth_cap, to: :depth_cap
-      then_set :outcome, to: :outcome
+      sets :target_command
+      sets :depth_cap
+      sets :outcome
     end
   end
 end

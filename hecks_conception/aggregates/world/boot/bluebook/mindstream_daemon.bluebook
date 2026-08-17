@@ -10,8 +10,9 @@ Hecks.bluebook "MindstreamDaemon", version: "2026.05.12.1" do
   # no-primitive-envy rule. Per-aggregate VOs — duplication across
   # boot siblings is fine, the discipline is per-aggregate VO sets.
 
-  aggregate "MindstreamDaemon", "Background daemon — awareness between prompts" do
-    identified_by { name.value }
+  aggregate "MindstreamDaemon" do
+    description "Background daemon — awareness between prompts"
+    identified_by :name
     attribute :name,    Name
     attribute :pid,     Pid
     attribute :running, Running
@@ -39,14 +40,14 @@ Hecks.bluebook "MindstreamDaemon", version: "2026.05.12.1" do
 
     command "StartMindstream" do
       role "System"
-      description "Spawn the mindstream daemon if not already running"
+      goal "Spawn the mindstream daemon if not already running"
       emits "MindstreamStarted"
-      then_set :running, to: "yes"
+      sets :running, to: "yes"
     end
   end
 
   policy "MindstreamAfterPrompt" do
     on "PromptGenerated"
-    trigger "StartMindstream"
+    trigger StartMindstream
   end
 end

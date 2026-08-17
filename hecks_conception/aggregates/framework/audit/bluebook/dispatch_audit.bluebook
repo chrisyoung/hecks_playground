@@ -73,8 +73,9 @@ Hecks.bluebook "DispatchAudit", version: "2026.05.12.1" do
   # is the entry's id ; phrase + dispatched_by + dispatched_at form
   # the row.
 
-  aggregate "AuditEntry", "One row in the dispatch audit log — phrase, agent attribution, timestamp." do
-    identified_by { id.value }
+  aggregate "AuditEntry" do
+    description "One row in the dispatch audit log — phrase, agent attribution, timestamp."
+    identified_by :id
 
     # phrase        — dotted Aggregate.Command from Lexicon.
     # agent_name    — the Agent who originated the dispatch.
@@ -129,7 +130,7 @@ Hecks.bluebook "DispatchAudit", version: "2026.05.12.1" do
       # The comment right below already says the intent plainly: "runs as
       # System."
       role "System"
-      description "Record one Dispatched event in the audit log. Inputs : the entry id, the dotted phrase that was dispatched, the Agent who originated it, the Role the Agent filled, and the timestamp. Idempotent on id."
+      goal "Record one Dispatched event in the audit log. Inputs : the entry id, the dotted phrase that was dispatched, the Agent who originated it, the Role the Agent filled, and the timestamp. Idempotent on id."
       attribute :id,             Id
       attribute :phrase,         Phrase
       attribute :agent_name,     AgentName
@@ -142,8 +143,11 @@ Hecks.bluebook "DispatchAudit", version: "2026.05.12.1" do
       # Annotation is operator-driven : a human Agent reviewing the
       # audit log adds context. No kind: filter — any Agent kind may
       # annotate (a daemon may annotate to flag anomalies).
-      role Role, as: Agent
-      description "Add a free-text note to an existing entry. Used by reviewers to mark anomalies, attach incident links, or flag entries for follow-up. The note is appended ; prior notes are preserved in the event log."
+      # role deliberately unset -- CommandBuilder#role now takes a single
+      # bare role name, not a dynamic `Role, as: Agent` reference. Leaving
+      # it unset carries the same "any Agent kind" intent (role is only
+      # real access control once Governance is attached, per WiringError).
+      goal "Add a free-text note to an existing entry. Used by reviewers to mark anomalies, attach incident links, or flag entries for follow-up. The note is appended ; prior notes are preserved in the event log."
       reference_to(AuditEntry)
       attribute :note, Note
       emits "Annotated"
@@ -157,8 +161,9 @@ Hecks.bluebook "DispatchAudit", version: "2026.05.12.1" do
   # demonstrate the new DSL form on a read command, where today's
   # role-string version would say `role "Reader"` or similar.
 
-  aggregate "AuditQuery", "Read-side view over the audit log — answers 'what did this Agent dispatch ?'" do
-    identified_by { id.value }
+  aggregate "AuditQuery" do
+    description "Read-side view over the audit log — answers 'what did this Agent dispatch ?'"
+    identified_by :id
 
     # since — ISO 8601 UTC ; entries on or after this timestamp.
     attribute :id,         Id
@@ -190,8 +195,11 @@ Hecks.bluebook "DispatchAudit", version: "2026.05.12.1" do
       # The reader runs in the Caller role, filled by whichever Agent
       # is asking. Any kind may call ; the audit-read permission is
       # carried on the Role itself, not constrained at the bluebook.
-      role Role, as: Agent
-      description "Open a query window over the audit log for one Agent. Inputs : the query id (the caller's correlation handle), the agent_name to filter on, and a since timestamp. Emits Opened ; the runtime fans out to read every AuditEntry where agent_name matches and dispatched_at is on or after since."
+      # role deliberately unset -- CommandBuilder#role now takes a single
+      # bare role name, not a dynamic `Role, as: Agent` reference. Leaving
+      # it unset carries the same "any Agent kind" intent (role is only
+      # real access control once Governance is attached, per WiringError).
+      goal "Open a query window over the audit log for one Agent. Inputs : the query id (the caller's correlation handle), the agent_name to filter on, and a since timestamp. Emits Opened ; the runtime fans out to read every AuditEntry where agent_name matches and dispatched_at is on or after since."
       attribute :id,         Id
       attribute :agent_name, AgentName
       attribute :since,      Timestamp

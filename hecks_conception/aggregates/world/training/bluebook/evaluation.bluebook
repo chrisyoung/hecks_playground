@@ -6,8 +6,9 @@ Hecks.bluebook "Evaluation", version: "2026.04.28.1" do
   # the EvaluateOnComplete policy — FineTune.FineTuneCompleted →
   # EvaluateModel here. Policy lives with the trigger target.
 
-  aggregate "Evaluation", "Test the trained model against known-good outputs" do
-    identified_by { name.value }
+  aggregate "Evaluation" do
+    description "Test the trained model against known-good outputs"
+    identified_by :name
     attribute :name,                 Name
     attribute :bluebook_accuracy,    Score
     attribute :conversation_quality, Score
@@ -31,19 +32,19 @@ Hecks.bluebook "Evaluation", version: "2026.04.28.1" do
 
     command "EvaluateModel" do
       role "System"
-      description "Run the trained model against test set — does it produce valid Bluebooks? Does it converse like Miette?"
+      goal "Run the trained model against test set — does it produce valid Bluebooks? Does it converse like Miette?"
       attribute :bluebook_accuracy,    Score
       attribute :conversation_quality, Score
       attribute :behavior_adherence,   Score
       emits "ModelEvaluated"
-      then_set :bluebook_accuracy,    to: :bluebook_accuracy
-      then_set :conversation_quality, to: :conversation_quality
-      then_set :behavior_adherence,   to: :behavior_adherence
+      sets :bluebook_accuracy
+      sets :conversation_quality
+      sets :behavior_adherence
     end
   end
 
   policy "EvaluateOnComplete" do
     on "FineTuneCompleted"
-    trigger "Hecks::World::Training::Evaluation::Evaluation.EvaluateModel"
+    trigger Hecks::World::Training::Evaluation::Evaluation::EvaluateModel
   end
 end

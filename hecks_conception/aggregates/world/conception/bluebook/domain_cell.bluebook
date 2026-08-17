@@ -18,8 +18,9 @@ Hecks.bluebook "DomainCell", version: "2026.04.28.1" do
   # DomainCell.Conceive) and ValidateOnMature (DomainCell.Mature →
   # DomainCell.PassCheckpoint).
 
-  aggregate "DomainCell", "A domain's lifecycle from conception through maturity or death" do
-    identified_by { domain_name.value }
+  aggregate "DomainCell" do
+    description "A domain's lifecycle from conception through maturity or death"
+    identified_by :domain_name
     attribute :domain_name,        DomainName
     attribute :maturity,           MaturityLevel
     attribute :checkpoints_passed, list_of(CheckpointName)
@@ -47,33 +48,33 @@ Hecks.bluebook "DomainCell", version: "2026.04.28.1" do
 
     command "Conceive" do
       role "Miette"
-      description "A new domain enters the nursery — the cell begins its cycle"
+      goal "A new domain enters the nursery — the cell begins its cycle"
       attribute :domain_name, DomainName
-      then_set :domain_name, to: :domain_name
-      then_set :maturity, to: 0
+      sets :domain_name
+      sets :maturity, to: 0
       emits "DomainConceived"
     end
 
     command "Mature" do
       role "Miette"
-      description "A domain gains complexity through interaction — aggregates added, commands refined"
+      goal "A domain gains complexity through interaction — aggregates added, commands refined"
       reference_to(DomainCell)
-      then_set :maturity, increment: 1
+      sets :maturity, increment: 1
       emits "DomainMatured"
     end
 
     command "PassCheckpoint" do
       role "Miette"
-      description "Domain passes validation — structure sound, references resolve, roles assigned"
+      goal "Domain passes validation — structure sound, references resolve, roles assigned"
       reference_to(DomainCell)
       attribute :checkpoint_name, CheckpointName
-      then_set :checkpoints_passed, append: :checkpoint_name
+      sets :checkpoints_passed, append: :checkpoint_name
       emits "CheckpointPassed"
     end
 
     command "Divide" do
       role "Miette"
-      description "Domain too complex — split into two bounded contexts"
+      goal "Domain too complex — split into two bounded contexts"
       reference_to(DomainCell)
       given("must be mature enough to split") { maturity > 3 }
       emits "DomainDivided"
@@ -81,9 +82,9 @@ Hecks.bluebook "DomainCell", version: "2026.04.28.1" do
 
     command "TriggerApoptosis" do
       role "Miette"
-      description "Programmed domain death — this domain is no longer needed"
+      goal "Programmed domain death — this domain is no longer needed"
       reference_to(DomainCell)
-      then_set :alive, to: false
+      sets :alive, to: false
       emits "DomainDied"
     end
 
@@ -102,12 +103,12 @@ Hecks.bluebook "DomainCell", version: "2026.04.28.1" do
   # Successful digestion triggers conception
   policy "ConceiveOnAbsorption" do
     on "DomainAbsorbed"
-    trigger "Hecks::World::Conception::DomainCell::DomainCell.Conceive"
+    trigger Hecks::World::Conception::DomainCell::DomainCell::Conceive
   end
 
   # Validation is a checkpoint
   policy "ValidateOnMature" do
     on "DomainMatured"
-    trigger "PassCheckpoint"
+    trigger PassCheckpoint
   end
 end

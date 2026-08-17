@@ -33,7 +33,8 @@ Hecks.bluebook "Dispatch", version: "2026.05.10.1" do
   # (a scoped, app-filtered view of this bus). See i528 for the
   # full storehouse arc and the four-segment phrase convention.
 
-  aggregate "Dispatch", "Singleton command bus over the conception" do
+  aggregate "Dispatch" do
+    description "Singleton command bus over the conception"
 
     value_object "ServiceName" do
       attribute :value, String
@@ -67,15 +68,15 @@ Hecks.bluebook "Dispatch", version: "2026.05.10.1" do
       end
     end
 
-    attribute ServiceName
+    attribute :service_name, ServiceName
 
     # ── Commands ───────────────────────────────────────────────
 
     command "Route" do
       role "Caller"
-      description "Resolve the phrase via Lexicon.Lookup, validate params against the target command's attributes, dispatch through the per-bluebook runtime path, capture the emitted event, and re-emit it as Dispatched. On validation failure the command never runs ; runtime errors surface to the caller."
-      attribute Phrase, as: :phrase
-      attribute Params, as: :params
+      goal "Resolve the phrase via Lexicon.Lookup, validate params against the target command's attributes, dispatch through the per-bluebook runtime path, capture the emitted event, and re-emit it as Dispatched. On validation failure the command never runs ; runtime errors surface to the caller."
+      attribute :phrase, Phrase
+      attribute :params, Params
       # PRECONDITION, stated and NOT machine-checked : phrase resolves in the lexicon.
       #   Lexicon.Lookup(phrase: phrase).present?
       # The expression floor cannot evaluate this — cross-aggregate lookups,

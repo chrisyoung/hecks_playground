@@ -47,15 +47,16 @@ Hecks.bluebook "Extraction", version: "2026.06.13.1" do
   # ============================================================
   # GRAMMAR — root : the whole declarative parse grammar
   # ============================================================
-  aggregate "Grammar", "The whole declarative parse grammar — every block keyword's extraction rule, aggregated. The single source a kernel interpreter reads to parse any bluebook (including this one)." do
-    identified_by { name.value }
+  aggregate "Grammar" do
+    description "The whole declarative parse grammar — every block keyword's extraction rule, aggregated. The single source a kernel interpreter reads to parse any bluebook (including this one)."
+    identified_by :name
     attribute :name, GrammarName
 
     # Migration plan task 4: was `has_many BlockRule` here AND `belongs_to
     # Grammar` on BlockRule below — hecksagain refuses a bidirectional
     # aggregate reference ("decide which one owns the relationship, let
     # the other side be found through a query instead of a reference
-    # pointing back"). BlockRule's own `belongs_to Grammar` stays as the
+    # pointing back"). BlockRule's own `reference_to Grammar` stays as the
     # authoritative direction (matches the corpus's own dominant idiom —
     # a child stores its parent's id, the parent's view is a query, e.g.
     # hecksagain's own reaction.bluebook Handler/Dispatch — DeclaredIn,
@@ -70,19 +71,20 @@ Hecks.bluebook "Extraction", version: "2026.06.13.1" do
 
     command "Conceive" do
       role "Framework"
-      description "Bring a named grammar into being. Its BlockRules are sibling records aggregated via has_many."
+      goal "Bring a named grammar into being. Its BlockRules are sibling records aggregated via has_many."
       attribute :name, GrammarName
       emits "Conceived"
-      then_set :name, to: :name
+      sets :name
     end
   end
 
   # ============================================================
   # BLOCKRULE — one keyword's extraction rule (recursive)
   # ============================================================
-  aggregate "BlockRule", "One keyword's extraction rule : the IR node it produces, whether it opens a do/end body, the child keywords legal in that body (the recursion), and the FieldRules that read its own scalar fields. Belongs to a Grammar." do
-    identified_by { keyword.value }
-    belongs_to Grammar
+  aggregate "BlockRule" do
+    description "One keyword's extraction rule : the IR node it produces, whether it opens a do/end body, the child keywords legal in that body (the recursion), and the FieldRules that read its own scalar fields. Belongs to a Grammar."
+    identified_by :keyword
+    reference_to Grammar
     attribute :keyword, Keyword
     attribute :produces, IrNode
     attribute :opens_block, Flag
@@ -112,14 +114,14 @@ Hecks.bluebook "Extraction", version: "2026.06.13.1" do
 
     command "Declare" do
       role "Framework"
-      description "Declare a block rule — its keyword, the IR node it produces, and whether it opens a body. Its contained child keywords and FieldRules attach via the list attribute and has_many."
+      goal "Declare a block rule — its keyword, the IR node it produces, and whether it opens a body. Its contained child keywords and FieldRules attach via the list attribute and has_many."
       attribute :keyword, Keyword
       attribute :produces, IrNode
       attribute :opens_block, Flag
       emits "Declared"
-      then_set :keyword, to: :keyword
-      then_set :produces, to: :produces
-      then_set :opens_block, to: :opens_block
+      sets :keyword
+      sets :produces
+      sets :opens_block
     end
 
     query "ByGrammar" do
@@ -132,9 +134,10 @@ Hecks.bluebook "Extraction", version: "2026.06.13.1" do
   # ============================================================
   # FIELDRULE — how ONE field is read from a block's source
   # ============================================================
-  aggregate "FieldRule", "How one IR field is read from a block's source lines : the field name and the ReadStrategy that extracts it. Belongs to a BlockRule. The string_spanning and nested_block strategies are what the multi-line-vision and nested-command hard cases forced into the model." do
-    identified_by { field.value }
-    belongs_to BlockRule
+  aggregate "FieldRule" do
+    description "How one IR field is read from a block's source lines : the field name and the ReadStrategy that extracts it. Belongs to a BlockRule. The string_spanning and nested_block strategies are what the multi-line-vision and nested-command hard cases forced into the model."
+    identified_by :field
+    reference_to BlockRule
     attribute :field, FieldName
     attribute :strategy, ReadStrategy
     # source_token : the kwarg key or keyword the strategy keys on, when it
@@ -166,14 +169,14 @@ Hecks.bluebook "Extraction", version: "2026.06.13.1" do
 
     command "Declare" do
       role "Framework"
-      description "Declare how one field is read — its name, ReadStrategy, and the source token the strategy keys on. Belongs to a BlockRule."
+      goal "Declare how one field is read — its name, ReadStrategy, and the source token the strategy keys on. Belongs to a BlockRule."
       attribute :field, FieldName
       attribute :strategy, ReadStrategy
       attribute :source_token, SourceToken
       emits "Declared"
-      then_set :field, to: :field
-      then_set :strategy, to: :strategy
-      then_set :source_token, to: :source_token
+      sets :field
+      sets :strategy
+      sets :source_token
     end
 
     query "ByBlockRule" do
