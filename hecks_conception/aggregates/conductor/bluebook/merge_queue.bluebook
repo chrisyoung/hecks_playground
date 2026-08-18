@@ -45,6 +45,46 @@ Hecks.bluebook "Conductor", version: "2026.06.28.1" do
       attribute :value, String
     end
 
+    # ------------------------------------------------------------------
+    # adapter-host's verdict shape (i787). CompleteMerge / FailMerge are
+    # the spawned_by success/failure ports of the PrDeliveryMerge adapter,
+    # so they have to accept the five keys bin/adapter-host sends on every
+    # verdict dispatch (id/tool/output/exit_code/ok) or be refused by
+    # CommandInterpreter#step_refuse_unknown_arguments. Same widen i782
+    # applied to Plan::Story's RecordPrMergeableCheckResult /
+    # RecordMainUpToDateCheckResult (ToolKind/CheckOutput/CheckExitCode
+    # there) -- deliberately NOT the unbuilt Cascade.ResultRecorded ->
+    # aggregate bridge, which still has no consumer anywhere in the corpus.
+    # Declared per-aggregate because VOs live inside the aggregate that
+    # uses them ; duplication across aggregates is the convention here.
+    # ------------------------------------------------------------------
+
+    value_object "ToolKind" do
+      # Which adapter produced the verdict -- "PrDeliveryMerge", matching
+      # adapter-host's ADAPTER_NAME.
+      attribute :value, String
+    end
+
+    value_object "MergeOutput" do
+      # Combined stdout+stderr of the `gh pr merge` invocation. On the
+      # failure path this is the ONLY diagnostic that survives (see
+      # FailMerge's goal), so it is the field to read when a merge wedges.
+      attribute :value, String
+    end
+
+    value_object "MergeExitCode" do
+      # Process exit code from `gh pr merge`. 0 routes to CompleteMerge ;
+      # non-zero routes to FailMerge and carries no further meaning.
+      attribute :value, Integer
+    end
+
+    value_object "MergeOk" do
+      # adapter-host's own success/failure boolean, mirroring exit_code == 0.
+      # Redundant with the port that was chosen, recorded for symmetry with
+      # every other spawned_by verdict target in this corpus.
+      attribute :value, Boolean
+    end
+
     command "Open" do
       role "System"
       goal "Open a merge queue for a target branch. The creation command."
@@ -76,9 +116,26 @@ Hecks.bluebook "Conductor", version: "2026.06.28.1" do
 
     command "CompleteMerge" do
       role "System"
-      goal "Record a successful merge. Returns the queue to idle."
+      goal "Record a successful merge. Returns the queue to idle. Fired directly as the spawned_by SUCCESS target of the PrDeliveryMerge adapter (i787), which runs the real `gh pr merge sq/<story> --squash --delete-branch`. tool/output/exit_code/ok carry adapter-host's own unconditional verdict shape -- recorded for debugging a merge, not otherwise consumed. Also dispatched manually to close a merge by hand."
       reference_to(MergeQueue)
-      attribute :story_ref, StoryRef
+      # OPTIONAL, all of them (i787). adapter-host sends exactly
+      # id/tool/output/exit_code/ok on EVERY verdict and layers a handler's
+      # own extra key=value stdout lines on top ONLY when the handler exited
+      # 0 (bin/adapter-host, `if [ "$code" -eq 0 ]` gates that block). So
+      # `story_ref` arrives here on the success path -- bin/pr_delivery_merge
+      # echoes it -- but could never arrive on FailMerge's failure path, and
+      # a required attribute that cannot be delivered is a queue wedged in
+      # `state: merging` forever the first time `gh pr merge` genuinely
+      # fails. Optional is what makes the failure port actually dispatchable.
+      # Nothing here MUTATES from story_ref (it only rides into the emitted
+      # event), and no policy or driven block consumes MergeCompleted /
+      # MergeFailed -- searched corpus-wide, they are audit trail only -- so
+      # relaxing them costs no wiring.
+      attribute :story_ref, StoryRef,      optional: true
+      attribute :tool,      ToolKind,      optional: true
+      attribute :output,    MergeOutput,   optional: true
+      attribute :exit_code, MergeExitCode, optional: true
+      attribute :ok,        MergeOk,       optional: true
       sets :state,   to: "idle"
       sets :current, to: ""
       emits "MergeCompleted"
@@ -86,10 +143,16 @@ Hecks.bluebook "Conductor", version: "2026.06.28.1" do
 
     command "FailMerge" do
       role "System"
-      goal "Record a failed merge. Returns the queue to idle so the next story can proceed."
+      goal "Record a failed merge. Returns the queue to idle so the next story can proceed. Fired directly as the spawned_by FAILURE target of the PrDeliveryMerge adapter (i787). On that path `reason` is absent by construction -- adapter-host layers no handler-supplied fields on a non-zero exit -- and `output` carries the real diagnostic instead: the failed `gh pr merge` invocation's combined stdout+stderr, which is strictly more informative than a canned reason string. `reason` stays for the manual/projection path (e.g. reason=conflict)."
       reference_to(MergeQueue)
-      attribute :story_ref, StoryRef
-      attribute :reason,    Reason
+      # See CompleteMerge's note -- same reasoning, and this is the command
+      # the wedged-queue risk was actually about.
+      attribute :story_ref, StoryRef,      optional: true
+      attribute :reason,    Reason,        optional: true
+      attribute :tool,      ToolKind,      optional: true
+      attribute :output,    MergeOutput,   optional: true
+      attribute :exit_code, MergeExitCode, optional: true
+      attribute :ok,        MergeOk,       optional: true
       sets :state,   to: "idle"
       sets :current, to: ""
       emits "MergeFailed"
