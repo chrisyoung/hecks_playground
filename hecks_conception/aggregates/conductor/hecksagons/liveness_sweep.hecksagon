@@ -19,7 +19,7 @@ Hecks.hecksagon "Conductor" do
   # only has to declare the Stale -> MarkDead hop and the cascade does the rest.
   adapter "LivenessSweep" do
     driven on "Hecks::Conductor::Conductor::Sweeper.Ticked" do |event|
-      dispatch "Hecks::Conductor::Conductor::Worker.MarkDead", for_each: { from: "Hecks::Conductor::Conductor::Worker.Stale", where: { now: "{now}" } }, id: "{worker_id}"
+      dispatch "Hecks::Conductor::Conductor::Worker.MarkDead", for_each: { from: "Hecks::Conductor::Conductor::Worker.Stale", where: { now: "{now}" } }, with: { id: "{worker_id}" }
     end
   end
 end

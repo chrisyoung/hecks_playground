@@ -6,13 +6,13 @@ Hecks.hecksagon "Plan" do
   # sprint number ; {ref} is each matched Story.
   adapter "SeedSprintActiveOnActivation" do
     driven on "Hecks::Plan::Sprint.SprintActivated" do |event|
-      dispatch "Hecks::Plan::Story.MarkSprintActive", for_each: { from: "Hecks::Plan::Story.BySprint", where: { sprint: "{id}" } }, story: "{ref}"
+      dispatch "Hecks::Plan::Story.MarkSprintActive", for_each: { from: "Hecks::Plan::Story.BySprint", where: { sprint: "{id}" } }, with: { story: "{ref}" }
     end
   end
 
   adapter "ClearSprintActiveOnClosure" do
     driven on "Hecks::Plan::Sprint.SprintApproved" do |event|
-      dispatch "Hecks::Plan::Story.ClearSprintActive", for_each: { from: "Hecks::Plan::Story.BySprint", where: { sprint: "{id}" } }, story: "{ref}"
+      dispatch "Hecks::Plan::Story.ClearSprintActive", for_each: { from: "Hecks::Plan::Story.BySprint", where: { sprint: "{id}" } }, with: { story: "{ref}" }
     end
   end
 end

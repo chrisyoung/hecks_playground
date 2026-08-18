@@ -7,7 +7,7 @@ Hecks.hecksagon "Plan" do
   # {id} = the reset story ref (event) ; record-first the matched Task's id for Reopen.
   adapter "ReopenTasksOnStoryReset" do
     driven on "Hecks::Plan::Story.StoryReset" do |event|
-      dispatch "Hecks::Plan::Task.Reopen", for_each: { from: "Hecks::Plan::Task.ForStory", where: { story: "{id}" } }, id: "{id}"
+      dispatch "Hecks::Plan::Task.Reopen", for_each: { from: "Hecks::Plan::Task.ForStory", where: { story: "{id}" } }, with: { id: "{id}" }
     end
   end
 end

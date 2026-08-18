@@ -17,8 +17,10 @@ Hecks.hecksagon "WorktreeRemovedCheck" do
   adapter "WorktreeRemovedCheck" do
     driven on "Story.WorktreeUnlocked" do |event|
       dispatch "Hecks::Plan::Story.RecordWorktreeRemovedCheckResult",
-               story: event.story,
-               ok: true
+               with: {
+                 story: "{id}",
+                 ok: true
+               }
     end
   end
 end

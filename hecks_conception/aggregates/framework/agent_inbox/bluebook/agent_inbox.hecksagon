@@ -47,8 +47,10 @@ Hecks.hecksagon "AgentInbox" do
     driven on "InboxPoller.Polled" do |event|
       dispatch "Hecks::Framework::AgentInbox::AgentInbox::AgentMessage.Reply",
                for_each: { from: "Hecks::Framework::AgentInbox::AgentInbox::AgentMessage.AllUnread", where: {} },
-               id: "{mid}",
-               reply: "[agent {agent_id}] received: {body}"
+               with: {
+                 id: "{mid}",
+                 reply: "[agent {agent_id}] received: {body}"
+               }
     end
   end
 

@@ -7,13 +7,13 @@ Hecks.hecksagon "Plan" do
   # the resolving story ref ; record-first the matched dependent story's ref.
   adapter "ResolveDepsOnStoryApproved" do
     driven on "Hecks::Plan::Story.StoryApproved" do |event|
-      dispatch "Hecks::Plan::Story.DecUnresolvedDeps", for_each: { from: "Hecks::Plan::Story.DependentsOf", where: { dep: "{id}" } }, id: "{ref}"
+      dispatch "Hecks::Plan::Story.DecUnresolvedDeps", for_each: { from: "Hecks::Plan::Story.DependentsOf", where: { dep: "{id}" } }, with: { id: "{ref}" }
     end
   end
 
   adapter "ResolveDepsOnStoryCancelled" do
     driven on "Hecks::Plan::Story.StoryCancelled" do |event|
-      dispatch "Hecks::Plan::Story.DecUnresolvedDeps", for_each: { from: "Hecks::Plan::Story.DependentsOf", where: { dep: "{id}" } }, id: "{ref}"
+      dispatch "Hecks::Plan::Story.DecUnresolvedDeps", for_each: { from: "Hecks::Plan::Story.DependentsOf", where: { dep: "{id}" } }, with: { id: "{ref}" }
     end
   end
 end

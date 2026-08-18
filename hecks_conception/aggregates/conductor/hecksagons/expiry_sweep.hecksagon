@@ -18,7 +18,7 @@ Hecks.hecksagon "ExpirySweep" do
   # Worker.MarkDead over Worker.Stale keyed by worker_id.
   adapter "ExpirySweep" do
     driven on "Hecks::Conductor::Conductor::Sweeper.Ticked" do |event|
-      dispatch "Hecks::Conductor::Conductor::Lease.Expire", for_each: { from: "Hecks::Conductor::Conductor::Lease.PastTtl", where: { now: "{now}" } }, id: "{worktree_path}"
+      dispatch "Hecks::Conductor::Conductor::Lease.Expire", for_each: { from: "Hecks::Conductor::Conductor::Lease.PastTtl", where: { now: "{now}" } }, with: { id: "{worktree_path}" }
     end
   end
 end
