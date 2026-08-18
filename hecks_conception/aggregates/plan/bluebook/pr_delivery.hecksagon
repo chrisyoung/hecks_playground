@@ -4,13 +4,13 @@ Hecks.hecksagon "PrDelivery" do
   # REAL gh merge -> complete. Story identity rides events as {story_ref} ;
   # same-type MergeQueue cascades preserve the queue id (the target branch).
   adapter "EnqueueOnApproved" do
-    driven on "Hecks::Plan::Story.StoryApproved" do |event|
-      dispatch "Hecks::Conductor::Conductor::MergeQueue.Enqueue", with: { id: "main", story_ref: "{id}" }
+    driven on "Plan::Story.StoryApproved" do |event|
+      dispatch "Conductor::MergeQueue.Enqueue", with: { id: "main", story_ref: "{id}" }
     end
   end
   adapter "StartMergeOnEnqueued" do
-    driven on "Hecks::Conductor::Conductor::MergeQueue.MergeEnqueued" do |event|
-      dispatch "Hecks::Conductor::Conductor::MergeQueue.StartMerge", with: { story_ref: "{story_ref}" }
+    driven on "Conductor::MergeQueue.MergeEnqueued" do |event|
+      dispatch "Conductor::MergeQueue.StartMerge", with: { story_ref: "{story_ref}" }
     end
   end
   # THE MERGE LEG MOVED (i787) -> hecks_conception/aggregates/conductor/

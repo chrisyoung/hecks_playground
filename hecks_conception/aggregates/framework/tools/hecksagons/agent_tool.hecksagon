@@ -30,17 +30,24 @@ Hecks.hecksagon "AgentToolAdapter" do
   # substrate behind this stub does.
 
   adapter "AgentToolAdapter" do
-    driven on "Hecks::Framework::Tools::AgentTool.AgentMessageSent" do |event|
+    driven on "Tools::AgentTool.AgentMessageSent" do |event|
       # TODO: when `driven on` grammar fires — replace this canned stub with:
-      #   dispatch "Hecks::Framework::AgentInbox::AgentMessage.Send",
-      #            id: event.id, agent_id: event.to, body: event.message, mid: event.id
+      #   dispatch "AgentInbox::AgentMessage.Send",
+      #            with: { id: "{id}", agent_id: "{to}", body: "{message}", mid: "{id}" }
       # The send-message binary provides the synchronous face in the meantime.
-      dispatch "Hecks::Framework::Cascade::Cascade.RecordResult",
-               id: event.id,
-               tool: "agent_resume",
-               output: "agent resumed",
-               exit_code: 0,
-               ok: true
+      #
+      # i787: migrated off the block-arg `event.id` form — the runtime's
+      # DrivenCapture takes declarative `with:` kwargs and `{field}`
+      # interpolation, so `event.id` raised NoMethodError at LOAD time and
+      # made this whole file unloadable.
+      dispatch "Cascade::Cascade.RecordResult",
+               with: {
+                 id: "{id}",
+                 tool: "agent_resume",
+                 output: "agent resumed",
+                 exit_code: 0,
+                 ok: true
+               }
     end
   end
 end

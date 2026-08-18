@@ -29,7 +29,7 @@ Hecks.hecksagon "EventSourcing" do
   # `storehouse drive` is run against this realm.
   adapter "LogConsolidation" do
     driving on interval "5s" do |clock|
-      dispatch "Hecks::Framework::EventSourcing::EventSourcing::Consolidation.Consolidate",
+      dispatch "EventSourcing::Consolidation.Consolidate",
                consolidation_id: "log"
     end
   end
@@ -48,7 +48,7 @@ Hecks.hecksagon "EventSourcing" do
   # the hot path costs plenty.
   adapter "ProjectionVerification" do
     driving on interval "60s" do |clock|
-      dispatch "Hecks::Framework::EventSourcing::EventSourcing::Verification.Verify",
+      dispatch "EventSourcing::Verification.Verify",
                verification_id: "projection"
     end
   end
