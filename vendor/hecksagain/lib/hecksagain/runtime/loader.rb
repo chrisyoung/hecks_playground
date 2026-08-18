@@ -23,34 +23,23 @@ module Hecksagain
       # the install is safe because nothing downstream of a raw
       # `Dispatcher` needs the sugar — `Dispatcher#dispatch`/`#query` work
       # identically either way.
-      def self.boot(path, shared: nil, install_facade: true)
+      # `environment:` — see Folder#load_domain's own comment for the
+      # mechanism. hecksagain never reads ENV itself (every other
+      # env-var lookup in this codebase lives in app-owned .world/
+      # .hecksagon files, never library internals) — a caller resolves
+      # its own env var name and passes the resulting string straight
+      # through, e.g. `Hecks.boot(path, environment:
+      # ENV.fetch("MYAPP_ENV", "development"))`.
+      def self.boot(path, shared: nil, install_facade: true, environment: nil)
         loading   = Ports::Loading.bootstrap
         directory = loading.bluebook_directory(path)
         root      = loading.shared_root(shared, directory)
         registry  = Registry.new(root: File.dirname(directory))
 
         Hecksagain.with_registry(registry) do
-          registry.loading = true
           loading.load_library
           loading.load_project(root)
-          loading.load_domain(directory)
-          registry.loading = false
-
-          # FINALIZE EVERY DEFERRED DOMAIN, ONCE, NOW THAT EVERY FILE HAS
-          # LOADED. While `registry.loading?` was true, `MetaValidator.call`
-          # (meta_validator.rb) returned each file's bluebook unassembled and
-          # unjudged rather than refusing a multi-file domain over a
-          # forward reference (conductor/claim.bluebook's `belongs_to
-          # Worker`, declared later in worker.bluebook) — `registry.bluebooks`
-          # now holds, per domain, whatever the LAST file contributed :
-          # already a strict superset of every earlier file's own
-          # declarations (`BluebookBuilder.build`'s own comment), just not
-          # yet judged. Re-run `.call` for real — `loading?` is false now,
-          # so this time it assembles and raises if the WHOLE domain is
-          # still malformed, not a partial slice of it.
-          registry.bluebooks.each_key do |name|
-            registry.add_bluebook(Bluebook::MetaValidator.call(registry.bluebooks[name]))
-          end
+          loading.load_domain(directory, environment: environment)
         end
 
         # The era gate runs BEFORE verify! builds repositories: minting an
@@ -59,6 +48,14 @@ module Hecksagain
         # before any adapter touches data.
         EraCheck.check!(registry, directory)
         registry.verify!
+        # AFTER verify! (conservative — any wiring error surfaces first,
+        # not strictly required since resolution only needs the
+        # hecksagon binds, already loaded), BEFORE the dispatcher is
+        # built — repopulates `saga_instances` from whatever durable
+        # store each domain's own adapter answers with (§2-§4), so a
+        # process manager mid-flight at the last shutdown/crash/cold-
+        # start doesn't start this boot looking like it never began.
+        registry.rehydrate_sagas!
         dispatcher = dispatcher_for(registry)
         install_facade ? bind_runtime(dispatcher) : dispatcher
       end
@@ -80,7 +77,7 @@ module Hecksagain
       # Lambda" would have silently rerouted Banking's every local
       # boot — every spec, every `bin/console` session — the moment
       # this landed. A domain opts in explicitly, the same way
-      # `persisted_by("Postgres")` is never inferred from anything
+      # `persisted_by("PostgresEra")` is never inferred from anything
       # else either.
       def self.dispatcher_for(registry)
         domain = registry.bluebooks.keys.first

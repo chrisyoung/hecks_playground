@@ -60,18 +60,14 @@ module Hecksagain
             classification:   text(@chapter[:classification]),
             formerly_known_as: text(@chapter[:formerly_known_as]),
             # Vendored addition, not (yet) upstream hecksagain (migration
-            # plan task 4): `category` reached `assembly/contracts.rb`'s
-            # Bluebook contract and bluebook.bluebook's own self-hosted
-            # schema, but this method is hand-written rather than built
-            # off the contract table the way `declaration()` is for every
-            # OTHER category — so it still needed its own line, or
-            # `Hecks.bluebook` (which always routes through
-            # `MetaValidator.call` -> this) would silently drop a
-            # declared `category` on every real boot. The round-trip
-            # corpus never exercises `category` (no fixture calls it), so
-            # this was invisible there — found by a real dsl_spec.rb unit
-            # test asserting a non-nil value survives.
+            # plan task 4): this top-level `to_h` stayed hand-written (see
+            # this class's own header comment on why) rather than reading
+            # off Assembly::Contracts' generic field table the way every
+            # NESTED category's own `declaration()` does — so a field
+            # added to the language after this file's own writing, like
+            # `category`, needs a matching line here too, by hand.
             category:         text(@chapter[:category]),
+            attaches_to:      attached_contexts(@chapter),
             aggregates:       declared("Aggregate", chapter_id).map { |row| aggregate(row) },
             read_models:      declared("ReadModel", chapter_id).map { |row| read_model(row) },
             policies:         declared("Policy", chapter_id).map { |row| policy(row) },
@@ -142,6 +138,10 @@ module Hecksagain
         # and a join read out of order names a different record.
         def identity_paths(row) = Array(row[:identified_by]).map { |part| text(part[:value]).to_s }
 
+        # THE CONTEXTS ONE CHAPTER NAMES ITSELF ONTO, in the order they were
+        # attached — same shape identity_paths reads back, one level up.
+        def attached_contexts(row) = Array(row[:attaches_to]).map { |part| text(part[:value]).to_s }
+
         # Every cell of the meta-domain is a single-field value object, so a row
         # arrives holding Values rather than Strings.
         def text(cell)
@@ -152,7 +152,7 @@ module Hecksagain
         end
 
         # An aggregate's OWN verbs and asks — the ones no entity declared. Both carry
-        # `aggregate_id` either way, because that is the head the reference resolves
+        # the parent link either way, because that is the head the reference resolves
         # against, so the entity ones have to be told apart by `entity_id`. Rejecting
         # from an ORDERED read keeps the order.
         def own(category, aggregate_id)
@@ -161,9 +161,12 @@ module Hecksagain
 
         # A piece's own verbs and asks. There is no `DeclaredIn` keyed by entity, so
         # this reads the aggregate's — in declaration order — and keeps the ones that
-        # name this piece.
+        # name this piece. `row[:aggregate]` — an ENTITY row's own `reference_to
+        # Aggregate` (bare, no `_id` since ADR 0025) — not `entity_id`, which
+        # STAYS suffixed below : that one is Command/Query's own EXPLICIT `as:`,
+        # never touched by the rename.
         def within(category, row)
-          declared(category, text(row[:aggregate_id]))
+          declared(category, text(row[:aggregate]))
             .select { |held| text(held[:entity_id]).to_s == row[:id].to_s }
         end
 
@@ -177,8 +180,19 @@ module Hecksagain
             attributes:    Array(row[:attributes]).map { |field| attribute(field, id) },
             value_objects: declared("ValueObject", id).map { |shape| value_object(shape) },
             commands:      own("Command", id).map { |verb| command(verb) },
+            # THE AGGREGATE BOUNDARY, and the precondition a command may
+            # reference by name (S10, ADR 0025 — "Rules") — the same
+            # `rule` reader `command`'s own givens/ensures already use
+            # (Assembly::Contracts' generic `declaration()` path), read
+            # here by hand because `aggregate(row)` itself is hand-typed,
+            # unlike `command`/`value_object`/`query` below.
+            invariants:    Array(row[:invariants]).map { |held| rule(held) },
+            preconditions: Array(row[:preconditions]).map { |held| rule(held) },
+            # S12, ADR 0025 — same reason invariants/preconditions are
+            # read by hand two lines up: `aggregate(row)` is hand-typed.
+            projected_fields: Array(row[:projected_fields]).map { |held| projected_field(held) },
             lifecycle:     lifecycle(row),
-            entities:      declared("Entity", id).map { |piece| entity(piece) },
+            entities:      direct_entities(id, id).map { |piece| entity(piece) },
             queries:       own("Query", id).map { |ask| query(ask) },
             provenance:    provenance(row)
           }
@@ -187,13 +201,22 @@ module Hecksagain
         def value_object(row) = declaration("ValueObject", row)
 
         def closed_set_of(row) = !text(row[:rows]).nil?
-        def members_row(row)   = members_of(row[:id])
 
-        # A closed set's admitted rows. Each Member is its own root because its pairs
-        # are an OPEN MAP, which no value object can hold — so they come back the way
-        # they went in, one pair at a time.
-        def members_of(value_object_id)
-          declared("Member", value_object_id).map do |member|
+        # A closed set's admitted rows. S17, ADR 0026 — Member is a genuine
+        # ENTITY now (`entity "Member" do ... end`, nested under
+        # ValueObject), created by `ValueObject.Member` (an ordinary append,
+        # the same way `Account.LogEntry` creates a LedgerEntry) and mutated
+        # by its own dotted `ValueObject.Member.Pair`. Its data therefore
+        # lives INLINE on the value object's own dispatched state — same as
+        # any other entity list — not behind a separate `DeclaredIn` query:
+        # there is no such query any more, because there is no top-level
+        # "Member" aggregate left to hold one. Pairs are still an OPEN MAP,
+        # which no value object can hold, so they still come back one pair
+        # at a time.
+        def members_row(row) = members_of(row)
+
+        def members_of(value_object_row)
+          Array(value_object_row[:members]).map do |member|
             Array(member[:pairs]).map { |pair| [text(pair[:key]).to_s, text(pair[:value]).to_s] }
           end
         end
@@ -202,15 +225,18 @@ module Hecksagain
 
         def query(row) = declaration("Query", row).merge(options_of(row))
 
-        # `count` is stored as TEXT ("true"/"false", the same self-
-        # describing spelling every other language-held scalar uses) but
-        # `IR::Query#count` is a real Ruby boolean — so this decodes it,
-        # the same way `closed_set_of` above answers a real boolean for
-        # `ValueObject#closed_set?`. Reading `row[:count]` directly
-        # (rather than trusting `:flag`'s own `value ? true : false`) is
-        # the whole fix: ANY non-empty string, including the text
-        # "false", is truthy in Ruby.
-        def count_flag(row) = text(row[:count]).to_s == "true"
+        # EVERY DIRECT ENTITY OF ONE OWNER — S17, ADR 0026. `declared
+        # ("Entity", root_id)` returns EVERY entity sharing the same
+        # ROOT aggregate, nested or not (Dispatch and Handler both carry
+        # `aggregate: process_manager_id`) — `owner` is the field that
+        # actually tells them apart : `Judge#nest_entities`'s own
+        # comment explains why it is the one to repurpose. Called with
+        # `owner_id == root_id` for an aggregate's own direct entities
+        # (Handler), and with `owner_id == some entity's own id` for
+        # THAT entity's own nested ones (Dispatch, owned by Handler).
+        def direct_entities(root_id, owner_id)
+          declared("Entity", root_id).select { |held| text(held[:owner]).to_s == owner_id.to_s }
+        end
 
         def entity(row)
           {
@@ -223,6 +249,10 @@ module Hecksagain
             attributes:    Array(row[:attributes]).map { |field| shape_field(field) },
             commands:      within("Command", row).map { |verb| command(verb) },
             queries:       within("Query", row).map { |ask| query(ask) },
+            # S17, ADR 0026 — Dispatch, inside Handler : an entity's own
+            # NESTED entities, found the same way its own direct ones
+            # were one level up.
+            entities:      direct_entities(text(row[:aggregate]), row[:id]).map { |piece| entity(piece) },
             # An entity has its own state machine, and the language has held it all
             # along — Entity.Lifecycle and Entity.Transition were two of the fourteen
             # verbs that started firing when the judge became a walk. Only the
@@ -247,30 +277,27 @@ module Hecksagain
 
         def policy(row) = declaration("Policy", row)
 
-        # `for_each` is ONE Hash in the IR (`{from:, where:}`) where the
-        # language keeps the parts — `for_each_from` a plain scalar,
-        # `for_each_where` the open map `policy_for_each_where_rows`
-        # wrote. `pairs`, not a Hash, for the same reason `remembers`/
-        # `with_spec` read back as pairs rather than decoded already —
-        # the VALUES are still marked (a colon-prefixed symbol, an
-        # inspected literal) and decoding happens once, at
-        # `Marks#for_each_spec`, the one place that builds the object
-        # every `deliver_for_each` dispatch actually reads.
-        def policy_for_each(row)
-          from = text(row[:for_each_from])
-          return nil if from.to_s.empty?
-
-          { from: from, where: pairs(row[:for_each_where]) }
-        end
-
+        # S17, ADR 0026 — Handler is a genuine entity now, nested under
+        # ProcessManager, created by `ProcessManager.Handler` (an
+        # ordinary append, the same way `Account.LogEntry` creates a
+        # LedgerEntry) and mutated by its own dotted `ProcessManager.
+        # Handler.Dispatch`/`...Dispatch.Bind`. Its data therefore lives
+        # INLINE on the process manager's own dispatched state — same as
+        # any other entity list — not behind a separate `DeclaredIn`
+        # query : there is no such query any more, the same fix
+        # `Reconstruction#members_of` already made for Member.
         def process_manager(row)
           declaration("ProcessManager", row,
-                      handlers: declared("Handler", row[:id]).map { |leg| handler(leg) })
+                      handlers: Array(row[:handlers]).map { |leg| handler(leg) })
         end
 
+        # S17, ADR 0026 — Dispatch, one level further in : nested under
+        # Handler, its data lives inline on the HANDLER row this method
+        # was just handed (`row` here IS one element of `handlers`,
+        # above), not behind any query either.
         def handler(row)
           declaration("Handler", row,
-                      dispatches: declared("Dispatch", row[:id]).map { |leg| dispatch(leg) })
+                      dispatches: Array(row[:dispatches]).map { |leg| dispatch(leg) })
         end
 
         def dispatch(row) = declaration("Dispatch", row)

@@ -6,10 +6,7 @@ Hecks.bluebook "Bluebook" do
 
     # THE CHAPTER IT IS IN, AND ITS NAME. A policy hangs off the chapter rather
     # than an aggregate, so the chapter is the part above it.
-    identified_by do
-      bluebook_id
-      name.value
-    end
+    identified_by :bluebook, :name
 
     attribute :name,            PolicyName
     # WHICH HEAD DECLARED IT, empty for a reaction the chapter owns.
@@ -24,28 +21,30 @@ Hecks.bluebook "Bluebook" do
     attribute :on_event,        PolicyText
     attribute :trigger_command, PolicyText
     attribute :target_domain,   PolicyText
-    # Vendored addition, not (yet) upstream hecksagain (migration plan
-    # task 8): the self-hosted grammar's own "Policy" aggregate never
-    # declared `where`/`with`/`for_each`, so a policy carrying any of
-    # them survived the DSL parse and vanished the moment the same
-    # bluebook went through `MetaValidator.call` (every ordinary
-    # `Hecks.bluebook` load) — a `where` fired on every event
-    # regardless of payload, `with` never reached the triggered
-    # command's arguments, `for_each` fanned out to nothing. Same
-    # shape as `Handler.remembers`/`Dispatch.with_spec` one file over —
-    # an OPEN MAP has no value object that can hold it, so `wheres`/
-    # `with_literals` ride as rows, appended one pair at a time.
-    # `for_each` is a THIRD field the IR keeps as one Hash
-    # (`{from:, where:}`) where the language keeps the parts —
-    # `for_each_from` a plain scalar (known in full by the time
-    # `for_each(from:, where:)`'s call finishes, so it rides straight
-    # through `Policy.Declare` the way `order_field` does on Query),
-    # `for_each_where` the same open-map shape as `wheres` itself.
-    # TODO upstream via bin/evolve (migration plan task 7).
-    attribute :wheres,         list_of(Pair)
-    attribute :with_literals,  list_of(Pair)
-    attribute :for_each_from,  PolicyText
-    attribute :for_each_where, list_of(Pair)
+    # THE GUARD, CARRIED AS TEXT — same discipline `Command.givens`
+    # already holds: the block that wrote it is never called at
+    # runtime, only its EXTRACTED SOURCE is (Ports::Extraction), so
+    # what the language holds is the string, not a live Proc no wire
+    # format could carry. Optional — most policies fire unconditionally.
+    attribute :where,           PolicyText, optional: true
+    # THE FAN-OUT SOURCE — a query verb ("Aggregate.query_name" or
+    # "Domain::Aggregate.query_name"), same text shape as
+    # `trigger_command`/`target_domain` beside it. Optional — most
+    # policies fire once, not once per row.
+    attribute :for_each,        PolicyText, optional: true
+    # WHAT THE TRIGGER IS GIVEN, when the event's own shape is not it.
+    # Empty means the whole payload forwards verbatim — what every policy
+    # did before this existed, and still the right default for a trigger
+    # shaped like its event.
+    #
+    # The same `Binding` list a saga's own `Dispatch` carries, for the
+    # same reason: a reaction crosses an aggregate boundary, and the
+    # event on one side is under no obligation to be shaped like the
+    # command on the other. Without it the target has to declare every
+    # field the event happens to carry — banking's own `FreezeAccount`
+    # grew an attribute it never reads, and Account grew two duplicated
+    # value objects to type it, before this word existed.
+    attribute :with_spec,       list_of(Binding)
 
     value_object "PolicyName" do
       attribute :value, String
@@ -56,10 +55,10 @@ Hecks.bluebook "Bluebook" do
       attribute :value, String
     end
 
-    # ONE OPEN-MAP ENTRY, shared by `wheres`, `with_literals` and
-    # `for_each`'s own `where` — all three are a policy's own key/value
-    # pairs, told apart only by which list they append to.
-    value_object "Pair" do
+    # DECLARED HERE RATHER THAN SHARED WITH `Dispatch`'s own — a value
+    # object belongs to the aggregate that uses it, and everything that
+    # walks an aggregate's own scope has nowhere else to look.
+    value_object "Binding" do
       attribute :key,   String
       attribute :value, String
     end
@@ -79,8 +78,8 @@ Hecks.bluebook "Bluebook" do
     attribute :position, Position
 
     query "DeclaredIn" do
-      attribute :bluebook_id, PolicyText
-      where(bluebook_id: :bluebook_id)
+      attribute :bluebook, PolicyText
+      where(bluebook: :bluebook)
       order_by :position
     end
     command "Declare" do
@@ -93,64 +92,24 @@ Hecks.bluebook "Bluebook" do
       attribute :on_event,        PolicyText
       attribute :trigger_command, PolicyText
       attribute :target_domain,   PolicyText, optional: true
-      attribute :for_each_from,   PolicyText, optional: true
+      attribute :where,           PolicyText, optional: true
+      attribute :for_each,        PolicyText, optional: true
 
       attribute :position, Position, optional: true
       emits "ReactionDeclared"
     end
 
-    # `where field: value` — vendored addition, not (yet) upstream
-    # hecksagain (migration plan task 8): the append counterpart to
-    # `Handler.Remember`, one aggregate over.
-    command "Where" do
+    command "Bind" do
       role "Language"
-      goal "Attach one where-condition to the policy"
+      goal "Bind one argument of the triggered command"
 
       reference_to Policy
       attribute :key,   PolicyText
       attribute :value, PolicyText
 
-      then_set :wheres, append: { key: :key, value: :value }
+      sets :with_spec, append: { key: :key, value: :value }
 
-      emits "PolicyWhereAttached"
-    end
-
-    # `with key, value` / `map key: value` — vendored addition, not (yet)
-    # upstream hecksagain (migration plan task 8): same open-map shape as
-    # `Where` just above, a separate list because the two are read at
-    # different times (a where GATES the trigger, a with LITERAL rides
-    # into its arguments).
-    command "With" do
-      role "Language"
-      goal "Attach one literal argument to the policy's own trigger"
-
-      reference_to Policy
-      attribute :key,   PolicyText
-      attribute :value, PolicyText
-
-      then_set :with_literals, append: { key: :key, value: :value }
-
-      emits "PolicyWithAttached"
-    end
-
-    # `for_each from:, where: {...}` — vendored addition, not (yet)
-    # upstream hecksagain (migration plan task 8): the fan-out's OWN
-    # where-clause, resolved against the triggering event's payload
-    # rather than a stored record — see PolicyBuilder#for_each's own
-    # comment. `for_each_from` (the query's own FQN) rides on Declare
-    # itself, the same way `order_field` does on Query ; this is only
-    # the open-map half.
-    command "ForEach" do
-      role "Language"
-      goal "Attach one for_each where-condition to the policy"
-
-      reference_to Policy
-      attribute :key,   PolicyText
-      attribute :value, PolicyText
-
-      then_set :for_each_where, append: { key: :key, value: :value }
-
-      emits "PolicyForEachAttached"
+      emits "TriggerBindingAttached"
     end
   end
 
@@ -161,16 +120,18 @@ Hecks.bluebook "Bluebook" do
 
     # THE CHAPTER IT IS IN, AND ITS NAME — the same shape a policy takes, and for
     # the same reason.
-    identified_by do
-      bluebook_id
-      name.value
-    end
+    identified_by :bluebook, :name
 
     attribute :name,      ProcessManagerName
     attribute :correlates_by, ProcessManagerText
     attribute :starts_on,     ProcessManagerText
     attribute :ends_on,       ProcessManagerText
     attribute :states,    list_of(SagaState)
+    # S17, ADR 0026 — Handler nested here (see `entity "Handler"`, below),
+    # an entity rather than its own root aggregate. `list_of(Handler)`
+    # forward-references it the same way banking's own `attribute :ledger,
+    # list_of(LedgerEntry)` names LedgerEntry before it is declared.
+    attribute :handlers,  list_of(Handler)
 
     value_object "ProcessManagerName" do
       attribute :value, String
@@ -183,6 +144,39 @@ Hecks.bluebook "Bluebook" do
 
     value_object "SagaState" do
       attribute :name, String
+    end
+
+    # S17, ADR 0026 — HandlerText/DispatchText/Binding, hoisted up from
+    # the old standalone `aggregate "Handler"`/`aggregate "Dispatch"`. An
+    # entity cannot declare its own `value_object` (EntityBuilder has no
+    # such method — a piece borrows its owning aggregate's, the same way
+    # LedgerEntry borrows Account's Money), so these live here now, at
+    # the ROOT, where BOTH `entity "Handler"` and its own nested `entity
+    # "Dispatch"` can still reach them — a piece mints no value objects
+    # of its own AT ANY DEPTH, so there is exactly one pool however deep
+    # the nesting goes (`EntityBuilder#entity`'s own comment).
+    value_object "HandlerText" do
+      attribute :value, String
+    end
+
+    value_object "DispatchText" do
+      attribute :value, String
+    end
+
+    value_object "Binding" do
+      attribute :key,   String
+      attribute :value, String
+    end
+
+    # Vendored addition, not (yet) upstream hecksagain (migration plan
+    # task 4, fixed for the self-hosted round trip by the follow-up i768
+    # task): `guard_count` is a real seventh member of
+    # `Bluebook::ProcessManagerHandler` — only the COUNT survives the
+    # Judge/Reconstruction round trip, never the guard predicates
+    # themselves (raw Procs, not JSON-shaped — same reason a command's
+    # own `given`/`ensures` predicates aren't carried either).
+    value_object "GuardCount" do
+      attribute :value, Integer
     end
 
     # The way back: everything DECLARED IN the chapter above. The parent
@@ -200,8 +194,8 @@ Hecks.bluebook "Bluebook" do
     attribute :position, Position
 
     query "DeclaredIn" do
-      attribute :bluebook_id, ProcessManagerText
-      where(bluebook_id: :bluebook_id)
+      attribute :bluebook, ProcessManagerText
+      where(bluebook: :bluebook)
       order_by :position
     end
     command "Declare" do
@@ -231,99 +225,21 @@ Hecks.bluebook "Bluebook" do
       reference_to ProcessManager
       attribute :name, ProcessManagerText
 
-      then_set :states, append: { name: :name }
+      sets :states, append: { name: :name }
 
       emits "SagaStateAttached"
     end
-  end
 
-  aggregate "Handler" do
-    description "One handler inside a process manager — the event it answers, the state move it makes, and the commands it sends. Its own root because a handler holds nested dispatches, which hold nested bindings."
-
-    reference_to ProcessManager
-
-    # THE PROCESS MANAGER IT IS IN, THE EVENT IT ANSWERS, AND THE STATE IT
-    # ANSWERS FROM. The judge keyed this by POSITION ("#{parent}##{index}"),
-    # which is a mint : insert a leg above and every leg below is renamed.
-    # The event does not move.
-    #
-    # Vendored correction (migration plan task 4, hecks-hecksagain-migration):
-    # (process_manager_id, event_type) ALONE is not one leg — a state machine
-    # legitimately answers the SAME event differently depending on which state
-    # it is currently in (miette's own BodyCycle PM: "BodyPulse" while
-    # attentive moves attentive->attentive, "BodyPulse" while sleeping_light
-    # moves sleeping_light->sleeping_light — six real, distinct legs, one
-    # event name). Excluding from_state collapsed all six into one identity,
-    # so the second-declared leg for the same event read as a duplicate
-    # Declare of the first. from_state doesn't move for the same reason
-    # event_type doesn't: it's a value, not a position. TODO upstream via
-    # bin/evolve.
-    identified_by do
-      process_manager_id
-      event_type.value
-      from_state.value
-    end
-
-    # No `saga` field. It named the old word for a process manager, held nothing —
-    # IR::ProcessManagerHandler has no such reader, so every Handler record's saga
-    # was empty — and repeated the parent that `process_manager_id` already
-    # carries. A field that names the wrong thing, holds nothing, and duplicates
-    # the reference beside it.
-    #
-    # `event_type` is an event name, or one of the Trigger vocabulary's members
-    # when the leg answers something no aggregate announces.
-    attribute :event_type, HandlerText
-    attribute :from_state, HandlerText
-    attribute :to_state,   HandlerText
-    # Vendored addition, not (yet) upstream hecksagain (migration plan
-    # task 4): `remember key: from_event(...)` writes forward into the
-    # saga instance's own carried memory — see IR::ProcessManagerHandler's
-    # own comment. An OPEN MAP, the same shape `Dispatch`'s own
-    # `with_spec` already is (a value object cannot hold it), so it rides
-    # as rows the same way.
-    attribute :remembers,   list_of(Remembered)
-    # `given { |ctx| ... }` — a dispatch-level precondition. The predicate
-    # ITSELF is a raw Proc, never rendered into `to_h` (same reason a
-    # command's own `given`/`ensures` predicates are not) — only its
-    # PRESENCE is exported, as a count, so the self-hosted grammar holds
-    # exactly what the wire holds: a number, not a claim to describe the
-    # predicate.
-    attribute :guard_count, GuardCount
-
-    value_object "HandlerText" do
-      attribute :value, String
-    end
-
-    value_object "Remembered" do
-      attribute :key,   String
-      attribute :value, String
-    end
-
-    value_object "GuardCount" do
-      attribute :value, Integer
-      invariant("a guard count is never negative") { value >= 0 }
-    end
-
-    # The way back: everything DECLARED IN the process manager above. The parent
-    # reference IS the query.
-    # WHERE IT SITS AMONG ITS SIBLINGS. Declaration order is a FACT ABOUT THE
-    # SOURCE — the IR is a contract read straight from this file,
-    # field for field AND INDEX FOR INDEX. So the language HOLDS it, instead of
-    # inheriting it from whatever order a store happens to iterate: an ask that
-    # does not say how it is ordered is answered in identity order, which is
-    # right for every other ask and fatal for the one that is the SOURCE.
-    value_object "Position" do
-      attribute :value, Integer
-    end
-
-    attribute :position, Position
-
-    query "DeclaredIn" do
-      attribute :process_manager_id, HandlerText
-      where(process_manager_id: :process_manager_id)
-      order_by :position
-    end
-    command "Declare" do
+    # THE HANDLER'S OWN CREATION. S17, ADR 0026 — Handler is a genuine
+    # ENTITY now (`entity "Handler"`, below), and an entity is never
+    # created through its own dotted verb — banking's own LedgerEntry is
+    # created by `Account.LogEntry`, an ordinary append on the OWNER,
+    # never by a `LedgerEntry.Declare` of its own
+    # (`EntityInterpreter#element_of` only LOCATES an element already on
+    # the list — it has no path that creates one). So Handler's creation
+    # moved here, onto ProcessManager, mirroring `State` beside it: a
+    # bare, aggregate-level append.
+    command "Handler" do
       role "Language"
       goal "Open a handler inside a process manager"
 
@@ -338,115 +254,113 @@ Hecks.bluebook "Bluebook" do
       # the language admitting a leg the runtime cannot parse.
       attribute :from_state, HandlerText
       attribute :to_state,   HandlerText
-      # KNOWN IN FULL BY THE TIME `on(...)`'s BLOCK FINISHES, the same as
-      # `event_type`/`from_state`/`to_state` — a scalar, so it rides as a
-      # Declare-time attribute rather than a sub-command the way
-      # `remembers` (an open map) needs to.
+
+      # Vendored addition, not (yet) upstream hecksagain (migration plan
+      # task 4, i768 follow-up): known in full by the time a handler's
+      # `on(...)`/`transition(...)` block finishes, same as event_type/
+      # from_state/to_state — see GuardCount's own comment for why only
+      # the count, never the guards themselves, rides through here.
       attribute :guard_count, GuardCount, optional: true
 
-      attribute :position, Position, optional: true
+      sets :handlers, append: { event_type: :event_type, from_state: :from_state, to_state: :to_state,
+                                guard_count: :guard_count }
+
       emits "LegDeclared"
     end
 
-    # `remember key: from_event(...)` / `set :key, value` — vendored
-    # addition, not (yet) upstream hecksagain (migration plan task 4):
-    # the list-append counterpart to `Dispatch.Bind`'s own with_spec
-    # binding, same open-map shape (a value object cannot hold it).
-    command "Remember" do
-      role "Language"
-      goal "Attach one remembered key/value pair to the handler"
-
-      reference_to Handler
-      attribute :key,   HandlerText
-      attribute :value, HandlerText
-
-      then_set :remembers, append: { key: :key, value: :value }
-
-      emits "RememberedAttached"
-    end
-  end
-
-  aggregate "Dispatch" do
-    description "One command a handler dispatches, with the arguments it binds. Its own root because the bindings are an open map, which no value object can hold."
-
-    reference_to Handler
-
-    # THE HANDLER IT IS IN, AND THE COMMAND IT SENDS — keyed by position before,
-    # for the same want of a way to say this.
+    # S17, ADR 0026 — ONE HANDLER, nested rather than its own root
+    # aggregate. No `saga` field. It named the old word for a process
+    # manager, held nothing — ProcessManagerHandler has no such reader,
+    # so every Handler record's saga was empty — and repeated the parent
+    # that its own containment already carries. A field that names the
+    # wrong thing, holds nothing, and duplicates the reference beside it.
     #
-    # Vendored correction (migration plan task 4): (handler_id, command_name)
-    # alone collides on a real, legitimate pattern — one handler fanning the
-    # SAME command out several times with different `with:` bindings each
-    # time (miette's body/pulse_organs/bluebook: one BodyPulse handler
-    # dispatching "Signal.FireSignal" once per organ, same command name,
-    # different args). Unlike Handler's from_state (a real business value),
-    # position here is not a stand-in for missing meaning — it names WHICH
-    # send this is, and each Dispatch is declared once, at load time, never
-    # re-addressed by identity afterward (the "way back" is always
-    # DeclaredIn + order_by :position, never a Dispatch looked up by its own
-    # id). So folding position into identity is safe exactly where it was
-    # unsafe for Handler's legs. TODO upstream via bin/evolve.
-    identified_by do
-      handler_id
-      command_name.value
-      position.value
-    end
+    # `event_type` is an event name, or one of the Trigger vocabulary's
+    # members when the leg answers something no aggregate announces — and
+    # is Handler's own real, non-positional identity now : a saga answers
+    # each event ONCE, so the event names the leg, and the process
+    # manager it belongs to is structural (which list this element sits
+    # in), not a stored field any more.
+    entity "Handler" do
+      description "One handler inside a process manager — the event it answers, the state move it makes, and the commands it sends. Nested under the process manager because a handler holds nested dispatches, which hold nested bindings."
 
-    attribute :handler,      DispatchText
-    attribute :command_name, DispatchText
-    attribute :with_spec,    list_of(Binding)
+      attribute :event_type, HandlerText
+      identified_by :event_type
 
-    value_object "DispatchText" do
-      attribute :value, String
-    end
+      attribute :from_state, HandlerText
+      attribute :to_state,   HandlerText
+      # S17, ADR 0026 — Dispatch nested here too (see `entity "Dispatch"`,
+      # below), one level further in than Handler itself.
+      attribute :dispatches, list_of(Dispatch)
 
-    value_object "Binding" do
-      attribute :key,   String
-      attribute :value, String
-    end
+      # Vendored addition, not (yet) upstream hecksagain (migration plan
+      # task 4, i768 follow-up): same open-map shape Dispatch's own
+      # `with_spec` already is — `remember key: from_event(...)` has no
+      # value object that can hold it, so it rides as rows, reusing the
+      # same `Binding` VO with_spec already does.
+      attribute :remembers, list_of(Binding)
+      attribute :guard_count, GuardCount, optional: true
 
-    # The way back: everything DECLARED IN the handler above. The parent
-    # reference IS the query.
-    # WHERE IT SITS AMONG ITS SIBLINGS. Declaration order is a FACT ABOUT THE
-    # SOURCE — the IR is a contract read straight from this file,
-    # field for field AND INDEX FOR INDEX. So the language HOLDS it, instead of
-    # inheriting it from whatever order a store happens to iterate: an ask that
-    # does not say how it is ordered is answered in identity order, which is
-    # right for every other ask and fatal for the one that is the SOURCE.
-    value_object "Position" do
-      attribute :value, Integer
-    end
+      # THE HANDLER'S OWN REMEMBERED VALUE — same reason Dispatch's own
+      # `Bind` lives one level in rather than on the creating command:
+      # `remembers` grows over the handler's own declaration the same
+      # way `with_spec` grows over a Dispatch's.
+      command "Remember" do
+        role "Language"
+        goal "Record one value this handler writes into the saga's carried memory"
 
-    attribute :position, Position
+        attribute :key,   HandlerText
+        attribute :value, HandlerText
 
-    query "DeclaredIn" do
-      attribute :handler_id, DispatchText
-      where(handler_id: :handler_id)
-      order_by :position
-    end
-    command "Declare" do
-      role "Language"
-      goal "Open a dispatch inside a handler"
+        sets :remembers, append: { key: :key, value: :value }
 
-      reference_to Handler
-      attribute :handler,      DispatchText
-      attribute :command_name, DispatchText
+        emits "RememberAttached"
+      end
 
-      attribute :position, Position, optional: true
-      emits "SendDeclared"
-    end
+      # THE DISPATCH'S OWN CREATION — same reason Handler's own creation
+      # lives on ProcessManager, one level up: an entity is never created
+      # through its own dotted verb. Reached as a DOTTED verb itself
+      # (`ProcessManager.Handler.Dispatch`) since Handler, the owner
+      # doing the creating here, is an entity too, not a real aggregate
+      # with a bare verb of its own to dispatch into.
+      command "Dispatch" do
+        role "Language"
+        goal "Open a dispatch inside a handler"
 
-    command "Bind" do
-      role "Language"
-      goal "Bind one argument of the dispatched command"
+        attribute :command_name, DispatchText
 
-      reference_to Dispatch
-      attribute :key,   DispatchText
-      attribute :value, DispatchText
+        sets :dispatches, append: { command_name: :command_name }
 
-      then_set :with_spec, append: { key: :key, value: :value }
+        emits "SendDeclared"
+      end
 
-      emits "BindingAttached"
+      # S17, ADR 0026 — ONE COMMAND A HANDLER DISPATCHES, nested two
+      # levels in rather than its own root aggregate — "no life outside
+      # its Handler" (the ADR's own words). The bindings are an open
+      # map, which no value object can hold — that was always a reason
+      # it could not be one, never a reason it could not be an entity.
+      # `command_name` is Dispatch's own real, non-positional identity,
+      # the same shape Handler's own `event_type` just took one level up.
+      entity "Dispatch" do
+        description "One command a handler dispatches, with the arguments it binds. Nested under the handler because the bindings are an open map, which no value object can hold."
+
+        attribute :command_name, DispatchText
+        identified_by :command_name
+
+        attribute :with_spec, list_of(Binding)
+
+        command "Bind" do
+          role "Language"
+          goal "Bind one argument of the dispatched command"
+
+          attribute :key,   DispatchText
+          attribute :value, DispatchText
+
+          sets :with_spec, append: { key: :key, value: :value }
+
+          emits "BindingAttached"
+        end
+      end
     end
   end
 end

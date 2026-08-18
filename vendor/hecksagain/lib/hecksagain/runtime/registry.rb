@@ -1,4 +1,5 @@
 require_relative "registry/verification"
+require_relative "registry/saga_persistence"
 
 module Hecksagain
   module Runtime
@@ -6,12 +7,15 @@ module Hecksagain
 
     # The collections a boot gathers — bluebooks, hexagons, ports, adapters,
     # worlds, the logs — and how a repository is resolved from them. The
-    # wiring gate lives in registry/verification.rb.
+    # wiring gate lives in registry/verification.rb, saga persistence
+    # resolution in registry/saga_persistence.rb.
     class Registry
       include Verification
+      include SagaPersistence
 
       attr_reader :root, :bluebooks, :hecksagons, :ports, :adapters, :worlds, :event_log,
-                  :reaction_log, :saga_log, :saga_instances, :translations
+                  :reaction_log, :saga_log, :saga_instances, :translations, :saga_mutex,
+                  :saga_dispatch_log, :policy_dispatch_log
 
       def initialize(root: nil)
         @root         = root
@@ -24,28 +28,35 @@ module Hecksagain
         @event_log    = []
         @reaction_log = []
         @saga_log = []
+        # ADDITIVE, RUBY-ONLY — never merged into saga_log/reaction_log.
+        # rust/src/kernel/orchestrate.rs ports THOSE two arrays' exact
+        # shape byte-for-byte (spec/rust_conformance_spec.rb's own
+        # equality check) — a landmine found by reading that spec before
+        # touching anything, not by hitting it. These carry the raw
+        # inputs a dispatch's own argument binding was resolved from
+        # (SagaInterpreter#deliver_saga_dispatch / PolicyInterpreter#
+        # trigger_args), for Properties.dispatch_binding_fidelity's own
+        # independent re-derivation — a fact neither existing log
+        # records at all, so there is nothing here for Rust to have
+        # matched or drifted from.
+        @saga_dispatch_log   = []
+        @policy_dispatch_log = []
         @saga_instances = Hash.new { |h, k| h[k] = {} }
+        # GUARDS `saga_instances`' OWN mutation+checkpoint sequence
+        # (`SagaInterpreter`'s 4 write points, §7) — the same shape of
+        # hazard this codebase's own prior audit already flagged for
+        # `@reaction_depth`, a thread-shared dispatcher ivar with no
+        # lock, made meaningfully easier to hit once a persistence write
+        # sits in the same critical section. Held across the in-memory
+        # mutation AND the checkpoint write together, never across a
+        # saga's own dispatch cascade — see `SagaInterpreter#advance_saga`'s
+        # own comment for why that distinction matters (non-reentrant
+        # Mutex, recursive re-entry is real).
+        @saga_mutex = Mutex.new
         @repositories = {}
         @projection_repositories = {}
         @bluebook_builders = {}
-        @loading = false
       end
-
-      # THIS REGISTRY'S OWN loading state — set true for the span of
-      # Loader.boot's file-loading phases, false once every file has been
-      # read. `Bluebook::MetaValidator.call` checks this (via
-      # `Hecksagain.current_registry`) to defer judging a multi-file domain
-      # until every file contributing to it has loaded, instead of judging
-      # each file's partial view alone the moment it loads.
-      #
-      # Registry-scoped, NOT a MetaValidator class-level flag like
-      # `bootstrapping?` — that flag's `load_grammar_into` unconditionally
-      # clears it in an `ensure`, so a lazy `grammar_registry` trigger mid-load
-      # (a different registry entirely) would clobber it out from under an
-      # outer boot still in progress. This ivar can't be, because it lives on
-      # the one Registry instance a single `Loader.boot` call owns.
-      attr_accessor :loading
-      alias_method :loading?, :loading
 
       # THE BUILDER STAYS OPEN FOR THE LIFE OF THIS REGISTRY, keyed by chapter
       # name — see the comment on `BluebookBuilder.build`. A chapter split across
@@ -71,8 +82,8 @@ module Hecksagain
       # file's binds survived registry-wide ("Conductor::MergeQueue has
       # no persisted_by bind" even though merge_queue.hecksagon plainly
       # binds it -- lease.hecksagon just loaded after and clobbered it).
-      # Merges binds/subscriptions/framework_members/driving_handlers
-      # across every call for the same domain instead.
+      # Merges binds/subscriptions/framework_members across every call
+      # for the same domain instead.
       def add_hecksagon(item)
         existing = @hecksagons[item.domain]
         @hecksagons[item.domain] = existing ? merge_hecksagons(existing, item) : item
@@ -119,12 +130,14 @@ module Hecksagain
 
       # See #add_hecksagon's own comment.
       def merge_hecksagons(a, b)
-        Bluebook::IR::Hecksagon.new(
-          domain:            a.domain,
-          binds:             a.binds + b.binds,
-          subscriptions:     a.subscriptions + b.subscriptions,
-          framework_members: a.framework_members + b.framework_members,
-          driving_handlers:  a.driving_handlers + b.driving_handlers
+        Bluebook::Hecksagon.new(
+          domain:             a.domain,
+          binds:              a.binds + b.binds,
+          subscriptions:      a.subscriptions + b.subscriptions,
+          framework_members:  a.framework_members + b.framework_members,
+          vendored_bluebooks: a.vendored_bluebooks + b.vendored_bluebooks,
+          driven_handlers:    a.driven_handlers + b.driven_handlers,
+          driving_handlers:   a.driving_handlers + b.driving_handlers
         )
       end
 

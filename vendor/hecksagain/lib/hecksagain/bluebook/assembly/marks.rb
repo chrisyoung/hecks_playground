@@ -15,16 +15,16 @@ module Hecksagain
       module Marks
         module_function
 
-        # `IR::Attribute#to_h` spells a type with `to_s`, so a reference arrives as
+        # `Attribute#to_h` spells a type with `to_s`, so a reference arrives as
         # "Reference<Customer>" and has to become an edge again. Everything else is
         # a name and stays one.
         def attribute(field)
           type = field[:type].to_s
           target = type[/\AReference<(.+)>\z/, 1]
 
-          IR::Attribute.new(
+          Attribute.new(
             name:     field[:name],
-            type:     target ? IR::Reference.new(target) : type,
+            type:     target ? Reference.new(target) : type,
             list:     field[:list] ? true : false,
             default:  field[:default],
             # The LAST place optionality can be dropped, and the one that was
@@ -81,7 +81,7 @@ module Hecksagain
 
         # A scalar that was written as itself rather than inspected — a member's
         # value, where the language holds text and the type has to be read back from
-        # the shape of it. Unlike `unmark`, a bare word stays a String here, because
+        # the shape of it. Unlike `read`, a bare word stays a String here, because
         # a closed set admits words far more often than symbols.
         def unmark_scalar(value)
           text = value.to_s
@@ -93,64 +93,45 @@ module Hecksagain
           text
         end
 
-        # A saga's argument bindings. Each value rides `render_value`, which marks a
-        # Symbol with a leading colon — lose it and an argument reads as a string of
-        # the same name. `unmark`, not `read`, for the same reason `where_clause`
-        # needed it over `read` : nothing in the real corpus has ever bound a
-        # literal number or boolean (every `with:` is a kwarg reference or an
-        # object literal), so `read`'s missing numeric/boolean cases were a latent
-        # gap, not yet a proven one — a saga leg dispatching `with: { retry: 3 }`
-        # would bind the STRING "3", silently, to whatever the target command's
-        # argument coercion did with it.
-        def bindings(with) = Array(with).to_h { |key, value| [key.to_sym, unmark(value)] }
-
-        # `with_literals`' own keys — a POLICY writes them as STRINGS
-        # (`with "key", "value"` / `map key: value`, both `to_s`-keyed —
-        # see PolicyBuilder#with/#map's own comments), unlike `bindings`
-        # just above, whose Symbol keys match `where`'s own
-        # `transform_keys(&:to_sym)`. Same decode (`unmark`) either way;
-        # only the key's own type differs.
-        def literal_map(with) = Array(with).to_h { |key, value| [key.to_s, unmark(value)] }
-
-        # `for_each`'s own shape — one scalar (`from`) and one open map
-        # (`where`), Reconstruction's `policy_for_each` gathers the parts,
-        # this decodes them: `where`'s values ride the exact encoding
-        # `bindings` already reads, since `for_each`'s own where-clause
-        # values are the SAME mix (a bare Symbol referencing the
-        # triggering event's payload, or a literal) `with:`/`remember`
-        # already round-trip this way.
-        def for_each_spec(value)
-          return nil unless value
-
-          { from: value[:from], where: bindings(value[:where]) }
-        end
+        # A saga's argument bindings. Each value rides Literal's spelling, which
+        # marks a Symbol with a leading colon — lose it and an argument reads as a
+        # string of the same name.
+        def bindings(with) = Array(with).to_h { |key, value| [key.to_sym, read(value)] }
 
         def invariant(rule)
-          IR::Invariant.new(description: rule[:description], canonical: rule[:canonical])
+          Invariant.new(description: rule[:description], canonical: rule[:canonical])
         end
 
         def given(rule)
-          IR::Given.new(description: rule[:description], canonical: rule[:canonical])
+          Given.new(description: rule[:description], canonical: rule[:canonical])
+        end
+
+        # S12, ADR 0025 — `projects :name, from: :"reference.remote_field"`.
+        # All three fields are identifiers, unlike Invariant/Given's own
+        # free text, so — like `attribute`'s own `name`/`type` below —
+        # they come back as Symbols.
+        def projected_field(row)
+          ProjectedField.new(name: row[:name].to_sym, reference: row[:reference].to_sym,
+                              remote_field: row[:remote_field].to_sym)
         end
 
         # `Mutation#to_h` branches on the operation, so this does too.
         #
-        # An APPEND binds several fields at once and spells each binding with
-        # `value.is_a?(Symbol) ? value.to_s : value.inspect` — so a bare word is an
-        # ARGUMENT and anything self-describing is a LITERAL. That distinction is
-        # the whole reason `append: { direction: "out" }` was once indistinguishable
+        # An APPEND binds several fields at once, each either an ARGUMENT (a
+        # Symbol, wearing its colon) or a LITERAL — the distinction that is the
+        # whole reason `append: { direction: "out" }` was once indistinguishable
         # from an argument named `out`.
         def mutation(change)
           target = change[:target].to_sym
           op     = change[:op].to_sym
 
-          return IR::Mutation.new(target: target, op: op, source: appended(change[:fields])) if op == :append
+          return Mutation.new(target: target, op: op, source: appended(change[:fields])) if op == :append
 
-          IR::Mutation.new(target: target, op: op, source: classified(change[:source]))
+          Mutation.new(target: target, op: op, source: classified(change[:source]))
         end
 
         def appended(fields)
-          Array(fields).to_h { |field, source| [field.to_sym, source_of(source)] }
+          Array(fields).to_h { |field, source| [field.to_sym, read(source)] }
         end
 
         # A SET reads one thing, and `classified_source` said which: an argument by
@@ -161,68 +142,28 @@ module Hecksagain
           source[:kind].to_s == "argument" ? source[:name].to_sym : source[:value]
         end
 
-        # Bare word -> the argument it names. Anything wearing its own type -> the
-        # literal it is. `inspect` is what wrote these, so `unmark` reads them.
-        def source_of(spelling)
-          text = spelling.to_s
-          return text.to_sym if text.match?(/\A[a-z_][a-zA-Z0-9_]*\z/)
-
-          unmark(text)
-        end
-
-        # `QuerySpecification.render_value` spells a Symbol ":name" and everything
-        # else `to_s`. A where-clause value and a saga's argument bindings both ride
-        # that spelling, and losing the colon made an argument indistinguishable
-        # from a string of the same name.
+        # EVERY LITERAL FIELD ON THE WIRE, read back — one spelling, one reader.
         #
-        # AN OBJECT LITERAL RIDES IT TOO, and that is the one that bit. A saga leg
-        # binds `narrative: { text: "transfer out" }` — a value object's fields
-        # written inline — and `to_s` on a Hash is its inspect form, so it comes back
-        # as text. Read as a string it reached the runtime as
-        # `"{:text=>\"transfer out\"}"`, coercion refused it, the debit leg was never
-        # delivered, and the whole settlement wire stopped: banking emitted
-        # TransferRequested five times and TransferDebited never. A whole-history
-        # replay gate caught what
-        # every other gate missed, because a saga that silently does nothing looks
-        # exactly like a saga with nothing to do.
-        def read(value)
-          text = value.to_s
-          return object(text)     if text.start_with?("{") && text.end_with?("}")
-          return text[1..].to_sym if text.start_with?(":")
+        # A where-clause value, a saga's argument bindings, an append binding, a
+        # limit: all of them ride Literal's self-describing form, so all of them
+        # come back through here. There were two readers (`read` and `unmark`)
+        # that disagreed about quoted strings and numbers, and which one a call
+        # site got was a coin toss the comments had to keep apologising for.
+        #
+        # AN OBJECT LITERAL is the one that bit. A saga leg binds `narrative: {
+        # text: "transfer out" }` — a value object's fields written inline — and
+        # `to_s` on a Hash used to be its inspect form, so it came back as text.
+        # Read as a string it reached the runtime as `"{:text=>\"transfer out\"}"`,
+        # coercion refused it, the debit leg was never delivered, and the whole
+        # settlement wire stopped: banking emitted TransferRequested five times and
+        # TransferDebited never. A whole-history replay gate caught what every other
+        # gate missed, because a saga that silently does nothing looks exactly like
+        # a saga with nothing to do.
+        def read(value) = Literal.read(value)
 
-          text
-        end
-
-        # A literal, from the self-describing form `inspect` produced.
-        def unmark(text)
-          raw = text.to_s
-          return nil                if raw.empty?
-          return object(raw)        if raw.start_with?("{") && raw.end_with?("}")
-          return raw[1..-2]         if raw.start_with?('"') && raw.end_with?('"')
-          return raw[1..].to_sym    if raw.start_with?(":")
-          return true               if raw == "true"
-          return false              if raw == "false"
-          return raw.to_i           if raw.match?(/\A-?\d+\z/)
-          return raw.to_f           if raw.match?(/\A-?\d+\.\d+\z/)
-
-          raw
-        end
-
-        # Scanned rather than split on ", ", so a quoted value carrying a comma does
-        # not tear in half.
-        def object(raw)
-          raw.scan(/:(\w+)=>("[^"]*"|[^,}]+)/).to_h { |key, value| [key.to_sym, unmark(value.strip)] }
-        end
-
-        # `read`, not `unmark`, until a where-clause's literal NUMBER and a
-        # String field's own text collided the same way an object literal
-        # and a symbol argument already had — see `read`'s own comment. A
-        # where-clause's value now needs everything unmark reads : object
-        # literals and symbols for the reason `read` already handled, and
-        # numbers/booleans for gt/gte/lt/lte to compare against at all.
         def where_clause(clause)
           QuerySpecification::Common::WhereClause.new(
-            field: clause[:field], op: clause[:op].to_sym, value: unmark(clause[:value])
+            field: clause[:field], op: clause[:op].to_sym, value: read(clause[:value])
           )
         end
 
@@ -242,8 +183,8 @@ module Hecksagain
 
         # EVERY OTHER SPECIFICATION OPTION, from one table.
         #
-        # Each entry names the struct and which of its members carry a value that was
-        # `render_value`d (a Symbol marked with a colon) rather than plain text. A
+        # Each entry names the struct and which of its members carry a value that
+        # rode Literal's spelling rather than plain text. A
         # ninth option is one row here and nothing else — the language already holds
         # it, because it holds options as an open map rather than a field each.
         OPTIONS = {
@@ -251,8 +192,6 @@ module Hecksagain
           cursor:         [QuerySpecification::Common::CursorSpec,        %i[value]],
           null_semantics: [QuerySpecification::Common::NullSemantics,     []],
           authorization:  [QuerySpecification::Common::AuthorizationSpec, %i[policy tenant]],
-          consistency:    [QuerySpecification::Common::ConsistencySpec,   %i[timeout]],
-          freshness:      [QuerySpecification::Common::FreshnessSpec,     %i[max_age]],
           inspection:     [QuerySpecification::Common::InspectionSpec,    []]
         }.freeze
 
@@ -276,10 +215,6 @@ module Hecksagain
           value
         end
 
-        # A repeated option — an index hint per occurrence.
-        def index_hints(declared)
-          Array(declared).map { |hint| QuerySpecification::Common::IndexHint.new(name: hint[:name].to_sym) }
-        end
       end
     end
   end

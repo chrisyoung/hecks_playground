@@ -14,12 +14,13 @@ Hecks.bluebook "ConsoleSettings" do
   # framework member already uses, rather than this being the one
   # exception with its own private boot path.
   #
-  # NOT named "Presentation" — Hecksagain::Presentation (lib/hecksagain/
-  # presentation/) already names a different, real thing: a dormant
-  # prototype that renders raw forms/query views straight off any IR, zero
-  # config. This chapter is the opposite kind of surface — a CURATED,
-  # hand-authored dashboard's own settings — and picks a name that doesn't
-  # read as the same one.
+  # NOT named "Forms" — Hecksagain::Forms (lib/hecksagain/forms/) already
+  # names a different, real thing: a dormant prototype (the working half
+  # of command_form.bluebook/query_form.bluebook, see docs/command-form-
+  # and-query-form-bluebook.md) that renders raw forms/query views
+  # straight off any IR, zero config. This chapter is the opposite kind
+  # of surface — a CURATED, hand-authored dashboard's own settings — and
+  # picks a name that doesn't read as the same one.
   #
   # SCOPE: everything presentation.yml carries EXCEPT a collection's own
   # `after_create` (a dispatch chain with a literal-or-$field-or-
@@ -41,14 +42,11 @@ Hecks.bluebook "ConsoleSettings" do
     # exactly the confusion ui_schema.rb's own identity-collision fix
     # (see [[project_generic_founder_app]]) already had to work around
     # once for `id`.
-    identified_by do
-      agg.value
-      state.value
-    end
-
     attribute :agg,       StateStyleText
     attribute :state,     StateStyleText
     attribute :tone,      one_of("good", "warn", "danger", "muted", "accent"), optional: true
+
+    identified_by :agg, :state
     # `Flag`, wrapping "true"/"false" — not a bare `String` and not
     # `TrueClass`. Two confirmed-by-trying reasons neither works directly
     # on an aggregate/command attribute:
@@ -58,7 +56,7 @@ Hecks.bluebook "ConsoleSettings" do
     #     a bareword like `Flag`, which has no such constant and so DOES
     #     reach it) — the meta-validator has no separate case for the
     #     literal class objects, so it goes looking for a declared value
-    #     object named "TrueClass" and fails. `IR::Attribute::PRIMITIVES`
+    #     object named "TrueClass" and fails. `Attribute::PRIMITIVES`
     #     lists them, but no real bluebook in this codebase spells one.
     #   - A bare primitive (`String`, `Integer`) directly on an
     #     AGGREGATE or COMMAND attribute fails the identical way — every
@@ -117,7 +115,7 @@ Hecks.bluebook "ConsoleSettings" do
       reference_to StateStyle
       attribute :tone, one_of("good", "warn", "danger", "muted", "accent")
 
-      then_set :tone, to: :tone
+      sets :tone
       emits "ToneSet"
     end
 
@@ -128,7 +126,7 @@ Hecks.bluebook "ConsoleSettings" do
       reference_to StateStyle
       attribute :attention, Flag
 
-      then_set :attention, to: :attention
+      sets :attention
       emits "AttentionSet"
     end
 
@@ -139,17 +137,18 @@ Hecks.bluebook "ConsoleSettings" do
       reference_to StateStyle
       attribute :extra_json, StateStyleExtra
 
-      then_set :extra_json, to: :extra_json
-      emits "ExtraSet"
+      sets :extra_json
+      emits "StateStyleExtraSet"
     end
   end
 
   aggregate "Collection" do
     description "One app aggregate's own console presentation — nav label, curated columns, detail-panel fields (with an optional entity state_filter and a row_columns subset), identity-assignment strategy, field formats, preconditions, and which query lists it. Every list-shaped piece is rows on this root, never a nested list inside a value object — the same 'an open map is rows on a head' shape Wiring::Setting and Query::AskOption already use, and the same reason: no value object here can hold a map, and this sidesteps ever needing to find out whether one can hold a plain list either."
 
-    identified_by { agg.value }
-
     attribute :agg,                  SettingsText
+
+    identified_by :agg
+
     attribute :label,                SettingsText, optional: true
     attribute :key,                  SettingsText, optional: true
     attribute :nav_order,            SettingsNumber, optional: true
@@ -197,15 +196,11 @@ Hecks.bluebook "ConsoleSettings" do
 
     # A list/table column. `sortable`/`sort_default` are optional — most
     # columns take the frontend's own default (sortable, no forced order).
-    # `sort_default` stays a plain String, not an inline `one_of` — a
-    # `one_of(...)` written INSIDE a `value_object do ... end` block
-    # collides with the value object's OWN bare `one_of do member ... end`
-    # closed-set DSL (same method name, different arity — confirmed by
-    # trying it: `wrong number of arguments (given 2, expected 0)`).
-    # `admits:` (a closed set declared elsewhere) is the way around that
-    # collision, but for a field this narrow it isn't worth the extra
-    # sibling value object — PresentationConfig.validate! keeps checking
-    # membership in Ruby, same as it always has.
+    # `sort_default` stays a plain String, not a closed set — narrow
+    # enough (and PresentationConfig.validate! already checks it in
+    # Ruby) that a dedicated `one_of: [...]` (S3, ADR 0025 — the field's
+    # own keyword now, no sibling value object or `admits:` indirection
+    # needed) still isn't worth it for this one field.
     value_object "Column" do
       attribute :field,        String
       attribute :sortable,     String, optional: true  # "true"/"false" — see StateStyle.attention's own comment
@@ -276,7 +271,7 @@ Hecks.bluebook "ConsoleSettings" do
       reference_to Collection
       attribute :label, SettingsText
 
-      then_set :label, to: :label
+      sets :label
       emits "LabelSet"
     end
 
@@ -287,7 +282,7 @@ Hecks.bluebook "ConsoleSettings" do
       reference_to Collection
       attribute :key, SettingsText
 
-      then_set :key, to: :key
+      sets :key
       emits "KeySet"
     end
 
@@ -298,7 +293,7 @@ Hecks.bluebook "ConsoleSettings" do
       reference_to Collection
       attribute :nav_order, SettingsNumber
 
-      then_set :nav_order, to: :nav_order
+      sets :nav_order
       emits "NavOrderSet"
     end
 
@@ -309,7 +304,7 @@ Hecks.bluebook "ConsoleSettings" do
       reference_to Collection
       attribute :primary_field, SettingsText
 
-      then_set :primary_field, to: :primary_field
+      sets :primary_field
       emits "PrimaryFieldSet"
     end
 
@@ -320,7 +315,7 @@ Hecks.bluebook "ConsoleSettings" do
       reference_to Collection
       attribute :list_query, SettingsText
 
-      then_set :list_query, to: :list_query
+      sets :list_query
       emits "ListQuerySet"
     end
 
@@ -335,11 +330,11 @@ Hecks.bluebook "ConsoleSettings" do
       attribute :identity_prefix,      SettingsText,    optional: true
       attribute :identity_extra_json,  CollectionExtra, optional: true
 
-      then_set :identity_field,       to: :identity_field
-      then_set :identity_strategy,    to: :identity_strategy
-      then_set :identity_source,      to: :identity_source
-      then_set :identity_prefix,      to: :identity_prefix
-      then_set :identity_extra_json,  to: :identity_extra_json
+      sets :identity_field
+      sets :identity_strategy
+      sets :identity_source
+      sets :identity_prefix
+      sets :identity_extra_json
       emits "IdentitySet"
     end
 
@@ -350,8 +345,8 @@ Hecks.bluebook "ConsoleSettings" do
       reference_to Collection
       attribute :extra_json, CollectionExtra
 
-      then_set :extra_json, to: :extra_json
-      emits "ExtraSet"
+      sets :extra_json
+      emits "CollectionExtraSet"
     end
 
     command "ReplaceColumns" do
@@ -361,7 +356,7 @@ Hecks.bluebook "ConsoleSettings" do
       reference_to Collection
       attribute :columns, list_of(Column)
 
-      then_set :columns, to: :columns
+      sets :columns
       emits "ColumnsReplaced"
     end
 
@@ -372,7 +367,7 @@ Hecks.bluebook "ConsoleSettings" do
       reference_to Collection
       attribute :detail_fields, list_of(DetailField)
 
-      then_set :detail_fields, to: :detail_fields
+      sets :detail_fields
       emits "DetailFieldsReplaced"
     end
 
@@ -383,7 +378,7 @@ Hecks.bluebook "ConsoleSettings" do
       reference_to Collection
       attribute :detail_field_columns, list_of(DetailFieldColumn)
 
-      then_set :detail_field_columns, to: :detail_field_columns
+      sets :detail_field_columns
       emits "DetailFieldColumnsReplaced"
     end
 
@@ -394,7 +389,7 @@ Hecks.bluebook "ConsoleSettings" do
       reference_to Collection
       attribute :preconditions, list_of(Precondition)
 
-      then_set :preconditions, to: :preconditions
+      sets :preconditions
       emits "PreconditionsReplaced"
     end
 
@@ -405,7 +400,7 @@ Hecks.bluebook "ConsoleSettings" do
       reference_to Collection
       attribute :field_formats, list_of(FieldFormat)
 
-      then_set :field_formats, to: :field_formats
+      sets :field_formats
       emits "FieldFormatsReplaced"
     end
   end
@@ -413,19 +408,19 @@ Hecks.bluebook "ConsoleSettings" do
   # THE DASHBOARD'S OWN STAT CARDS — domain-WIDE, not per-aggregate the
   # way Collection is (a stat can name any collection, or none in
   # particular), so this is a SINGLETON: exactly one row, ever, for the
-  # whole console. `identified_by { key.value }` names a literal
-  # constant ("overview") rather than anything a person chooses — the
-  # same reason a creating command needs SOME identity to hydrate
-  # against (hydrate's own "an identity that is invented is neither
-  # derived from the record nor permanently associated with it"
-  # comment), just with the value fixed instead of derived from what's
-  # being declared.
+  # whole console. `attribute :key, OverviewKey` holds a literal constant
+  # ("overview") rather than anything a person chooses — the same reason
+  # a creating command needs SOME identity to hydrate against (hydrate's
+  # own "an identity that is invented is neither derived from the record
+  # nor permanently associated with it" comment), just with the value
+  # fixed instead of derived from what's being declared.
   aggregate "Overview" do
     description "The console's own dashboard stat cards, whole. One row, ever — `key` is always the literal 'overview', never chosen. Every stat gets replaced as a whole list on save, the same 'replace whole, never patch one' convention Collection's own columns/detail_fields/preconditions/field_formats already use."
 
-    identified_by { key.value }
+    attribute :key, OverviewKey
 
-    attribute :key,   OverviewKey
+    identified_by :key
+
     attribute :stats, list_of(Stat)
 
     value_object "OverviewKey" do
@@ -473,7 +468,7 @@ Hecks.bluebook "ConsoleSettings" do
       reference_to Overview
       attribute :stats, list_of(Stat)
 
-      then_set :stats, to: :stats
+      sets :stats
       emits "StatsReplaced"
     end
   end
@@ -489,13 +484,13 @@ Hecks.bluebook "ConsoleSettings" do
   # the SAME record, not two aggregates — and Overview's own stat cards,
   # which are read straight off Overview.find, a singleton needing
   # neither grouping nor unwrapping either).
-  report "Styles" do
+  read_model "Styles" do
     description "Every StateStyle row, nested by the aggregate and state it styles."
     include StateStyle
     group_by :agg, :state
   end
 
-  report "Curated" do
+  read_model "Curated" do
     description "Every Collection row, nested by the app aggregate it curates."
     include Collection
     group_by :agg

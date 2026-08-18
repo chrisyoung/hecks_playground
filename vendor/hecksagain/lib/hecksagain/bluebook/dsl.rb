@@ -14,11 +14,15 @@ end
 # file says it for them. The builders also build IR, at build time.
 require_relative "../construct"
 require_relative "../query_specification"
-require_relative "ir"
+# The model the builders construct — `bluebook.rb` requires the whole
+# set; this names the one file that declares the chapter class itself,
+# which every builder returns into.
+require_relative "chapter"
 
 require_relative "dsl/malformed"
 require_relative "dsl/const_shim"
 require_relative "dsl/attribute_collector"
+require_relative "dsl/identity_declaration"
 require_relative "dsl/value_object_builder"
 require_relative "dsl/command_builder"
 require_relative "dsl/lifecycle_builder"
@@ -32,8 +36,8 @@ require_relative "dsl/domain_port_builder"
 require_relative "dsl/aggregate_builder"
 require_relative "dsl/bluebook_builder"
 require_relative "dsl/binding_proxy"
-require_relative "dsl/hecksagon_builder"
 require_relative "dsl/driving_adapter_builder"
+require_relative "dsl/hecksagon_builder"
 require_relative "dsl/port_builder"
 require_relative "dsl/adapter_builder"
 require_relative "dsl/world_builder"

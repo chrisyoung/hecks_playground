@@ -8,8 +8,25 @@ module Hecksagain
           @operations = []
         end
 
-        def operation(name, &block)
-          @operations << PortOperationBuilder.build(name, owner: @owner, &block)
+        # WHAT THE OUTSIDE TELLS US — an external fact arriving, translated
+        # into this domain's own word for it. Spelled `operation` before it
+        # had a twin, and `operation` still works: the corpus is full of it,
+        # and renaming a word costs every chapter that uses it for no gain a
+        # reader can feel.
+        def tells(name, &block)
+          @operations << PortOperationBuilder.build(name, owner: @owner, direction: :inbound, &block)
+        end
+        alias operation tells
+
+        # WHAT WE ASK OF THE OUTSIDE — the direction this language did not
+        # have. Before this, a domain could be CALLED by an adapter and never
+        # call one. An `asks` is dispatched like any other port operation, so
+        # a `policy` can trigger it off an event, and it comes back as one of
+        # the two events it named — which is what makes the outside world
+        # something the model can reason about rather than a place exceptions
+        # come from.
+        def asks(name, &block)
+          @operations << PortOperationBuilder.build(name, owner: @owner, direction: :outbound, &block)
         end
 
         # THE DRIVEN HALF OF THE SAME WORD. `operation`/`emits` translates an
@@ -18,7 +35,7 @@ module Hecksagain
         # opposite direction: the domain calling OUT to a swappable adapter
         # and getting a real value back (a checkout URL, a fetched document),
         # exactly what `Hecks.port "name" do verb "x" end` already builds —
-        # this is that same `IR::Port`, reached from the same `port` call
+        # this is that same `Port`, reached from the same `port` call
         # `operation` already lives under, so a project's own resource ports
         # read next to their binding instead of in a separate file. One port,
         # one shape or the other — never both.
@@ -32,7 +49,7 @@ module Hecksagain
         # real corpus has 6 of 9 families needing :effect). Defaults to
         # :reply when unspecified, so every existing bare `verb "x"` caller
         # keeps its current behavior unchanged. `produces` mirrors the
-        # top-level `PortBuilder`'s own addition -- see IR::Port's comment.
+        # top-level `PortBuilder`'s own addition -- see Port's own comment.
         def signal(value)   = @signal = value.to_sym
         def produces(value) = @produces = value.to_sym
 
@@ -41,11 +58,11 @@ module Hecksagain
             raise Malformed, "#{@name} declares both a verb and operations — a port is one or the other, not both"
           end
 
-          return IR::Port.new(name: @name, verb: @verb, signal: @signal || :reply, produces: @produces) if @verb
+          return Port.new(name: @name, verb: @verb, signal: @signal || :reply, produces: @produces) if @verb
 
           raise Malformed, "#{@name} declares no verb and no operations" if @operations.empty?
 
-          IR::DomainPort.new(name: @name, operations: @operations)
+          DomainPort.new(name: @name, operations: @operations)
         end
 
         def self.build(name, owner: nil, &block)

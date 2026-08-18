@@ -18,6 +18,8 @@ module Hecksagain
           "{command} creates a {aggregate} — pass {identity}:",
         %w[AlreadyExists creating_duplicate] =>
           "{command} creates a {aggregate} that already exists — {identity} {offered}",
+        %w[AlreadyExists entity_duplicate] =>
+          "a {entity} already exists on {aggregate} — {identity} {offered}",
         %w[NotFound acting_no_identity] =>
           "{command} acts on an existing {aggregate} — pass {identity}:",
         %w[NotFound record_missing] =>
@@ -76,12 +78,18 @@ module Hecksagain
           "{op} of {target} needs an Integer {target}, got {offered}",
         %w[TypeMismatch arithmetic_shared_field] =>
           "{op} of {target} needs a value object with one shared Integer field",
+        %w[TypeMismatch arithmetic_field_mismatch] =>
+          "{op} of {target} refused — its own {field} disagrees with the source's, and this " \
+          "op only ever updates the one shared numeric field, silently keeping every other " \
+          "one exactly as {target} already had it",
         %w[UnknownArgument unknown_args] =>
           "{command} does not declare {unknown} — it takes {declared}",
         %w[AbsentArgument absent_args] =>
           "{command} was not given {absent} — it takes {declared}",
         %w[InvariantViolation closed_set_member] =>
           "{type} admits {admitted} — got {offered}",
+        %w[InvariantViolation value_object_invariant] =>
+          "{name} invariant violated — {description} (given {offered})",
         %w[InvariantViolation admits_declared_set] =>
           "{name} admits {admits} — {admitted} — got {offered}",
         %w[InvariantViolation undeclared_set] =>
@@ -91,7 +99,15 @@ module Hecksagain
           "{query} declares authorize with tenant: {field} — pass {field}: to name which " \
           "{field} this ask is scoped to",
         %w[Unauthorized role_mismatch] =>
-          "{command} refused — role: {role}, and the caller stated {caller_role}"
+          "{command} refused — role: {role}, and the caller stated {caller_role}",
+        %w[AttributeAbsent absent_read] =>
+          "{aggregate} {field} is absent on this record — declared, not optional, and " \
+          "added since it was written. Backfill it in a translation (backfill :{field}, " \
+          "default: ...), or declare it optional: true",
+        %w[ProjectionAbsent absent_read] =>
+          "{aggregate} {field} is not yet projected on this record — declared via " \
+          "projects :{field}, but no rebuild sweep has populated it. Run the sweep, " \
+          "or read {reference}.{remote_field} directly if this rule cannot wait"
       }.freeze
 
       module_function

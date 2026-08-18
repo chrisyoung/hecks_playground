@@ -9,10 +9,7 @@ Hecks.bluebook "Bluebook" do
     # context around it. This is the derivation `MetaValidator::Judge#identify`
     # spelled by hand as "#{parent_id}::#{name}" for as long as the language could
     # not say it.
-    identified_by do
-      bluebook_id
-      name.value
-    end
+    identified_by :bluebook, :name
 
     # SPELLED AS THE IR SPELLS THEM — see the note on Command's fields.
     attribute :name,          AggregateName
@@ -30,6 +27,25 @@ Hecks.bluebook "Bluebook" do
     attribute :state_field,   IdentityField
     attribute :state_start,   IdentityField
     attribute :transitions,   list_of(Transition)
+    # THE AGGREGATE BOUNDARY (S10, ADR 0025 — "Rules") — checked after
+    # every command, before save, the SAME Rule shape Command's own
+    # givens/ensures already carry (description+canonical), declared
+    # again here rather than shared: a closed set/value object is
+    # aggregate-scoped in this self-hosting domain, the same reason
+    # CommandText and LiteralText stay two separate, identically-
+    # shaped value objects rather than one reused across chapters.
+    attribute :invariants,    list_of(Rule)
+    # A PRECONDITION SHARED ACROSS COMMANDS, DECLARED ONCE (S10, ADR
+    # 0025) — the SAME Rule shape, the aggregate's own named `given`s
+    # that a referencing command's own (already-resolved) `given`
+    # entry came from.
+    attribute :preconditions, list_of(Rule)
+    # A FIELD READ THROUGH A REFERENCE, HELD LOCALLY (S12, ADR 0025 —
+    # "Consistency across aggregate boundaries") — the local half of
+    # `projects :name, from: :"reference.remote_field"`. Deliberately
+    # NOT folded into `attributes` — see the comment on
+    # `Aggregate#emits_ir`'s own `projected_fields:` entry for why.
+    attribute :projected_fields, list_of(ProjectedField)
 
     value_object "AggregateName" do
       attribute :value, String
@@ -87,6 +103,25 @@ Hecks.bluebook "Bluebook" do
       attribute :to_state,   String
     end
 
+    # THE SAME SHAPE Command's own "Rule" value object carries — see
+    # behavior.bluebook — declared again here rather than shared, per
+    # that value object's own comment.
+    value_object "Rule" do
+      attribute :description, String
+      attribute :canonical,   String
+    end
+
+    # S12, ADR 0025 — `name` is this aggregate's own field being
+    # declared; `reference` names the local `reference_to` attribute to
+    # read through; `remote_field` names the scalar on the target. All
+    # three are plain identifiers, the same shape `Field#name`/`#type`
+    # already are.
+    value_object "ProjectedField" do
+      attribute :name,         String
+      attribute :reference,    String
+      attribute :remote_field, String
+    end
+
     command "Declare" do
       role "Language"
       goal "Open an aggregate inside a chapter"
@@ -115,27 +150,29 @@ Hecks.bluebook "Bluebook" do
       reference_to Aggregate
       attribute :path, IdentityPath
 
-      # AN IDENTITY PART REACHES A SCALAR. This rule used to sit on Seal reading
+      # AN IDENTITY PART NAMES SOMETHING. This rule used to sit on Seal reading
       # `empty? || == "id" || includes(".")` — two escapes and a check. The escapes
       # were the whole of it : `empty?` let an aggregate say nothing and be given a
       # minted `id`, and `== "id"` let it name that slot outright. Both are gone,
       # so what is left is the rule itself, and it now runs on every part rather
       # than on whichever one a single field happened to hold.
       #
-      # TWO WAYS TO REACH ONE. A path opens a value object and names the field
-      # inside it — `number.value`. A REFERENCE is already a scalar : it holds
-      # another root's id, so there is nothing to open, which is precisely what the
-      # retired `== "id"` escape was true about and wrong to generalise from. The
-      # language MINTS the `_id` ending itself in `reference_to`, so reading it here
-      # is reading the language's own spelling, not guessing at a convention.
-      #
-      # Said with `include?` rather than `end_with?` because `include?` is a word
-      # the predicate sublanguage HAS and `end_with?` is not — and a given written
-      # in words the sublanguage cannot read does not fail loudly, it simply refuses
-      # everything, which is how the first draft of this rule refused `name.value`.
-      given("an identity part reaches a scalar") { path.value.to_s.include?(".") || path.value.to_s.include?("_id") }
+      # THREE WAYS TO REACH A SCALAR (ADR 0025, "Identity"), and this given no
+      # longer distinguishes them — it used to accept only a dotted path
+      # (`number.value`, a value object's own field) or an `_id`-suffixed
+      # reference, and REFUSED a bare scalar field (`sku`), which is legal
+      # too : a plain primitive attribute IS already a scalar, nothing to
+      # open. That distinction belongs to the BUILDER, which resolves each
+      # spelling before an identity part ever reaches here
+      # (`AttributeCollector#resolve_identity_field!` — the single place
+      # that decides dotted-unwrap vs. reference vs. bare-scalar, and the
+      # only place that can, since it alone holds the attribute's declared
+      # type). What is left for THIS rule to say, once the builder has
+      # already resolved a real shape, is only that a part was actually
+      # given a name at all.
+      given("an identity part names something") { !path.value.to_s.empty? }
 
-      then_set :identified_by, append: { value: :path }
+      sets :identified_by, append: { value: :path }
       emits "RootIdentified"
     end
 
@@ -158,8 +195,8 @@ Hecks.bluebook "Bluebook" do
     attribute :position, Position
 
     query "DeclaredIn" do
-      attribute :bluebook_id, IdentityField
-      where(bluebook_id: :bluebook_id)
+      attribute :bluebook, IdentityField
+      where(bluebook: :bluebook)
       order_by :position
     end
 
@@ -190,7 +227,7 @@ Hecks.bluebook "Bluebook" do
       # already raises for the other things the language cannot say about itself.
       attribute :admits,  LiteralText, optional: true
 
-      then_set :attributes, append: { name: :name, type: :type, list: :list, default: :default, optional: :optional, pattern: :pattern, admits: :admits }
+      sets :attributes, append: { name: :name, type: :type, list: :list, default: :default, optional: :optional, pattern: :pattern, admits: :admits }
 
       emits "AttributeAttached"
     end
@@ -228,7 +265,7 @@ Hecks.bluebook "Bluebook" do
       attribute :default, LiteralText, optional: true
       attribute :admits,  LiteralText, optional: true
 
-      then_set :attributes, append: { name: :name, type: :points_at, list: :list, default: :default, optional: :optional, pattern: :pattern, admits: :admits }
+      sets :attributes, append: { name: :name, type: :points_at, list: :list, default: :default, optional: :optional, pattern: :pattern, admits: :admits }
 
       emits "ReferenceAttached"
     end
@@ -255,7 +292,7 @@ Hecks.bluebook "Bluebook" do
       attribute :default, LiteralText, optional: true
       attribute :admits,  LiteralText, optional: true
 
-      then_set :attributes, append: { name: :name, type: :holds, list: :list, default: :default, optional: :optional, pattern: :pattern, admits: :admits }
+      sets :attributes, append: { name: :name, type: :holds, list: :list, default: :default, optional: :optional, pattern: :pattern, admits: :admits }
 
       emits "PieceHeld"
     end
@@ -309,8 +346,8 @@ Hecks.bluebook "Bluebook" do
       attribute :state_field, FieldName
       attribute :state_start, FieldName
 
-      then_set :state_field, to: :state_field
-      then_set :state_start, to: :state_start
+      sets :state_field
+      sets :state_start
 
       emits "LifecycleNamed"
     end
@@ -324,7 +361,7 @@ Hecks.bluebook "Bluebook" do
       attribute :from_state, FieldName, optional: true
       attribute :to_state,   FieldName
 
-      then_set :transitions, append: { command: :command, from_state: :from_state, to_state: :to_state }
+      sets :transitions, append: { command: :command, from_state: :from_state, to_state: :to_state }
 
       emits "TransitionAttached"
     end
@@ -377,9 +414,69 @@ Hecks.bluebook "Bluebook" do
       reference_to Aggregate
       attribute :name, FieldName
 
-      then_set :value_objects, append: { name: :name }
+      sets :value_objects, append: { name: :name }
 
       emits "ValueDeclared"
+    end
+
+    # THE AGGREGATE BOUNDARY (S10, ADR 0025 — "Rules") — the same shape
+    # Command.Rule attaches a given with, one level up.
+    command "Invariant" do
+      role "Language"
+      goal "Attach one invariant to the aggregate"
+
+      reference_to Aggregate
+      attribute :description, LiteralText, optional: true
+      attribute :canonical,   LiteralText
+
+      given("a rule says what it means")  { !description.value.to_s.empty? }
+      given("a rule survives extraction") { !canonical.value.to_s.empty? }
+
+      sets :invariants, append: { description: :description, canonical: :canonical }
+
+      emits "InvariantAttached"
+    end
+
+    # A PRECONDITION SHARED ACROSS COMMANDS, DECLARED ONCE (S10, ADR
+    # 0025) — the aggregate's own named `given`, referenced back by a
+    # command rather than re-typed.
+    command "Precondition" do
+      role "Language"
+      goal "Declare one precondition commands can reference by name"
+
+      reference_to Aggregate
+      attribute :description, LiteralText, optional: true
+      attribute :canonical,   LiteralText
+
+      given("a rule says what it means")  { !description.value.to_s.empty? }
+      given("a rule survives extraction") { !canonical.value.to_s.empty? }
+
+      sets :preconditions, append: { description: :description, canonical: :canonical }
+
+      emits "PreconditionAttached"
+    end
+
+    # THE LOCAL HALF OF A CROSS-AGGREGATE READ (S12, ADR 0025) — the
+    # target's own existence and shape are checked elsewhere
+    # (BluebookBuilder#validate_projected_fields!, once every aggregate
+    # in the chapter is real), the same two-tier split a query's own
+    # hop already uses.
+    command "Projects" do
+      role "Language"
+      goal "Declare a field read locally through a reference"
+
+      reference_to Aggregate
+      attribute :name,         FieldName
+      attribute :reference,    FieldName
+      attribute :remote_field, FieldName
+
+      given("a projected field is named")     { !name.value.to_s.empty? }
+      given("a projected field reads through a reference") { !reference.value.to_s.empty? }
+      given("a projected field names a remote field") { !remote_field.value.to_s.empty? }
+
+      sets :projected_fields, append: { name: :name, reference: :reference, remote_field: :remote_field }
+
+      emits "ProjectedFieldAttached"
     end
   end
 end

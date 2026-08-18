@@ -9,6 +9,7 @@ require_relative "read_model_interpreter"
 require_relative "policy_interpreter"
 require_relative "saga_interpreter"
 require_relative "../naming"
+require "json"
 
 module Hecksagain
   module Runtime
@@ -16,20 +17,29 @@ module Hecksagain
       MAX_REACTION_DEPTH = 5
 
       # THE DOMAIN'S OWN OUTCOME CHAIN — where an execution-port reply is
-      # recorded once the adapter has run. Cascade's own bluebook already
-      # declares exactly this ("After a ShellTool / FileTool / SearchTool
-      # dispatch runs through its adapter, the adapter chains
-      # Cascade.RecordResult carrying the captured outcome"), so the
-      # dispatcher re-enters that command rather than inventing a second
-      # place for tool outcomes to live.
+      # recorded once the adapter has run. A consuming corpus's own Cascade
+      # bluebook (documented in that corpus, not this gem — see
+      # Ports::Execution) is the intended landing site: after a
+      # ShellTool/FileTool/SearchTool/EmailTool dispatch runs through its
+      # bound adapter, the dispatcher chains this command carrying the
+      # captured outcome. Guarded on Cascade actually being loaded
+      # (`record_outcome`, below) — a corpus with no Cascade bluebook still
+      # gets its reply back on the Result, it just has no outcome chain to
+      # write to.
       CASCADE_VERB = "Cascade::Cascade.RecordResult".freeze
 
-      # `reply` is the execution port's returned value (Ports::Execution) —
-      # nil for the overwhelming majority of dispatches, which touch no
-      # impure edge at all. It rides on the Result because `events` alone
-      # cannot carry it: a re-entered command's events go into the registry's
-      # event log, not into this call's `announced`, so a caller reading only
-      # events would watch a shell command run and still see nothing.
+      # THE EFFECT PORT'S PRODUCER — record_effect_outbound (below). A
+      # consuming corpus's own OutboundEvent bluebook (documented in that
+      # corpus, not this gem — see Bind's own on:/success:/failure: comment
+      # in bluebook/hexagon.rb) is the durable outbox this dispatches into :
+      # one Record per Bind subscribing to the event just emitted, delivered
+      # out-of-process by a standalone host (bin/adapter-host), never the
+      # core itself. Guarded on OutboundEvent actually being loaded, same
+      # shape as CASCADE_VERB/record_outcome above — a corpus with no
+      # OutboundEvent bluebook simply has no effect-port binds that could
+      # ever populate one.
+      OUTBOUND_EVENT_VERB = "OutboundEvent::OutboundEvent.Record".freeze
+
       Result = Struct.new(:verb, :instance, :events, :reply, keyword_init: true) do
         # `instance` is nil for a port operation dispatched by verb (below)
         # — nothing was hydrated or saved, the same reason
@@ -69,6 +79,8 @@ module Hecksagain
       def reactions = @registry.reaction_log
 
       def sagas = @registry.saga_log
+      def saga_dispatches = @registry.saga_dispatch_log
+      def policy_dispatches = @registry.policy_dispatch_log
       def verbs = @registry.verbs
 
       def dispatch(verb, saga_correlation: nil, **args)
@@ -102,29 +114,36 @@ module Hecksagain
             command = aggregate.command(command_name) ||
                       raise(UnknownVerb, RefusalWording.render("UnknownVerb", "aggregate_no_command",
                                                                 aggregate: aggregate_name, command: command_name.inspect))
-            @commands.call(domain, aggregate, command, args)
+            @commands.call(domain, aggregate, command, args, saga_correlation)
           end
 
-        # STAMPED BEFORE reactions and sagas see these events, not after —
-        # `SagaInterpreter#advance` runs on THIS domain's `announced` events
-        # within this very call, and a step further down the same saga has to
-        # find the stamp already there. See `Event#correlation`'s own comment.
-        if saga_correlation
-          announced.each { |event| (event.correlation ||= {}).merge!(saga_correlation) }
-        end
+        # Correlation is SET AT CONSTRUCTION now, not merged on here —
+        # it is part of the transaction, known from this method's own
+        # argument before a single event exists. It used to be stamped
+        # onto already-emitted events, which is what kept an event
+        # mutable after it had happened.
+        #
+        # The ordering this note used to guard still holds, and more
+        # simply: `SagaInterpreter#advance` runs on THIS domain's
+        # `announced` events within this very call, and finds the
+        # correlation already there because it was never absent.
 
         # THE IMPURE EDGE, AFTER THE DOMAIN HAS AGREED — the command has
-        # already passed its givens, its role gate and its ensures, and the
-        # record is saved. Only then does the bound adapter actually run, so
-        # a refused command never reaches the world. A port operation
-        # (`command_name` carrying a dot) is skipped: it is an adapter
-        # calling IN, and running an adapter for it would invert the
-        # direction the port exists to express.
+        # already passed its rules and the record is saved (or, for an
+        # entity command, its container has). Only then does the bound
+        # execution adapter actually run, so a refused command never
+        # reaches the world. Skipped for ANY dotted `command_name` — a
+        # port operation dispatched by verb (an adapter calling IN, where
+        # running an adapter for it would invert the direction the port
+        # exists to express) or an entity command (no aggregate-level
+        # `executed_by` bind resolves for those; `Ports::Execution.perform`
+        # itself would just find nothing bound and return nil, but the
+        # dotted check keeps that intent explicit rather than incidental).
         reply = command_name.include?(".") ? nil : perform_execution(domain, aggregate, command_name, args)
         announced.concat(record_outcome(reply, args)) if reply
 
-        record_effect_outbound(announced)
         record_driven_dispatches(announced)
+        record_effect_outbound(announced)
 
         announced.each { |event| @policies.react(event, domain) }
 
@@ -203,18 +222,18 @@ module Hecksagain
 
       private
 
-      # Vendored addition, not (yet) upstream hecksagain — see
-      # ports/execution.rb for the whole story. An aggregate with no
+      # See ports/execution.rb for the whole story. An aggregate with no
       # `executed_by` bind returns nil here and nothing changes for it,
       # which is every aggregate in every domain but the tool ones.
       def perform_execution(domain, aggregate, command_name, args)
         Ports::Execution.perform(@registry, domain, aggregate, command_name, args)
       end
 
-      # An adapter that ran is a fact about the domain, so it is recorded as
-      # one. Guarded on Cascade actually being loaded — a corpus that binds
-      # an execution adapter without Cascade in it still gets its reply back
-      # on the Result, it just has no outcome chain to write to.
+      # An adapter that ran is a fact about the domain, so it is recorded
+      # as one. Guarded on Cascade actually being loaded — a corpus that
+      # binds an execution adapter without Cascade in it still gets its
+      # reply back on the Result (above), it just has no outcome chain to
+      # write to.
       #
       # Failures here are swallowed DELIBERATELY and reported in-band: the
       # adapter has already run and its output is already in hand, so
@@ -233,140 +252,178 @@ module Hecksagain
         []
       end
 
-      # i746 — the effect-port producer. Port of rust/src/runtime/
-      # effect_outbound.rs's record_effect_outbound (IR shape:
-      # rust/src/hecksagon_ir.rs:187-209). For each just-announced event,
-      # for every hexagon's every bind whose `on` matches this event and
-      # whose adapter resolves to an EFFECT-signal port (charged_by, not
-      # persisted_by), records ONE OutboundEvent::OutboundEvent.Record
-      # carrying the qualified success/failure verdict commands — a
-      # standalone host (bin/adapter-host) later claims it, does the
-      # impure async work, and dispatches the verdict back in. The core
-      # never waits.
-      #
-      # Guarded on OutboundEvent actually being attached (uses_framework
-      # "OutboundEvent") — same precedent as record_outcome's own Cascade
-      # guard just above — so a domain that never wired the framework in
-      # pays nothing and a bind with no `on` (the overwhelming majority)
-      # short-circuits on the very next line.
-      #
-      # port_for is GUARDED, not called bare : it raises WiringError on an
-      # unresolvable adapter/port, but Rust's own equivalent `continue`s
-      # past a broken bind (effect_outbound.rs) rather than aborting the
-      # whole dispatch over one bad binding elsewhere in the corpus.
-      def record_effect_outbound(announced)
-        return if announced.empty?
-        return unless @registry.bluebook("OutboundEvent")
-
-        seen_delivery_ids = []
-
-        announced.each do |event|
-          @registry.hecksagons.each_value do |hexagon|
-            hexagon.binds.each do |bind|
-              next if bind.on.to_s.empty? || bind.on.to_s != event.name.to_s
-              next if bind.success.to_s.empty? && bind.failure.to_s.empty?
-
-              port = begin
-                @registry.port_for(bind)
-              rescue WiringError
-                next
-              end
-              next unless port.verb.to_s == bind.verb.to_s
-              next unless port.effect?
-
-              delivery_id = "#{event.aggregate}::#{event.id}::#{event.name}::#{bind.adapter}"
-              next if seen_delivery_ids.include?(delivery_id)
-
-              seen_delivery_ids << delivery_id
-
-              bind_domain = bind.aggregate.to_s.split("::").first
-
-              reenter(
-                "OutboundEvent::OutboundEvent.Record",
-                delivery_id:     delivery_id,
-                adapter:         bind.adapter.to_s,
-                event:           event.name.to_s,
-                source_type:     event.aggregate.to_s,
-                source_id:       event.id.to_s,
-                payload:         event.payload.to_json,
-                success_command: qualify_command(bind.success, bind_domain),
-                failure_command: qualify_command(bind.failure, bind_domain)
-              )
-            end
-          end
-        end
-      end
-
-      # Shared by record_effect_outbound and record_driven_dispatches : a
-      # success/failure verdict command is written bare in the corpus
-      # sometimes ("Order.Authorize") and already fully qualified other
-      # times ("Pizzas::Deposit.Clear", examples/pizzas' own Banking driven
-      # block) -- only prefix when it's bare.
-      def qualify_command(cmd, domain)
-        cmd = cmd.to_s
-        cmd.empty? || cmd.include?("::") ? cmd : "#{domain}::#{cmd}"
-      end
-
-      # i747 -- the driven-side counterpart to record_effect_outbound. A
+      # The driven-side counterpart to record_outcome/perform_execution : a
       # driven handler is a direct in-process cross-context call, not a
-      # port-mediated effect (pizzas.hecksagon's own comment : "no port, no
-      # family, no adapter contract") -- so no OutboundEvent record, no
-      # Registry#port_for check. Interpolates `{field}` tokens in
-      # dispatch_args against the triggering event's own id + payload, then
-      # re-enters dispatch_command. success/failure are OPTIONAL : a driven
-      # block declaring neither (examples/pizzas' "Deposit" adapter) is
-      # fire-and-forget ; a block declaring both (its "Banking" adapter)
-      # gets success re-entered if the inner dispatch didn't raise, failure
-      # if it did -- both re-entered against the ORIGINAL triggering
-      # aggregate's own id (event.id), the same self-reference shape
-      # record_effect_outbound's verdict commands resolve against via
-      # source_id.
+      # port-mediated effect (`adapter "X" do driven on "Domain::Aggregate
+      # .Event" do dispatch "..." ; success "..." ; failure "..." end
+      # end`) — no port, no family, no adapter contract, so no
+      # `Registry#port_for` check, just a plain string match against the
+      # triggering event's own domain-qualified name. `success`/`failure`
+      # are optional — a driven block declaring neither is fire-and-forget.
       def record_driven_dispatches(announced)
         return if announced.empty?
 
         announced.each do |event|
-          # `driven on "Domain::Aggregate.Event"` is FULLY qualified,
-          # unlike charged_by's bare `on: "EventName"` (record_effect_
-          # outbound, above) -- confirmed against the corpus's own two
-          # conventions (pizzas.hecksagon : `charged_by(..., on:
-          # "OrderPlaced")` vs `driven on "Pizzas::Order.OrderPlaced"`).
-          # event.aggregate is already the domain-qualified FQN, so the
-          # match target is a plain concatenation, not event.name alone.
           qualified_event_name = "#{event.aggregate}.#{event.name}"
 
           @registry.hecksagons.each_value do |hexagon|
             hexagon.driven_handlers.each do |handler|
               next unless handler.event == qualified_event_name
 
-              args = interpolate_args(handler.dispatch_args || {}, event)
-              handler_domain = event.aggregate.to_s.split("::").first
-
-              begin
-                reenter(handler.dispatch_command, **args)
-                next if handler.success.to_s.empty?
-
-                reenter(qualify_command(handler.success, handler_domain), id: event.id)
-              rescue StandardError
-                next if handler.failure.to_s.empty?
-
-                reenter(qualify_command(handler.failure, handler_domain), id: event.id)
-              end
+              deliver_driven(handler, event)
             end
           end
         end
       end
 
+      def deliver_driven(handler, event)
+        handler_domain = event.aggregate.to_s.split("::").first
+
+        if handler.for_each
+          fan_out_driven(handler, event)
+        else
+          reenter(handler.dispatch_command, **interpolate_args(handler.dispatch_args || {}, event))
+        end
+        return if handler.success.to_s.empty?
+
+        reenter(qualify_command(handler.success, handler_domain), id: event.id)
+      rescue StandardError
+        return if handler.failure.to_s.empty?
+
+        reenter(qualify_command(handler.failure, handler_domain), id: event.id)
+      end
+
+      # THE DRIVEN SIDE'S FAN-OUT — the same treatment `PolicyInterpreter
+      # #deliver_for_each` already gives a bluebook Policy and
+      # `SagaInterpreter#deliver_saga_dispatch` gives a process manager,
+      # given to a hecksagon's own `driven` block: `dispatch "Domain::
+      # Aggregate.Command", for_each: { from: "Domain::Aggregate.query",
+      # where: { field: "{event_field}" } }, with: { id: "{row_field}" }`
+      # fires ONE dispatch PER ROW the named query answers, instead of one
+      # per event. Before this the `for_each:` hash was captured and then
+      # dropped, so every such handler fired exactly once and swept
+      # nothing.
+      #
+      # `where:` is the QUERY'S arguments, `{field}`-interpolated against
+      # the triggering event alone — the query is what decides the rows,
+      # so no row exists yet to read from. `with:` is the DISPATCH'S
+      # arguments, interpolated against the event AND the row, the row
+      # winning on a name they share (the row is what this iteration is
+      # about). That is the driven equivalent of the row key
+      # `deliver_for_each` merges in under `addressing_key_for` — but
+      # NAMED BY THE AUTHOR rather than derived, because a driven handler
+      # already spells out every argument it sends and there is no
+      # `trigger` for the runtime to interrogate.
+      #
+      # A ROW'S OWN REFUSAL DOES NOT STOP THE SWEEP, the same rule
+      # `deliver_for_each` holds (it records `delivered: false` for that
+      # row and carries on): a fan-out over N rows routinely finds some
+      # already in the state it was going to move them to — a stale
+      # worker marked dead twice, a lease already reclaimed — and one such
+      # refusal must not strand the remaining rows. Anything that is NOT a
+      # domain refusal — a query that does not resolve, a defect in an
+      # interpreter — propagates to `deliver_driven`'s own rescue above
+      # and lands on the handler's `failure` verdict, exactly as a
+      # non-fan-out driven dispatch's would.
+      def fan_out_driven(handler, event)
+        spec = handler.for_each.transform_keys(&:to_sym)
+        from = spec[:from] ||
+               raise(UnknownVerb, "a driven dispatch's for_each names no from: — #{handler.for_each.inspect}")
+        query_args = interpolate_args(spec[:where] || {}, event)
+
+        Array(query(from, **query_args)).each do |row|
+          reenter(handler.dispatch_command, **interpolate_args(handler.dispatch_args || {}, event, row: row))
+        rescue *DOMAIN_REFUSALS
+          next
+        end
+      end
+
+      # A success/failure verdict command is written bare in the corpus
+      # sometimes ("Order.Authorize") and already fully qualified other
+      # times — only prefix when it's bare.
+      def qualify_command(cmd, domain)
+        cmd = cmd.to_s
+        cmd.empty? || cmd.include?("::") ? cmd : "#{domain}::#{cmd}"
+      end
+
+      # THE EFFECT PORT'S PRODUCER — the counterpart to record_driven_
+      # dispatches, but for a PORT-mediated effect bind (`Order.charged_by
+      # ("Stripe", on: "OrderPlaced") do success "..." ; failure "..." end`,
+      # and its :exec-family sibling `spawned_by`) rather than a driven
+      # handler's direct in-process call. Matches on the SAME bare event
+      # name shape Bind#on documents ("OrderPlaced", not domain-qualified),
+      # scoped to the emitting aggregate — never a global name search, so
+      # two different aggregates emitting an identically-named event never
+      # cross-fire (this is what makes gap #1b's old collision concern moot
+      # here : a Bind is aggregate-scoped by construction, a bluebook
+      # policy's bare-name match is not).
+      #
+      # ONE OutboundEvent::OutboundEvent.Record PER MATCHING BIND, exactly
+      # as that command's own goal text documents ("one Record per
+      # subscribing adapter") — so N adapters bound to the same event (
+      # process_health's reap + sweep both on ProcessMacrophage.Swept,
+      # plan's four checks all on Story.StoryChecksRequested) each get
+      # their own durable row, independently claimed and delivered.
+      #
+      # Guarded on OutboundEvent actually being loaded (see
+      # OUTBOUND_EVENT_VERB's own comment). Recording failures are
+      # swallowed per-bind, same reasoning as record_outcome : the emitting
+      # command has already succeeded and saved, so a bookkeeping failure
+      # for one subscriber must never take down the others or unwind an
+      # already-committed dispatch.
+      def record_effect_outbound(announced)
+        return if announced.empty?
+        return unless @registry.bluebook("OutboundEvent")
+
+        announced.each do |event|
+          @registry.hecksagons.each_value do |hexagon|
+            hexagon.binds.each do |bind|
+              next if bind.on.to_s.empty?
+              next unless bind.aggregate.to_s == event.aggregate.to_s
+              next unless bind.on.to_s == event.name.to_s
+
+              deliver_effect_outbound(bind, event)
+            end
+          end
+        end
+      end
+
+      def deliver_effect_outbound(bind, event)
+        domain = bind.aggregate.to_s.split("::").first
+        payload = (event.payload || {}).transform_values { |v| materialize_value(v) }
+
+        reenter(OUTBOUND_EVENT_VERB,
+                delivery_id:     "#{event.id}:#{bind.adapter}",
+                adapter:         bind.adapter.to_s,
+                event:           event.name.to_s,
+                source_type:     bind.aggregate.to_s,
+                source_id:       event.id.to_s,
+                payload:         payload.to_json,
+                success_command: qualify_command(bind.success, domain),
+                failure_command: qualify_command(bind.failure, domain))
+      rescue StandardError => error
+        warn "[record_effect_outbound] failed to record #{bind.adapter} <- #{event.aggregate}.#{event.name}: " \
+             "#{error.class}: #{error.message}"
+      end
+
       # `{field}` interpolation for a driven handler's dispatch_args :
-      # `{id}` resolves to the triggering event's own aggregate id ;
-      # any other `{name}` resolves against the event's payload. A token
-      # that is the WHOLE string ("{total}") substitutes the materialized
-      # value verbatim (preserving its type -- a multi-field VO's own hash,
-      # not a stringification of it, so it round-trips into another
-      # VO-typed attribute on the receiving command) ; a token embedded in
-      # a larger string interpolates as text.
-      def interpolate_args(args, event)
+      # `{id}` resolves to the triggering event's own aggregate id ; any
+      # other `{name}` resolves against the event's payload. A token that
+      # IS the whole string ("{total}") substitutes the materialized value
+      # verbatim (preserving its type — a multi-field VO's own Hash, not a
+      # stringification of it, so it round-trips into another VO-typed
+      # attribute on the receiving command) ; a token embedded in a larger
+      # string interpolates as text.
+      #
+      # `row:` is a FAN-OUT ITERATION'S OWN ROW (`fan_out_driven`, above),
+      # laid over the event's fields rather than beside them: a row field
+      # and an event field sharing a name resolve to the ROW'S, because a
+      # fan-out dispatch is about the row it is acting on. Absent — every
+      # ordinary driven dispatch — the lookup is exactly what it was.
+      def interpolate_args(args, event, row: nil)
         lookup = { "id" => event.id }
         (event.payload || {}).each { |k, v| lookup[k.to_s] = materialize_value(v) }
+        (row || {}).each { |k, v| lookup[k.to_s] = materialize_value(v) }
 
         args.transform_values do |v|
           next v unless v.is_a?(String)
@@ -380,7 +437,7 @@ module Hecksagain
       end
 
       # A Runtime::Value wrapping a single :value field materializes to
-      # that bare scalar (the common case -- most dispatch_args tokens
+      # that bare scalar (the common case — most dispatch_args tokens
       # reference a simple VO) ; a multi-field VO materializes to its
       # whole #to_h, structurally passed through to whatever VO-typed
       # attribute receives it on the other side.

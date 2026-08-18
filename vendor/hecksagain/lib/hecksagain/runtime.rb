@@ -47,6 +47,7 @@ require_relative "runtime/read_model_interpreter"
 require_relative "runtime/policy_interpreter"
 require_relative "runtime/saga_interpreter"
 require_relative "runtime/dispatcher"
+require_relative "runtime/rebuild_sweep"
 require_relative "runtime/era_guard"
 require_relative "runtime/storage_shape"
 require_relative "runtime/era_tamper"
@@ -63,7 +64,9 @@ module Hecksagain
 
       # Load a bluebook directory and return the Dispatcher bound to it.
       # `install_facade:` — see Loader.boot.
-      def boot(path, shared: nil, install_facade: true) = Loader.boot(path, shared: shared, install_facade: install_facade)
+      def boot(path, shared: nil, install_facade: true, environment: nil)
+        Loader.boot(path, shared: shared, install_facade: install_facade, environment: environment)
+      end
 
       # Bind the ambient registry for the duration of the block, restoring
       # whatever was there before. Nesting is safe ; a raise still restores.
@@ -78,7 +81,7 @@ module Hecksagain
       # Bind the ambient caller (see Runtime::Caller) for the duration of
       # the block — who a command's declared `role`, if any, is checked
       # against.
-      def as_caller(role:, &block) = Caller.as(role: role, &block)
+      def as_caller(role:, actor_id: nil, &block) = Caller.as(role: role, actor_id: actor_id, &block)
     end
   end
 end

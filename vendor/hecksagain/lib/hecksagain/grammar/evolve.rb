@@ -9,8 +9,9 @@ module Hecksagain
     # Text, not IR, on purpose: the syntax table is source, its comments
     # and grouping are part of the declaration, and a rewrite that
     # round-tripped it through the IR would flatten both. Everything
-    # here touches only `member ` lines inside Keyword's one_of block
-    # and leaves every other byte alone.
+    # here touches only bare `member ` lines inside Keyword's own body
+    # (S3, ADR 0025 — no `one_of do ... end` wrapper anymore) and leaves
+    # every other byte alone.
     module Evolve
       class Refusal < StandardError; end
 
@@ -105,14 +106,17 @@ module Hecksagain
         line =~ /^\s*member / && line.include?(%(word: "#{word}")) && line.include?(%(context: "#{context}"))
       end
 
-      # From `value_object "Keyword"` to the end of its one_of block —
-      # the only region this module may touch.
+      # From `value_object "KeywordSeed"` to ITS OWN closing `end` — `member`
+      # rows sit bare now (S3, ADR 0025 — the `one_of do ... end` wrapper
+      # is gone), so the first bare `end` line after the opener already
+      # IS the value object's own, the same fact the original one_of-
+      # nested version of this method leaned on (nothing else nested
+      # inside it either, before or after).
       def keyword_block(source)
-        start = source.index(/^\s*value_object "Keyword" do$/)
-        raise Refusal, "syntax.bluebook declares no Keyword value object" unless start
+        start = source.index(/^\s*value_object "KeywordSeed" do$/)
+        raise Refusal, "syntax.bluebook declares no KeywordSeed value object" unless start
 
-        one_of = source.index(/^\s*one_of do$/, start)
-        closing = source.index(/^\s*end\s*$/, one_of)
+        closing = source.index(/^\s*end\s*$/, start)
         closing = source.index(/\n/, closing) + 1
         source[start...closing]
       end
@@ -133,8 +137,15 @@ module Hecksagain
         end
       end
 
+      # `pairs_shape` — for a `pairs` argument that fills ONE field with a
+      # whole key/value list rather than naming a field per pair (the
+      # shape `Handler.dispatch`'s own `with:` already carries). Without
+      # it, `spec/syntax_conformance_spec.rb` reads a pairs argument
+      # naming a single field as a row that "names a single field, which
+      # it cannot fill" — correctly, since the two shapes are genuinely
+      # different and only one of them can be checked the same way.
       def propose_argument(keyword:, context:, kind:, required: "false", at: "", named: "", fills: "",
-                           path: syntax_path)
+                           pairs_shape: nil, path: syntax_path)
         if argument_rows(path).any? { |r| argument_identity(r) == [keyword, context, at, named] }
           raise Refusal, "#{context}.#{keyword}'s argument at #{at.inspect}/named #{named.inspect} is " \
                         "already declared — one row per (keyword, context, at, named)"
@@ -143,9 +154,10 @@ module Hecksagain
         source = File.read(path)
         block  = argument_block(source)
         indent = block[/^(\s*)member /, 1] || "        "
+        shape = pairs_shape.to_s.empty? ? "" : %(pairs_shape: "#{pairs_shape}", )
         row = %(#{indent}member keyword: "#{keyword}", context: "#{context}", at: "#{at}", ) +
               %(named: "#{named}", kind: "#{kind}", required: "#{required}", fills: "#{fills}", ) +
-              %(status: "proposed"\n)
+              shape + %(status: "proposed"\n)
 
         closing = block.rindex(/^\s*end\s*$/)
         updated = block[0...closing] + row + block[closing..]
@@ -198,14 +210,15 @@ module Hecksagain
         File.write(path, source.sub(block, updated))
       end
 
-      # From `value_object "Argument"` to the end of its one_of block —
-      # the only region these methods may touch.
+      # From `value_object "ArgumentSeed"` to ITS OWN closing `end` — see
+      # `keyword_block`'s own comment for why the first bare `end` after
+      # the opener is already the right one, now that `member` rows sit
+      # bare (S3, ADR 0025).
       def argument_block(source)
-        start = source.index(/^\s*value_object "Argument" do$/)
-        raise Refusal, "syntax.bluebook declares no Argument value object" unless start
+        start = source.index(/^\s*value_object "ArgumentSeed" do$/)
+        raise Refusal, "syntax.bluebook declares no ArgumentSeed value object" unless start
 
-        one_of = source.index(/^\s*one_of do$/, start)
-        closing = source.index(/^\s*end\s*$/, one_of)
+        closing = source.index(/^\s*end\s*$/, start)
         closing = source.index(/\n/, closing) + 1
         source[start...closing]
       end

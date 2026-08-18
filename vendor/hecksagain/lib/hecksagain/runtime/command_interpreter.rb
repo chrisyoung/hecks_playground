@@ -26,26 +26,23 @@ module Hecksagain
       # in that file is (RefusalWording::TEMPLATES, CommandRules::MUTATION_OPS,
       # ...) rather than read live off the meta-domain at every dispatch —
       # Runtime::RefusalWording's own doc comment gives the same reason.
-      DISPATCH_ORDER = %i[
-        refuse_unknown_arguments refuse_absent_arguments normalize_args
-        refuse_role_mismatch resolve_references hydrate enforce_givens
-        admissible_transition assign_creation_attributes apply_mutations
-        advance_lifecycle enforce_ensures save emit
-      ].freeze
+      DISPATCH_ORDER = Hecksagain::Vocabulary.symbols("AggregateDispatchOrder")
 
       # EVERY CROSS-STEP LOCAL `call` used to thread through its own literal
       # sequence, held in one place now that the sequence is data-driven —
       # `result` and `transition`/`old_state` default to nil until the step
       # that sets them runs, same as they were unset locals before that point.
-      Context = Struct.new(:domain, :aggregate, :command, :args, :repository, :instance, :transition, :old_state, :result)
+      Context = Struct.new(:domain, :aggregate, :command, :args, :repository, :instance, :transition, :old_state,
+                           :result, :correlation)
 
       def initialize(registry, rules:)
         @registry = registry
         @rules    = rules
       end
 
-      def call(domain, aggregate, command, args)
+      def call(domain, aggregate, command, args, correlation = nil)
         ctx = Context.new(domain, aggregate, command, args)
+        ctx.correlation = correlation
         run_dispatch_order(DISPATCH_ORDER, ctx)
         [ctx.instance, ctx.result]
       end
@@ -65,7 +62,7 @@ module Hecksagain
       end
 
       def step_refuse_role_mismatch(ctx)
-        step(:refuse_role_mismatch) { @rules.refuse_role_mismatch(ctx.command) }
+        step(:refuse_role_mismatch) { @rules.refuse_role_mismatch(ctx.command, ctx.domain) }
       end
 
       def step_resolve_references(ctx)
@@ -78,7 +75,7 @@ module Hecksagain
       end
 
       def step_enforce_givens(ctx)
-        step(:enforce_givens) { @rules.enforce_givens(ctx.instance, ctx.command, ctx.args) }
+        step(:enforce_givens) { @rules.enforce_givens(ctx.instance, ctx.command, ctx.args, domain: ctx.domain, declaring: ctx.aggregate) }
       end
 
       def step_admissible_transition(ctx)
@@ -107,7 +104,11 @@ module Hecksagain
       end
 
       def step_enforce_ensures(ctx)
-        step(:enforce_ensures) { @rules.enforce_ensures(ctx.instance, ctx.command, ctx.args, old: ctx.old_state) }
+        step(:enforce_ensures) { @rules.enforce_ensures(ctx.instance, ctx.command, ctx.args, old: ctx.old_state, domain: ctx.domain) }
+      end
+
+      def step_enforce_invariants(ctx)
+        step(:enforce_invariants) { @rules.enforce_invariants(ctx.instance, ctx.aggregate, domain: ctx.domain) }
       end
 
       def step_save(ctx)
@@ -115,7 +116,7 @@ module Hecksagain
       end
 
       def step_emit(ctx)
-        ctx.result = step(:emit) { @rules.emit(ctx.command, ctx.domain, ctx.aggregate, ctx.instance, ctx.args, ctx.repository) }
+        ctx.result = step(:emit) { @rules.emit(ctx.command, ctx.domain, ctx.aggregate, ctx.instance, ctx.args, ctx.repository, ctx.correlation) }
       end
 
       def hydrate(repository, aggregate, command, args)
