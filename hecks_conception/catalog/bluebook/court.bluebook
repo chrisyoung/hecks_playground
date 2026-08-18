@@ -4,10 +4,21 @@ Hecks.bluebook "Court", version: "2026.05.12.1" do
 
   aggregate "Case" do
     description "A specific action submitted for judgment — what happened, who did it, what evidence exists"
+    # Many cases over time — nothing else on a case is unique, so the
+    # caller mints case_id at File time (Finding already references
+    # case_id as a foreign key ; Case itself never declared the field).
+    identified_by :case_id
 
     # ── Value-objects : wrapped primitives (no-primitive-envy, 2026-05-12) ──
     # Per i555 VOs live inside their aggregate ; one wrapper per
     # surface primitive, each carrying `attribute :value, <Primitive>`.
+
+    value_object "CaseId" do
+      attribute :value, String
+      invariant "must not be empty" do
+        !value.empty?
+      end
+    end
 
     value_object "ActionType" do
       # Typed wrapper around the underlying String on this aggregate.
@@ -59,6 +70,7 @@ Hecks.bluebook "Court", version: "2026.05.12.1" do
       attribute :value, String
     end
 
+    attribute :case_id, CaseId
     attribute :action_type, ActionType
     attribute :actor, Actor
     attribute :target, Target
@@ -74,12 +86,14 @@ Hecks.bluebook "Court", version: "2026.05.12.1" do
     command "File" do
       role "Enforcer"
       goal "File a case — submit an action for review against applicable laws"
+      attribute :case_id, CaseId
       attribute :action_type, ActionType
       attribute :actor, Actor
       attribute :target, Target
       attribute :detail, Detail
       attribute :occurred_at, OccurredAt
       emits "CaseFiled"
+      sets :case_id
       sets :action_type
       sets :actor
       sets :target
@@ -97,7 +111,7 @@ Hecks.bluebook "Court", version: "2026.05.12.1" do
       reference_to(Case)
       attribute :laws_applicable, LawsApplicable
       emits "CaseHeard"
-      given { status == "filed" }
+      given("case must be filed") { status == "filed" }
       sets :laws_applicable
       sets :status, to: "hearing"
     end
@@ -149,6 +163,8 @@ Hecks.bluebook "Court", version: "2026.05.12.1" do
 
   aggregate "Finding" do
     description "One law checked against one action — the atomic unit of judgment"
+    # Composite : one finding per law checked per case.
+    identified_by :case_id, :law_name
 
     # ── Value-objects : wrapped primitives (no-primitive-envy, 2026-05-12) ──
     # Per i555 VOs live inside their aggregate ; one wrapper per
@@ -179,11 +195,15 @@ Hecks.bluebook "Court", version: "2026.05.12.1" do
       attribute :value, String
     end
 
+    value_object "Passed" do
+      attribute :value, TrueClass
+    end
+
     attribute :case_id, CaseId
     attribute :law_name, LawName
     attribute :check_expression, CheckExpression
     attribute :evidence, Evidence
-    attribute :passed, TrueClass
+    attribute :passed, Passed
     attribute :explanation, Explanation
 
     command "RecordFinding" do
@@ -193,7 +213,7 @@ Hecks.bluebook "Court", version: "2026.05.12.1" do
       attribute :law_name, LawName
       attribute :check_expression, CheckExpression
       attribute :evidence, Evidence
-      attribute :passed, TrueClass
+      attribute :passed, Passed
       attribute :explanation, Explanation
       emits "FindingRecorded"
       sets :case_id
@@ -207,6 +227,8 @@ Hecks.bluebook "Court", version: "2026.05.12.1" do
 
   aggregate "Precedent" do
     description "A ruling that informs future judgments — when a case establishes a pattern"
+    # Composite : one live precedent per law+action-type combination.
+    identified_by :law_name, :action_type
 
     # ── Value-objects : wrapped primitives (no-primitive-envy, 2026-05-12) ──
     # Per i555 VOs live inside their aggregate ; one wrapper per

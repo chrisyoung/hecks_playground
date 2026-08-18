@@ -61,9 +61,11 @@ Hecks.bluebook "WebDebug" do
       limit 1
     end
 
-    # How many frames are buffered.
+    # How many frames are buffered. `count` was never a real QueryBuilder
+    # verb -- no counting primitive exists ; this returns every record and
+    # the caller reads its own length, same as any other unfiltered query.
     query "Count" do
-      count
+      description "Every buffered frame ; caller reads .length for the count"
     end
   end
 end

@@ -46,6 +46,7 @@ Hecks.bluebook "Lexicon", version: "2026.05.10.1" do
 
   aggregate "Lexicon" do
     description "Singleton index of every callable phrase across the conception"
+    identified_by :service_name
 
     value_object "ServiceName" do
       attribute :value, String

@@ -4,19 +4,48 @@ Hecks.bluebook "Applications", version: "2026.04.11.1" do
 
   aggregate "Application" do
     description "A domain that became viable — it has an app, it runs, it serves"
-    attribute :name, String
-    attribute :domain_path, String
-    attribute :app_types, list_of(String)
-    attribute :version, String
-    attribute :viable_at, String
-    attribute :status, String
+    identified_by :domain_path
+    attribute :name, Name
+    attribute :domain_path, DomainPath
+    attribute :app_types, list_of(AppType)
+    attribute :version, Version
+    attribute :viable_at, ViableAt
+    attribute :status, Status, default: { value: "pending" }
+
+    value_object "Name" do
+      attribute :value, String
+    end
+
+    value_object "DomainPath" do
+      attribute :value, String
+    end
+
+    value_object "Version" do
+      attribute :value, String
+    end
+
+    value_object "ViableAt" do
+      attribute :value, String
+    end
+
+    value_object "Status" do
+      attribute :value, String
+    end
+
+    value_object "AppType" do
+      # append (Mutation#appended_fields) only ever binds named VO/entity
+      # fields, never a bare scalar -- same reasoning MergeQueue::StoryRef
+      # wraps a plain identity string. Was `list_of(String)` + a bare-symbol
+      # append, retired alongside the bare-symbol append form itself.
+      attribute :value, String
+    end
 
     command "RegisterApplication" do
       role "Miette"
       goal "A born domain becomes viable — it has at least one running app"
-      attribute :name, String
-      attribute :domain_path, String
-      attribute :version, String
+      attribute :name, Name
+      attribute :domain_path, DomainPath
+      attribute :version, Version
       emits "ApplicationRegistered"
       sets :name
       sets :domain_path
@@ -29,7 +58,7 @@ Hecks.bluebook "Applications", version: "2026.04.11.1" do
       reference_to(Application)
       attribute :app_type, String
       emits "AppAdded"
-      sets :app_types, append: :app_type
+      sets :app_types, append: { value: :app_type }
     end
 
     command "DeployApp" do
@@ -57,17 +86,38 @@ Hecks.bluebook "Applications", version: "2026.04.11.1" do
 
   aggregate "DomainLifecycle" do
     description "The three stages of domain life — gestating, born, viable"
-    attribute :domain_name, String
-    attribute :stage, String
-    attribute :nursery_path, String
-    attribute :catalog_path, String
-    attribute :application_path, String
+    identified_by :domain_name
+    attribute :domain_name, DomainName
+    attribute :stage, Stage, default: { value: "pending" }
+    attribute :nursery_path, NurseryPath
+    attribute :catalog_path, CatalogPath
+    attribute :application_path, ApplicationPath
+
+    value_object "DomainName" do
+      attribute :value, String
+    end
+
+    value_object "Stage" do
+      attribute :value, String
+    end
+
+    value_object "NurseryPath" do
+      attribute :value, String
+    end
+
+    value_object "CatalogPath" do
+      attribute :value, String
+    end
+
+    value_object "ApplicationPath" do
+      attribute :value, String
+    end
 
     command "TrackGestation" do
       role "System"
       goal "Domain enters nursery — gestating"
-      attribute :domain_name, String
-      attribute :nursery_path, String
+      attribute :domain_name, DomainName
+      attribute :nursery_path, NurseryPath
       emits "GestationTracked"
       sets :domain_name
       sets :nursery_path
@@ -78,7 +128,7 @@ Hecks.bluebook "Applications", version: "2026.04.11.1" do
       role "System"
       goal "Domain moves to catalog — born, validated, versioned"
       reference_to(DomainLifecycle)
-      attribute :catalog_path, String
+      attribute :catalog_path, CatalogPath
       emits "BirthTracked"
       sets :catalog_path
       sets :stage, to: "born"
@@ -88,7 +138,7 @@ Hecks.bluebook "Applications", version: "2026.04.11.1" do
       role "System"
       goal "Domain moves to applications — viable, has a running app"
       reference_to(DomainLifecycle)
-      attribute :application_path, String
+      attribute :application_path, ApplicationPath
       emits "ViabilityTracked"
       sets :application_path
       sets :stage, to: "viable"
@@ -103,18 +153,44 @@ Hecks.bluebook "Applications", version: "2026.04.11.1" do
 
   aggregate "AppRegistry" do
     description "Index of all viable applications"
-    attribute :total_applications, Integer
-    attribute :total_web, Integer
-    attribute :total_cli, Integer
-    attribute :total_api, Integer
+    identified_by :name
+
+    value_object "RegistryName" do
+      attribute :value, String
+      invariant "must be the singleton 'registry'" do
+        value == "registry"
+      end
+    end
+
+    attribute :name, RegistryName, default: { value: "registry" }
+    attribute :total_applications, TotalApplications
+    attribute :total_web, TotalWeb
+    attribute :total_cli, TotalCli
+    attribute :total_api, TotalApi
+
+    value_object "TotalApplications" do
+      attribute :value, Integer
+    end
+
+    value_object "TotalWeb" do
+      attribute :value, Integer
+    end
+
+    value_object "TotalCli" do
+      attribute :value, Integer
+    end
+
+    value_object "TotalApi" do
+      attribute :value, Integer
+    end
 
     command "IndexRegistry" do
       role "System"
       goal "Scan applications folder, recount everything"
-      attribute :total_applications, Integer
-      attribute :total_web, Integer
-      attribute :total_cli, Integer
-      attribute :total_api, Integer
+      attribute :total_applications, TotalApplications
+      attribute :total_web, TotalWeb
+      attribute :total_cli, TotalCli
+      attribute :total_api, TotalApi
       emits "RegistryRebuilt"
       sets :total_applications
       sets :total_web

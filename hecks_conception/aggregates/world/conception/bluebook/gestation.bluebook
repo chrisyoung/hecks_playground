@@ -85,7 +85,7 @@ Hecks.bluebook "Gestation", version: "2026.05.12.1" do
       reference_to(Gestation)
       attribute :aggregate_name, AggregateName
       emits "AggregateFormed"
-      sets :aggregates, append: :aggregate_name
+      sets :aggregates, append: { value: :aggregate_name }
     end
 
     command "FormCommand" do
@@ -94,7 +94,7 @@ Hecks.bluebook "Gestation", version: "2026.05.12.1" do
       reference_to(Gestation)
       attribute :command_name, CommandName
       emits "CommandFormed"
-      sets :commands, append: :command_name
+      sets :commands, append: { value: :command_name }
     end
 
     command "FormPolicy" do
@@ -103,7 +103,7 @@ Hecks.bluebook "Gestation", version: "2026.05.12.1" do
       reference_to(Gestation)
       attribute :policy_name, PolicyName
       emits "PolicyFormed"
-      sets :policies, append: :policy_name
+      sets :policies, append: { value: :policy_name }
     end
 
     command "Contract" do

@@ -1,4 +1,5 @@
 Hecks.hecksagon "Law" do
+  uses_framework "Governance"
   Law::Law.persisted_by("Heki")
   Law::Violation.persisted_by("Heki")
   Law::Enforcement.persisted_by("Heki")

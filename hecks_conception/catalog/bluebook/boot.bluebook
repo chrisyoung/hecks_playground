@@ -4,10 +4,23 @@ Hecks.bluebook "Boot", version: "2026.05.12.1" do
 
   aggregate "Session" do
     description "A single Miette session — one brain, one body, one boot"
+    # Singleton-shaped : started_at isn't known until GoLive, well after
+    # the session record must already exist (WireOrgans references it
+    # first), so identity can't ride a field that's set that late.
+    # session_name follows the Dispatch/Lexicon/Query/ChaosMonkey
+    # convention — a fixed literal set at creation.
+    identified_by :session_name
 
     # ── Value-objects : wrapped primitives (no-primitive-envy, 2026-05-12) ──
     # Per i555 VOs live inside their aggregate ; one wrapper per
     # surface primitive, each carrying `attribute :value, <Primitive>`.
+
+    value_object "SessionName" do
+      attribute :value, String
+      invariant "must be the singleton 'session'" do
+        value == "session"
+      end
+    end
 
     value_object "Engine" do
       # Typed wrapper around the underlying String on this aggregate.
@@ -59,6 +72,7 @@ Hecks.bluebook "Boot", version: "2026.05.12.1" do
       attribute :value, String
     end
 
+    attribute :session_name, SessionName, default: { value: "session" }
     attribute :engine, Engine
     attribute :status, Status, default: { value: "off" }
 
@@ -104,7 +118,7 @@ Hecks.bluebook "Boot", version: "2026.05.12.1" do
       attribute :nerve_count, NerveCount
       attribute :law_count, LawCount
       emits "OrgansWired"
-      given { status == "booting" }
+      given("session must be booting") { status == "booting" }
       sets :organ_count
       sets :nerve_count
       sets :law_count
@@ -116,7 +130,7 @@ Hecks.bluebook "Boot", version: "2026.05.12.1" do
       reference_to(Session)
       attribute :started_at, StartedAt
       emits "SessionLive"
-      given { status == "booting" }
+      given("session must be booting") { status == "booting" }
       sets :started_at
       sets :status, to: "live"
     end
@@ -140,19 +154,40 @@ Hecks.bluebook "Boot", version: "2026.05.12.1" do
 
   aggregate "BrainProbe" do
     description "Check what inference engines are available before booting"
+    identified_by :probe_name
 
     # ── Value-objects : wrapped primitives (no-primitive-envy, 2026-05-12) ──
     # Per i555 VOs live inside their aggregate ; one wrapper per
     # surface primitive, each carrying `attribute :value, <Primitive>`.
+
+    value_object "ProbeName" do
+      attribute :value, String
+      invariant "must be the singleton 'probe'" do
+        value == "probe"
+      end
+    end
 
     value_object "RecommendedEngine" do
       # Typed wrapper around the underlying String on this aggregate.
       attribute :value, String
     end
 
-    attribute :claude_available, TrueClass
-    attribute :ollama_running, TrueClass
-    attribute :summer_adapter_present, TrueClass
+    value_object "ClaudeAvailable" do
+      attribute :value, TrueClass
+    end
+
+    value_object "OllamaRunning" do
+      attribute :value, TrueClass
+    end
+
+    value_object "SummerAdapterPresent" do
+      attribute :value, TrueClass
+    end
+
+    attribute :probe_name, ProbeName, default: { value: "probe" }
+    attribute :claude_available, ClaudeAvailable
+    attribute :ollama_running, OllamaRunning
+    attribute :summer_adapter_present, SummerAdapterPresent
     attribute :recommended_engine, RecommendedEngine
 
     command "Probe" do

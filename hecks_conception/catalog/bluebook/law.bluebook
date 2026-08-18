@@ -4,6 +4,7 @@ Hecks.bluebook "Law", version: "2026.05.12.1" do
 
   aggregate "Law" do
     description "A single enforceable rule — has a check, a severity, and a contract that can be run"
+    identified_by :name
 
     # ── Value-objects : wrapped primitives (no-primitive-envy, 2026-05-12) ──
     # Per i555 VOs live inside their aggregate ; one wrapper per
@@ -115,6 +116,9 @@ Hecks.bluebook "Law", version: "2026.05.12.1" do
 
   aggregate "Violation" do
     description "A specific instance of a law being broken — who, where, when, what"
+    # Composite : Report sets law_name/violator/detected_at together at
+    # creation time, and the triple is unique enough — no minted field needed.
+    identified_by :law_name, :violator, :detected_at
 
     # ── Value-objects : wrapped primitives (no-primitive-envy, 2026-05-12) ──
     # Per i555 VOs live inside their aggregate ; one wrapper per
@@ -190,10 +194,23 @@ Hecks.bluebook "Law", version: "2026.05.12.1" do
 
   aggregate "Enforcement" do
     description "A run of all active laws against a scope — the contract check"
+    # enforced_at isn't known until Conclude, well after RecordCheck
+    # must already be able to find this record by reference_to — same
+    # late-field trap as Session's started_at. scope alone repeats
+    # across runs, so this needs a field the caller mints at Enforce
+    # time.
+    identified_by :enforcement_id
 
     # ── Value-objects : wrapped primitives (no-primitive-envy, 2026-05-12) ──
     # Per i555 VOs live inside their aggregate ; one wrapper per
     # surface primitive, each carrying `attribute :value, <Primitive>`.
+
+    value_object "EnforcementId" do
+      attribute :value, String
+      invariant "must not be empty" do
+        !value.empty?
+      end
+    end
 
     value_object "Scope" do
       # Typed wrapper around the underlying String on this aggregate.
@@ -225,6 +242,7 @@ Hecks.bluebook "Law", version: "2026.05.12.1" do
       attribute :value, String
     end
 
+    attribute :enforcement_id, EnforcementId
     attribute :scope, Scope
     attribute :laws_checked, LawsChecked
     attribute :laws_passed, LawsPassed
@@ -236,8 +254,10 @@ Hecks.bluebook "Law", version: "2026.05.12.1" do
     command "Enforce" do
       role "Enforcer"
       goal "Run all active laws against a scope — check every contract, report every violation"
+      attribute :enforcement_id, EnforcementId
       attribute :scope, Scope
       emits "EnforcementStarted"
+      sets :enforcement_id
       sets :scope
       sets :laws_checked, to: 0
       sets :laws_passed, to: 0

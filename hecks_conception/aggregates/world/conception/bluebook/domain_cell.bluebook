@@ -68,7 +68,7 @@ Hecks.bluebook "DomainCell", version: "2026.04.28.1" do
       goal "Domain passes validation — structure sound, references resolve, roles assigned"
       reference_to(DomainCell)
       attribute :checkpoint_name, CheckpointName
-      sets :checkpoints_passed, append: :checkpoint_name
+      sets :checkpoints_passed, append: { value: :checkpoint_name }
       emits "CheckpointPassed"
     end
 
@@ -103,7 +103,7 @@ Hecks.bluebook "DomainCell", version: "2026.04.28.1" do
   # Successful digestion triggers conception
   policy "ConceiveOnAbsorption" do
     on "DomainAbsorbed"
-    trigger Hecks::World::Conception::DomainCell::DomainCell::Conceive
+    trigger World::Conception::DomainCell::DomainCell::Conceive
   end
 
   # Validation is a checkpoint

@@ -58,6 +58,7 @@ Hecks.bluebook "Query", version: "2026.05.10.1" do
 
   aggregate "Query" do
     description "Singleton read bus over the conception"
+    identified_by :service_name
 
     value_object "ServiceName" do
       attribute :value, String

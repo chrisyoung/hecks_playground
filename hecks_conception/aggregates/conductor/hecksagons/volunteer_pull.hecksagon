@@ -17,7 +17,7 @@ Hecks.hecksagon "VolunteerPull" do
   # Start as a pass-through input into the StoryStarted event.
   adapter "StartOnClaimAcquired" do
     driven on "Hecks::Conductor::Conductor::Claim.ClaimAcquired" do |event|
-      dispatch "Hecks::Plan::Story.Start", story: "{story}", worker: "{worker}"
+      dispatch "Hecks::Plan::Story.Start", with: { story: "{story}", worker: "{worker}" }
     end
   end
 
@@ -32,7 +32,12 @@ Hecks.hecksagon "VolunteerPull" do
   # Lease.HeldByWorker (where worker == the dead worker_id).
   adapter "GrantOnStoryStarted" do
     driven on "Hecks::Plan::Story.StoryStarted" do |event|
-      dispatch "Hecks::Conductor::Conductor::Lease.Grant", worktree_path: "worktrees/{story}", story: "{story}", worker: "{worker}", expires_at: "{now+3600}"
+      # expires_at "{now+3600}" -- clock-arithmetic interpolation, already
+      # flagged by this file's own comment as "not faked" (i.e. not real
+      # yet) -- interpolate_args only resolves bare {word} tokens, so this
+      # value passes through as literal text until that lands. Not this
+      # fix's scope ; the with: wrap alone gets the file parsing again.
+      dispatch "Hecks::Conductor::Conductor::Lease.Grant", with: { worktree_path: "worktrees/{story}", story: "{story}", worker: "{worker}", expires_at: "{now+3600}" }
     end
   end
 

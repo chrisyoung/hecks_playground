@@ -1,3 +1,4 @@
 Hecks.hecksagon "Composition" do
+  uses_framework "Governance"
   Composition::Composition.persisted_by("Heki")
 end

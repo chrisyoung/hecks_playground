@@ -23,6 +23,7 @@ Hecks.bluebook "HekiAdapter", version: "2026.04.16.1" do
 
   aggregate "Binding" do
     description "Maps an aggregate to a heki store"
+    identified_by :aggregate_name
     value_object "AggregateName" do
       # The aggregate's PascalCase name as declared in its bluebook
       # (e.g. "Heartbeat", "Consciousness").
@@ -82,6 +83,7 @@ Hecks.bluebook "HekiAdapter", version: "2026.04.16.1" do
 
   aggregate "Reference" do
     description "How references between aggregates resolve"
+    identified_by :from_aggregate, :to_aggregate
     value_object "FromAggregate" do
       # The PascalCase name of the aggregate that holds the
       # reference_to declaration.

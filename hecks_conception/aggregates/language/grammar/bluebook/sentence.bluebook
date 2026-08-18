@@ -114,7 +114,7 @@ Hecks.bluebook "Sentence", version: "2026.05.12.1" do
       reference_to(Sentence)
       attribute :natural_phrase, NaturalPhrase
       emits "TranslationAdded"
-      sets :translations, append: :natural_phrase
+      sets :translations, append: { value: :natural_phrase }
     end
   end
 end

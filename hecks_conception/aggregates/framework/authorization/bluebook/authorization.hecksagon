@@ -24,6 +24,7 @@
 # See aggregates/framework/authorization/bluebook/authorization.world for
 # the `dir :default` value half of this wiring.
 Hecks.hecksagon "Authorization" do
+  uses_framework "Governance"
   Authorization::Policy.persisted_by("Heki")
   Authorization::RoleAssignment.persisted_by("Heki")
 end

@@ -124,9 +124,24 @@ Hecks.bluebook "SessionLog", version: "2026.05.21.1" do
       # line by kind : dispatch=cyan, event=green, cascade-ok=green,
       # cascade-fail=red, adapter=magenta, error=bright-red,
       # fallback=yellow.
-      attribute :kind, String, one_of: %w[dispatch event cascade adapter policy attr error fallback]
+      # `one_of:` (the inline single-attribute closed-set keyword) only
+      # works when the value object has exactly one attribute -- EventTrace
+      # has three, so it needs the bare `member` form instead (ADR 0025).
+      # Only `kind` is a closed set here ; `verb` (the FQN/name that fired)
+      # and `ok` are free-form/unconstrained per record, so each member
+      # names only the field it constrains.
+      attribute :kind, String
       attribute :verb, String
       attribute :ok,   Bool
+
+      member kind: "dispatch"
+      member kind: "event"
+      member kind: "cascade"
+      member kind: "adapter"
+      member kind: "policy"
+      member kind: "attr"
+      member kind: "error"
+      member kind: "fallback"
     end
 
     attribute :invocation_id,        InvocationId

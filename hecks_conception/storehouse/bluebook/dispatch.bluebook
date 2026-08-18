@@ -35,6 +35,7 @@ Hecks.bluebook "Dispatch", version: "2026.05.10.1" do
 
   aggregate "Dispatch" do
     description "Singleton command bus over the conception"
+    identified_by :service_name
 
     value_object "ServiceName" do
       attribute :value, String

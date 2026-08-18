@@ -1,3 +1,4 @@
 Hecks.hecksagon "KnowledgeStore" do
+  uses_framework "Governance"
   KnowledgeStore::KnowledgeStore.persisted_by("Heki")
 end

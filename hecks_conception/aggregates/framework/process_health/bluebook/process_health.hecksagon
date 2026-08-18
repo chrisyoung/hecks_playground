@@ -1,34 +1,35 @@
 Hecks.hecksagon "ProcessHealth" do
+  uses_framework "Governance"
   ProcessHealth::ProcessSentinel.persisted_by("Heki")
   ProcessHealth::ProcessMacrophage.persisted_by("Heki")
 
   # ── Impure edges, hecksagon-first (2026-06-28) ───────────────────
+  # Re-expressed (i780, 2026-08-17) from the retired `adapter :exec` kwargs
+  # form onto the spawn effect port. TWO adapters subscribe to the SAME
+  # Swept event — the runtime records one OutboundEvent per subscriber
+  # (OutboundEvent.Record's own documented "one Record per subscribing
+  # adapter" fan-out), so both fire independently off one dispatch.
+  #
   # The runaway reaper : when ProcessMacrophage.Sweep completes, run
   # bin/process_health_reap (kills orphaned Tools::ShellTool.Bash dispatch
   # children that spin past runaway_after_seconds — the gap the liveness sweep
-  # is blind to). `:exec` is the HECKSAGON-FIRST impure edge ; it is sugar over
-  # the one Process.Spawn primitive (no bluebook policy, no bespoke executor).
-  # Restores the pre-bacc0692f surface that was wrongly migrated to a policy.
-  adapter :exec,
-          name:        "process_health_reap",
-          command:     "ProcessMacrophage.Sweep",
-          exec:        "bin/process_health_reap",
-          result_into: "Hecks::Framework::Cascade::Cascade::Cascade.RecordResult"
+  # is blind to).
+  ProcessHealth::ProcessMacrophage.spawned_by("ProcessHealthReap", on: "Swept") do
+    success "Cascade::Cascade.RecordResult"
+    failure "Cascade::Cascade.RecordResult"
+  end
 
   # The liveness probe : on Sweep, walk the watchlist via overmind status and
-  # MarkAlive | MarkHanged | MarkDead each ProcessSentinel. (Re-homed from the
-  # RunSweepOnSwept bluebook policy — hecksagon-first.)
-  adapter :exec,
-          name:        "process_health_sweep",
-          command:     "ProcessMacrophage.Sweep",
-          exec:        "bin/process_health_sweep",
-          result_into: "Hecks::Framework::Cascade::Cascade::Cascade.RecordResult"
+  # MarkAlive | MarkHanged | MarkDead each ProcessSentinel.
+  ProcessHealth::ProcessMacrophage.spawned_by("ProcessHealthSweep", on: "Swept") do
+    success "Cascade::Cascade.RecordResult"
+    failure "Cascade::Cascade.RecordResult"
+  end
 
   # The healer : on Heal, restart dead sentinels via overmind (or restart the
-  # supervisor itself). (Re-homed from the RunHealOnHealRequested policy.)
-  adapter :exec,
-          name:        "process_health_heal",
-          command:     "ProcessMacrophage.Heal",
-          exec:        "node bin/process_health_heal.mjs",
-          result_into: "Hecks::Framework::Cascade::Cascade::Cascade.RecordResult"
+  # supervisor itself).
+  ProcessHealth::ProcessMacrophage.spawned_by("ProcessHealthHeal", on: "HealRequested") do
+    success "Cascade::Cascade.RecordResult"
+    failure "Cascade::Cascade.RecordResult"
+  end
 end

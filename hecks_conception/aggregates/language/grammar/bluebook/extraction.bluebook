@@ -118,7 +118,7 @@ Hecks.bluebook "Extraction", version: "2026.06.13.1" do
       attribute :keyword, Keyword
       attribute :produces, IrNode
       attribute :opens_block, Flag
-      emits "Declared"
+      emits "BlockRuleDeclared"
       sets :keyword
       sets :produces
       sets :opens_block
@@ -173,7 +173,7 @@ Hecks.bluebook "Extraction", version: "2026.06.13.1" do
       attribute :field, FieldName
       attribute :strategy, ReadStrategy
       attribute :source_token, SourceToken
-      emits "Declared"
+      emits "FieldRuleDeclared"
       sets :field
       sets :strategy
       sets :source_token

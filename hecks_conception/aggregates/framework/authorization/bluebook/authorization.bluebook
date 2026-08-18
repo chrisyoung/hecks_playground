@@ -206,94 +206,103 @@ Hecks.bluebook "Authorization", version: "2026.06.27.1" do
 
   policy "RosterAssignPrAgent" do
     on "BootCompleted"
-    trigger RoleAssignment::Assign
-    with "auth_identity_id", "pr-agent"
-    with "role_name", "pr-agent"
+    trigger RoleAssignment::Assign, with: {
+      auth_identity_id: "pr-agent",
+      role_name: "pr-agent"
+    }
   end
 
   policy "RosterAssignWorkflowSubagent" do
     on "BootCompleted"
-    trigger RoleAssignment::Assign
-    with "auth_identity_id", "workflow-subagent"
-    with "role_name", "workflow-subagent"
+    trigger RoleAssignment::Assign, with: {
+      auth_identity_id: "workflow-subagent",
+      role_name: "workflow-subagent"
+    }
   end
 
   # sidequest shares the workflow-subagent ROLE — two identities, one
   # role : the grouping RBAC exists for.
   policy "RosterAssignSidequest" do
     on "BootCompleted"
-    trigger RoleAssignment::Assign
-    with "auth_identity_id", "sidequest"
-    with "role_name", "workflow-subagent"
+    trigger RoleAssignment::Assign, with: {
+      auth_identity_id: "sidequest",
+      role_name: "workflow-subagent"
+    }
   end
 
   # ── pr-agent grants (upsert on Policy id) ─────────────────────
 
   policy "RosterPermitPrAgentTools" do
     on "BootCompleted"
-    trigger Policy::Permit
-    with "id", "roster-pr-agent-tools"
-    with "principal", "pr-agent"
-    with "action", "Tools::*"
-    with "resource", "*"
-    with "condition", "-"
-    with "expires_at", "-"
+    trigger Policy::Permit, with: {
+      id: "roster-pr-agent-tools",
+      principal: "pr-agent",
+      action: "Tools::*",
+      resource: "*",
+      condition: "-",
+      expires_at: "-"
+    }
   end
 
   policy "RosterForbidPrAgentAuthz" do
     on "BootCompleted"
-    trigger Policy::Forbid
-    with "id", "roster-pr-agent-no-authz"
-    with "principal", "pr-agent"
-    with "action", "Authorization::*"
-    with "resource", "*"
-    with "condition", "-"
-    with "expires_at", "-"
+    trigger Policy::Forbid, with: {
+      id: "roster-pr-agent-no-authz",
+      principal: "pr-agent",
+      action: "Authorization::*",
+      resource: "*",
+      condition: "-",
+      expires_at: "-"
+    }
   end
 
   policy "RosterForbidPrAgentGovernance" do
     on "BootCompleted"
-    trigger Policy::Forbid
-    with "id", "roster-pr-agent-no-governance"
-    with "principal", "pr-agent"
-    with "action", "Governance::*"
-    with "resource", "*"
-    with "condition", "-"
-    with "expires_at", "-"
+    trigger Policy::Forbid, with: {
+      id: "roster-pr-agent-no-governance",
+      principal: "pr-agent",
+      action: "Governance::*",
+      resource: "*",
+      condition: "-",
+      expires_at: "-"
+    }
   end
 
   # ── workflow-subagent grants (cover sidequest too, by role) ──────
 
   policy "RosterPermitWorkflowSubagentTools" do
     on "BootCompleted"
-    trigger Policy::Permit
-    with "id", "roster-workflow-subagent-tools"
-    with "principal", "workflow-subagent"
-    with "action", "Tools::*"
-    with "resource", "*"
-    with "condition", "-"
-    with "expires_at", "-"
+    trigger Policy::Permit, with: {
+      id: "roster-workflow-subagent-tools",
+      principal: "workflow-subagent",
+      action: "Tools::*",
+      resource: "*",
+      condition: "-",
+      expires_at: "-"
+    }
   end
 
   policy "RosterForbidWorkflowSubagentAuthz" do
     on "BootCompleted"
-    trigger Policy::Forbid
-    with "id", "roster-workflow-subagent-no-authz"
-    with "principal", "workflow-subagent"
-    with "action", "Authorization::*"
-    with "resource", "*"
-    with "condition", "-"
-    with "expires_at", "-"
+    trigger Policy::Forbid, with: {
+      id: "roster-workflow-subagent-no-authz",
+      principal: "workflow-subagent",
+      action: "Authorization::*",
+      resource: "*",
+      condition: "-",
+      expires_at: "-"
+    }
   end
 
   policy "RosterForbidWorkflowSubagentGovernance" do
     on "BootCompleted"
-    trigger Policy::Forbid
-    with "id", "roster-workflow-subagent-no-governance"
-    with "principal", "workflow-subagent"
-    with "action", "Governance::*"
-    with "resource", "*"
-    with "condition", "-"
-    with "expires_at", "-"
+    trigger Policy::Forbid, with: {
+      id: "roster-workflow-subagent-no-governance",
+      principal: "workflow-subagent",
+      action: "Governance::*",
+      resource: "*",
+      condition: "-",
+      expires_at: "-"
+    }
   end
 end

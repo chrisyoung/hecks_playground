@@ -1,4 +1,5 @@
 Hecks.hecksagon "HecksagonIr" do
+  uses_framework "Governance"
   HecksagonIr::Hecksagon.persisted_by("Memory")
   HecksagonIr::IoAdapter.persisted_by("Memory")
   HecksagonIr::ShellAdapter.persisted_by("Memory")

@@ -4,6 +4,7 @@ Hecks.bluebook "Catalog", version: "2026.05.12.1" do
 
   aggregate "Entry" do
     description "A domain in the catalog — current version plus full history"
+    identified_by :name
 
     # ── Value-objects : wrapped primitives (no-primitive-envy, 2026-05-12) ──
     # Per i555 VOs live inside their aggregate ; one wrapper per
@@ -113,6 +114,9 @@ Hecks.bluebook "Catalog", version: "2026.05.12.1" do
 
   aggregate "Version" do
     description "A snapshot of a domain at a point in time — development history"
+    # Composite : many versions per domain, so domain_name alone isn't
+    # unique — the (domain, version-string) pair is.
+    identified_by :domain_name, :version
 
     # ── Value-objects : wrapped primitives (no-primitive-envy, 2026-05-12) ──
     # Per i555 VOs live inside their aggregate ; one wrapper per
@@ -209,10 +213,18 @@ Hecks.bluebook "Catalog", version: "2026.05.12.1" do
 
   aggregate "Mirror" do
     description "Auto-sync catalog from cannon — always current, never stale"
+    identified_by :mirror_name
 
     # ── Value-objects : wrapped primitives (no-primitive-envy, 2026-05-12) ──
     # Per i555 VOs live inside their aggregate ; one wrapper per
     # surface primitive, each carrying `attribute :value, <Primitive>`.
+
+    value_object "MirrorName" do
+      attribute :value, String
+      invariant "must be the singleton 'mirror'" do
+        value == "mirror"
+      end
+    end
 
     value_object "CannonPath" do
       # Typed wrapper around the underlying String on this aggregate.
@@ -229,6 +241,7 @@ Hecks.bluebook "Catalog", version: "2026.05.12.1" do
       attribute :value, Integer
     end
 
+    attribute :mirror_name, MirrorName, default: { value: "mirror" }
     attribute :cannon_path, CannonPath
     attribute :last_synced_at, LastSyncedAt
     attribute :domains_synced, DomainsSynced
@@ -250,10 +263,18 @@ Hecks.bluebook "Catalog", version: "2026.05.12.1" do
 
   aggregate "Index" do
     description "The full index — catalog and nursery combined"
+    identified_by :index_name
 
     # ── Value-objects : wrapped primitives (no-primitive-envy, 2026-05-12) ──
     # Per i555 VOs live inside their aggregate ; one wrapper per
     # surface primitive, each carrying `attribute :value, <Primitive>`.
+
+    value_object "IndexName" do
+      attribute :value, String
+      invariant "must be the singleton 'index'" do
+        value == "index"
+      end
+    end
 
     value_object "CatalogCount" do
       # Typed wrapper around the underlying Integer on this aggregate.
@@ -275,6 +296,7 @@ Hecks.bluebook "Catalog", version: "2026.05.12.1" do
       attribute :value, Integer
     end
 
+    attribute :index_name, IndexName, default: { value: "index" }
     attribute :catalog_count, CatalogCount
     attribute :nursery_count, NurseryCount
     attribute :total_aggregates, TotalAggregates

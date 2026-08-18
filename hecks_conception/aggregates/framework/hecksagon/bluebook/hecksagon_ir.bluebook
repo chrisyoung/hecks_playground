@@ -133,7 +133,7 @@ Hecks.bluebook "HecksagonIr", version: "2026.05.21.1" do
       attribute :framework_kind, FrameworkKind
       attribute :persistence,    Persistence
       attribute :subscriptions,  list_of(Subscription)
-      emits "Conceived"
+      emits "HecksagonConceived"
     end
   end
 
@@ -186,7 +186,7 @@ Hecks.bluebook "HecksagonIr", version: "2026.05.21.1" do
       attribute :kind,       Kind
       attribute :options,    list_of(OptionEntry)
       attribute :on_events,  list_of(OnEvent)
-      emits "Conceived"
+      emits "IoAdapterConceived"
     end
   end
 
@@ -273,7 +273,7 @@ Hecks.bluebook "HecksagonIr", version: "2026.05.21.1" do
       attribute :working_dir,   WorkingDir
       attribute :env,           list_of(EnvEntry)
       attribute :ok_exit,       OkExit
-      emits "Conceived"
+      emits "ShellAdapterConceived"
     end
   end
 
@@ -323,7 +323,7 @@ Hecks.bluebook "HecksagonIr", version: "2026.05.21.1" do
       attribute :aggregate,        Aggregate
       attribute :role,             Role
       attribute :allowed_commands, list_of(AllowedCommand)
-      emits "Conceived"
+      emits "GateConceived"
     end
   end
 
@@ -420,7 +420,7 @@ Hecks.bluebook "HecksagonIr", version: "2026.05.21.1" do
       attribute :response_into_target, ResponseIntoTarget
       attribute :response_into_attr,   ResponseIntoAttr
       attribute :backend,              Backend
-      emits "Conceived"
+      emits "LlmAdapterConceived"
     end
   end
 
@@ -477,7 +477,7 @@ Hecks.bluebook "HecksagonIr", version: "2026.05.21.1" do
       attribute :triggers,             list_of(TriggerOn)
       attribute :response_into_target, ResponseIntoTarget
       attribute :response_into_attr,   ResponseIntoAttr
-      emits "Conceived"
+      emits "ComputeAdapterConceived"
     end
   end
 
@@ -588,7 +588,7 @@ Hecks.bluebook "HecksagonIr", version: "2026.05.21.1" do
       attribute :triggers,          list_of(TriggerOn)
       attribute :cache_dir,         CacheDir
       attribute :auto_play,         AutoPlay
-      emits "Conceived"
+      emits "TtsAdapterConceived"
     end
   end
 end

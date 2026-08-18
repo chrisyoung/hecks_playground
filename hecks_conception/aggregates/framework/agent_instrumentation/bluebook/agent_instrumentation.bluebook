@@ -69,19 +69,21 @@ Hecks.bluebook "AgentInstrumentation", version: "2026.06.21.1" do
 
   policy "EstablishSidequestAgent" do
     on "BootCompleted"
-    trigger AgentDefinition::Register
-    with "name", "sidequest"
-    with "model", "sonnet"
-    with "description", "Use this agent for small interruptive work that pops up while Miette is focused on the main thread — inbox sweeps, email replies (drafts only), embryonaut.ai tweaks, music/audio bugs, John V smoke results, content polish, and other ~15-30 minute surface-glue tasks. NOT for kernel-floor changes, codegen emitters, multi-PR arcs, or anything that touches storehouse/parity. When in doubt, ask Miette to handle it instead."
-    with "role_body", "roles/sidequest.md"
+    trigger AgentDefinition::Register, with: {
+      name: "sidequest",
+      model: "sonnet",
+      description: "Use this agent for small interruptive work that pops up while Miette is focused on the main thread — inbox sweeps, email replies (drafts only), embryonaut.ai tweaks, music/audio bugs, John V smoke results, content polish, and other ~15-30 minute surface-glue tasks. NOT for kernel-floor changes, codegen emitters, multi-PR arcs, or anything that touches storehouse/parity. When in doubt, ask Miette to handle it instead.",
+      role_body: "roles/sidequest.md"
+    }
   end
 
   policy "EstablishSecurityReviewerAgent" do
     on "BootCompleted"
-    trigger AgentDefinition::Register
-    with "name", "security-reviewer"
-    with "model", "sonnet"
-    with "description", "Review code changes for security vulnerabilities specific to the Hecks framework"
-    with "role_body", "roles/security-reviewer.md"
+    trigger AgentDefinition::Register, with: {
+      name: "security-reviewer",
+      model: "sonnet",
+      description: "Review code changes for security vulnerabilities specific to the Hecks framework",
+      role_body: "roles/security-reviewer.md"
+    }
   end
 end

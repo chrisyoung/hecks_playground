@@ -35,7 +35,15 @@ gem "websocket"
 # call sites/133 files) and command-level `description "..."` (-> `goal
 # "..."` per ADR 0025, 830 call sites/135 files) -- both migrated via
 # precise one-off Ruby scripts (see project history), not hand edits.
-gem "hecksagain", git: "https://github.com/chrisyoung/hecks-hecksagain", branch: "main", ref: "fe39d44"
+# Bumped 2026-08-17 (i780/i781): `74ea7da` adds record_effect_outbound, the
+# runtime producer for the spawn/charged_by effect port's `Bind#on/success/
+# failure` DSL-capture, which had been real but never consumed. First real
+# caller is this corpus's :exec -> spawned_by re-expression (fibroblast,
+# git, cargo, filesystem, tools, inbox, process_health, session, plan,
+# macrophage). Reviewed and merged straight to the fork's main (Chris,
+# 2026-08-17) -- feat/spawn-effect-port is deleted, this is the real pin
+# now, not provisional.
+gem "hecksagain", git: "https://github.com/chrisyoung/hecks-hecksagain", branch: "main", ref: "74ea7da"
 
 group :development, :test do
   gem "rake"

@@ -104,7 +104,7 @@ Hecks.bluebook "Composition", version: "2026.05.12.1" do
       reference_to(Composition)
       attribute :natural_phrase, Translation
       emits "CompositionTranslated"
-      sets :translations, append: :natural_phrase
+      sets :translations, append: { value: :natural_phrase }
     end
 
     command "MarkInvalid" do

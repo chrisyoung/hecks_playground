@@ -218,10 +218,14 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
     query "Replay" do |aggregate_name|
       # The Log for one aggregate kind, in sequence order — the universal
       # fold input. The trivial per-aggregate projection replays this.
-      where(aggregate_name: aggregate_name)
+      where(aggregate_name: :aggregate_name)
     end
 
     query "AtSequence" do |seq|
+      # `seq` names no owner attribute (the owner's own field is
+      # `sequence`), so derive_from_owner! can't infer its type -- declared
+      # explicitly instead, matching Sequence's own type.
+      attribute :seq, Sequence
       # Point lookup : the event AT a sequence. where() carries ordered
           # predicates (Gt/Gte/Lt/Lte) in the matcher, so the "tail strictly
           # AFTER a watermark" that Snapshot's fall-forward needs IS expressible.
@@ -242,7 +246,7 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
           # behaviors (VO-as-string) and the live storehouse (VO-as-map) now
           # agree. The sequence-range SEEK that Snapshot fall-forward needs runs
           # through SinceSequence, which drives the nested value directly.
-      where(sequence: seq)
+      where(sequence: :seq)
     end
 
     query "SinceSequence" do |sequence|
@@ -260,12 +264,12 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
     query "ForAggregate" do |aggregate_id|
       # Every event for one aggregate instance — the input to the trivial
       # per-aggregate (current-state) projection.
-      where(aggregate_id: aggregate_id)
+      where(aggregate_id: :aggregate_id)
     end
 
     query "ByCorrelation" do |correlation_id|
           # Every event in one originating flow — the lineage-ready slice.
-          where(correlation_id: correlation_id)
+          where(correlation_id: :correlation_id)
         end
 
         # ── Lineage facet-queries ──────────────────────────────────────
@@ -274,7 +278,7 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
           # Every event a given party issued — a plain equality slice over the
           # actor field. Expressible as an ordinary where() (the lineage facet
           # that needs no traversal).
-          where(actor: actor)
+          where(actor: :actor)
         end
 
         query "CausationTrace" do |event_id|
@@ -487,7 +491,7 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
       # snapshot captured yet -> watermark 0 -> a full replay. Serves the
       # trivial current-state projection (Row key "agg::id::field") ;
       # custom-projection reducers are a later lift.
-      where(projection_name: projection_name)
+      where(projection_name: :projection_name)
     end
   end
 

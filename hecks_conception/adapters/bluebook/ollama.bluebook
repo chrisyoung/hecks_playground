@@ -21,6 +21,7 @@ Hecks.bluebook "OllamaAdapter", version: "2026.05.11.1" do
 
   aggregate "Connection" do
     description "The ollama server connection"
+    identified_by :url
     value_object "Url" do
       # The ollama HTTP endpoint, e.g. "http://localhost:11434".
       # The adapter posts inference requests against this base URL.
@@ -69,6 +70,18 @@ Hecks.bluebook "OllamaAdapter", version: "2026.05.11.1" do
 
   aggregate "Inference" do
     description "One LLM call — prompt in, response out"
+    identified_by :inference_id
+
+    value_object "InferenceId" do
+      # No natural field on a call is unique — the same prompt can
+      # be sent twice. The caller mints this (a ULID/timestamp,
+      # its choice) and carries it through Infer.
+      attribute :value, String
+      invariant "must be non-empty" do
+        !value.empty?
+      end
+    end
+
     value_object "Prompt" do
       # The text sent to ollama. Built upstream from voice
       # personality + input ; the adapter relays it verbatim.
@@ -97,14 +110,17 @@ Hecks.bluebook "OllamaAdapter", version: "2026.05.11.1" do
       end
     end
 
+    attribute :inference_id, InferenceId
     attribute :prompt, Prompt
     attribute :response, Response
     attribute :model, Model
 
     command "Infer" do
       goal "Send a prompt to ollama, get a response"
+      attribute :inference_id, InferenceId
       attribute :prompt, Prompt
       emits "Inferred"
+      sets :inference_id
       sets :prompt
     end
 

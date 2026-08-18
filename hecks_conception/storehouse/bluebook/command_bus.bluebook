@@ -48,6 +48,7 @@ Hecks.bluebook "CommandBus", version: "2026.05.10.1" do
 
   aggregate "CommandBus" do
     description "An app-scoped slice of the universal bus"
+    identified_by :app
 
     value_object "App" do
       # The project folder name — the first segment of every phrase

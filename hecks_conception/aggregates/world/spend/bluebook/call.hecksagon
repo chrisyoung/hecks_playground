@@ -8,15 +8,13 @@
 # the standard Hecks persistence layer. The memory adapter is what
 # tests and behaviors run against.
 #
-# Gate:
-#   miette — the being herself records each LLM invocation as it
-#            happens. She cannot rewrite her own budget; that's
-#            Chris's prerogative (see budget.hecksagon).
-#
+# Access control: `gate "Call", :miette do allow ... end` was never a
+# real HecksagonBuilder verb (no gate/allow method exists) -- the
+# bluebook's own `role "System"` on RecordCall already says the same
+# thing, and is real access control now that Governance is attached
+# below.
 Hecks.hecksagon "Call" do
-  adapter :memory
+  uses_framework "Governance"
 
-  gate "Call", :miette do
-    allow :RecordCall
-  end
+  Call::Call.persisted_by("Memory")
 end

@@ -79,7 +79,7 @@ Hecks.bluebook "Acl", version: "2026.04.28.1" do
       reference_to(Acl)
       attribute :phrase, NaturalPhrase
       emits "PhraseAdded"
-      sets :natural_phrases, append: :phrase
+      sets :natural_phrases, append: { value: :phrase }
     end
 
     command "BindParam" do

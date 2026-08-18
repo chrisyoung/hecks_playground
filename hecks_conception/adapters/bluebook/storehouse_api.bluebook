@@ -52,6 +52,7 @@ Hecks.bluebook "StorehouseApiAdapter", version: "2026.05.11.1" do
 
   aggregate "Binding" do
     description "Wires a remote StoreHouse Worker into an app"
+    identified_by :base_url
     value_object "BaseUrl" do
       # The deployed worker URL, e.g.
       # "https://bin-buddy-worker.chris.workers.dev". Read at

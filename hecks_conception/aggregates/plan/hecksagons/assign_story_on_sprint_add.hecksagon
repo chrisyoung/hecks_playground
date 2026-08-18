@@ -6,7 +6,7 @@ Hecks.hecksagon "Plan" do
   # number.
   adapter "AssignStoryOnSprintAdd" do
     driven on "Hecks::Plan::Sprint.StoryAddedToSprint" do |event|
-      dispatch "Hecks::Plan::Story.AssignToSprint", id: "{story}", sprint_ref: "{id}"
+      dispatch "Hecks::Plan::Story.AssignToSprint", with: { id: "{story}", sprint_ref: "{id}" }
     end
   end
 end

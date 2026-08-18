@@ -59,7 +59,7 @@ Hecks.bluebook "Conductor", version: "2026.06.28.1" do
       goal "Add a story to the back of the queue. Fired by an Approve adapter."
       reference_to(MergeQueue)
       attribute :story_ref, StoryRef
-      sets :queued, append: :story_ref
+      sets :queued, append: { value: :story_ref }
       emits "MergeEnqueued"
     end
 

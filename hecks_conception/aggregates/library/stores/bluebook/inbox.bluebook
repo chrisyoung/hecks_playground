@@ -294,8 +294,10 @@ Hecks.bluebook "IssueLog", version: "2026.05.14.1" do
 
     policy "LockOnSignoff" do
       on "SignoffRecorded"
+      # Lock declares no attribute a `with:` mapping could receive --
+      # reference_to(Inbox) already threads the same-aggregate identity
+      # automatically, the same way a driven handler re-enters on id.
       trigger Lock
-      map ref: :ref
     end
 
     # ============================================================

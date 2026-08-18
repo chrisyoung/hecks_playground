@@ -98,7 +98,7 @@ Hecks.bluebook "Hexagon", version: "2026.06.16.2" do
       attribute :name,   FamilyName
       attribute :verb,   HowVerb
       attribute :signal, Signal
-      emits "Declared"
+      emits "FamilyDeclared"
       sets :name
       sets :verb
       sets :signal
@@ -149,7 +149,7 @@ Hecks.bluebook "Hexagon", version: "2026.06.16.2" do
       goal "Declare one config field on a family — its name and source (direct | env | secret). The value is supplied per-deployment in .world ; for env/secret the .world value is the NAME of the env var the runtime resolves at dispatch."
       attribute :name,   FieldName
       attribute :source, Source, default: { value: "direct" }
-      emits "Declared"
+      emits "FieldDeclared"
       sets :name
       sets :source
     end
@@ -178,7 +178,7 @@ Hecks.bluebook "Hexagon", version: "2026.06.16.2" do
       role "Framework"
       goal "Declare one output field a family's handlers must emit — its name. A conformance test asserts the family's adapters' handlers actually produce it on the success branch."
       attribute :name, ProducedFieldName
-      emits "Declared"
+      emits "ProducedFieldDeclared"
       sets :name
     end
   end
@@ -222,7 +222,7 @@ Hecks.bluebook "Hexagon", version: "2026.06.16.2" do
       goal "Declare an adapter — it belongs_to the family it implements, and names the standalone handler the adapter-host execs (empty for in-process persistence adapters). Config is in .world ; cross-domain wiring is the hexagon's job at runtime, so no FQN is stored here."
       attribute :name, AdapterName
       attribute :handler, HandlerPath, default: { value: "" }
-      emits "Declared"
+      emits "AdapterDeclared"
       sets :name
       sets :handler
     end

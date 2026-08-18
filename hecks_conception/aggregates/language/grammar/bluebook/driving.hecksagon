@@ -1,3 +1,4 @@
 Hecks.hecksagon "Driving" do
+  uses_framework "Governance"
   Driving::Driver.persisted_by("Heki")
 end

@@ -147,7 +147,16 @@ Hecks.bluebook "OutboundEvent", version: "2026.06.16.1" do
     command "Claim" do
       role "System"
       goal "A standalone host claims a pending delivery before acting — the at-least-once guard against two hosts processing the same event. Valid only while pending. Increments attempts."
-      attribute :delivery_id, DeliveryId
+      # reference_to (not a re-declared attribute :delivery_id) -- this is a
+      # TRANSITION on an existing record, not a second creator. A plain
+      # `attribute :delivery_id, DeliveryId` left `command.creates?` (=
+      # @references.nil?, bluebook/behaviour/command.rb) true for every
+      # verb here, so Claim/MarkDelivered/MarkFailed all tried to CREATE a
+      # duplicate record instead of updating the one Record already made --
+      # `unknown adapter ""`'s sibling bug, found live running bin/adapter-
+      # host end to end for the first time (i781, 2026-08-17). Same fix
+      # shape as Sprint.Activate's own `reference_to(Sprint)` self-ref.
+      reference_to(OutboundEvent)
       given("only a pending delivery may be claimed") { status == "pending" }
       sets :status, to: "claimed"
       emits "OutboundEventClaimed"
@@ -156,7 +165,7 @@ Hecks.bluebook "OutboundEvent", version: "2026.06.16.1" do
     command "MarkDelivered" do
       role "System"
       goal "The host acks after it has dispatched the verdict (success_command or failure_command) back through the command port. Terminal. The verdict's own re-entry is a separate dispatch ; this only closes the delivery."
-      attribute :delivery_id, DeliveryId
+      reference_to(OutboundEvent)
       given("only a claimed delivery may be delivered") { status == "claimed" }
       sets :status, to: "delivered"
       emits "OutboundEventDelivered"
@@ -165,8 +174,8 @@ Hecks.bluebook "OutboundEvent", version: "2026.06.16.1" do
     command "MarkFailed" do
       role "System"
       goal "The host records a failed attempt (the charge could not reach a verdict within its budget). Captures the error and returns the delivery to pending for another host pass, OR the host dispatches the failure_command (Decline) and marks delivered — the host's policy, never the core's. The core never silently retries ; recovery is the host re-claiming or a new command."
-      attribute :delivery_id, DeliveryId
-      attribute :error,       ErrorMessage
+      reference_to(OutboundEvent)
+      attribute :error, ErrorMessage
       sets :status,     to: "pending"
       sets :last_error, to: :error
       emits "OutboundEventFailed"

@@ -108,7 +108,7 @@ Hecks.bluebook "Tools", version: "2026.05.14.1" do
       attribute :id, Id
       attribute :shell_command, ShellCommand
       attribute :description, Description
-      redirects_native "Bash"
+      # redirects_native "Bash" -- retired DSL word (no replacement in the current DSL; kept as documentation of the native Claude tool this command mirrors)
       emits "BashRan"
       sets :shell_command
       sets :description
@@ -228,7 +228,7 @@ Hecks.bluebook "Tools", version: "2026.05.14.1" do
       attribute :description, Description
       attribute :offset, Offset
       attribute :limit,  Limit
-      redirects_native "Read"
+      # redirects_native "Read" -- retired DSL word (no replacement in the current DSL; kept as documentation of the native Claude tool this command mirrors)
       emits "FileRead"
       sets :file_path
       sets :description
@@ -240,11 +240,11 @@ Hecks.bluebook "Tools", version: "2026.05.14.1" do
       goal "Apply a string substitution to a file. old_string is matched EXACTLY first ; on no exact match a whitespace-TOLERANT fallback matches by trimmed line content and re-indents new_string to the file's actual indentation, requiring a unique match (else it refuses) — so an old_string authored with the wrong leading whitespace still lands (2026-06-13). The byte-matching primitive itself lives at the :claude_tool kernel-floor edge ; this names its contract. Records the dispatch as a FileTool record and emits EditApplied carrying the file_path, old_string, new_string, replace_all flag, and description. The full old/new strings live in the event payload ; aggregate state stores only the file_path + description."
       attribute :id, Id
       attribute :file_path, FilePath
-      attribute :old_string, OldString, logged: false
-      attribute :new_string, NewString, logged: false
+      attribute :old_string, OldString  # logged: false -- retired kwarg (no replacement in the current DSL; the intent was excluding this large payload from persisted aggregate state, keeping it in the event only -- currently it persists like any other attribute)
+      attribute :new_string, NewString  # logged: false -- retired kwarg (no replacement in the current DSL; the intent was excluding this large payload from persisted aggregate state, keeping it in the event only -- currently it persists like any other attribute)
       attribute :replace_all, ReplaceAll
       attribute :description, Description
-      redirects_native "Edit", "MultiEdit", "NotebookEdit"
+      # redirects_native "Edit", "MultiEdit", "NotebookEdit" -- retired DSL word (no replacement in the current DSL; kept as documentation of the native Claude tool this command mirrors)
       emits "EditApplied"
       sets :file_path
       sets :description
@@ -256,7 +256,7 @@ Hecks.bluebook "Tools", version: "2026.05.14.1" do
       goal "Write content to a file. Records the dispatch as a FileTool record and emits FileUpdated carrying the file_path, content, and description. The full content lives in the event payload ; aggregate state stores only the file_path and description. Same semantic as Claude's existing Write tool — renamed here to emphasize that the runtime treats it as a state-changing dispatch."
       attribute :id, Id
       attribute :file_path, FilePath
-      attribute :content, Content, logged: false
+      attribute :content, Content  # logged: false -- retired kwarg (no replacement in the current DSL; the intent was excluding this large payload from persisted aggregate state, keeping it in the event only -- currently it persists like any other attribute)
       attribute :description, Description
       emits "FileUpdated"
       sets :file_path
@@ -277,9 +277,9 @@ Hecks.bluebook "Tools", version: "2026.05.14.1" do
       goal "Write content to a file (full-file overwrite). Records the dispatch as a FileTool record and emits FileWritten carrying the file_path, content, and description. The full content lives in the event payload ; aggregate state stores only the file_path + description. Surfaced under the harness-traditional 'Write' name for parity with Claude Code's existing tool ; Update is the same operation under the bluebook-canonical name."
       attribute :id, Id
       attribute :file_path, FilePath
-      attribute :content, Content, logged: false
+      attribute :content, Content  # logged: false -- retired kwarg (no replacement in the current DSL; the intent was excluding this large payload from persisted aggregate state, keeping it in the event only -- currently it persists like any other attribute)
       attribute :description, Description
-      redirects_native "Write"
+      # redirects_native "Write" -- retired DSL word (no replacement in the current DSL; kept as documentation of the native Claude tool this command mirrors)
       emits "FileWritten"
       sets :file_path
       sets :description
@@ -297,7 +297,7 @@ Hecks.bluebook "Tools", version: "2026.05.14.1" do
       attribute :id, Id
       attribute :notebook_path, NotebookPath
       attribute :cell_id, CellId
-      attribute :new_source, NewSource, logged: false
+      attribute :new_source, NewSource  # logged: false -- retired kwarg (no replacement in the current DSL; the intent was excluding this large payload from persisted aggregate state, keeping it in the event only -- currently it persists like any other attribute)
       attribute :edit_mode, EditMode
       attribute :description, Description
       emits "NotebookEdited"
@@ -355,7 +355,7 @@ Hecks.bluebook "Tools", version: "2026.05.14.1" do
       attribute :pattern, Pattern
       attribute :search_path, SearchPath
       attribute :description, Description
-      redirects_native "Grep"
+      # redirects_native "Grep" -- retired DSL word (no replacement in the current DSL; kept as documentation of the native Claude tool this command mirrors)
       emits "GrepRan"
       sets :pattern
       sets :search_path
@@ -370,7 +370,7 @@ Hecks.bluebook "Tools", version: "2026.05.14.1" do
       attribute :glob_pattern, GlobPattern
       attribute :search_path, SearchPath
       attribute :description, Description
-      redirects_native "Glob"
+      # redirects_native "Glob" -- retired DSL word (no replacement in the current DSL; kept as documentation of the native Claude tool this command mirrors)
       emits "GlobMatched"
       sets :glob_pattern
       sets :search_path
@@ -426,7 +426,7 @@ Hecks.bluebook "Tools", version: "2026.05.14.1" do
       attribute :url, Url
       attribute :prompt, FetchPrompt
       attribute :description, Description
-      redirects_native "WebFetch"
+      # redirects_native "WebFetch" -- retired DSL word (no replacement in the current DSL; kept as documentation of the native Claude tool this command mirrors)
       emits "WebFetched"
       sets :url
       sets :description
@@ -439,7 +439,7 @@ Hecks.bluebook "Tools", version: "2026.05.14.1" do
       attribute :id, Id
       attribute :query, SearchQuery
       attribute :description, Description
-      redirects_native "WebSearch"
+      # redirects_native "WebSearch" -- retired DSL word (no replacement in the current DSL; kept as documentation of the native Claude tool this command mirrors)
       emits "WebSearched"
       sets :query
       sets :description

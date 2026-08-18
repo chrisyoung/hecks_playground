@@ -1,4 +1,5 @@
 Hecks.hecksagon "Extraction" do
+  uses_framework "Governance"
   Extraction::Grammar.persisted_by("Heki")
   Extraction::BlockRule.persisted_by("Heki")
   Extraction::FieldRule.persisted_by("Heki")

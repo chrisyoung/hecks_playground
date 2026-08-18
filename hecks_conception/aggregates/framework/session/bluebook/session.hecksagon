@@ -1,8 +1,14 @@
 Hecks.hecksagon "Session" do
+  uses_framework "Governance"
   Session::Session.persisted_by("Heki")
 
   # Impure edge, hecksagon-first : on RebuildContext, run session-recall and
   # cascade the recalled context. Re-homed from the RunRecallOnContextRebuilt
   # Process.Spawn policy — the impure edge lives here, not in the bluebook.
-  adapter :exec, name: "session_recall", command: "Session.RebuildContext", exec: "/Users/christopheryoung/Projects/hecks/bin/session-recall", result_into: "Hecks::Framework::Cascade::Cascade::Cascade.RecordResult"
+  # Re-expressed (i780, 2026-08-17) from the retired `adapter :exec` kwargs
+  # form onto the spawn effect port.
+  Session::Session.spawned_by("SessionRecall", on: "ContextRebuilt") do
+    success "Cascade::Cascade.RecordResult"
+    failure "Cascade::Cascade.RecordResult"
+  end
 end

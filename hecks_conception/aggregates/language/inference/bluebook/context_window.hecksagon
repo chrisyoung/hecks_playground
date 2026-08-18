@@ -1,3 +1,4 @@
 Hecks.hecksagon "ContextWindow" do
+  uses_framework "Governance"
   ContextWindow::ContextWindow.persisted_by("Heki")
 end

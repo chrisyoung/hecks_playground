@@ -3,32 +3,51 @@
 #
 # Hexagonal ports-and-adapters : the core (storehouse runtime) owns the ports ;
 # this host runs OUTSIDE it, as a separate process, and speaks ONLY the public
-# door — the query port (OutboundEvent.pending) and the command port (dispatch).
+# door — the query port (OutboundEvent.Pending) and the command port (dispatch).
 # It is generic : parameterised by an adapter name + a thin handler command, it
 # reimplements NO subscribe/dispatch plumbing per adapter. Many adapters (Stripe,
 # email, ...) are just different handlers plugged into this one loop.
 #
 # The loop (the standalone-adapter contract, OutboundEvent.bluebook):
-#   1. poll     OutboundEvent.pending(adapter)        — the durable event-out port
+#   1. poll     OutboundEvent.Pending(adapter)        — the durable event-out port
 #   2. claim    OutboundEvent.Claim                   — at-least-once guard
 #   3. handle   $HANDLER <payload-on-stdin>           — the async charge, OFF-CORE
 #               exit 0 -> success verdict ; non-zero -> failure verdict.
 #               Retries / timeout / backoff live HERE or in the handler, never
 #               in the core — non-blocking by construction.
-#   4. dispatch <success_command|failure_command> id=<source_id>  — verdict re-entry
+#   4. dispatch <success_command|failure_command> id/tool/output/exit_code/ok
+#               (+ any handler-emitted key=value lines)  — verdict re-entry
 #   5. ack      OutboundEvent.MarkDelivered           — close the delivery
 #
 # Usage: adapter-host <root> <adapter> [--once]
 #   The handler is resolved DECLARATIVELY from <root>/<adapter>.adapter's
 #   `handler "..."` line — no CLI arg. Which binary IS this adapter lives in
 #   the bluebook, not the invocation.
-#   STOREHOUSE=/path/to/storehouse  POLL_INTERVAL=2  (env overrides)
+#   STOREHOUSE=/path/to/hecksagain-cli  POLL_INTERVAL=2  (env overrides)
+#
+# i780/i781 (2026-08-17) fixes, hecksagain-cutover : this script predates
+# hecksagain-cli and was still calling the OLD Rust `storehouse` binary's
+# CLI shape (`storehouse <root> <verb>`, `.state` on a query result, bare
+# field names). hecksagain-cli's shape differs on every one of those :
+# `dispatch` is a required first subcommand word (`hecksagain-cli dispatch
+# <root> <verb> k=v...`, not `storehouse <root> <verb>`) ; a query's rows
+# live under `.rows`, not `.state` (dispatch alone uses `.state`) ; every
+# VO-typed field comes back `{"value": ...}`, not bare (confirmed live,
+# 2026-08-17) ; and the query name is the bluebook's own declared PascalCase
+# ("Pending"), not a snake_cased guess. Fixed all four below. Also : the
+# verdict dispatch now ALWAYS carries `tool`/`output`/`exit_code`/`ok` —
+# what Cascade.RecordResult needs, computed by THIS host from the captured
+# run, not left to the handler's own stdout (the handler's key=value lines,
+# e.g. a Stripe `payment_ref=ch_x`, still layer on top for adapters that
+# want extra structured verdict data ; :exec's re-expressed `spawned_by`
+# adapters, this host's first real caller via i780, emit none and don't
+# need to).
 set -euo pipefail
 
 ROOT="${1:?usage: adapter-host <root> <adapter> [--once]}"
 ADAPTER="${2:?adapter name required}"
 ONCE="${3:-}"
-SH="${STOREHOUSE:-storehouse}"
+SH="${STOREHOUSE:-/Users/christopheryoung/Projects/hecks/hecksagain_runtime/bin/hecksagain-cli}"
 
 # Resolve the handler DECLARATIVELY — i746 step 7 : hecksagain-cli's
 # adapter-handler subcommand boots ROOT and reads the named adapter's own
@@ -37,57 +56,93 @@ SH="${STOREHOUSE:-storehouse}"
 # that was never real.
 HANDLER=$("$SH" adapter-handler "$ROOT" "$ADAPTER" | jq -r '.handler // empty')
 
-# Fail LOUD. An empty handler would make bash exec "" (exit 127) and silently
-# take the FAILURE branch — every delivery would fail while the host looked
-# healthy. A non-executable handler is the same class of silent-wrong. Refuse
+# Fail LOUD. An empty handler would make /bin/sh -c "" a silent no-op exit 0
+# — every delivery would take the SUCCESS branch while doing nothing. Refuse
 # to poll until the declaration is real.
-[ -n "$HANDLER" ] || { echo "[adapter-host] adapter '$ADAPTER' declares no handler (handler \"...\") in $ADAPTER_FILE" >&2; exit 1; }
-# A relative handler path is resolved against ROOT (the bluebook tree), not cwd.
-case "$HANDLER" in /*) ;; *) HANDLER="$ROOT/$HANDLER" ;; esac
-[ -x "$HANDLER" ] || { echo "[adapter-host] handler '$HANDLER' for '$ADAPTER' is not executable (cwd $PWD)" >&2; exit 1; }
+[ -n "$HANDLER" ] || { echo "[adapter-host] adapter '$ADAPTER' declares no handler (handler \"...\") in its .adapter file" >&2; exit 1; }
+
+# HANDLER is a full SHELL COMMAND STRING (i780's :exec re-expression : "bash
+# bin/fibroblast_sweep.sh", "node bin/inbox_poll.mjs", bare "bin/git_status"
+# — the exact old :exec field, unchanged), run via `/bin/sh -c`, NOT a bare
+# executable path exec'd directly (a single-path convention like Stripe's
+# own example handler also still works fine through `/bin/sh -c`, one word
+# is a trivial command). CWD is inherited from whatever process runs this
+# script — same convention hecksagain's own Shell execution adapter
+# documents (adapters/driven/shell.rb: "the process's own working
+# directory, inherited, NOT the registry root") — so a relative path like
+# "bin/git_status" resolves against wherever adapter-host itself was
+# launched from (hecks/, for every handler this corpus declares today).
 
 process_one() {
-  local d="$1" did src success failure payload verdict
-  did=$(echo "$d"      | jq -r .delivery_id)
-  src=$(echo "$d"      | jq -r .source_id)
-  success=$(echo "$d"  | jq -r .success_command)
-  failure=$(echo "$d"  | jq -r .failure_command)
-  payload=$(echo "$d"  | jq -r .payload)
+  local d="$1" did src success failure payload verdict code ok out err combined
+  did=$(echo "$d"      | jq -r .delivery_id.value)
+  src=$(echo "$d"      | jq -r .source_id.value)
+  success=$(echo "$d"  | jq -r .success_command.value)
+  failure=$(echo "$d"  | jq -r .failure_command.value)
+  payload=$(echo "$d"  | jq -r .payload.value)
 
-  "$SH" "$ROOT" OutboundEvent::OutboundEvent.Claim delivery_id="$did" >/dev/null
+  # id=, not delivery_id= : Claim/MarkDelivered/MarkFailed are reference_to
+  # (OutboundEvent) transitions (i781 fix, outbound_event.bluebook), so the
+  # universal self-ref fallback resolves them, matching every other
+  # transition-on-existing-record command in this corpus.
+  "$SH" dispatch "$ROOT" OutboundEvent::OutboundEvent.Claim id="$did" >/dev/null
 
-  # The thin handler does the impure async work. Its STDOUT is the verdict DATA
-  # (key=value lines, e.g. payment_ref=ch_x) that the verdict command carries ;
-  # its EXIT CODE picks the branch. Discrimination + data both live off-core, in
-  # the adapter, exactly as designed.
-  # The handler may need to read live domain state (e.g. an LLM handler reading
-  # the Seed aggregate) or .world config — it reaches back through the SAME
-  # public door, so pass it the root + the storehouse binary by env. It still
-  # gets the event payload on stdin ; ADAPTER_ROOT/STOREHOUSE are how it queries.
-  local data
-  if data=$(echo "$payload" | ADAPTER_ROOT="$ROOT" STOREHOUSE="$SH" ADAPTER_NAME="$ADAPTER" "$HANDLER"); then verdict="$success"; else verdict="$failure"; fi
+  # The thin handler does the impure async work, stdout+stderr captured
+  # SEPARATELY (temp files, not $(...) — need both plus the real exit code,
+  # and `set -e` must not abort on a nonzero handler exit). The handler may
+  # need to read live domain state (e.g. an LLM handler reading the Seed
+  # aggregate) or .world config — it reaches back through the SAME public
+  # door, so pass it the root + the CLI by env. It still gets the event
+  # payload on stdin ; ADAPTER_ROOT/STOREHOUSE are how it queries.
+  local outfile errfile
+  outfile=$(mktemp); errfile=$(mktemp)
+  if echo "$payload" | ADAPTER_ROOT="$ROOT" STOREHOUSE="$SH" ADAPTER_NAME="$ADAPTER" /bin/sh -c "$HANDLER" >"$outfile" 2>"$errfile"; then
+    code=0
+  else
+    code=$?
+  fi
+  out=$(cat "$outfile"); err=$(cat "$errfile"); rm -f "$outfile" "$errfile"
 
-  # Thread the handler's stdout as verdict attrs. Each LINE is one k=v whose
-  # value may contain spaces (an LLM `reading=`, a multi-word note) — so read
-  # line-by-line into an array and pass each as ONE quoted arg, never word-split.
-  local verdict_args=()
-  while IFS= read -r line; do [ -n "$line" ] && verdict_args+=("$line"); done <<< "$data"
-  "$SH" "$ROOT" "$verdict" id="$src" "${verdict_args[@]}" >/dev/null
-  "$SH" "$ROOT" OutboundEvent::OutboundEvent.MarkDelivered delivery_id="$did" >/dev/null
-  echo "[adapter-host] $ADAPTER : $did -> $verdict ${data:+($data)}"
+  if [ "$code" -eq 0 ]; then ok=true; verdict="$success"; else ok=false; verdict="$failure"; fi
+
+  # SILENCE MUST NOT RENDER AS SUCCESS — mirrors the execution port's Shell
+  # adapter (hecks-hecksagain/lib/hecksagain/adapters/driven/shell.rb#body):
+  # exit 0 with real stdout -> stdout alone ; otherwise stdout+stderr joined ;
+  # empty of both -> an explicit placeholder, never a blank string standing
+  # in for "nothing happened here".
+  if [ "$code" -eq 0 ] && [ -n "$out" ]; then
+    combined="$out"
+  else
+    combined=$(printf '%s\n%s' "$out" "$err" | sed '/^$/d')
+    [ -z "$combined" ] && combined="... [no output - exited $code, wrote nothing to stdout or stderr]"
+  fi
+
+  # Cascade.RecordResult's own signature (id, tool, output, exit_code, ok) —
+  # what :exec's `spawned_by` re-expression (i780) needs unconditionally,
+  # computed HERE from the captured run, not left to the handler's stdout.
+  # Any key=value lines the handler ALSO printed on stdout layer on top,
+  # for an adapter (Stripe, ...) whose verdict command wants more than
+  # this shape — same convention the original design already had, just no
+  # longer the ONLY source of verdict data.
+  local verdict_args=(id="$src" tool="$ADAPTER" "output=$combined" exit_code="$code" ok="$ok")
+  if [ "$code" -eq 0 ]; then
+    while IFS= read -r line; do
+      [ -n "$line" ] && echo "$line" | grep -q '^[A-Za-z_][A-Za-z0-9_]*=' && verdict_args+=("$line")
+    done <<< "$out"
+  fi
+
+  "$SH" dispatch "$ROOT" "$verdict" "${verdict_args[@]}" >/dev/null
+  "$SH" dispatch "$ROOT" OutboundEvent::OutboundEvent.MarkDelivered id="$did" >/dev/null
+  echo "[adapter-host] $ADAPTER : $did -> $verdict (exit=$code)"
 }
 
 poll() {
-  local result state
-  result=$("$SH" query "$ROOT" OutboundEvent::OutboundEvent.pending adapter="$ADAPTER")
-  state=$(echo "$result" | jq -c '.state // empty')
-  [ -z "$state" ] && return 0
-  [ "$state" = "[]" ] && return 0
-  if echo "$state" | jq -e 'type == "array"' >/dev/null; then
-    echo "$state" | jq -c '.[]' | while read -r d; do process_one "$d"; done
-  else
-    process_one "$state"
-  fi
+  local result rows
+  result=$("$SH" query "$ROOT" OutboundEvent::OutboundEvent.Pending adapter="$ADAPTER")
+  rows=$(echo "$result" | jq -c '.rows // empty')
+  [ -z "$rows" ] && return 0
+  [ "$rows" = "[]" ] && return 0
+  echo "$rows" | jq -c '.[]' | while read -r d; do process_one "$d"; done
 }
 
 if [ "$ONCE" = "--once" ]; then

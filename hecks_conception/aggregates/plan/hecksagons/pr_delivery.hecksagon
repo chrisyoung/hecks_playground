@@ -5,12 +5,12 @@ Hecks.hecksagon "PrDelivery" do
   # same-type MergeQueue cascades preserve the queue id (the target branch).
   adapter "EnqueueOnApproved" do
     driven on "Hecks::Plan::Story.StoryApproved" do |event|
-      dispatch "Hecks::Conductor::Conductor::MergeQueue.Enqueue", id: "main", story_ref: "{id}"
+      dispatch "Hecks::Conductor::Conductor::MergeQueue.Enqueue", with: { id: "main", story_ref: "{id}" }
     end
   end
   adapter "StartMergeOnEnqueued" do
     driven on "Hecks::Conductor::Conductor::MergeQueue.MergeEnqueued" do |event|
-      dispatch "Hecks::Conductor::Conductor::MergeQueue.StartMerge", story_ref: "{story_ref}"
+      dispatch "Hecks::Conductor::Conductor::MergeQueue.StartMerge", with: { story_ref: "{story_ref}" }
     end
   end
   adapter "MergeAndCompleteOnStarted" do

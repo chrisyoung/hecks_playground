@@ -1,4 +1,5 @@
 Hecks.hecksagon "Lexicon" do
+  uses_framework "Governance"
   # ============================================================
   # LEXICON — hexagonal wiring for the index declared in lexicon.bluebook
   # ============================================================

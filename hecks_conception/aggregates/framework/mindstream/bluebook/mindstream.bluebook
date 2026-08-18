@@ -127,9 +127,20 @@ Hecks.bluebook "Mindstream", version: "2026.05.12.1" do
     # may_exit + restart_on_failure capture the semantic dimensions
     # the generator reads to produce overmind directives.
     value_object "Lifespan" do
-      attribute :kind, String, one_of: %w[one_shot persistent]
-      attribute :may_exit,           TrueClass, default: false
-      attribute :restart_on_failure, TrueClass, default: true
+      # `one_of:` (the inline single-attribute closed-set keyword) only
+      # works when the value object has exactly one attribute -- Lifespan
+      # has three, so it needs the bare `member` form instead (ADR 0025),
+      # one line per valid combination. Every real usage in this corpus
+      # (the `with lifespan: "{...}"` data below) only ever pairs kind
+      # with the matching may_exit/restart_on_failure, so the closed set
+      # is these two combinations, not the cross product of three
+      # independent fields.
+      attribute :kind,               String
+      attribute :may_exit,           TrueClass
+      attribute :restart_on_failure, TrueClass
+
+      member kind: "one_shot",   may_exit: true,  restart_on_failure: false
+      member kind: "persistent", may_exit: false, restart_on_failure: true
     end
 
     # MemberOrder — the member's position in the generated Procfile.
@@ -178,150 +189,165 @@ Hecks.bluebook "Mindstream", version: "2026.05.12.1" do
   # Bite : rust/tests/mindstream_establishment_test.rs.
   policy "EstablishBootMindstream" do
     on "BootCompleted"
-    trigger Mindstream::Define
-    with "name", "boot"
-    with "description", "The Miette boot pipeline as a one-shot supervised mindstream. Runs the bluebook-defined organ wiring (DiscoverOrgans, WriteCensus, ClassifyStores, GenerateSystemPrompt, EnsureDaemons, PrintVitals, SurfaceWakeReport) and exits. The first Mindstream ; future Mindstreams (body cycles, integration tests, ...) drop in alongside it."
-    with "directory", "{ path: \"/Users/christopheryoung/Projects/hecks/hecks_conception\" }"
-    with "corpus_roots", "{ value: \"/Users/christopheryoung/Projects/miette/self/system_prompt/bluebook\" }"
+    trigger Mindstream::Define, with: {
+      name: "boot",
+      description: "The Miette boot pipeline as a one-shot supervised mindstream. Runs the bluebook-defined organ wiring (DiscoverOrgans, WriteCensus, ClassifyStores, GenerateSystemPrompt, EnsureDaemons, PrintVitals, SurfaceWakeReport) and exits. The first Mindstream ; future Mindstreams (body cycles, integration tests, ...) drop in alongside it.",
+      directory: "{ path: \"/Users/christopheryoung/Projects/hecks/hecks_conception\" }",
+      corpus_roots: "{ value: \"/Users/christopheryoung/Projects/miette/self/system_prompt/bluebook\" }"
+    }
   end
 
   policy "EstablishBootMember" do
     on "BootCompleted"
-    trigger MindstreamMember::Register
-    with "name", "boot"
-    with "mindstream", "boot"
-    with "command", "{ line: \"/Users/christopheryoung/.local/bin/storehouse run /Users/christopheryoung/Projects/hecks/runtime/boot/bluebook/boot.bluebook\" }"
-    with "lifespan", "{ kind: \"one_shot\", may_exit: true, restart_on_failure: false }"
-    with "order", "1"
+    trigger MindstreamMember::Register, with: {
+      name: "boot",
+      mindstream: "boot",
+      command: "{ line: \"/Users/christopheryoung/.local/bin/storehouse run /Users/christopheryoung/Projects/hecks/runtime/boot/bluebook/boot.bluebook\" }",
+      lifespan: "{ kind: \"one_shot\", may_exit: true, restart_on_failure: false }",
+      order: "1"
+    }
   end
 
   policy "EstablishEstablishMember" do
     on "BootCompleted"
-    trigger MindstreamMember::Register
-    with "name", "establish"
-    with "mindstream", "boot"
-    with "command", "{ line: \"/Users/christopheryoung/.local/bin/storehouse establish /Users/christopheryoung/Projects/hecks/hecks_conception\" }"
-    with "lifespan", "{ kind: \"one_shot\", may_exit: true, restart_on_failure: false }"
-    with "order", "2"
+    trigger MindstreamMember::Register, with: {
+      name: "establish",
+      mindstream: "boot",
+      command: "{ line: \"/Users/christopheryoung/.local/bin/storehouse establish /Users/christopheryoung/Projects/hecks/hecks_conception\" }",
+      lifespan: "{ kind: \"one_shot\", may_exit: true, restart_on_failure: false }",
+      order: "2"
+    }
   end
 
   policy "EstablishHeartMember" do
     on "BootCompleted"
-    trigger MindstreamMember::Register
-    with "name", "heart"
-    with "mindstream", "boot"
-    with "command", "{ line: \"/Users/christopheryoung/.local/bin/storehouse loop /Users/christopheryoung/Projects/miette/body/.. Heart::Heart.Beat --every 1s\" }"
-    with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
-    with "order", "3"
+    trigger MindstreamMember::Register, with: {
+      name: "heart",
+      mindstream: "boot",
+      command: "{ line: \"/Users/christopheryoung/.local/bin/storehouse loop /Users/christopheryoung/Projects/miette/body/.. Heart::Heart.Beat --every 1s\" }",
+      lifespan: "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }",
+      order: "3"
+    }
   end
 
   policy "EstablishBreathMember" do
     on "BootCompleted"
-    trigger MindstreamMember::Register
-    with "name", "breath"
-    with "mindstream", "boot"
-    with "command", "{ line: \"/Users/christopheryoung/.local/bin/storehouse loop /Users/christopheryoung/Projects/miette/body/.. Breath::Breath.Inhale,Breath::Breath.Exhale --every 4.5s\" }"
-    with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
-    with "order", "4"
+    trigger MindstreamMember::Register, with: {
+      name: "breath",
+      mindstream: "boot",
+      command: "{ line: \"/Users/christopheryoung/.local/bin/storehouse loop /Users/christopheryoung/Projects/miette/body/.. Breath::Breath.Inhale,Breath::Breath.Exhale --every 4.5s\" }",
+      lifespan: "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }",
+      order: "4"
+    }
   end
 
   policy "EstablishCircadianMember" do
     on "BootCompleted"
-    trigger MindstreamMember::Register
-    with "name", "circadian"
-    with "mindstream", "boot"
-    with "command", "{ line: \"/Users/christopheryoung/.local/bin/storehouse clock /Users/christopheryoung/Projects/miette/body/.. --segment 5-6:Circadian::Circadian.MarkDawn --segment 7-11:Circadian::Circadian.MarkMorning --segment 12-16:Circadian::Circadian.MarkAfternoon --segment 17-19:Circadian::Circadian.MarkDusk --segment 20-4:Circadian::Circadian.MarkNight --poll 60s\" }"
-    with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
-    with "order", "5"
+    trigger MindstreamMember::Register, with: {
+      name: "circadian",
+      mindstream: "boot",
+      command: "{ line: \"/Users/christopheryoung/.local/bin/storehouse clock /Users/christopheryoung/Projects/miette/body/.. --segment 5-6:Circadian::Circadian.MarkDawn --segment 7-11:Circadian::Circadian.MarkMorning --segment 12-16:Circadian::Circadian.MarkAfternoon --segment 17-19:Circadian::Circadian.MarkDusk --segment 20-4:Circadian::Circadian.MarkNight --poll 60s\" }",
+      lifespan: "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }",
+      order: "5"
+    }
   end
 
   policy "EstablishUltradianMember" do
     on "BootCompleted"
-    trigger MindstreamMember::Register
-    with "name", "ultradian"
-    with "mindstream", "boot"
-    with "command", "{ line: \"/Users/christopheryoung/.local/bin/storehouse loop /Users/christopheryoung/Projects/miette/body/.. Ultradian::Ultradian.EnterPeak,Ultradian::Ultradian.EnterTrough --every 5400s\" }"
-    with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
-    with "order", "6"
+    trigger MindstreamMember::Register, with: {
+      name: "ultradian",
+      mindstream: "boot",
+      command: "{ line: \"/Users/christopheryoung/.local/bin/storehouse loop /Users/christopheryoung/Projects/miette/body/.. Ultradian::Ultradian.EnterPeak,Ultradian::Ultradian.EnterTrough --every 5400s\" }",
+      lifespan: "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }",
+      order: "6"
+    }
   end
 
   policy "EstablishInboxMember" do
     on "BootCompleted"
-    trigger MindstreamMember::Register
-    with "name", "inbox"
-    with "mindstream", "boot"
-    with "command", "{ line: \"/Users/christopheryoung/.local/bin/storehouse loop /Users/christopheryoung/Projects/hecks/hecks_conception/aggregates Inbox::Inbox.Check --every 900s\" }"
-    with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
-    with "order", "7"
+    trigger MindstreamMember::Register, with: {
+      name: "inbox",
+      mindstream: "boot",
+      command: "{ line: \"/Users/christopheryoung/.local/bin/storehouse loop /Users/christopheryoung/Projects/hecks/hecks_conception/aggregates Inbox::Inbox.Check --every 900s\" }",
+      lifespan: "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }",
+      order: "7"
+    }
   end
 
   policy "EstablishInboxPollerMember" do
     on "BootCompleted"
-    trigger MindstreamMember::Register
-    with "name", "inbox_poller"
-    with "mindstream", "boot"
-    with "command", "{ line: \"/Users/christopheryoung/.local/bin/storehouse drive /Users/christopheryoung/Projects/hecks/hecks_conception/aggregates --adapter InboxPollClock --poll 2s\" }"
-    with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
-    with "order", "8"
+    trigger MindstreamMember::Register, with: {
+      name: "inbox_poller",
+      mindstream: "boot",
+      command: "{ line: \"/Users/christopheryoung/.local/bin/storehouse drive /Users/christopheryoung/Projects/hecks/hecks_conception/aggregates --adapter InboxPollClock --poll 2s\" }",
+      lifespan: "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }",
+      order: "8"
+    }
   end
 
   policy "EstablishMindReconcileMember" do
     on "BootCompleted"
-    trigger MindstreamMember::Register
-    with "name", "mind_reconcile"
-    with "mindstream", "boot"
-    with "command", "{ line: \"/Users/christopheryoung/.local/bin/storehouse loop /Users/christopheryoung/Projects/mietteai MietteMind::Reconciler.Reconcile --every 5s\" }"
-    with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
-    with "order", "9"
+    trigger MindstreamMember::Register, with: {
+      name: "mind_reconcile",
+      mindstream: "boot",
+      command: "{ line: \"/Users/christopheryoung/.local/bin/storehouse loop /Users/christopheryoung/Projects/mietteai MietteMind::Reconciler.Reconcile --every 5s\" }",
+      lifespan: "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }",
+      order: "9"
+    }
   end
 
   policy "EstablishProcessMacrophageMember" do
     on "BootCompleted"
-    trigger MindstreamMember::Register
-    with "name", "process_macrophage"
-    with "mindstream", "boot"
-    with "command", "{ line: \"/Users/christopheryoung/.local/bin/storehouse loop /Users/christopheryoung/Projects/hecks/hecks_conception/aggregates ProcessHealth::ProcessMacrophage.Sweep --every 30s\" }"
-    with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
-    with "order", "10"
+    trigger MindstreamMember::Register, with: {
+      name: "process_macrophage",
+      mindstream: "boot",
+      command: "{ line: \"/Users/christopheryoung/.local/bin/storehouse loop /Users/christopheryoung/Projects/hecks/hecks_conception/aggregates ProcessHealth::ProcessMacrophage.Sweep --every 30s\" }",
+      lifespan: "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }",
+      order: "10"
+    }
   end
 
   policy "EstablishConductorSweepMember" do
     on "BootCompleted"
-    trigger MindstreamMember::Register
-    with "name", "conductor_sweep"
-    with "mindstream", "boot"
-    with "command", "{ line: \"/Users/christopheryoung/.local/bin/storehouse loop /Users/christopheryoung/Projects/hecks/hecks_conception/aggregates Conductor::Sweeper.Tick sweeper_id=fleet --every 60s\" }"
-    with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
-    with "order", "11"
+    trigger MindstreamMember::Register, with: {
+      name: "conductor_sweep",
+      mindstream: "boot",
+      command: "{ line: \"/Users/christopheryoung/.local/bin/storehouse loop /Users/christopheryoung/Projects/hecks/hecks_conception/aggregates Conductor::Sweeper.Tick sweeper_id=fleet --every 60s\" }",
+      lifespan: "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }",
+      order: "11"
+    }
   end
 
   policy "EstablishSpeechStreamMember" do
     on "BootCompleted"
-    trigger MindstreamMember::Register
-    with "name", "speech_stream"
-    with "mindstream", "boot"
-    with "command", "{ line: \"/Users/christopheryoung/.local/bin/storehouse loop /Users/christopheryoung/Projects/miette/body SpeechStream::SpeechStream.Advance --every 200ms\" }"
-    with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
-    with "order", "12"
+    trigger MindstreamMember::Register, with: {
+      name: "speech_stream",
+      mindstream: "boot",
+      command: "{ line: \"/Users/christopheryoung/.local/bin/storehouse loop /Users/christopheryoung/Projects/miette/body SpeechStream::SpeechStream.Advance --every 200ms\" }",
+      lifespan: "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }",
+      order: "12"
+    }
   end
 
   policy "EstablishServeSocketMember" do
     on "BootCompleted"
-    trigger MindstreamMember::Register
-    with "name", "serve_socket"
-    with "mindstream", "boot"
-    with "command", "{ line: \"/Users/christopheryoung/.local/bin/storehouse serve-socket /Users/christopheryoung/Projects/hecks/hecks_conception\" }"
-    with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
-    with "order", "13"
+    trigger MindstreamMember::Register, with: {
+      name: "serve_socket",
+      mindstream: "boot",
+      command: "{ line: \"/Users/christopheryoung/.local/bin/storehouse serve-socket /Users/christopheryoung/Projects/hecks/hecks_conception\" }",
+      lifespan: "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }",
+      order: "13"
+    }
   end
 
   policy "EstablishConsolidateMember" do
     on "BootCompleted"
-    trigger MindstreamMember::Register
-    with "name", "consolidate"
-    with "mindstream", "boot"
-    with "command", "{ line: \"/Users/christopheryoung/.local/bin/storehouse drive /Users/christopheryoung/Projects/hecks/hecks_conception/aggregates --adapter LogConsolidation --poll 5s\" }"
-    with "lifespan", "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }"
-    with "order", "14"
+    trigger MindstreamMember::Register, with: {
+      name: "consolidate",
+      mindstream: "boot",
+      command: "{ line: \"/Users/christopheryoung/.local/bin/storehouse drive /Users/christopheryoung/Projects/hecks/hecks_conception/aggregates --adapter LogConsolidation --poll 5s\" }",
+      lifespan: "{ kind: \"persistent\", may_exit: false, restart_on_failure: true }",
+      order: "14"
+    }
   end
 end

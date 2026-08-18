@@ -1,0 +1,15 @@
+# FibroblastSweep — a concrete async SPAWN adapter : re-expresses the
+# retired `adapter :exec, name: "fibroblast_sweep", command: "Fibroblast.
+# Sweep", exec: "bash bin/fibroblast_sweep.sh", result_into: "...
+# Cascade.RecordResult"` binding (i780) on the spawn port instead. The
+# handler string is the exact shell command the old :exec field carried,
+# unchanged — bin/adapter-host runs it via `/bin/sh -c`, the same way the
+# Shell execution adapter already treats a command string.
+#
+# The bind `Fibroblast::Fibroblast.spawned_by("FibroblastSweep", on:
+# "SweepRan")` resolves IFF this adapter's declared port (spawn) carries
+# the `spawned_by` verb.
+Hecks.adapter "FibroblastSweep" do
+  port "spawn"
+  handler "bash bin/fibroblast_sweep.sh"
+end

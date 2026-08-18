@@ -1,0 +1,11 @@
+# CargoTest — a concrete async SPAWN adapter (i780) : re-expresses a retired
+# `adapter :exec` kwargs binding on the spawn effect port. handler is the
+# exact shell command the old :exec field carried, unchanged --
+# bin/adapter-host runs it via `/bin/sh -c`.
+#
+# Resolves IFF this adapter's declared port (spawn) carries the
+# `spawned_by` verb.
+Hecks.adapter "CargoTest" do
+  port "spawn"
+  handler "bin/cargo_test"
+end

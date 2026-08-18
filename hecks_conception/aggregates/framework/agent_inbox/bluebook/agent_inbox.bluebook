@@ -81,7 +81,7 @@ Hecks.bluebook "AgentInbox" do
     # The target agent polls this on its loop : every message addressed to
     # it that it hasn't read yet. It MarkReads each, acts, and Replies.
     query "Unread" do |agent_id|
-      where(agent_id: agent_id, status: "sent")
+      where(agent_id: :agent_id, status: "sent")
     end
 
     # The sender's adapter binary block-polls this for the message id it
@@ -90,7 +90,11 @@ Hecks.bluebook "AgentInbox" do
     # queries project attributes, not the identity row-key. `mid` is set ==
     # the id at Send so the sender can address this by correlation id.
     query "Answered" do |id|
-      where(mid: id, status: "replied")
+      # `id` names no owner attribute (the owner's own correlation field is
+      # `mid`), so derive_from_owner! can't infer its type -- declared
+      # explicitly instead, matching Mid's own type.
+      attribute :id, Mid
+      where(mid: :id, status: "replied")
     end
 
     # The SWEEP read : every unread message across EVERY agent, no agent_id
