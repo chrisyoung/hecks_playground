@@ -1,3 +1,4 @@
 Hecks.hecksagon "NurseryCorpus" do
+  uses_framework "Governance"
   NurseryCorpus::Corpus.persisted_by("Heki")
 end

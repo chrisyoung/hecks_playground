@@ -1,4 +1,5 @@
 Hecks.hecksagon "Dispatch" do
+  uses_framework "Governance"
   # ============================================================
   # DISPATCH — hexagonal wiring for the bus declared in dispatch.bluebook
   # ============================================================

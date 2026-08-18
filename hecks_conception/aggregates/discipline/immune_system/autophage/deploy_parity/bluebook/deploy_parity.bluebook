@@ -30,8 +30,9 @@ Hecks.bluebook "DeployParity", version: "2026.05.16.1" do
   #   i627 — this card
   #   i629 — :exec adapter family (runtime arm, deferred)
 
-  aggregate "DeployParity", "One watched site repo — holds the deploy/main parity record and drift age" do
-    identified_by { repo.value }
+  aggregate "DeployParity" do
+    description "One watched site repo — holds the deploy/main parity record and drift age"
+    identified_by :repo
 
     attribute :repo,             RepoPath
     attribute :pages_project,    PagesProject
@@ -100,50 +101,50 @@ Hecks.bluebook "DeployParity", version: "2026.05.16.1" do
 
     command "StartSession" do
       role "System"
-      description "Reset per-session counters at boot. The parity state and history are NOT reset — they are the audit trail."
+      goal "Reset per-session counters at boot. The parity state and history are NOT reset — they are the audit trail."
       attribute :session_started_at, Timestamp
-      then_set :last_check_at, to: :session_started_at
+      sets :last_check_at, to: :session_started_at
       emits "SessionStarted"
     end
 
     command "Check" do
       role "System"
-      description "Probe the live Pages deployment and compare deployed_commit to main_head. The :exec arm runs `wrangler pages deployment list` and `git rev-parse main`. Pure declarative contract here — execution deferred to i629."
+      goal "Probe the live Pages deployment and compare deployed_commit to main_head. The :exec arm runs `wrangler pages deployment list` and `git rev-parse main`. Pure declarative contract here — execution deferred to i629."
       attribute :checked_at,       Timestamp
       attribute :main_head,        CommitSha
       attribute :deployed_commit,  CommitSha
       attribute :deployed_at,      Timestamp
       attribute :git_connected,    GitConnected
-      then_set :last_check_at,   to: :checked_at
-      then_set :main_head,       to: :main_head
-      then_set :deployed_commit, to: :deployed_commit
-      then_set :deployed_at,     to: :deployed_at
-      then_set :git_connected,   to: :git_connected
+      sets :last_check_at,   to: :checked_at
+      sets :main_head
+      sets :deployed_commit
+      sets :deployed_at
+      sets :git_connected
       emits "Checked"
     end
 
     command "RecordDrift" do
       role "System"
-      description "Record drift state after a Check finds main_head != deployed_commit. drift_age is the computed duration. Called by the :exec arm after a Check run that detects a gap."
+      goal "Record drift state after a Check finds main_head != deployed_commit. drift_age is the computed duration. Called by the :exec arm after a Check run that detects a gap."
       attribute :drift_age,   DriftAge
       attribute :recorded_at, Timestamp
-      then_set :drift_age, to: :drift_age
+      sets :drift_age
       emits "DriftRecorded"
     end
 
     command "Complain" do
       role "System"
-      description "Surface deploy drift as additional-context. Sets last_complaint + last_complaint_at so the statusline surfaces the gap on the next turn. git_connected=false warrants its own complaint line (CLI-only project)."
+      goal "Surface deploy drift as additional-context. Sets last_complaint + last_complaint_at so the statusline surfaces the gap on the next turn. git_connected=false warrants its own complaint line (CLI-only project)."
       attribute :complaint,         ComplaintText
       attribute :last_complaint_at, Timestamp
-      then_set :last_complaint,    to: :complaint
-      then_set :last_complaint_at, to: :last_complaint_at
+      sets :last_complaint,    to: :complaint
+      sets :last_complaint_at
       emits "ComplaintIssued"
     end
 
     command "Clear" do
       role "System"
-      description "Drift reconciled — Fibroblast ran the deploy and re-confirmed parity, or human deployed manually. Resets drift_age; records when the resolution happened."
+      goal "Drift reconciled — Fibroblast ran the deploy and re-confirmed parity, or human deployed manually. Resets drift_age; records when the resolution happened."
       attribute :cleared_at, Timestamp
       emits "DriftCleared"
     end
@@ -162,6 +163,6 @@ Hecks.bluebook "DeployParity", version: "2026.05.16.1" do
   # Drift detected -> surface complaint.
   policy "ComplainOnDrift" do
     on "DriftRecorded"
-    trigger "Complain"
+    trigger Complain
   end
 end

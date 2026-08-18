@@ -1,3 +1,4 @@
 Hecks.hecksagon "Evaluation" do
+  uses_framework "Governance"
   Evaluation::Evaluation.persisted_by("Heki")
 end

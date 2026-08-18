@@ -1,3 +1,4 @@
 Hecks.hecksagon "TrainingPairCorpus" do
+  uses_framework "Governance"
   TrainingPairCorpus::TrainingPair.persisted_by("Heki")
 end

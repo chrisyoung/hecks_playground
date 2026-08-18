@@ -12,5 +12,6 @@
 # collided visibly ("Inbox::Inbox has 2 authoritative persisted_by
 # bindings").
 Hecks.hecksagon "IssueLog" do
+  uses_framework "Governance"
   IssueLog::Inbox.persisted_by("Heki")
 end

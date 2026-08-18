@@ -1,0 +1,11 @@
+# WorktreeRemove — a concrete async SPAWN adapter (i782), re-expressing
+# worktree_remove.hecksagon's old `run` leaf — a confirmed hard no-op in
+# the vendored gem (`DrivenCapture#run` is an explicit stub) — onto the
+# proven spawned_by mechanism. MUTATING: removes a real git worktree.
+#
+# Resolves IFF this adapter's declared port (spawn) carries the
+# `spawned_by` verb. bin/adapter-host runs the handler via `/bin/sh -c`.
+Hecks.adapter "WorktreeRemove" do
+  port "spawn"
+  handler "bin/worktree_remove"
+end

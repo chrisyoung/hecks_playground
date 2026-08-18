@@ -1,3 +1,4 @@
 Hecks.hecksagon "Vocabulary" do
+  uses_framework "Governance"
   Vocabulary::Vocabulary.persisted_by("Heki")
 end

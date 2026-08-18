@@ -10,8 +10,9 @@ Hecks.bluebook "CapabilityIndex", version: "2026.05.12.1" do
   # no-primitive-envy rule. Per-aggregate VOs — duplication across
   # boot siblings is fine, the discipline is per-aggregate VO sets.
 
-  aggregate "CapabilityIndex", "Scan capabilities/ and index what this being can do" do
-    identified_by { name.value }
+  aggregate "CapabilityIndex" do
+    description "Scan capabilities/ and index what this being can do"
+    identified_by :name
     attribute :name,             Name
     attribute :capabilities,     list_of(CapabilityName)
     attribute :capability_count, CapabilityCount
@@ -38,7 +39,7 @@ Hecks.bluebook "CapabilityIndex", version: "2026.05.12.1" do
 
     command "IndexCapabilities" do
       role "System"
-      description "Scan capabilities/ for .bluebook files"
+      goal "Scan capabilities/ for .bluebook files"
       emits "CapabilitiesIndexed"
     end
   end

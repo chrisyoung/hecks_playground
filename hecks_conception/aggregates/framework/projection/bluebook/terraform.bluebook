@@ -58,8 +58,9 @@ Hecks.bluebook "TerraformProjection", version: "2026.05.21.1" do
   # i695 lands, the same projection contract holds — the IR is just
   # a different physical representation of the same declarative wiring.
 
-  aggregate "TerraformProjector", "Project a Hecksagon IR + matching World values to Terraform HCL." do
-    identified_by { name.value }
+  aggregate "TerraformProjector" do
+    description "Project a Hecksagon IR + matching World values to Terraform HCL."
+    identified_by :name
 
     attribute :name,            ProjectorName,    default: { value: "terraform" }
     attribute :last_projection, ProjectionResult, default: { value: "—" }
@@ -201,19 +202,19 @@ Hecks.bluebook "TerraformProjection", version: "2026.05.21.1" do
 
     command "ProjectHecksagon" do
       role "Framework"
-      description "Project an entire .hecksagon + matching .world to Terraform HCL. Reads the hecksagon at hecksagon_path, optionally reads the world at world_path, walks every named adapter, looks up its kind in the AdapterKindMapping table, merges inline options with the matching world block (world wins on collision), and emits one `resource` block per adapter that maps to a known resource type. Adapters with no mapping (e.g. :memory, :tts, :llm) are silently skipped. When output_path is non-empty the HCL is written to <output_path>/main.tf ; when empty the HCL is captured on the aggregate's last_projection attribute (queryable via storehouse state). Returns AdapterCount = number of resource blocks emitted."
+      goal "Project an entire .hecksagon + matching .world to Terraform HCL. Reads the hecksagon at hecksagon_path, optionally reads the world at world_path, walks every named adapter, looks up its kind in the AdapterKindMapping table, merges inline options with the matching world block (world wins on collision), and emits one `resource` block per adapter that maps to a known resource type. Adapters with no mapping (e.g. :memory, :tts, :llm) are silently skipped. When output_path is non-empty the HCL is written to <output_path>/main.tf ; when empty the HCL is captured on the aggregate's last_projection attribute (queryable via storehouse state). Returns AdapterCount = number of resource blocks emitted."
       attribute :hecksagon_path, HecksagonPath
       attribute :world_path,     WorldPath
       attribute :output_path,    OutputPath
       attribute :hcl,            ProjectionResult
       attribute :adapter_count,  AdapterCount
       emits "HecksagonProjected"
-      then_set :last_projection, to: :hcl
+      sets :last_projection, to: :hcl
     end
 
     command "ProjectAdapter" do
       role "Framework"
-      description "Project a single named adapter to its Terraform resource block. Used for debugging / dry-run / programmatic composition of a multi-resource HCL document by a higher-level pipeline. The adapter's kind + name + inline-options are passed directly ; no hecksagon file read is performed. world_values is the merged property bag (the caller fans out the world block lookup before dispatching). Emits AdapterProjected with the single-resource HCL string."
+      goal "Project a single named adapter to its Terraform resource block. Used for debugging / dry-run / programmatic composition of a multi-resource HCL document by a higher-level pipeline. The adapter's kind + name + inline-options are passed directly ; no hecksagon file read is performed. world_values is the merged property bag (the caller fans out the world block lookup before dispatching). Emits AdapterProjected with the single-resource HCL string."
       attribute :adapter_kind, AdapterKind
       attribute :adapter_name, AdapterName
       attribute :hcl,          ProjectionResult

@@ -6,8 +6,9 @@ Hecks.bluebook "BaseModel", version: "2026.04.28.1" do
   # aggregates moved to world/ : data_prep, instruction_pair,
   # fine_tune, evaluation, deployment.
 
-  aggregate "BaseModel", "The foundation model to fine-tune — provides language, we provide domain thinking" do
-    identified_by { name.value }
+  aggregate "BaseModel" do
+    description "The foundation model to fine-tune — provides language, we provide domain thinking"
+    identified_by :name
     attribute :name,         Name
     attribute :parameters,   Parameters
     attribute :source,       Source
@@ -35,14 +36,14 @@ Hecks.bluebook "BaseModel", version: "2026.04.28.1" do
 
     command "SelectBaseModel" do
       role "Creator"
-      description "Choose the foundation — small enough to run locally, large enough to converse"
+      goal "Choose the foundation — small enough to run locally, large enough to converse"
       attribute :name,       Name
       attribute :parameters, Parameters
       attribute :source,     Source
       emits "BaseModelSelected"
-      then_set :name,       to: :name
-      then_set :parameters, to: :parameters
-      then_set :source,     to: :source
+      sets :name
+      sets :parameters
+      sets :source
     end
   end
 end

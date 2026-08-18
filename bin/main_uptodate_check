@@ -1,0 +1,28 @@
+#!/bin/sh
+# bin/main_uptodate_check — spawn-effect-port handler for MainUpToDateCheck
+# (i782, re-expressing main_uptodate_check.hecksagon's old `run`/
+# result_into leaf, a confirmed hard no-op in the vendored gem, onto the
+# proven spawned_by mechanism).
+#
+# Invoked by bin/adapter-host — see bin/pr_mergeable_check's header for
+# the full env/stdin contract. This check is repo-wide, not per-story
+# (local main vs origin/main), so the triggering event's payload is
+# drained but not otherwise read; the verdict command still targets the
+# right Story record because adapter-host supplies the triggering event's
+# own id on the verdict dispatch automatically.
+#
+# Read-only: `git diff --quiet main origin/main`. CWD is inherited from
+# whatever process launched adapter-host (hecks/, same convention every
+# other handler in this corpus relies on) — a divergent or stale local
+# main produces a non-empty diff, exit 1.
+set -eu
+
+cat >/dev/null
+
+if git diff --quiet main origin/main; then
+  echo "main up to date with origin/main"
+  exit 0
+else
+  echo "main has diverged from origin/main (git diff --quiet main origin/main exited nonzero)" >&2
+  exit 1
+fi

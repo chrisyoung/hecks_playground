@@ -1,0 +1,12 @@
+# MainUpToDateCheck — a concrete async SPAWN adapter (i782), re-expressing
+# main_uptodate_check.hecksagon's old `run`/`result_into` leaf — a confirmed
+# hard no-op in the vendored gem (`DrivenCapture#run` is an explicit stub) —
+# onto the proven spawned_by mechanism i780 already landed for the sibling
+# checks (CheckWorktree/CheckMerged/CheckTests/CheckVerbResolves).
+#
+# Resolves IFF this adapter's declared port (spawn) carries the
+# `spawned_by` verb. bin/adapter-host runs the handler via `/bin/sh -c`.
+Hecks.adapter "MainUpToDateCheck" do
+  port "spawn"
+  handler "bin/main_uptodate_check"
+end

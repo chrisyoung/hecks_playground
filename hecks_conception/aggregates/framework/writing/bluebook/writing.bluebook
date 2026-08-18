@@ -67,8 +67,9 @@ Hecks.bluebook "Writing", version: "2026.05.14.1" do
   # macrophage.bluebook : WritingDiscipline lives there as the
   #        eleventh per-rule aggregate.
 
-  aggregate "Writing", "Prose composition surface : every email, reply, marketing line, page-copy block, and inbox-card prose flows through Writing.Compose before reaching the underlying creation tool. State carries the recorded draft, its purpose, optional recipient, the most recent violations count set by the WritingDiscipline macrophage, and a one-line description." do
-    identified_by { id.value }
+  aggregate "Writing" do
+    description "Prose composition surface : every email, reply, marketing line, page-copy block, and inbox-card prose flows through Writing.Compose before reaching the underlying creation tool. State carries the recorded draft, its purpose, optional recipient, the most recent violations count set by the WritingDiscipline macrophage, and a one-line description."
+    identified_by :id
 
     attribute :id,                Id
     attribute :draft_text,        DraftText
@@ -142,38 +143,38 @@ Hecks.bluebook "Writing", version: "2026.05.14.1" do
 
     command "Compose" do
       role "Miette"
-      description "Record a new prose composition before it reaches the underlying creation tool. Inputs : the composition id (a fresh ULID), the full draft_text, the purpose enum, the optional recipient, the one-line description, and the composed_at timestamp. Emits DraftComposed. The WritingDiscipline macrophage's Check policy fires on this event and runs every registered rule against draft_text ; each violation is recorded on the macrophage and surfaces as a Complain event. The macrophage also sets violations_count back on this aggregate so a single read of Writing state tells Miette whether to proceed or revise."
+      goal "Record a new prose composition before it reaches the underlying creation tool. Inputs : the composition id (a fresh ULID), the full draft_text, the purpose enum, the optional recipient, the one-line description, and the composed_at timestamp. Emits DraftComposed. The WritingDiscipline macrophage's Check policy fires on this event and runs every registered rule against draft_text ; each violation is recorded on the macrophage and surfaces as a Complain event. The macrophage also sets violations_count back on this aggregate so a single read of Writing state tells Miette whether to proceed or revise."
       attribute :id,           Id
       attribute :draft_text,   DraftText
       attribute :purpose,      Purpose
       attribute :recipient,    Recipient
       attribute :description,  Description
       attribute :composed_at,  Timestamp
-      then_set :draft_text,   to: :draft_text
-      then_set :purpose,      to: :purpose
-      then_set :recipient,    to: :recipient
-      then_set :description,  to: :description
-      then_set :composed_at,  to: :composed_at
+      sets :draft_text
+      sets :purpose
+      sets :recipient
+      sets :description
+      sets :composed_at
       emits "DraftComposed"
     end
 
     command "Revise" do
       role "Miette"
-      description "Rewrite an existing draft, typically after the WritingDiscipline macrophage flagged one or more violations. Inputs : the original composition id, the new draft_text, and the revised_at timestamp. Emits DraftRevised. The macrophage re-runs Check on the revised text ; a clean revision sets violations_count to zero. Purpose, recipient, and description carry over from the original Compose ; only the prose changes here."
+      goal "Rewrite an existing draft, typically after the WritingDiscipline macrophage flagged one or more violations. Inputs : the original composition id, the new draft_text, and the revised_at timestamp. Emits DraftRevised. The macrophage re-runs Check on the revised text ; a clean revision sets violations_count to zero. Purpose, recipient, and description carry over from the original Compose ; only the prose changes here."
       reference_to(Writing)
       attribute :draft_text,  DraftText
       attribute :revised_at,  Timestamp
-      then_set :draft_text,  to: :draft_text
-      then_set :revised_at,  to: :revised_at
+      sets :draft_text
+      sets :revised_at
       emits "DraftRevised"
     end
 
     command "RecordViolationsCount" do
       role "Macrophage"
-      description "The WritingDiscipline macrophage finished its Check pass and reports the number of rules that fired against this composition. Sets violations_count on the aggregate root so a downstream reader can route the draft : zero means clean, greater than zero means revise. This is the only path that updates violations_count ; Miette never sets it directly."
+      goal "The WritingDiscipline macrophage finished its Check pass and reports the number of rules that fired against this composition. Sets violations_count on the aggregate root so a downstream reader can route the draft : zero means clean, greater than zero means revise. This is the only path that updates violations_count ; Miette never sets it directly."
       reference_to(Writing)
       attribute :violations_count,  ViolationCount
-      then_set :violations_count,  to: :violations_count
+      sets :violations_count
       emits "ViolationsCountRecorded"
     end
   end

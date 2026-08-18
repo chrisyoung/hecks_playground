@@ -1,3 +1,4 @@
 Hecks.hecksagon "StoreClassification" do
+  uses_framework "Governance"
   StoreClassification::StoreClassification.persisted_by("Heki")
 end

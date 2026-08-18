@@ -84,8 +84,9 @@ Hecks.bluebook "Agent", version: "2026.07.02.1" do
   # storehouse/dispatch.bluebook — the bus. i481 wires the `Dispatched`
   #                        event payload to carry `dispatched_by: Agent`.
 
-  aggregate "Agent", "A being that dispatches — human, system, daemon, bot, or ai. The typed actor whose intent flows through every command. Pure identity + provenance : authorization lives in the Authorization context, never here." do
-    identified_by { name.value }
+  aggregate "Agent" do
+    description "A being that dispatches — human, system, daemon, bot, or ai. The typed actor whose intent flows through every command. Pure identity + provenance : authorization lives in the Authorization context, never here."
+    identified_by :name
 
     # ── Value-objects : the domain's language ──
     #
@@ -111,15 +112,7 @@ Hecks.bluebook "Agent", version: "2026.07.02.1" do
     # carry a model reference, human Agents drive the audit trail
     # visible to compliance.
     value_object "Kind" do
-      attribute :value, String
-
-      one_of do
-        member value: "human"
-        member value: "system"
-        member value: "daemon"
-        member value: "bot"
-        member value: "ai"
-      end
+      attribute :value, String, one_of: %w[human system daemon bot ai]
     end
 
     # Status — the Agent's lifecycle state. "active" on Birth ;
@@ -129,12 +122,7 @@ Hecks.bluebook "Agent", version: "2026.07.02.1" do
     # revoke access by retiring the RoleAssignment in the authz
     # context. Mirrors the Pizzas Order.status form.
     value_object "Status" do
-      attribute :value, String
-
-      one_of do
-        member value: "active"
-        member value: "retired"
-      end
+      attribute :value, String, one_of: %w[active retired]
     end
 
     attribute :name,        Name
@@ -165,7 +153,7 @@ Hecks.bluebook "Agent", version: "2026.07.02.1" do
 
     command "Birth" do
       role "Framework"
-      description "Bring a new Agent into being. Inputs : the agent's name, a one-line description of who they are, and the kind. Authorization is separate BY DESIGN : grant access by assigning the agent's auth identity a role in the Authorization context (RoleAssignment.Assign), never by touching the Agent."
+      goal "Bring a new Agent into being. Inputs : the agent's name, a one-line description of who they are, and the kind. Authorization is separate BY DESIGN : grant access by assigning the agent's auth identity a role in the Authorization context (RoleAssignment.Assign), never by touching the Agent."
       attribute :name,        Name
       attribute :description, Description
       attribute :kind,        Kind
@@ -174,7 +162,7 @@ Hecks.bluebook "Agent", version: "2026.07.02.1" do
 
     command "Retire" do
       role "Framework"
-      description "Mark an Agent as retired. The Agent record stays for audit ; future dispatches under this name are rejected by the bus. Cascades already in flight complete with the retired Agent attribution intact."
+      goal "Mark an Agent as retired. The Agent record stays for audit ; future dispatches under this name are rejected by the bus. Cascades already in flight complete with the retired Agent attribution intact."
       reference_to(Agent)
       emits "Retired"
     end

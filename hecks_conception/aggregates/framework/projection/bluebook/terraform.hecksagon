@@ -1,3 +1,4 @@
 Hecks.hecksagon "TerraformProjection" do
+  uses_framework "Governance"
   TerraformProjection::TerraformProjector.persisted_by("Memory")
 end

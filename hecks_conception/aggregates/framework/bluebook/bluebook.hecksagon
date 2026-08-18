@@ -1,5 +1,6 @@
 # Migration plan task 4: renamed alongside bluebook.bluebook's own domain
 # rename ("Bluebook" -> "BluebookDiagram") -- see that file's comment.
 Hecks.hecksagon "BluebookDiagram" do
+  uses_framework "Governance"
   BluebookDiagram::Diagram.persisted_by("Heki")
 end

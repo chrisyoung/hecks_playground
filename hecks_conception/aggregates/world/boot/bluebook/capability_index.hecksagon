@@ -1,3 +1,4 @@
 Hecks.hecksagon "CapabilityIndex" do
+  uses_framework "Governance"
   CapabilityIndex::CapabilityIndex.persisted_by("Heki")
 end

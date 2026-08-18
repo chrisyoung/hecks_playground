@@ -4,8 +4,9 @@ Hecks.bluebook "QualityTier", version: "2026.04.28.1" do
 
   # Lifted out of training_corpus.bluebook in i112 split.
 
-  aggregate "QualityTier", "A tier of training data — different sources, different quality" do
-    identified_by { name.value }
+  aggregate "QualityTier" do
+    description "A tier of training data — different sources, different quality"
+    identified_by :name
     attribute :name,         Name
     attribute :source,       Source
     attribute :domain_count, DomainCount
@@ -33,14 +34,14 @@ Hecks.bluebook "QualityTier", version: "2026.04.28.1" do
 
     command "DefineTier" do
       role "Creator"
-      description "Define a quality tier for training data"
+      goal "Define a quality tier for training data"
       attribute :name,        Name
       attribute :source,      Source
       attribute :description, Description
       emits "TierDefined"
-      then_set :name,        to: :name
-      then_set :source,      to: :source
-      then_set :description, to: :description
+      sets :name
+      sets :source
+      sets :description
     end
   end
 end

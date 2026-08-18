@@ -31,8 +31,9 @@ Hecks.bluebook "CascadeRun", version: "2026.05.25.1" do
   # plumbing, not bluebook scope. The bluebook is the contract; the
   # adapter (runtime or agent) is what writes to it.
 
-  aggregate "CascadeRun", "An explicit, ordered pipeline of step-commands with per-step status, failure capture, and retry. Identified by run_id. Lifecycle: running → completed | failed." do
-    identified_by { run_id.value }
+  aggregate "CascadeRun" do
+    description "An explicit, ordered pipeline of step-commands with per-step status, failure capture, and retry. Identified by run_id. Lifecycle: running → completed | failed."
+    identified_by :run_id
 
     attribute :run_id,        RunId
     attribute :trigger_event, TriggerEvent
@@ -119,24 +120,24 @@ Hecks.bluebook "CascadeRun", version: "2026.05.25.1" do
 
     command "Begin" do
       role "System"
-      description "Declare a new cascade run. Sets the run_id, records the triggering event, the ordered step list, and the retry policy. Status starts running. The caller (runtime or agent) invokes this before any step dispatch begins."
+      goal "Declare a new cascade run. Sets the run_id, records the triggering event, the ordered step list, and the retry policy. Status starts running. The caller (runtime or agent) invokes this before any step dispatch begins."
       attribute :run_id,        RunId
       attribute :trigger_event, TriggerEvent
       attribute :steps,         list_of(Step)
       attribute :retry_policy,  RetryPolicy
       attribute :causation,     Causation
-      then_set :run_id,        to: :run_id
-      then_set :trigger_event, to: :trigger_event
-      then_set :steps,         to: :steps
-      then_set :retry_policy,  to: :retry_policy
-      then_set :causation,     to: :causation
-      then_set :status,        to: "running"
+      sets :run_id
+      sets :trigger_event
+      sets :steps
+      sets :retry_policy
+      sets :causation
+      sets :status,        to: "running"
       emits "CascadeRunBegun"
     end
 
     command "RecordStepStarted" do
       role "System"
-      description "Mark a step as running. Called by the runtime just before dispatching the step's command. The step ref identifies which step in the ordered list is starting."
+      goal "Mark a step as running. Called by the runtime just before dispatching the step's command. The step ref identifies which step in the ordered list is starting."
       attribute :run_id,   RunId
       attribute :step_ref, StepRef
       emits "StepStarted"
@@ -144,7 +145,7 @@ Hecks.bluebook "CascadeRun", version: "2026.05.25.1" do
 
     command "RecordStepCompleted" do
       role "System"
-      description "Mark a step as completed. Called by the runtime after the step's command dispatch returns successfully. If all steps are completed, the run transitions to completed."
+      goal "Mark a step as completed. Called by the runtime after the step's command dispatch returns successfully. If all steps are completed, the run transitions to completed."
       attribute :run_id,   RunId
       attribute :step_ref, StepRef
       emits "StepCompleted"
@@ -152,7 +153,7 @@ Hecks.bluebook "CascadeRun", version: "2026.05.25.1" do
 
     command "RecordStepFailed" do
       role "System"
-      description "Capture a step failure. Records the error message on the step. If the step has exhausted its retry budget (attempt >= retry_policy.max_attempts), the run transitions to failed. Otherwise the step returns to pending for a Retry dispatch."
+      goal "Capture a step failure. Records the error message on the step. If the step has exhausted its retry budget (attempt >= retry_policy.max_attempts), the run transitions to failed. Otherwise the step returns to pending for a Retry dispatch."
       attribute :run_id,   RunId
       attribute :step_ref, StepRef
       attribute :error,    ErrorMessage
@@ -161,7 +162,7 @@ Hecks.bluebook "CascadeRun", version: "2026.05.25.1" do
 
     command "Retry" do
       role "System"
-      description "Re-enqueue a failed step. Increments the step's attempt count and sets its status back to pending. Valid only while the run is running and the step's attempt < retry_policy.max_attempts."
+      goal "Re-enqueue a failed step. Increments the step's attempt count and sets its status back to pending. Valid only while the run is running and the step's attempt < retry_policy.max_attempts."
       attribute :run_id,   RunId
       attribute :step_ref, StepRef
       given("run must be running") { status == "running" }
@@ -170,21 +171,21 @@ Hecks.bluebook "CascadeRun", version: "2026.05.25.1" do
 
     command "Complete" do
       role "System"
-      description "Transition the run to completed. All steps must have reached completed status before the runtime calls this. Emits CascadeRunCompleted so downstream policies can react to a fully-resolved pipeline."
+      goal "Transition the run to completed. All steps must have reached completed status before the runtime calls this. Emits CascadeRunCompleted so downstream policies can react to a fully-resolved pipeline."
       attribute :run_id, RunId
       given("run must be running") { status == "running" }
-      then_set :status, to: "completed"
+      sets :status, to: "completed"
       emits "CascadeRunCompleted"
     end
 
     command "Fail" do
       role "System"
-      description "Transition the run to failed. Called when a step exhausts retries or an unrecoverable error occurs. Records the failure reason. Emits CascadeRunFailed so policies can react to a broken pipeline."
+      goal "Transition the run to failed. Called when a step exhausts retries or an unrecoverable error occurs. Records the failure reason. Emits CascadeRunFailed so policies can react to a broken pipeline."
       attribute :run_id,  RunId
       attribute :reason,  FailureReason
       given("run must be running") { status == "running" }
-      then_set :status,         to: "failed"
-      then_set :failure_reason, to: :reason
+      sets :status,         to: "failed"
+      sets :failure_reason, to: :reason
       emits "CascadeRunFailed"
     end
 

@@ -9,8 +9,9 @@ Hecks.bluebook "Compilation", version: "2026.04.28.1" do
   # Lifted out of census.bluebook in i112. Sibling aggregates
   # moved to library/ : nursery_census, domain_entry, sector.
 
-  aggregate "Compilation", "Compile the nursery into a compressed corpus" do
-    identified_by { name.value }
+  aggregate "Compilation" do
+    description "Compile the nursery into a compressed corpus"
+    identified_by :name
     attribute :name,             Name
     attribute :domains_compiled, DomainCount
     attribute :output_path,      OutputPath
@@ -32,12 +33,12 @@ Hecks.bluebook "Compilation", version: "2026.04.28.1" do
 
     command "CompileNursery" do
       role "System"
-      description "Compress all nursery domains into a single corpus file"
+      goal "Compress all nursery domains into a single corpus file"
       attribute :domains_compiled, DomainCount
       attribute :output_path,      OutputPath
       emits "NurseryCompiled"
-      then_set :domains_compiled, to: :domains_compiled
-      then_set :output_path,      to: :output_path
+      sets :domains_compiled
+      sets :output_path
     end
   end
 end

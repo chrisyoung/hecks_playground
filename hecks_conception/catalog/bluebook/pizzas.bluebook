@@ -3,6 +3,7 @@ Hecks.bluebook "Pizzas" do
   core
 
   aggregate "Pizza" do
+    identified_by :name
 
     # ── Value-objects : wrapped primitives (no-primitive-envy, 2026-05-12) ──
     # Per i555 VOs live inside their aggregate ; one wrapper per
@@ -38,7 +39,7 @@ Hecks.bluebook "Pizzas" do
 
     value_object "Price" do
       attribute :cents, Integer
-      attribute :currency, default: "USD"
+      attribute :currency, String, default: "USD"
       invariant "must be non-negative" do
         cents >= 0
       end
@@ -60,20 +61,34 @@ Hecks.bluebook "Pizzas" do
       attribute :amount, Amount
 
       given("max 10 toppings") { toppings.size < 10 }
-      then_set :toppings, append: { name: :name, amount: :amount }
+      sets :toppings, append: { name: :name, amount: :amount }
       emits "ToppingAdded"
     end
 
     query "ByDescription" do |desc|
-      where(description: desc)
+      # `desc` names no owner attribute (the owner's own field is
+      # `description`), so derive_from_owner! can't infer its type --
+      # declared explicitly instead, matching Description's own type.
+      attribute :desc, Description
+      where(description: :desc)
     end
   end
 
   aggregate "Order" do
+    # Many orders per customer — nothing else is unique at PlaceOrder
+    # time, so the caller mints order_id.
+    identified_by :order_id
 
     # ── Value-objects : wrapped primitives (no-primitive-envy, 2026-05-12) ──
     # Per i555 VOs live inside their aggregate ; one wrapper per
     # surface primitive, each carrying `attribute :value, <Primitive>`.
+
+    value_object "OrderId" do
+      attribute :value, String
+      invariant "must not be empty" do
+        !value.empty?
+      end
+    end
 
     value_object "CustomerName" do
       # Typed wrapper around the underlying String on this aggregate.
@@ -91,6 +106,7 @@ Hecks.bluebook "Pizzas" do
     end
 
     description "A customer order referencing a pizza with status tracking"
+    attribute :order_id, OrderId
     attribute :customer_name, CustomerName
     attribute :items, list_of(OrderItem)
     reference_to(Pizza)
@@ -103,7 +119,7 @@ Hecks.bluebook "Pizzas" do
     end
 
     value_object "OrderStatus" do
-      attribute :status_label, default: "pending"
+      attribute :status_label, String, default: "pending"
     end
 
     attribute :status, Status, default: { value: "pending" }
@@ -115,9 +131,12 @@ Hecks.bluebook "Pizzas" do
       role "Customer"
       goal "Order a pizza for delivery or pickup"
       reference_to(Pizza)
+      attribute :order_id, OrderId
       attribute :customer_name, CustomerName
       attribute :quantity, Quantity
       emits "OrderPlaced"
+      sets :order_id
+      sets :customer_name
     end
 
     command "CancelOrder" do

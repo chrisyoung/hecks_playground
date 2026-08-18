@@ -60,8 +60,9 @@ Hecks.bluebook "Correspondence", version: "2026.05.24.1" do
   #        that the draft was composed ; the Writing domain records
   #        the text and its style discipline.
 
-  aggregate "Correspondent", "One person Miette corresponds with. Holds the full history of drafted and sent letters as a Letter entity collection. The draft_status root attribute is the quick-read surface for the dedup check: none (no draft in flight), drafting (an active un-sent draft exists), sent (last correspondence was sent), discarded (last draft was discarded). The awaiting_reply flag is set by ReceiveInbound and cleared by MarkSent — it drives the NeedingResponse query that the operator reads before triggering drafts." do
-    identified_by { person.value }
+  aggregate "Correspondent" do
+    description "One person Miette corresponds with. Holds the full history of drafted and sent letters as a Letter entity collection. The draft_status root attribute is the quick-read surface for the dedup check: none (no draft in flight), drafting (an active un-sent draft exists), sent (last correspondence was sent), discarded (last draft was discarded). The awaiting_reply flag is set by ReceiveInbound and cleared by MarkSent — it drives the NeedingResponse query that the operator reads before triggering drafts."
+    identified_by :person
 
     attribute :person,          Person
     attribute :draft_status,    DraftStatus
@@ -86,14 +87,7 @@ Hecks.bluebook "Correspondence", version: "2026.05.24.1" do
       #                 composing another ; surface the existing one.
       #   "sent"      : most recent correspondence was sent.
       #   "discarded" : most recent draft was explicitly discarded.
-      attribute :value, String
-
-      one_of do
-        member value: "none"
-        member value: "drafting"
-        member value: "sent"
-        member value: "discarded"
-      end
+      attribute :value, String, one_of: %w[none drafting sent discarded]
     end
 
     value_object "LetterId" do
@@ -124,13 +118,7 @@ Hecks.bluebook "Correspondence", version: "2026.05.24.1" do
 
     value_object "LetterStatus" do
       # One of: "draft", "sent", "discarded".
-      attribute :value, String
-
-      one_of do
-        member value: "draft"
-        member value: "sent"
-        member value: "discarded"
-      end
+      attribute :value, String, one_of: %w[draft sent discarded]
     end
 
     value_object "Timestamp" do
@@ -148,7 +136,7 @@ Hecks.bluebook "Correspondence", version: "2026.05.24.1" do
     # ── Entities : the per-person letter history ──
 
     entity "Letter" do
-      identified_by { letter_id.value }
+      identified_by :letter_id
       description "One piece of correspondence — a drafted, sent, or discarded letter. Accumulates as the audit trail for a correspondent. The latest Letter with status draft is the active outstanding draft that AlreadyDrafted surfaces."
       attribute :letter_id,    LetterId
       attribute :subject,      Subject
@@ -163,19 +151,19 @@ Hecks.bluebook "Correspondence", version: "2026.05.24.1" do
 
     command "ReceiveInbound" do
       role "Miette"
-      description "Record that an inbound message arrived from this person. Sets awaiting_reply to true and records last_inbound_at. Creates the Correspondent aggregate if it does not yet exist. Called by the inbox poll — this is how the ledger learns who needs a reply. Emits InboundReceived."
+      goal "Record that an inbound message arrived from this person. Sets awaiting_reply to true and records last_inbound_at. Creates the Correspondent aggregate if it does not yet exist. Called by the inbox poll — this is how the ledger learns who needs a reply. Emits InboundReceived."
       attribute :person,       Person
       attribute :received_at,  Timestamp
       given("person must not be empty") { person != "" }
-      then_set :person,           to: :person
-      then_set :awaiting_reply,   to: true
-      then_set :last_inbound_at,  to: :received_at
+      sets :person
+      sets :awaiting_reply,   to: true
+      sets :last_inbound_at,  to: :received_at
       emits "InboundReceived"
     end
 
     command "ComposeDraft" do
       role "Miette"
-      description "Record that a draft was composed for this correspondent. Call ONLY after AlreadyDrafted returns empty — if an active draft already exists, surface it instead. Inputs: the person (creates the aggregate if it does not exist), letter_id (fresh ULID), subject, summary (one-line gist of the body), optional thread_ref, composed_at. Appends a Letter(status=draft) to the history. Sets draft_status to drafting and last_draft_at. Emits DraftComposed."
+      goal "Record that a draft was composed for this correspondent. Call ONLY after AlreadyDrafted returns empty — if an active draft already exists, surface it instead. Inputs: the person (creates the aggregate if it does not exist), letter_id (fresh ULID), subject, summary (one-line gist of the body), optional thread_ref, composed_at. Appends a Letter(status=draft) to the history. Sets draft_status to drafting and last_draft_at. Emits DraftComposed."
       attribute :person,       Person
       attribute :letter_id,    LetterId
       attribute :subject,      Subject
@@ -183,30 +171,30 @@ Hecks.bluebook "Correspondence", version: "2026.05.24.1" do
       attribute :thread_ref,   ThreadRef
       attribute :composed_at,  Timestamp
       given("person must not be empty") { person != "" }
-      then_set :person,         to: :person
-      then_set :draft_status,   to: "drafting"
-      then_set :last_draft_at,  to: :composed_at
+      sets :person
+      sets :draft_status,   to: "drafting"
+      sets :last_draft_at,  to: :composed_at
       emits "DraftComposed"
     end
 
     command "MarkSent" do
       role "Miette"
-      description "Record that a response was actually sent for this correspondent. Transitions the most recent active draft to sent. Sets draft_status to sent, last_sent_at, and clears awaiting_reply to false. Emits ResponseSent."
+      goal "Record that a response was actually sent for this correspondent. Transitions the most recent active draft to sent. Sets draft_status to sent, last_sent_at, and clears awaiting_reply to false. Emits ResponseSent."
       reference_to(Correspondent)
       attribute :letter_id,  LetterId
       attribute :sent_at,    Timestamp
-      then_set :draft_status,    to: "sent"
-      then_set :last_sent_at,    to: :sent_at
-      then_set :awaiting_reply,  to: false
+      sets :draft_status,    to: "sent"
+      sets :last_sent_at,    to: :sent_at
+      sets :awaiting_reply,  to: false
       emits "ResponseSent"
     end
 
     command "Discard" do
       role "Miette"
-      description "Record that a draft was discarded without being sent. Sets draft_status to discarded. Emits DraftDiscarded. Use when cleaning up a pile of duplicate or stale drafts — after running Discard, AlreadyDrafted will return empty for this person."
+      goal "Record that a draft was discarded without being sent. Sets draft_status to discarded. Emits DraftDiscarded. Use when cleaning up a pile of duplicate or stale drafts — after running Discard, AlreadyDrafted will return empty for this person."
       reference_to(Correspondent)
       attribute :letter_id,  LetterId
-      then_set :draft_status, to: "discarded"
+      sets :draft_status, to: "discarded"
       emits "DraftDiscarded"
     end
 

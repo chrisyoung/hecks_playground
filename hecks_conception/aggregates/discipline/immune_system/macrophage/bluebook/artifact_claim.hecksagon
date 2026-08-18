@@ -1,10 +1,17 @@
 Hecks.hecksagon "ArtifactClaim" do
+  uses_framework "Governance"
   ArtifactClaim::ArtifactClaim.persisted_by("Heki")
   ArtifactClaim::NoPromisesSweep.persisted_by("Heki")
 
   # Impure edges, hecksagon-first : the no-promises sweep's scan + verify leaves.
-  # Re-homed from the RunScanOnScanRequested / RunVerifyOnVerifyRequested
-  # Process.Spawn policies — the impure edge lives here, not in the bluebook.
-  adapter :exec, name: "artifact_claim_scan",   command: "NoPromisesSweep.Scan",   exec: "node bin/artifact_claim_scan.mjs",   result_into: "Hecks::Framework::Cascade::Cascade::Cascade.RecordResult"
-  adapter :exec, name: "artifact_claim_verify", command: "NoPromisesSweep.Verify", exec: "node bin/artifact_claim_verify.mjs", result_into: "Hecks::Framework::Cascade::Cascade::Cascade.RecordResult"
+  # Re-expressed (i780, 2026-08-17) from the retired `adapter :exec` kwargs
+  # form onto the spawn effect port.
+  ArtifactClaim::NoPromisesSweep.spawned_by("ArtifactClaimScan", on: "ScanRequested") do
+    success "Cascade::Cascade.RecordResult"
+    failure "Cascade::Cascade.RecordResult"
+  end
+  ArtifactClaim::NoPromisesSweep.spawned_by("ArtifactClaimVerify", on: "VerifyRequested") do
+    success "Cascade::Cascade.RecordResult"
+    failure "Cascade::Cascade.RecordResult"
+  end
 end

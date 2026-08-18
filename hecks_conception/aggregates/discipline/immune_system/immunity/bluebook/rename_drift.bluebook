@@ -57,8 +57,9 @@ Hecks.bluebook "RenameDrift", version: "2026.05.12.1" do
   # Per the no-primitive-envy rule, every attribute is wrapped in a
   # value_object — the domain reads as itself.
 
-  aggregate "RenameDriftCheck", "One pass of the rename-drift validator over a repo root" do
-    identified_by { ref.value }
+  aggregate "RenameDriftCheck" do
+    description "One pass of the rename-drift validator over a repo root"
+    identified_by :ref
     attribute :ref,             CheckRef
     attribute :repo_root,       RepoRoot
     attribute :status,          Status, default: { value: "idle" }
@@ -137,7 +138,7 @@ Hecks.bluebook "RenameDrift", version: "2026.05.12.1" do
     # decide which lifecycle leg to walk.
 
     entity "Finding" do
-      identified_by { file_path.value }
+      identified_by :file_path
       description "One stale reference detected during a rename-drift scan. Captured by RecordFinding when Tools.Grep + catalog comparison spots a reference whose target no longer resolves. Carries enough context (file_path, line_no, reference_kind, reference_target) for downstream surfaces to point Chris at the exact line."
       attribute :file_path,        FilePath
       attribute :line_no,          LineNo
@@ -149,41 +150,41 @@ Hecks.bluebook "RenameDrift", version: "2026.05.12.1" do
 
     command "Scan" do
       role "Miette"
-      description "Start a rename-drift scan over the given repo root. Emits ScanStarted ; a policy cascade then dispatches Tools.Glob to enumerate .bluebook files and Tools.Grep to extract declarations + references. Findings accrete as entities ; Pass or Fail finalizes the check."
+      goal "Start a rename-drift scan over the given repo root. Emits ScanStarted ; a policy cascade then dispatches Tools.Glob to enumerate .bluebook files and Tools.Grep to extract declarations + references. Findings accrete as entities ; Pass or Fail finalizes the check."
       attribute :ref,       CheckRef
       attribute :repo_root, RepoRoot
       emits "ScanStarted"
-      then_set :ref,       to: :ref
-      then_set :repo_root, to: :repo_root
+      sets :ref
+      sets :repo_root
     end
 
     command "RecordFinding" do
       role "System"
-      description "Append one stale-reference finding to the check. Dispatched by the policy that compares Tools.Grep matches against the bluebook declaration catalog ; one finding per stale reference site. The Finding entity carries the exact file_path + line_no + reference_kind + target so the surface can route the complaint to the right reader."
+      goal "Append one stale-reference finding to the check. Dispatched by the policy that compares Tools.Grep matches against the bluebook declaration catalog ; one finding per stale reference site. The Finding entity carries the exact file_path + line_no + reference_kind + target so the surface can route the complaint to the right reader."
       reference_to(RenameDriftCheck)
       attribute :file_path,        FilePath
       attribute :line_no,          LineNo
       attribute :reference_kind,   ReferenceKind
       attribute :reference_target, ReferenceTarget
-      then_set :findings, append: { file_path: :file_path, line_no: :line_no, reference_kind: :reference_kind, reference_target: :reference_target }
+      sets :findings, append: { file_path: :file_path, line_no: :line_no, reference_kind: :reference_kind, reference_target: :reference_target }
       emits "FindingRecorded"
     end
 
     command "Pass" do
       role "Miette"
-      description "No drift found — every reference resolved against the catalog. The repo is in a coherent rename state."
+      goal "No drift found — every reference resolved against the catalog. The repo is in a coherent rename state."
       reference_to(RenameDriftCheck)
       emits "ScanPassed"
-      then_set :violation_count, to: 0
+      sets :violation_count, to: 0
     end
 
     command "Fail" do
       role "Miette"
-      description "Stale references detected. Records the final violation count ; the Finding entities carry per-reference evidence. Downstream surfaces (watcher log, statusline) read the count + findings to decide what to surface."
+      goal "Stale references detected. Records the final violation count ; the Finding entities carry per-reference evidence. Downstream surfaces (watcher log, statusline) read the count + findings to decide what to surface."
       reference_to(RenameDriftCheck)
       attribute :violation_count, ViolationCount
       emits "ScanFailed"
-      then_set :violation_count, to: :violation_count
+      sets :violation_count
     end
 
     lifecycle :status, default: "idle" do
@@ -213,7 +214,7 @@ Hecks.bluebook "RenameDrift", version: "2026.05.12.1" do
 
   policy "CatalogBluebooks" do
     on "ScanStarted"
-    trigger "Glob"
+    trigger Glob
     across "SearchTool"
   end
 
@@ -226,7 +227,7 @@ Hecks.bluebook "RenameDrift", version: "2026.05.12.1" do
 
   policy "ExtractDeclarations" do
     on "GlobMatched"
-    trigger "Grep"
+    trigger Grep
     across "SearchTool"
   end
 
@@ -238,7 +239,7 @@ Hecks.bluebook "RenameDrift", version: "2026.05.12.1" do
 
   policy "AlertOnFinding" do
     on "FindingRecorded"
-    trigger "DetectThreat"
+    trigger DetectThreat
     across "Immunity"
   end
 end

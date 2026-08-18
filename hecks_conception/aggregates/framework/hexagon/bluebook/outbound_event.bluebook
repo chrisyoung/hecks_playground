@@ -39,8 +39,9 @@ Hecks.bluebook "OutboundEvent", version: "2026.06.16.1" do
   # verdict commands are domain transitions, safe to replay. The host
   # reimplements NOTHING — subscribe/dispatch plumbing lives here once.
 
-  aggregate "OutboundEvent", "A durable record of an event the core announced to a separate-program adapter edge, awaiting a standalone host's action. Identified by delivery_id. Lifecycle: pending -> claimed -> delivered | failed." do
-    identified_by { delivery_id.value }
+  aggregate "OutboundEvent" do
+    description "A durable record of an event the core announced to a separate-program adapter edge, awaiting a standalone host's action. Identified by delivery_id. Lifecycle: pending -> claimed -> delivered | failed."
+    identified_by :delivery_id
 
     attribute :delivery_id,     DeliveryId
     attribute :adapter,         AdapterName
@@ -122,7 +123,7 @@ Hecks.bluebook "OutboundEvent", version: "2026.06.16.1" do
 
     command "Record" do
       role "System"
-      description "The core records an outbound event for a subscribing adapter — dispatched by the runtime when it emits an event an effect binding subscribes to, one Record per subscribing adapter. Durable hand-off to the event-out port. Status starts pending. Idempotent on delivery_id (re-recording the same emit is a no-op)."
+      goal "The core records an outbound event for a subscribing adapter — dispatched by the runtime when it emits an event an effect binding subscribes to, one Record per subscribing adapter. Durable hand-off to the event-out port. Status starts pending. Idempotent on delivery_id (re-recording the same emit is a no-op)."
       attribute :delivery_id,     DeliveryId
       attribute :adapter,         AdapterName
       attribute :event,           EventName
@@ -131,43 +132,52 @@ Hecks.bluebook "OutboundEvent", version: "2026.06.16.1" do
       attribute :payload,         Payload
       attribute :success_command, CommandRef
       attribute :failure_command, CommandRef
-      then_set :delivery_id,     to: :delivery_id
-      then_set :adapter,         to: :adapter
-      then_set :event,           to: :event
-      then_set :source_type,     to: :source_type
-      then_set :source_id,       to: :source_id
-      then_set :payload,         to: :payload
-      then_set :success_command, to: :success_command
-      then_set :failure_command, to: :failure_command
-      then_set :status,          to: "pending"
+      sets :delivery_id
+      sets :adapter
+      sets :event
+      sets :source_type
+      sets :source_id
+      sets :payload
+      sets :success_command
+      sets :failure_command
+      sets :status,          to: "pending"
       emits "OutboundEventRecorded"
     end
 
     command "Claim" do
       role "System"
-      description "A standalone host claims a pending delivery before acting — the at-least-once guard against two hosts processing the same event. Valid only while pending. Increments attempts."
-      attribute :delivery_id, DeliveryId
+      goal "A standalone host claims a pending delivery before acting — the at-least-once guard against two hosts processing the same event. Valid only while pending. Increments attempts."
+      # reference_to (not a re-declared attribute :delivery_id) -- this is a
+      # TRANSITION on an existing record, not a second creator. A plain
+      # `attribute :delivery_id, DeliveryId` left `command.creates?` (=
+      # @references.nil?, bluebook/behaviour/command.rb) true for every
+      # verb here, so Claim/MarkDelivered/MarkFailed all tried to CREATE a
+      # duplicate record instead of updating the one Record already made --
+      # `unknown adapter ""`'s sibling bug, found live running bin/adapter-
+      # host end to end for the first time (i781, 2026-08-17). Same fix
+      # shape as Sprint.Activate's own `reference_to(Sprint)` self-ref.
+      reference_to(OutboundEvent)
       given("only a pending delivery may be claimed") { status == "pending" }
-      then_set :status, to: "claimed"
+      sets :status, to: "claimed"
       emits "OutboundEventClaimed"
     end
 
     command "MarkDelivered" do
       role "System"
-      description "The host acks after it has dispatched the verdict (success_command or failure_command) back through the command port. Terminal. The verdict's own re-entry is a separate dispatch ; this only closes the delivery."
-      attribute :delivery_id, DeliveryId
+      goal "The host acks after it has dispatched the verdict (success_command or failure_command) back through the command port. Terminal. The verdict's own re-entry is a separate dispatch ; this only closes the delivery."
+      reference_to(OutboundEvent)
       given("only a claimed delivery may be delivered") { status == "claimed" }
-      then_set :status, to: "delivered"
+      sets :status, to: "delivered"
       emits "OutboundEventDelivered"
     end
 
     command "MarkFailed" do
       role "System"
-      description "The host records a failed attempt (the charge could not reach a verdict within its budget). Captures the error and returns the delivery to pending for another host pass, OR the host dispatches the failure_command (Decline) and marks delivered — the host's policy, never the core's. The core never silently retries ; recovery is the host re-claiming or a new command."
-      attribute :delivery_id, DeliveryId
-      attribute :error,       ErrorMessage
-      then_set :status,     to: "pending"
-      then_set :last_error, to: :error
+      goal "The host records a failed attempt (the charge could not reach a verdict within its budget). Captures the error and returns the delivery to pending for another host pass, OR the host dispatches the failure_command (Decline) and marks delivered — the host's policy, never the core's. The core never silently retries ; recovery is the host re-claiming or a new command."
+      reference_to(OutboundEvent)
+      attribute :error, ErrorMessage
+      sets :status,     to: "pending"
+      sets :last_error, to: :error
       emits "OutboundEventFailed"
     end
 

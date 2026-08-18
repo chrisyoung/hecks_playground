@@ -17,7 +17,7 @@ Hecks.bluebook "MigrationCoexistence" do
 
   aggregate "AggregateMigration" do
     description "One row per aggregate flipping from delivery :sync to delivery :actor as sprint 14 rolls out"
-    identified_by { fqn.value }
+    identified_by :fqn
 
     value_object "Fqn" do
       attribute :value, String

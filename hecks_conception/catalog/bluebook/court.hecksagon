@@ -1,4 +1,5 @@
 Hecks.hecksagon "Court" do
+  uses_framework "Governance"
   Court::Case.persisted_by("Heki")
   Court::Finding.persisted_by("Heki")
   Court::Precedent.persisted_by("Heki")

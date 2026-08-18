@@ -51,8 +51,9 @@ Hecks.bluebook "Inbox", version: "2026.05.17.1" do
   # surfacing keeps the human in the decision while removing the
   # human from the noticing.
 
-  aggregate "Inbox", "Miette's email inbox — one per being, periodically checked." do
-    identified_by { name.value }
+  aggregate "Inbox" do
+    description "Miette's email inbox — one per being, periodically checked."
+    identified_by :name
 
     attribute :name,             InboxName,    default: { value: "miette" }
     attribute :last_checked_at,  Timestamp,    default: { value: "—" }
@@ -135,7 +136,7 @@ Hecks.bluebook "Inbox", version: "2026.05.17.1" do
     # thread from a registered correspondent becomes a card in the
     # mapped project inbox.
     entity "Correspondent" do
-      identified_by { email.value }
+      identified_by :email
       attribute :email,        EmailAddress
       attribute :display_name, Sender
       attribute :inbox_initial, InboxInitial
@@ -151,19 +152,19 @@ Hecks.bluebook "Inbox", version: "2026.05.17.1" do
 
     command "Check" do
       role "Framework"
-      description "Poll Gmail for new inbound mail. Dispatched every 900s by the inbox MindstreamMember and on-demand via storehouse__dispatch Inbox::Inbox.Check. The :web_tool adapter (LOCKED 2026-05-15, replacing the deferred :mcp/i594 path) refreshes the stored Google OAuth token if expired, then : if last_history_id is the default sentinel, records the current Gmail historyId and stops (clean start, no backfill) ; otherwise calls users.history.list(startHistoryId: last_history_id), keeps only inbound messages whose from-address matches a registered Correspondent, and for each new thread dispatches RecordNewMessage (which fires NewMessageFound), writes a card into that correspondent's mapped project inbox, and composes a draft reply via EmailTool.CreateDraft (drafts-only ; the poll never begins the work the mail requests — it drafts and surfaces, Chris decides what work starts). Advances last_history_id to the newest observed id so the next poll is an exact delta. The dispatch IS the fetch ; no consciousness in the loop."
+      goal "Poll Gmail for new inbound mail. Dispatched every 900s by the inbox MindstreamMember and on-demand via storehouse__dispatch Inbox::Inbox.Check. The :web_tool adapter (LOCKED 2026-05-15, replacing the deferred :mcp/i594 path) refreshes the stored Google OAuth token if expired, then : if last_history_id is the default sentinel, records the current Gmail historyId and stops (clean start, no backfill) ; otherwise calls users.history.list(startHistoryId: last_history_id), keeps only inbound messages whose from-address matches a registered Correspondent, and for each new thread dispatches RecordNewMessage (which fires NewMessageFound), writes a card into that correspondent's mapped project inbox, and composes a draft reply via EmailTool.CreateDraft (drafts-only ; the poll never begins the work the mail requests — it drafts and surfaces, Chris decides what work starts). Advances last_history_id to the newest observed id so the next poll is an exact delta. The dispatch IS the fetch ; no consciousness in the loop."
       attribute :checked_at,        Timestamp
       attribute :observed_history_id, HistoryId
       attribute :unread_count,      Count
       emits "InboxChecked"
-      then_set :last_checked_at,  to: :checked_at
-      then_set :last_history_id,  to: :observed_history_id
-      then_set :unread_count,     to: :unread_count
+      sets :last_checked_at,  to: :checked_at
+      sets :last_history_id,  to: :observed_history_id
+      sets :unread_count
     end
 
     command "RecordNewMessage" do
       role "Framework"
-      description "Record that a new inbound thread from a registered correspondent appeared in the historyId delta. Dispatched by Check once per new thread. NewMessageFound is what the downstream fan-out attaches to (statusline count, the per-thread card write, and the EmailTool.CreateDraft acknowledgement) ; reactors never attach directly to Check."
+      goal "Record that a new inbound thread from a registered correspondent appeared in the historyId delta. Dispatched by Check once per new thread. NewMessageFound is what the downstream fan-out attaches to (statusline count, the per-thread card write, and the EmailTool.CreateDraft acknowledgement) ; reactors never attach directly to Check."
       reference_to(Inbox)
       attribute :message_id, MessageId
       attribute :subject,    Subject

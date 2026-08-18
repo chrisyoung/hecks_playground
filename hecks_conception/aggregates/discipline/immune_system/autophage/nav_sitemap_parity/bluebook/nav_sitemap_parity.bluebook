@@ -22,8 +22,9 @@ Hecks.bluebook "NavSitemapParity", version: "2026.05.16.1" do
   #   i626 — Fibroblast (repair cell that closes nav/sitemap drift)
   #   i629 — :exec adapter family (runtime arm, deferred)
 
-  aggregate "NavSitemapParity", "One watched site — holds the drift record between its nav modules and its sitemap.xml" do
-    identified_by { site_root.value }
+  aggregate "NavSitemapParity" do
+    description "One watched site — holds the drift record between its nav modules and its sitemap.xml"
+    identified_by :site_root
 
     attribute :site_root,        SiteRoot
     attribute :nav_modules,      list_of(NavModulePath)
@@ -95,23 +96,23 @@ Hecks.bluebook "NavSitemapParity", version: "2026.05.16.1" do
 
     command "StartSession" do
       role "System"
-      description "Reset per-session counters at boot. The drift list and snapshot are NOT reset — they are the audit trail."
+      goal "Reset per-session counters at boot. The drift list and snapshot are NOT reset — they are the audit trail."
       attribute :session_started_at, Timestamp
-      then_set :last_check_at, to: :session_started_at
+      sets :last_check_at, to: :session_started_at
       emits "SessionStarted"
     end
 
     command "Check" do
       role "System"
-      description "Walk nav modules and sitemap.xml, compute the diff, populate the drift list. The :exec arm invokes this on a heartbeat or after a nav-module file edit. Pure declarative contract here — execution deferred to i629."
+      goal "Walk nav modules and sitemap.xml, compute the diff, populate the drift list. The :exec arm invokes this on a heartbeat or after a nav-module file edit. Pure declarative contract here — execution deferred to i629."
       attribute :checked_at, Timestamp
-      then_set :last_check_at, to: :checked_at
+      sets :last_check_at, to: :checked_at
       emits "Checked"
     end
 
     command "RecordDrift" do
       role "System"
-      description "Record one discovered drift entry — a path that is present in nav but absent from sitemap, or vice-versa. nav_present and sitemap_present are PresenceFlags; the :exec arm calls this once per offending path after a Check walk."
+      goal "Record one discovered drift entry — a path that is present in nav but absent from sitemap, or vice-versa. nav_present and sitemap_present are PresenceFlags; the :exec arm calls this once per offending path after a Check walk."
       attribute :path,            NavModulePath
       attribute :nav_present,     PresenceFlag
       attribute :sitemap_present, PresenceFlag
@@ -121,26 +122,26 @@ Hecks.bluebook "NavSitemapParity", version: "2026.05.16.1" do
 
     command "Complain" do
       role "System"
-      description "Surface drift as additional-context. Called by the :exec arm after a Check finds non-empty drift. Sets last_complaint + last_complaint_at so the statusline can surface the gap on the next turn."
+      goal "Surface drift as additional-context. Called by the :exec arm after a Check finds non-empty drift. Sets last_complaint + last_complaint_at so the statusline can surface the gap on the next turn."
       attribute :complaint,         ComplaintText
       attribute :last_complaint_at, Timestamp
-      then_set :last_complaint,    to: :complaint
-      then_set :last_complaint_at, to: :last_complaint_at
+      sets :last_complaint,    to: :complaint
+      sets :last_complaint_at
       emits "ComplaintIssued"
     end
 
     command "Clear" do
       role "System"
-      description "Drift reconciled — Fibroblast (i626) or human closed the gap. Clears the drift list and records when the reconciliation happened."
+      goal "Drift reconciled — Fibroblast (i626) or human closed the gap. Clears the drift list and records when the reconciliation happened."
       attribute :cleared_at, Timestamp
       emits "DriftCleared"
     end
 
     command "Snapshot" do
       role "System"
-      description "Record last-known-good state — nav and sitemap were in agreement at this moment. The :exec arm calls this after a clean Check (empty drift). Used as a baseline for drift-age calculations."
+      goal "Record last-known-good state — nav and sitemap were in agreement at this moment. The :exec arm calls this after a clean Check (empty drift). Used as a baseline for drift-age calculations."
       attribute :snapshotted_at, Timestamp
-      then_set :last_snapshot_at, to: :snapshotted_at
+      sets :last_snapshot_at, to: :snapshotted_at
       emits "Snapshotted"
     end
 
@@ -158,6 +159,6 @@ Hecks.bluebook "NavSitemapParity", version: "2026.05.16.1" do
   # Repair handoff: drift found -> Fibroblast closes it.
   policy "HandoffToFibroblast" do
     on "DriftRecorded"
-    trigger "Complain"
+    trigger Complain
   end
 end

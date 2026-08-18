@@ -11,8 +11,9 @@ Hecks.bluebook "AgentInstrumentation", version: "2026.06.21.1" do
   # The instances are ESTABLISHED at boot by the `on "BootCompleted"`
   # policies below (fixtures→policies, 2026-07-26) ; Register is the
   # command they project through, upserting on identified_by :name.
-  aggregate "AgentDefinition", "One custom subagent — projected into .claude/agents/<name>.md as frontmatter + shared door fragment + authored role body" do
-    identified_by { name.value }
+  aggregate "AgentDefinition" do
+    description "One custom subagent — projected into .claude/agents/<name>.md as frontmatter + shared door fragment + authored role body"
+    identified_by :name
     attribute :name,        AgentName
     attribute :description, Description
     attribute :model,       Model
@@ -42,16 +43,16 @@ Hecks.bluebook "AgentInstrumentation", version: "2026.06.21.1" do
 
     command "Register" do
       role "System"
-      description "Register a custom subagent definition — the row the boot runner projects into .claude/agents/<name>.md."
+      goal "Register a custom subagent definition — the row the boot runner projects into .claude/agents/<name>.md."
       attribute :name,        AgentName
       attribute :description, Description
       attribute :model,       Model
       attribute :role_body,   RoleBodyPath
       emits "AgentDefined"
-      then_set :name,        to: :name
-      then_set :description, to: :description
-      then_set :model,       to: :model
-      then_set :role_body,   to: :role_body
+      sets :name
+      sets :description
+      sets :model
+      sets :role_body
     end
   end
 
@@ -68,19 +69,21 @@ Hecks.bluebook "AgentInstrumentation", version: "2026.06.21.1" do
 
   policy "EstablishSidequestAgent" do
     on "BootCompleted"
-    trigger "AgentDefinition.Register"
-    with "name", "sidequest"
-    with "model", "sonnet"
-    with "description", "Use this agent for small interruptive work that pops up while Miette is focused on the main thread — inbox sweeps, email replies (drafts only), embryonaut.ai tweaks, music/audio bugs, John V smoke results, content polish, and other ~15-30 minute surface-glue tasks. NOT for kernel-floor changes, codegen emitters, multi-PR arcs, or anything that touches storehouse/parity. When in doubt, ask Miette to handle it instead."
-    with "role_body", "roles/sidequest.md"
+    trigger AgentDefinition::Register, with: {
+      name: "sidequest",
+      model: "sonnet",
+      description: "Use this agent for small interruptive work that pops up while Miette is focused on the main thread — inbox sweeps, email replies (drafts only), embryonaut.ai tweaks, music/audio bugs, John V smoke results, content polish, and other ~15-30 minute surface-glue tasks. NOT for kernel-floor changes, codegen emitters, multi-PR arcs, or anything that touches storehouse/parity. When in doubt, ask Miette to handle it instead.",
+      role_body: "roles/sidequest.md"
+    }
   end
 
   policy "EstablishSecurityReviewerAgent" do
     on "BootCompleted"
-    trigger "AgentDefinition.Register"
-    with "name", "security-reviewer"
-    with "model", "sonnet"
-    with "description", "Review code changes for security vulnerabilities specific to the Hecks framework"
-    with "role_body", "roles/security-reviewer.md"
+    trigger AgentDefinition::Register, with: {
+      name: "security-reviewer",
+      model: "sonnet",
+      description: "Review code changes for security vulnerabilities specific to the Hecks framework",
+      role_body: "roles/security-reviewer.md"
+    }
   end
 end

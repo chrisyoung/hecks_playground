@@ -41,8 +41,9 @@ Hecks.bluebook "ForwarderPoc", version: "2026.05.22.1" do
   category "discipline"
 
   # ── NEW HOME : the real command (rename target) ──
-  aggregate "NewHome", "Stands in for the renamed ImmuneSystem::BluebookFirst address — holds the real RecordImperativeEdit implementation" do
-    identified_by { name.value }
+  aggregate "NewHome" do
+    description "Stands in for the renamed ImmuneSystem::BluebookFirst address — holds the real RecordImperativeEdit implementation"
+    identified_by :name
 
     attribute :name,             Name
     attribute :imperative_edits, EditCount
@@ -60,16 +61,17 @@ Hecks.bluebook "ForwarderPoc", version: "2026.05.22.1" do
 
     command "RecordImperativeEdit" do
       role "Hook"
-      description "THE REAL COMMAND. An imperative-language file was written. Records the file path on the root. This is the implementation the OldHome forwarder chains into."
+      goal "THE REAL COMMAND. An imperative-language file was written. Records the file path on the root. This is the implementation the OldHome forwarder chains into."
       attribute :file_path, FilePath
-      then_set :last_file, to: :file_path
+      sets :last_file, to: :file_path
       emits "ImperativeEdited"
     end
   end
 
   # ── OLD HOME : the forwarder (the address callers still hold) ──
-  aggregate "OldHome", "Stands in for the OLD pre-rename address — its RecordImperativeEdit is a pure forwarder that chains to NewHome via a policy" do
-    identified_by { name.value }
+  aggregate "OldHome" do
+    description "Stands in for the OLD pre-rename address — its RecordImperativeEdit is a pure forwarder that chains to NewHome via a policy"
+    identified_by :name
 
     attribute :name, Name
 
@@ -82,7 +84,7 @@ Hecks.bluebook "ForwarderPoc", version: "2026.05.22.1" do
 
     command "RecordImperativeEdit" do
       role "Hook"
-      description "THE FORWARDER. Callers of the old FQN land here. It does NO domain work — it only emits a uniquely-named forward-request event. The ForwardRecordImperativeEdit policy catches that event and triggers the real NewHome.RecordImperativeEdit, threading file_path through event.data and the id through inject_refs. This is the wrap/chain Chris described."
+      goal "THE FORWARDER. Callers of the old FQN land here. It does NO domain work — it only emits a uniquely-named forward-request event. The ForwardRecordImperativeEdit policy catches that event and triggers the real NewHome.RecordImperativeEdit, threading file_path through event.data and the id through inject_refs. This is the wrap/chain Chris described."
       attribute :file_path, FilePath
       emits "OldRecordImperativeEditRequested"
     end
@@ -97,6 +99,6 @@ Hecks.bluebook "ForwarderPoc", version: "2026.05.22.1" do
   # OldHome (and, in the real corpus, on several macrophage siblings).
   policy "ForwardRecordImperativeEdit" do
     on "OldRecordImperativeEditRequested"
-    trigger "Hecks::Discipline::ImmuneSystem::ForwarderPoc::NewHome.RecordImperativeEdit"
+    trigger Discipline::ImmuneSystem::ForwarderPoc::NewHome::RecordImperativeEdit
   end
 end

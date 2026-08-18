@@ -1,0 +1,50 @@
+Hecks.hecksagon "Conductor" do
+  # pr-delivery-merge-on-accept (sprint 20), completed i787. The REAL merge
+  # leg: squash-merge the current story's PR into main and delete the
+  # branch. Re-expressed from pr_delivery.hecksagon's 3rd binding, a bare
+  # `run "gh pr merge sq/{story_ref} --squash --delete-branch"` driven-block
+  # leaf -- a confirmed hard no-op in the vendored gem (`DrivenCapture
+  # #run(_cmd, result_into: nil) = nil` is an explicit stub), so this merge
+  # has never once actually executed -- onto the proven spawned_by
+  # mechanism (i780's design, i781/i782's E2E-proven pattern).
+  #
+  # MUTATING, and the sharpest of the five `run` sites i782 surveyed:
+  # landing this turns on automation that merges real PRs. Converted with
+  # Chris's explicit sign-off (i782 -> /goal execute 1-3).
+  #
+  # WHY IT LIVES IN conductor/, NOT plan/. The old leaf sat in
+  # plan/hecksagons/pr_delivery.hecksagon, but the triggering event is
+  # Conductor::MergeQueue.MergeStarted and the verdict targets are
+  # MergeQueue's own commands. A spawned_by bind is declared in the domain
+  # that owns the aggregate -- the convention every already-proven
+  # conversion follows (Conductor::Lease in conductor/bluebook/
+  # worktree_create.hecksagon, Plan::Story in plan/bluebook/
+  # pr_mergeable_check.hecksagon). It also has to live DIRECTLY in
+  # bluebook/: i782 established empirically that a sibling hecksagons/
+  # directory is never globbed by Folder#load_domain at any boot depth, so
+  # a bind declared there is structurally invisible and silently does
+  # nothing.
+  #
+  # MergeQueue.identified_by :branch -- the queue's id IS the target branch
+  # ("main"), so adapter-host's automatic id=<source_id> on the verdict
+  # dispatch already addresses the right record. bin/pr_delivery_merge
+  # reads `story_ref` off the triggering event's payload to build the
+  # sq/<story_ref> branch name.
+  #
+  # success/failure are DIFFERENT commands here, unlike the check
+  # conversions where one command records either outcome via its own :ok.
+  # A merge that failed must still return the queue to idle -- otherwise
+  # the next story can never start -- and FailMerge is what says so.
+  # Both were widened (i787, merge_queue.bluebook) to accept adapter-host's
+  # unconditional id/tool/output/exit_code/ok verdict shape, with every
+  # non-addressing attribute optional, because adapter-host layers a
+  # handler's extra fields onto the verdict ONLY on the success path: a
+  # required attribute on FailMerge could never be delivered, and would
+  # wedge the queue in `state: merging` forever the first time `gh pr
+  # merge` genuinely failed. That delivery asymmetry is the exact reason
+  # i782 stopped short of converting this binding.
+  Conductor::MergeQueue.spawned_by("PrDeliveryMerge", on: "MergeStarted") do
+    success "Conductor::MergeQueue.CompleteMerge"
+    failure "Conductor::MergeQueue.FailMerge"
+  end
+end

@@ -1,4 +1,5 @@
 Hecks.hecksagon "Hexagon" do
+  uses_framework "Governance"
   Hexagon::Hexagon.persisted_by("Heki")
   Hexagon::Family.persisted_by("Heki")
   Hexagon::Field.persisted_by("Heki")

@@ -1,4 +1,5 @@
 Hecks.hecksagon "Tools" do
+  uses_framework "Governance"
   # ============================================================
   # TOOLS — adapter bindings : <Category>Tool.X dispatch → real run
   # ============================================================
@@ -123,7 +124,11 @@ Hecks.hecksagon "Tools" do
   # written. The Log is the source of truth for the DOMAIN, not a backup of the
   # external world : if it owed us the filesystem it would owe us every Read's
   # returned bytes too. Withholding them expresses that boundary.
-  Tools::FileTool.event_sourced
+  # `.event_sourced` (a Rust-era bare verb, zero args -> mints a Bind with
+  # adapter: "" -> `unknown adapter ""` WiringError, masked until now by the
+  # :exec bug below) has no hecksagain equivalent ; AppendLog is the real
+  # replacement (see outbound_event.hecksagon for the identical fix, i780/i779).
+  Tools::FileTool.persisted_by("AppendLog")
   # The invocation HISTORY is durable even though current-state is not. A tool
   # call is an EVENT, not an entity : it has no lifecycle and nothing to update,
   # so "the current state of ShellTool#inv_abc" is meaningless and persisting it
@@ -142,11 +147,13 @@ Hecks.hecksagon "Tools" do
   # Governance::Violation while a SUCCESSFUL one evaporated on process exit —
   # the same asymmetry 75dad37e8 closed for domain events, one layer down.
   # Event-sourcing carries actor, verdict, correlation and the hash chain.
-  Tools::ShellTool.event_sourced
+  Tools::ShellTool.persisted_by("AppendLog")
 
   # Impure edge, hecksagon-first : on Sidequest.Dispatch, spawn the sub-agent via
-  # node bin/sidequest_run.mjs (i707/i708). Re-homed from the
-  # RunSidequestOnDispatch Process.Spawn policy — the impure edge lives here, not
-  # in the bluebook. `:exec` is sugar over the one Process.Spawn primitive.
-  adapter :exec, name: "sidequest_run", command: "Sidequest.Dispatch", exec: "node bin/sidequest_run.mjs", result_into: "Hecks::Framework::Cascade::Cascade::Cascade.RecordResult"
+  # node bin/sidequest_run.mjs (i707/i708). Re-expressed (i780, 2026-08-17)
+  # from the retired `adapter :exec` kwargs form onto the spawn effect port.
+  Tools::Sidequest.spawned_by("SidequestRun", on: "SidequestDispatched") do
+    success "Cascade::Cascade.RecordResult"
+    failure "Cascade::Cascade.RecordResult"
+  end
 end

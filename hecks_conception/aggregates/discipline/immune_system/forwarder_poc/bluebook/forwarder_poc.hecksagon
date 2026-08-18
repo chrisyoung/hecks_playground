@@ -1,4 +1,5 @@
 Hecks.hecksagon "ForwarderPoc" do
+  uses_framework "Governance"
   ForwarderPoc::NewHome.persisted_by("Heki")
   ForwarderPoc::OldHome.persisted_by("Heki")
 end

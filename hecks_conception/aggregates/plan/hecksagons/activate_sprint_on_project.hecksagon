@@ -6,7 +6,7 @@ Hecks.hecksagon "Plan" do
   # Project decides, the Sprint reacts. {sprint_ref} resolves from event.data.
   adapter "ActivateSprintOnProjectActivation" do
     driven on "Hecks::Plan::Project.SprintActivatedByProject" do |event|
-      dispatch "Hecks::Plan::Sprint.Activate", sprint: "{sprint_ref}"
+      dispatch "Hecks::Plan::Sprint.Activate", with: { sprint: "{sprint_ref}" }
     end
   end
 end

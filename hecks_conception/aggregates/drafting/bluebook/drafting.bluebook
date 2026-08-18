@@ -2,8 +2,9 @@ Hecks.bluebook "Drafting", version: "2026.05.24.1" do
   vision "Collaborative document drafting — track a document and its revisions as we co-edit. The current text lives in a markdown main file ; each change is recorded as a Revision (a summary plus a unified diff), so we always know what changed, in what order, and can read the document evolve. Bluebook-first revision control for prose."
   category "drafting"
 
-  aggregate "Document", "A document we are drafting together — its markdown main file and its revision history" do
-    identified_by { ref.value }
+  aggregate "Document" do
+    description "A document we are drafting together — its markdown main file and its revision history"
+    identified_by :ref
 
     attribute :ref,       Ref
     attribute :title,     Title
@@ -44,7 +45,7 @@ Hecks.bluebook "Drafting", version: "2026.05.24.1" do
     end
 
     entity "Revision" do
-      identified_by { number.value }
+      identified_by :number
       attribute :number,  RevisionNumber
       attribute :summary, Summary
       attribute :diff,    Diff
@@ -52,25 +53,25 @@ Hecks.bluebook "Drafting", version: "2026.05.24.1" do
 
     command "Draft" do
       role "Miette"
-      description "Start a document — the original text goes into the main file (a markdown path). Sets revision 0 with an empty history. The ref is the identity."
+      goal "Start a document — the original text goes into the main file (a markdown path). Sets revision 0 with an empty history. The ref is the identity."
       attribute :ref,       Ref
       attribute :title,     Title
       attribute :main_file, MainFile
-      then_set :ref,       to: :ref
-      then_set :title,     to: :title
-      then_set :main_file, to: :main_file
-      then_set :revision,  to: 0
+      sets :ref
+      sets :title
+      sets :main_file
+      sets :revision,  to: 0
       emits "DocumentDrafted"
     end
 
     command "Revise" do
       role "Miette"
-      description "Record a revision — a summary and the unified diff of a change made to the main file. Bumps the revision number, then appends the revision to history. The main file is edited to match ; this records what changed."
+      goal "Record a revision — a summary and the unified diff of a change made to the main file. Bumps the revision number, then appends the revision to history. The main file is edited to match ; this records what changed."
       reference_to(Document)
       attribute :summary, Summary
       attribute :diff,    Diff
-      then_set :revision,  increment: 1
-      then_set :revisions, append: { number: :revision, summary: :summary, diff: :diff }
+      sets :revision,  increment: 1
+      sets :revisions, append: { number: :revision, summary: :summary, diff: :diff }
       emits "DocumentRevised"
     end
 

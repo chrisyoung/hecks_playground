@@ -14,6 +14,7 @@
 # heki :default convention (rooted at the realm's data dir), so no .world block
 # is needed — the bind alone is the whole wiring.
 Hecks.hecksagon "EventSourcing" do
+  uses_framework "Governance"
   EventSourcing::Event.persisted_by("AppendLog")
 
   # ── The consolidation DRIVER (the driving side of the hexagon) ──────────

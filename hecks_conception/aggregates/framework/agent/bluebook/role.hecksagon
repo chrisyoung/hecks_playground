@@ -1,3 +1,4 @@
 Hecks.hecksagon "Role" do
+  uses_framework "Governance"
   Role::Role.persisted_by("Heki")
 end

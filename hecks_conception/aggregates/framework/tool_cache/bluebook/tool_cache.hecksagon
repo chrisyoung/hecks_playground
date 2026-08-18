@@ -1,4 +1,5 @@
 Hecks.hecksagon "ToolCache" do
+  uses_framework "Governance"
   ToolCache::ToolStats.persisted_by("Heki")
   ToolCache::ToolCacheSnapshot.persisted_by("Heki")
 end

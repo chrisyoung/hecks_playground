@@ -1,4 +1,5 @@
 Hecks.hecksagon "NoneInStateGate" do
+  uses_framework "Governance"
   NoneInStateGate::Slot.persisted_by("Heki")
   NoneInStateGate::Claim.persisted_by("Heki")
 end

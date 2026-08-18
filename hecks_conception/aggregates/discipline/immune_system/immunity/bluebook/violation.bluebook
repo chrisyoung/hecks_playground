@@ -11,8 +11,9 @@ Hecks.bluebook "Violation", version: "2026.04.28.1" do
   # breach ; Rule is the catalog. No policies between them in the
   # original, so the split is structural-only.
 
-  aggregate "Violation", "A detected rule violation" do
-    identified_by { ref.value }
+  aggregate "Violation" do
+    description "A detected rule violation"
+    identified_by :ref
     attribute :ref,            Ref
     attribute :rule_name,      RuleName
     attribute :message,        Message
@@ -45,12 +46,12 @@ Hecks.bluebook "Violation", version: "2026.04.28.1" do
     end
 
     command "DetectViolation" do
-      description "A rule was broken"
+      goal "A rule was broken"
       attribute :rule_name, RuleName
       attribute :message,   Message
       emits "ViolationDetected"
-      then_set :rule_name, to: :rule_name
-      then_set :message,   to: :message
+      sets :rule_name
+      sets :message
     end
 
     query ListViolations do

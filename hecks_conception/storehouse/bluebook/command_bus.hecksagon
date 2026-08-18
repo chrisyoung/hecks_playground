@@ -1,4 +1,5 @@
 Hecks.hecksagon "CommandBus" do
+  uses_framework "Governance"
   # ============================================================
   # COMMAND_BUS — hexagonal wiring for the app-scoped bus
   # ============================================================

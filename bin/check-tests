@@ -1,10 +1,12 @@
 #!/bin/bash
 # bin/check-tests — sq/policy-cmd-bin-wrappers convention
 #
-# Inputs (from the spawn primitive) :
-#   $AGG_ID                 — the story id (for the audit trail)
-#   $AGG_TYPE / $EVENT_NAME — for the audit trail
-#   stdin                   — STOREHOUSE_TRIGGER_EVENT payload JSON
+# Contract fixed (i782, measured live against bin/adapter-host, not
+# guessed) : this script predates adapter-host's rewrite (i780/i781) and
+# was reading $AGG_ID, which adapter-host never sets. The real contract :
+# the triggering event's payload arrives as clean, VO-unwrapped JSON on
+# stdin — read the story id off THAT. See bin/check-worktree's header for
+# the full measured-contract note.
 # Output :
 #   one JSON line on stdout ; exit 0 if `cargo test --release` passes
 #   in the story's worktree (or in the main rust/ tree if no
@@ -15,7 +17,7 @@
 # in-flight work ; fall back to the main repo's rust/ tree.
 set -u
 REPO_ROOT="${REPO_ROOT:-/Users/christopheryoung/Projects/hecks}"
-STORY_ID="${AGG_ID:-}"
+STORY_ID=$(cat | jq -r '.id // empty')
 
 branch="sq/${STORY_ID}"
 target_root="$REPO_ROOT"

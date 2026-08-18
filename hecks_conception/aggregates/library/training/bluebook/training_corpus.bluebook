@@ -10,8 +10,9 @@ Hecks.bluebook "TrainingCorpus", version: "2026.04.28.1" do
   # policy (CorpusBuilt → EnrichDomains) travels with Enrichment
   # since policies follow the trigger target.
 
-  aggregate "Corpus", "The full training dataset — bluebooks plus parsed IR" do
-    identified_by { name.value }
+  aggregate "Corpus" do
+    description "The full training dataset — bluebooks plus parsed IR"
+    identified_by :name
     attribute :name,          Name
     attribute :total_domains, DomainCount
     attribute :total_tokens,  TokenCount
@@ -45,12 +46,12 @@ Hecks.bluebook "TrainingCorpus", version: "2026.04.28.1" do
 
     command "BuildCorpus" do
       role "Creator"
-      description "Assemble all nursery domains into a training dataset"
+      goal "Assemble all nursery domains into a training dataset"
       attribute :total_domains, DomainCount
       attribute :format,        Format
       emits "CorpusBuilt"
-      then_set :total_domains, to: :total_domains
-      then_set :format,        to: :format
+      sets :total_domains
+      sets :format
     end
   end
 end

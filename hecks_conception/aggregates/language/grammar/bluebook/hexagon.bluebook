@@ -22,10 +22,11 @@ Hecks.bluebook "Hexagon", version: "2026.06.16.2" do
   # wire its ports' boundary edges. Intra-domain calls are NOT here
   # (the bluebook handles them by naming convention) ; only the edges
   # that leave the domain.
-  aggregate "Hexagon", "The hexagon of one domain. Names the domain and aggregates the port-bindings that wire its boundary edges — the impure-adapter and fulfillment (cross-domain) edges. Intra-domain calls are not wired here." do
-    identified_by { domain.value }
+  aggregate "Hexagon" do
+    description "The hexagon of one domain. Names the domain and aggregates the port-bindings that wire its boundary edges — the impure-adapter and fulfillment (cross-domain) edges. Intra-domain calls are not wired here."
+    identified_by :domain
     attribute :domain, DomainName
-    has_many Binding
+    reference_to Binding
 
     value_object "DomainName" do
       # The domain whose ports this hexagon aggregates — "Pizzas".
@@ -34,15 +35,15 @@ Hecks.bluebook "Hexagon", version: "2026.06.16.2" do
 
     command "Conceive" do
       role "Framework"
-      description "Bring a domain's hexagon into being — its domain name. Its bindings are sibling Binding records aggregated via has_many."
+      goal "Bring a domain's hexagon into being — its domain name. Its bindings are sibling Binding records aggregated via has_many."
       attribute :domain, DomainName
       emits "Conceived"
-      then_set :domain, to: :domain
+      sets :domain
     end
 
     command "Verify" do
       role "Framework"
-      description "Startup validation — the OPTIONAL fail-fast guard over runtime discovery. Load the hexagon and check, for every binding, that (a) its adapter resolves its target through storehouse, and (b) the adapter's .world block conforms to its family : every key is a declared family Field, every required field is present, and env/secret fields carry an env-var NAME. Fail fast if any wiring is missing or misconfigured, instead of breaking at first-fire. The binding is still resolved at RUNTIME ; Verify only moves discovery of a misconfiguration forward to startup. This is the flexibility/safety trade-off made explicit."
+      goal "Startup validation — the OPTIONAL fail-fast guard over runtime discovery. Load the hexagon and check, for every binding, that (a) its adapter resolves its target through storehouse, and (b) the adapter's .world block conforms to its family : every key is a declared family Field, every required field is present, and env/secret fields carry an env-var NAME. Fail fast if any wiring is missing or misconfigured, instead of breaking at first-fire. The binding is still resolved at RUNTIME ; Verify only moves discovery of a misconfiguration forward to startup. This is the flexibility/safety trade-off made explicit."
       reference_to(Hexagon)
       emits "Verified"
     end
@@ -57,13 +58,14 @@ Hecks.bluebook "Hexagon", version: "2026.06.16.2" do
   # its signal (reply | effect), and the config fields its adapters
   # carry. Never names its adapters (they declare their use of it).
   # Fulfillment needs no family : it routes via storehouse.
-  aggregate "Family", "An impure boundary kind (persistence, payment). Names its how-verb (persisted_by, charged_by) — how we implement, specifically, not a port method — its signal (reply | effect), and the config fields its adapters carry. Never names its adapters." do
-    identified_by { name.value }
+  aggregate "Family" do
+    description "An impure boundary kind (persistence, payment). Names its how-verb (persisted_by, charged_by) — how we implement, specifically, not a port method — its signal (reply | effect), and the config fields its adapters carry. Never names its adapters."
+    identified_by :name
     attribute :name,   FamilyName
     attribute :verb,   HowVerb
     attribute :signal, Signal
-    has_many Field
-    has_many ProducedField
+    reference_to Field
+    reference_to ProducedField
 
     value_object "FamilyName" do
       # The family's name — "persistence", "payment".
@@ -92,14 +94,14 @@ Hecks.bluebook "Hexagon", version: "2026.06.16.2" do
 
     command "Declare" do
       role "Framework"
-      description "Bring an impure family into being — its name, how-verb, and signal (reply | effect). Its config fields are sibling Field records that belong_to it ; its adapters are NEVER listed here."
+      goal "Bring an impure family into being — its name, how-verb, and signal (reply | effect). Its config fields are sibling Field records that belong_to it ; its adapters are NEVER listed here."
       attribute :name,   FamilyName
       attribute :verb,   HowVerb
       attribute :signal, Signal
-      emits "Declared"
-      then_set :name,   to: :name
-      then_set :verb,   to: :verb
-      then_set :signal, to: :signal
+      emits "FamilyDeclared"
+      sets :name
+      sets :verb
+      sets :signal
     end
   end
 
@@ -115,8 +117,9 @@ Hecks.bluebook "Hexagon", version: "2026.06.16.2" do
   # fields are wiring errors, caught by Hexagon.Verify — the same fail-loud
   # discipline as the .adapter↔.family arrow, extended to .world. The world
   # supplies VALUES against this schema ; the family owns the schema.
-  aggregate "Field", "One configuration field a family's adapters carry (db, endpoint, timeout_ms, token). The field NAME and its SOURCE — the VALUE lives per-deployment in .world. A family's fields establish the schema its adapters' .world blocks must conform to (Hexagon.Verify enforces it). Belongs to its family." do
-    identified_by { name.value }
+  aggregate "Field" do
+    description "One configuration field a family's adapters carry (db, endpoint, timeout_ms, token). The field NAME and its SOURCE — the VALUE lives per-deployment in .world. A family's fields establish the schema its adapters' .world blocks must conform to (Hexagon.Verify enforces it). Belongs to its family."
+    identified_by :name
     attribute :name,   FieldName
     attribute :source, Source, default: { value: "direct" }
 
@@ -143,12 +146,12 @@ Hecks.bluebook "Hexagon", version: "2026.06.16.2" do
 
     command "Declare" do
       role "Framework"
-      description "Declare one config field on a family — its name and source (direct | env | secret). The value is supplied per-deployment in .world ; for env/secret the .world value is the NAME of the env var the runtime resolves at dispatch."
+      goal "Declare one config field on a family — its name and source (direct | env | secret). The value is supplied per-deployment in .world ; for env/secret the .world value is the NAME of the env var the runtime resolves at dispatch."
       attribute :name,   FieldName
       attribute :source, Source, default: { value: "direct" }
-      emits "Declared"
-      then_set :name,   to: :name
-      then_set :source, to: :source
+      emits "FieldDeclared"
+      sets :name
+      sets :source
     end
   end
 
@@ -160,8 +163,9 @@ Hecks.bluebook "Hexagon", version: "2026.06.16.2" do
   # half). A verdict-data key a conforming handler must emit on stdout (k=v)
   # — "payment_ref". Names only ; a conformance test asserts the handler
   # actually emits them. The runtime flattens these to plain names in the IR.
-  aggregate "ProducedField", "One verdict-data key a conforming handler must emit on stdout for its family's port (payment -> payment_ref). The OUTPUT half of the family contract, symmetric with Field. Names only ; a conformance test asserts the handler emits them." do
-    identified_by { name.value }
+  aggregate "ProducedField" do
+    description "One verdict-data key a conforming handler must emit on stdout for its family's port (payment -> payment_ref). The OUTPUT half of the family contract, symmetric with Field. Names only ; a conformance test asserts the handler emits them."
+    identified_by :name
     attribute :name, ProducedFieldName
 
     value_object "ProducedFieldName" do
@@ -172,10 +176,10 @@ Hecks.bluebook "Hexagon", version: "2026.06.16.2" do
 
     command "Declare" do
       role "Framework"
-      description "Declare one output field a family's handlers must emit — its name. A conformance test asserts the family's adapters' handlers actually produce it on the success branch."
+      goal "Declare one output field a family's handlers must emit — its name. A conformance test asserts the family's adapters' handlers actually produce it on the success branch."
       attribute :name, ProducedFieldName
-      emits "Declared"
-      then_set :name, to: :name
+      emits "ProducedFieldDeclared"
+      sets :name
     end
   end
 
@@ -187,9 +191,10 @@ Hecks.bluebook "Hexagon", version: "2026.06.16.2" do
   # Always async — the colour is free. Configuration lives in .world.
   # A fulfillment (cross-domain) bind needs NO declared adapter ; it
   # routes via storehouse to a target aggregate that implements directly.
-  aggregate "Adapter", "A concrete async impure implementation (heki, sqlite, shell) of a family. Declares the family it implements — the inverted arrow. Always async ; the colour is free. Configuration lives in .world." do
-    identified_by { name.value }
-    belongs_to Family
+  aggregate "Adapter" do
+    description "A concrete async impure implementation (heki, sqlite, shell) of a family. Declares the family it implements — the inverted arrow. Always async ; the colour is free. Configuration lives in .world."
+    identified_by :name
+    reference_to Family
     attribute :name, AdapterName
     attribute :handler, HandlerPath, default: { value: "" }
 
@@ -214,12 +219,12 @@ Hecks.bluebook "Hexagon", version: "2026.06.16.2" do
 
     command "Declare" do
       role "Framework"
-      description "Declare an adapter — it belongs_to the family it implements, and names the standalone handler the adapter-host execs (empty for in-process persistence adapters). Config is in .world ; cross-domain wiring is the hexagon's job at runtime, so no FQN is stored here."
+      goal "Declare an adapter — it belongs_to the family it implements, and names the standalone handler the adapter-host execs (empty for in-process persistence adapters). Config is in .world ; cross-domain wiring is the hexagon's job at runtime, so no FQN is stored here."
       attribute :name, AdapterName
       attribute :handler, HandlerPath, default: { value: "" }
-      emits "Declared"
-      then_set :name, to: :name
-      then_set :handler, to: :handler
+      emits "AdapterDeclared"
+      sets :name
+      sets :handler
     end
   end
 
@@ -249,9 +254,10 @@ Hecks.bluebook "Hexagon", version: "2026.06.16.2" do
   #     — the fulfillment adapter already knows it routes to the Fulfillment
   #       domain ; the hexagon wires it through storehouse. The binding NEVER
   #       names the other bluebook.
-  aggregate "Binding", "One port's boundary edge wired to an adapter (has_one). References only THIS domain : the port (aggregate) and the triggering event (on). The cross-domain target FQN lives in the adapter, never here — a bluebook never references another bluebook directly." do
-    identified_by { phrase.value }
-    has_one Adapter
+  aggregate "Binding" do
+    description "One port's boundary edge wired to an adapter (has_one). References only THIS domain : the port (aggregate) and the triggering event (on). The cross-domain target FQN lives in the adapter, never here — a bluebook never references another bluebook directly."
+    identified_by :phrase
+    reference_to Adapter
     attribute :phrase,    Phrase
     attribute :aggregate, AggregateRef
     attribute :on,        EventRef, default: { value: "" }
@@ -288,18 +294,18 @@ Hecks.bluebook "Hexagon", version: "2026.06.16.2" do
 
     command "Bind" do
       role "Framework"
-      description "Wire a port (this domain's aggregate) + its triggering event to an adapter (has_one). The adapter holds the FQN it dispatches through storehouse ; the binding never names another bluebook. The how-verb is derived through the adapter's family."
+      goal "Wire a port (this domain's aggregate) + its triggering event to an adapter (has_one). The adapter holds the FQN it dispatches through storehouse ; the binding never names another bluebook. The how-verb is derived through the adapter's family."
       attribute :phrase,    Phrase
       attribute :aggregate, AggregateRef
       attribute :on,        EventRef
       attribute :success,   VerdictRef
       attribute :failure,   VerdictRef
       emits "Bound"
-      then_set :phrase,    to: :phrase
-      then_set :aggregate, to: :aggregate
-      then_set :on,        to: :on
-      then_set :success,   to: :success
-      then_set :failure,   to: :failure
+      sets :phrase
+      sets :aggregate
+      sets :on
+      sets :success
+      sets :failure
     end
   end
 end

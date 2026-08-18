@@ -7,15 +7,13 @@
 # Memory-adapter backed; the .heki binary store writes happen via
 # the standard Hecks persistence layer.
 #
-# Gate:
-#   chris — the creator sets and overrides budget caps. He is the
-#           one who decides how much Miette is allowed to spend
-#           shelling out to Claude/Ollama.
-#
+# Access control: `gate "Budget", :chris do allow ... end` was never a
+# real HecksagonBuilder verb (no gate/allow method exists) -- the
+# bluebook's own `role "Creator"` on SetBudget/OverrideBudget/
+# ClearOverride already says the same thing, and is real access control
+# now that Governance is attached below.
 Hecks.hecksagon "Budget" do
-  adapter :memory
+  uses_framework "Governance"
 
-  gate "Budget", :chris do
-    allow :SetBudget, :OverrideBudget, :ClearOverride
-  end
+  Budget::Budget.persisted_by("Memory")
 end

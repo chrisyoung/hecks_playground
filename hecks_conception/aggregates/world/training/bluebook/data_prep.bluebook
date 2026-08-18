@@ -6,8 +6,9 @@ Hecks.bluebook "DataPrep", version: "2026.04.28.1" do
   # the SplitOnPrep policy — DataPrepared → SplitDataset — both
   # event source and trigger live on this aggregate.
 
-  aggregate "DataPrep", "Transform Bluebooks and transcripts into training format" do
-    identified_by { name.value }
+  aggregate "DataPrep" do
+    description "Transform Bluebooks and transcripts into training format"
+    identified_by :name
     attribute :name,        Name
     attribute :format,      Format
     attribute :total_pairs, PairCount
@@ -35,16 +36,16 @@ Hecks.bluebook "DataPrep", version: "2026.04.28.1" do
 
     command "PrepareData" do
       role "System"
-      description "Convert bluebooks to instruction-response pairs for fine-tuning"
+      goal "Convert bluebooks to instruction-response pairs for fine-tuning"
       attribute :format, Format
       emits "DataPrepared"
-      then_set :format, to: :format
-      then_set :status, to: "prepared"
+      sets :format
+      sets :status, to: "prepared"
     end
 
     command "SplitDataset" do
       role "System"
-      description "Split into train/validation/test sets"
+      goal "Split into train/validation/test sets"
       reference_to(DataPrep)
       emits "DatasetSplit"
     end
@@ -52,6 +53,6 @@ Hecks.bluebook "DataPrep", version: "2026.04.28.1" do
 
   policy "SplitOnPrep" do
     on "DataPrepared"
-    trigger "SplitDataset"
+    trigger SplitDataset
   end
 end

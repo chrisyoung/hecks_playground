@@ -1,4 +1,5 @@
 Hecks.hecksagon "Plan" do
+  uses_framework "Governance"
   Plan::Sprint.persisted_by("Heki")
   Plan::Story.persisted_by("Heki")
   Plan::Task.persisted_by("Heki")
@@ -8,12 +9,25 @@ Hecks.hecksagon "Plan" do
   Plan::Epic.persisted_by("Heki")
   Plan::Project.persisted_by("Heki")
 
-  # Impure edges, hecksagon-first : on Story.RunCheck, run the four done-is-done
-  # checks (all fire on the one command, mirroring the four policies that fired
-  # on StoryChecksRequested). Re-homed from the RunXCheckOnChecksRequested
-  # Process.Spawn policies — the impure edge lives here, not in the bluebook.
-  adapter :exec, name: "check_worktree",      command: "Story.RunCheck", exec: "bin/check-worktree",      result_into: "Hecks::Framework::Cascade::Cascade::Cascade.RecordResult"
-  adapter :exec, name: "check_merged",        command: "Story.RunCheck", exec: "bin/check-merged",        result_into: "Hecks::Framework::Cascade::Cascade::Cascade.RecordResult"
-  adapter :exec, name: "check_tests",         command: "Story.RunCheck", exec: "bin/check-tests",         result_into: "Hecks::Framework::Cascade::Cascade::Cascade.RecordResult"
-  adapter :exec, name: "check_verb_resolves", command: "Story.RunCheck", exec: "bin/check-verb-resolves", result_into: "Hecks::Framework::Cascade::Cascade::Cascade.RecordResult"
+  # Impure edges, hecksagon-first : on Story.RunCheck (emits
+  # StoryChecksRequested), run the four done-is-done checks — all four
+  # subscribe to the SAME event, fanning out via OutboundEvent's documented
+  # "one Record per subscribing adapter". Re-expressed (i780, 2026-08-17)
+  # from the retired `adapter :exec` kwargs form onto the spawn effect port.
+  Plan::Story.spawned_by("CheckWorktree", on: "StoryChecksRequested") do
+    success "Cascade::Cascade.RecordResult"
+    failure "Cascade::Cascade.RecordResult"
+  end
+  Plan::Story.spawned_by("CheckMerged", on: "StoryChecksRequested") do
+    success "Cascade::Cascade.RecordResult"
+    failure "Cascade::Cascade.RecordResult"
+  end
+  Plan::Story.spawned_by("CheckTests", on: "StoryChecksRequested") do
+    success "Cascade::Cascade.RecordResult"
+    failure "Cascade::Cascade.RecordResult"
+  end
+  Plan::Story.spawned_by("CheckVerbResolves", on: "StoryChecksRequested") do
+    success "Cascade::Cascade.RecordResult"
+    failure "Cascade::Cascade.RecordResult"
+  end
 end

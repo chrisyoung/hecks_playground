@@ -1,4 +1,5 @@
 Hecks.hecksagon "DispatchAudit" do
+  uses_framework "Governance"
   DispatchAudit::AuditEntry.persisted_by("Heki")
   DispatchAudit::AuditQuery.persisted_by("Heki")
 end

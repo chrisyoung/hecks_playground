@@ -1,4 +1,5 @@
 Hecks.hecksagon "Macrophage" do
+  uses_framework "Governance"
   Macrophage::Macrophage.persisted_by("Heki")
   Macrophage::BluebookFirst.persisted_by("Heki")
   Macrophage::FixturesRuntime.persisted_by("Heki")

@@ -28,8 +28,9 @@ Hecks.bluebook "Session", version: "2026.05.13.1" do
   # change to the hook surface ; anything that should happen on
   # session end attaches to SessionEnded.
 
-  aggregate "Session", "A being-session — the bounded conversation that opens on SessionStart and closes on SessionEnd. Singleton-per-session ; the id identifies which conversation this is." do
-    identified_by { id.value }
+  aggregate "Session" do
+    description "A being-session — the bounded conversation that opens on SessionStart and closes on SessionEnd. Singleton-per-session ; the id identifies which conversation this is."
+    identified_by :id
 
     attribute :id,              SessionId
     attribute :state,           SessionState, default: { value: "pending" }
@@ -66,31 +67,31 @@ Hecks.bluebook "Session", version: "2026.05.13.1" do
 
     command "Begin" do
       role "Framework"
-      description "Start a new being-session. Fired by the SessionStart shell hook through the MCP universal door (storehouse__dispatch with command: 'Session::Session.Begin'). Carries the session id assigned by the harness ; emits SessionBegan, which the ComposeWakeReviewOnBegin policy fans out to Wake::WakeReview.ComposeWakeReview. Idempotent against re-firing within the same id."
+      goal "Start a new being-session. Fired by the SessionStart shell hook through the MCP universal door (storehouse__dispatch with command: 'Session::Session.Begin'). Carries the session id assigned by the harness ; emits SessionBegan, which the ComposeWakeReviewOnBegin policy fans out to Wake::WakeReview.ComposeWakeReview. Idempotent against re-firing within the same id."
       attribute :id,        SessionId
       attribute :began_at,  Timestamp
       emits "SessionBegan"
-      then_set :id,        to: :id
-      then_set :began_at,  to: :began_at
-      then_set :state,     to: "active"
+      sets :id
+      sets :began_at
+      sets :state,     to: "active"
     end
 
     command "End" do
       role "Framework"
-      description "Close the current being-session. Fired by the SessionEnd hook (or manually). Emits SessionEnded so closing policies — journal stamps, conversation-state writes, end-of-session summaries — can attach without touching the hook surface. The wake-side counterpart of Begin."
+      goal "Close the current being-session. Fired by the SessionEnd hook (or manually). Emits SessionEnded so closing policies — journal stamps, conversation-state writes, end-of-session summaries — can attach without touching the hook surface. The wake-side counterpart of Begin."
       reference_to(Session)
       attribute :ended_at, Timestamp
       emits "SessionEnded"
-      then_set :ended_at, to: :ended_at
-      then_set :state,    to: "ended"
+      sets :ended_at
+      sets :state,    to: "ended"
     end
 
     command "RebuildContext" do
       role "Framework"
-      description "Reconstruct working session context by QUERYING the storehouse — active sprint + board, in-progress cards, discipline decisions (which are cards), and recent commits — into the /tmp/session_recall.md surface the UserPromptSubmit hook reads on the next turn. The wake-ritual pattern extended from boot to mid-session : a /clear or compaction is RECOVERABLE because context is regenerated from durable state, not the lossy conversation window. Pure command — it stamps last_rebuilt_at and emits ContextRebuilt ; the RunRecallOnContextRebuilt policy fans out the actual reconstruction to the session-recall program via the generic Process.Spawn primitive (adapters-as-bluebook, the same shape Inbox.Check uses). Callable on demand through the door (storehouse__dispatch Session::Session.RebuildContext) AND fired by the SessionStart hook on every clear/restart. Identity-light : it does not depend on a prior Begin, so it works on a cold boot before any session lifecycle exists."
+      goal "Reconstruct working session context by QUERYING the storehouse — active sprint + board, in-progress cards, discipline decisions (which are cards), and recent commits — into the /tmp/session_recall.md surface the UserPromptSubmit hook reads on the next turn. The wake-ritual pattern extended from boot to mid-session : a /clear or compaction is RECOVERABLE because context is regenerated from durable state, not the lossy conversation window. Pure command — it stamps last_rebuilt_at and emits ContextRebuilt ; the RunRecallOnContextRebuilt policy fans out the actual reconstruction to the session-recall program via the generic Process.Spawn primitive (adapters-as-bluebook, the same shape Inbox.Check uses). Callable on demand through the door (storehouse__dispatch Session::Session.RebuildContext) AND fired by the SessionStart hook on every clear/restart. Identity-light : it does not depend on a prior Begin, so it works on a cold boot before any session lifecycle exists."
       attribute :rebuilt_at, Timestamp
       emits "ContextRebuilt"
-      then_set :last_rebuilt_at, to: :rebuilt_at
+      sets :last_rebuilt_at, to: :rebuilt_at
     end
 
     lifecycle :state, default: "pending" do

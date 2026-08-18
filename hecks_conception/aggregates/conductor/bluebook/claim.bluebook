@@ -2,14 +2,15 @@ Hecks.bluebook "Conductor", version: "2026.06.02.2" do
   vision "The Conductor domain : workforce orchestration. The Claim aggregate is the atomic hold — the mutex that serialises story assignment. One Claim per story, identified by the story identity. Belongs to a Worker."
   category "framework"
 
-  aggregate "Claim", "The atomic hold on a story — the structural mutex. Identified by the story it guards. At most one Claim may be in state=held per story (invariant). Belongs to the Worker that holds it." do
-    identified_by { story.value }
+  aggregate "Claim" do
+    description "The atomic hold on a story — the structural mutex. Identified by the story it guards. At most one Claim may be in state=held per story (invariant). Belongs to the Worker that holds it."
+    identified_by :story
 
     attribute :story,       Story
     attribute :state,       State,      default: { value: "open" }
     attribute :claimed_at,  ClaimedAt
 
-    belongs_to Worker
+    reference_to Worker
 
     value_object "Story" do
       attribute :value, String
@@ -26,31 +27,31 @@ Hecks.bluebook "Conductor", version: "2026.06.02.2" do
 
     command "Acquire" do
       role "System"
-      description "Acquire a claim on a story for a worker. Acquires only when the story has no active (held) claim - the structural mutex refusing a second concurrent acquire. Creates the record in state=held and stores the Worker foreign key (references-not-ids : the synthesised belongs_to Worker FK is now live)."
+      goal "Acquire a claim on a story for a worker. Acquires only when the story has no active (held) claim - the structural mutex refusing a second concurrent acquire. Creates the record in state=held and stores the Worker foreign key (references-not-ids : the synthesised belongs_to Worker FK is now live)."
       attribute :story,       Story
       attribute :worker,      Worker
       attribute :claimed_at,  ClaimedAt
       given("the story has no active (held) claim - the structural mutex") { state != "held" }
-      then_set :story,      to: :story
-      then_set :worker,     to: :worker
-      then_set :state,      to: "held"
-      then_set :claimed_at, to: :claimed_at
+      sets :story
+      sets :worker
+      sets :state,      to: "held"
+      sets :claimed_at
       emits "ClaimAcquired"
     end
 
     command "Release" do
       role "System"
-      description "Release the hold on this claim. Transitions state to released."
+      goal "Release the hold on this claim. Transitions state to released."
       reference_to(Claim)
-      then_set :state, to: "released"
+      sets :state, to: "released"
       emits "ClaimReleased"
     end
 
     command "Expire" do
       role "System"
-      description "Expire a claim that was never released (liveness timeout). Transitions state to expired."
+      goal "Expire a claim that was never released (liveness timeout). Transitions state to expired."
       reference_to(Claim)
-      then_set :state, to: "expired"
+      sets :state, to: "expired"
       emits "ClaimExpired"
     end
 

@@ -55,8 +55,9 @@ Hecks.bluebook "Morphology", version: "2026.05.12.1" do
   # have rejected this word. `last_rejected_in` and `last_rejected_at`
   # keep the freshest call site so the eventual fix is locatable.
 
-  aggregate "VerbException", "A word the morphology validator rejected as noun-looking — tracked as runtime evidence so my own grammar can know itself" do
-    identified_by { word.value }
+  aggregate "VerbException" do
+    description "A word the morphology validator rejected as noun-looking — tracked as runtime evidence so my own grammar can know itself"
+    identified_by :word
     attribute :word,             Word
     # status: pending | confirmed | promoted
     attribute :status,           Status, default: { value: "pending" }
@@ -111,40 +112,40 @@ Hecks.bluebook "Morphology", version: "2026.05.12.1" do
 
     command "RecordRejection" do
       role "System"
-      description "The morphology validator just rejected this word as noun-looking. Bumps rejection_count and stamps the call site so the eventual fix has provenance."
+      goal "The morphology validator just rejected this word as noun-looking. Bumps rejection_count and stamps the call site so the eventual fix has provenance."
       attribute :word,             Word
       attribute :last_rejected_in, CallSite
       attribute :last_rejected_at, Timestamp
       emits "VerbRejectionRecorded"
-      then_set :word,             to: :word
-      then_set :last_rejected_in, to: :last_rejected_in
-      then_set :last_rejected_at, to: :last_rejected_at
-      then_set :rejection_count, increment: 1
+      sets :word
+      sets :last_rejected_in
+      sets :last_rejected_at
+      sets :rejection_count, increment: 1
     end
 
     command "ConfirmException" do
       role "Creator"
-      description "Confirm this word should be a recognised verb-exception. Moves status to confirmed ; the next promotion step migrates it to the compile-time list."
+      goal "Confirm this word should be a recognised verb-exception. Moves status to confirmed ; the next promotion step migrates it to the compile-time list."
       attribute :word,   Word
       attribute :reason, Reason
       given("not already confirmed") { status == "pending" }
       emits "ExceptionConfirmed"
-      then_set :reason, to: :reason
+      sets :reason
     end
 
     command "PromoteToCompileTime" do
       role "Creator"
-      description "Mark that this word has been moved into validator_shape.fixtures and the validator has been regenerated. Status becomes promoted ; the runtime row remains as audit trail."
+      goal "Mark that this word has been moved into validator_shape.fixtures and the validator has been regenerated. Status becomes promoted ; the runtime row remains as audit trail."
       attribute :word,         Word
       attribute :promoted_at,  Timestamp
       given("must be confirmed first") { status == "confirmed" }
       emits "ExceptionPromoted"
-      then_set :promoted_at, to: :promoted_at
+      sets :promoted_at
     end
 
     command "RemoveException" do
       role "Creator"
-      description "Discard a tracked exception that turned out to be noise. Used when rejection_count was a false alarm or the word stops appearing."
+      goal "Discard a tracked exception that turned out to be noise. Used when rejection_count was a false alarm or the word stops appearing."
       attribute :word, Word
       emits "ExceptionRemoved"
     end
