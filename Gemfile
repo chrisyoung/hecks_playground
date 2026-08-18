@@ -43,7 +43,7 @@ gem "websocket"
 # macrophage). Reviewed and merged straight to the fork's main (Chris,
 # 2026-08-17) -- feat/spawn-effect-port is deleted, this is the real pin
 # now, not provisional.
-gem "hecksagain", git: "https://github.com/chrisyoung/hecks-hecksagain", branch: "main", ref: "74ea7da"
+gem "hecksagain", git: "https://github.com/chrisyoung/hecks-hecksagain", branch: "main", ref: "1cce2d1"
 
 group :development, :test do
   gem "rake"
