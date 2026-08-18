@@ -15,10 +15,12 @@ Hecks.hecksagon "WorktreeRemovedCheck" do
   # `git worktree list` probe once adapter-invocation-with-result lands
   # (hex-invocation-principle / hex-runtime-port-eval-hook).
   adapter "WorktreeRemovedCheck" do
-    driven on "Story.WorktreeUnlocked" do |event|
-      dispatch "Hecks::Plan::Story.RecordWorktreeRemovedCheckResult",
-               story: event.story,
-               ok: true
+    driven on "Plan::Story.WorktreeUnlocked" do |event|
+      dispatch "Plan::Story.RecordWorktreeRemovedCheckResult",
+               with: {
+                 story: "{id}",
+                 ok: true
+               }
     end
   end
 end
