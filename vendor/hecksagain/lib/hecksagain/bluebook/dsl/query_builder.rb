@@ -8,59 +8,25 @@ module Hecksagain
         def initialize(name)
           @name   = name
           @wheres = []
-          @index_hints = []
         end
 
         def description(value) = @description = value
 
-        # `count` -- see IR::Query's own comment.
-        def count = @count = true
-
-        # `median :field` -- the SAME shape as `count` (a scalar
-        # reduction over the filtered set, riding the where-clauses
-        # that already apply), one field further -- deciderate's own
-        # vision names this explicitly ("proves the grown query DSL
-        # (aggregation)"; Consensus.median :estimate -- "the ESTIMATION
-        # answer: the median estimate across a decision's submissions").
-        # See Runtime::QueryInterpreter#call's own comment for the
-        # evaluation side.
-        def median(field) = @median_field = field.to_sym
-
-        # `group_by :field` -- a real, third scalar-reduction shape
-        # alongside `count`/`median`, except it doesn't reduce to ONE
-        # scalar -- it partitions the where-filtered set by `field`'s
-        # value and tallies each partition, matching what deciderate's
-        # own `PerPlayer`/leaderboard queries need ("the player
-        # leaderboard : submissions tallied per player"). See
-        # Runtime::QueryInterpreter#call's own comment for the
-        # evaluation side.
-        def group_by(field) = @group_by_field = field.to_sym
-
-        # `scope_to :field` -- NO-OP stub: "injects a where(player ==
-        # :actor) from the reserved `actor` kwarg the ACL/edge supplies"
-        # (deciderate's own comment) -- real caller-identity-based row
-        # authorization, a security-relevant feature not rushed under
-        # time pressure (same discipline as `success`/`failure`'s
-        # effect-family stubs -- structurally captured so the file
-        # boots, never silently pretended enforced). Needs a real
-        # design pass on how the runtime learns "who is calling."
-        def scope_to(*) = nil
-
         # A query parameter naming another aggregate's own identity
         # (Card.Active's own `Board`, filtering to one board's cards) —
         # just a plain attribute typed as a reference,
-        # AttributeCollector#attribute already handling an IR::Reference
+        # AttributeCollector#attribute already handling an Reference
         # exactly like any other. No "acts on itself" case to
         # distinguish here the way a command's own reference_to has —
         # a query has no root of its own to act on, only parameters.
         def reference_to(type, as: nil, optional: false)
           target = Naming.demodulise(type)
-          attribute(as || :"#{Naming.snake(target)}_id", IR::Reference.new(target), optional: optional)
+          attribute(as || default_reference_name(target), Reference.new(target), optional: optional)
         end
 
         def build
           seal_cursor
-          IR::Query.new(
+          Query.new(
             name:        @name,
             description: @description,
             attributes:  attributes,
@@ -69,25 +35,58 @@ module Hecksagain
             limit:       @limit,
             offset:      @offset,
             cursor:      @cursor,
-            consistency: @consistency,
-            freshness: @freshness,
             authorization: @authorization,
             null_semantics: @null_semantics,
-            inspection: @inspection,
-            index_hints: @index_hints || [],
-            count: @count || false,
-            median_field: @median_field,
-            group_by_field: @group_by_field
+            inspection: @inspection
           )
         end
 
-        def self.build(name, &block)
+        def self.build(name, owner_attributes: [], &block)
           builder = new(name)
           builder.instance_eval(&block) if block
+          # `send`, not a public call — this isn't a bluebook DSL word (no
+          # author ever writes `derive_from_owner!` inside a query block),
+          # just internal wiring between this class method and the instance
+          # it just built. Kept private below so syntax_conformance_spec's
+          # own "every word QueryBuilder answers is declared" check doesn't
+          # mistake it for one.
+          builder.send(:derive_from_owner!, owner_attributes, block) if block
           builder.build
         end
 
         private
+
+        # A block parameter names one of the OWNER's (the aggregate or entity
+        # this query is declared on) own already-declared attributes —
+        # `query "ForDecision" do |decision| where decision: :decision end`
+        # on Submission, whose own `attribute :decision, DecisionRef` already
+        # says what `decision` is. Restating `attribute :decision, DecisionRef`
+        # a second time inside the query was pure duplication; this derives
+        # the same type from the owner instead. Only fills in a name the block
+        # body did NOT already declare explicitly (checked AFTER instance_eval
+        # runs, so an existing bluebook still spelling it out both ways keeps
+        # working unchanged — this only removes the need to, never refuses
+        # the choice to). A block parameter matching nothing on the owner is
+        # left alone; MetaValidator's own unresolved-attribute check names it,
+        # the same way a typo in a hand-written `attribute` call already does.
+        def derive_from_owner!(owner_attributes, block)
+          block.parameters.each do |kind, param_name|
+            next unless %i[req opt].include?(kind)
+            next if attributes.any? { |a| a.name == param_name }
+
+            owner_attr = owner_attributes.find { |a| a.name == param_name }
+            next unless owner_attr
+
+            # `Attribute.new` DIRECTLY, not the public `attribute(...)` DSL
+            # entry — `owner_attr.type` is already SPELLED (a demodulised
+            # String, `Attribute#spell`'s own doing), not a bareword the
+            # bluebook author typed, so it must not run through
+            # `AttributeCollector#attribute`'s quoted-type refusal (ADR
+            # 0025, "Attributes") — that refusal exists for DSL source
+            # text, not for a type already resolved elsewhere and copied.
+            attributes << Attribute.new(name: param_name, type: owner_attr.type, optional: owner_attr.optional?)
+          end
+        end
 
         # `cursor` parses, round-trips through the IR, and is read by nothing —
         # no interpreter (Memory, Sqlite, Postgres) ever applies it. Refusing

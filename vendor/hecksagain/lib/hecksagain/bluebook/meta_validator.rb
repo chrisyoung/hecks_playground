@@ -43,6 +43,18 @@ module Hecksagain
       # so is a hecksagon — the same reasoning, one file over
       HECKSAGON_GRAMMAR = File.expand_path("../language/hecksagon.bluebook", __dir__).freeze
 
+      # ADR 0026's OWN SEAM: THE CORE DOES NOT NAME ITS EXTENSION POINTS.
+      #
+      # A sub-language chapter (Paging, so far the only one) is an ORDINARY
+      # bluebook — declared with the same `aggregate`/`value_object`/
+      # `attaches_to` words every domain has, judged through the language
+      # the normal way, not bootstrapped raw the way GRAMMAR_FILES is. What
+      # makes it special is only where it LIVES: any file in this directory
+      # is discovered and loaded here, by the directory's own existence,
+      # never by a name this file would have to know. Add a chapter here
+      # and it is attached ; nothing in this file changes.
+      ATTACHED_GRAMMAR_DIR = File.expand_path("../language/bluebook/attaches", __dir__).freeze
+
       # The chapters that ARE the language — loaded raw during bootstrap, then
       # judged through themselves and replaced by their own assembled graphs
       # (see grammar_registry). Each is named after its file : Bluebook describes
@@ -63,7 +75,80 @@ module Hecksagain
       # assembled result (the fixpoint, made load-bearing).
       def self.bootstrapping? = @bootstrapping
 
+      # A CHAPTER MAY BE SPLIT ACROSS FILES, so it cannot be judged until
+      # every file has been read.
+      #
+      # `BluebookBuilder.build` already MERGES — `registry.bluebook_builder
+      # (name)` memoises one builder per chapter name, so nine files each
+      # saying `Hecks.bluebook "Bluebook"` accumulate into one. What it
+      # also does is call `MetaValidator.call` once PER FILE, judging a
+      # chapter that is still eight files short: `Aggregate`'s reference
+      # to `Bluebook` dangles because `Bluebook` has not been declared
+      # yet, and the load dies.
+      #
+      # The language's own grammar has always needed this and got it
+      # privately, through `@bootstrapping` (see load_grammar_into) —
+      # which is exactly why the language could not boot the way the
+      # domains it describes boot. This is that same two-phase load,
+      # available to anything: `Folder#load_domain` reads every
+      # `*.bluebook` inside `defer`, then judges each composed chapter
+      # once, before hecksagons and worlds load (DOMAIN_ORDER already
+      # puts every chapter ahead of those).
+      #
+      # Only chapters DECLARED INSIDE the window are judged afterwards.
+      # Re-judging one already assembled — a framework member pulled in
+      # earlier by `uses_framework`, say — would re-run Assembly and hand
+      # out a second set of classes for a graph something already holds.
+      def self.deferring? = @deferring
+
+      def self.defer
+        previous   = @deferring
+        @deferring = true
+        yield
+      ensure
+        @deferring = previous
+      end
+
+      def self.deferred_chapters = @deferred_chapters ||= []
+
+      def self.judge_deferred!(registry)
+        pending = deferred_chapters.uniq
+        @deferred_chapters = []
+        return unless registry
+
+        pending.each do |name|
+          chapter = registry.bluebook(name)
+          registry.add_bluebook(call(chapter)) if chapter
+        end
+      end
+
       def self.disabled? = ENV["HECKSAGAIN_META_VALIDATION"] == "off"
+
+      # ADR 0025's own prerequisite (docs/dsl-work-slices.md, S0a): a word
+      # a later slice removes from the LIVE grammar must still parse
+      # FROZEN ERA TEXT — `EraGuard.shadow_parse` (runtime/era_guard.rb)
+      # is a plain `Kernel.eval` of stored source, run at boot, at mint,
+      # and during tamper detection, against whatever grammar is live
+      # TODAY, not whatever grammar was live when that text was written.
+      # Judging it again here would refuse history the day a spelling it
+      # used is removed — proved with a rule that already lives ONLY in
+      # the meta-domain, never duplicated as a builder's own `raise
+      # Malformed` (`vision`'s own comment: "moved to the language").
+      #
+      # Mirrors `defer`'s own stack-restore shape, not `disabled?`'s bare
+      # env toggle — this must never leak past the one shadow-parse call
+      # that set it, the same reason `ConstShim.with`/`.active?`
+      # (bluebook/dsl/const_shim.rb) restores in an `ensure` rather than
+      # being flipped and left.
+      def self.shadow_parsing? = @shadow_parsing
+
+      def self.while_shadow_parsing
+        previous        = @shadow_parsing
+        @shadow_parsing = true
+        yield
+      ensure
+        @shadow_parsing = previous
+      end
 
       # The same bluebook judged twice gets the same verdict, and a suite reloads
       # its fixtures constantly — banking alone is ~200 dispatches per build.
@@ -73,7 +158,7 @@ module Hecksagain
       # A world is not a bluebook, so it gets its own door. Same judge, same
       # meta-domain registry — a different artifact and a different language file.
       def self.call_world(world)
-        return world if disabled? || bootstrapping?
+        return world if disabled? || bootstrapping? || shadow_parsing?
 
         key = Digest::SHA256.hexdigest(JSON.generate([world.domain, world.realm, world.latest, world.settings]))
         refusals = verdicts[key] ||= WorldJudge.new(world).refusals
@@ -109,42 +194,36 @@ module Hecksagain
       #
       # It stayed unlanded for one wrong belief, worth naming because it looked so
       # much like a wall: that the language may only hold what `to_h` carries.
-      # `ReadModel#to_h` omits a read model's filters, so read-model filtering
-      # seemed impossible to read back —
+      # `ReadModel#to_h` omitted a read model's filters until 2026-08-11, so
+      # read-model filtering seemed impossible to read back —
       # and hoisted policies lost which head declared them for the same reason.
       # But `to_h` is a PROJECTION and the language is the
       # SOURCE. They must agree about everything to_h spells ; they need not be the
-      # same size. Both are held now, as declarations the wire format never sees, and
-      # the wire format did not move an inch.
+      # same size. Both were held even before the wire format carried them, as
+      # declarations the wire format didn't yet see.
+      #
+      # UPDATE, 2026-08-11: the wire format DID move, on purpose, for a reason
+      # unrelated to this file — a Rust-codegen task needed `wheres`/
+      # `order_by`/`limit` on the wire to compile a read model's real declared
+      # filtering, and the boundary described above was never load-bearing for
+      # THIS mechanism (`option_rows`/`filter_options` in meta_validator/
+      # readings.rb read `node.wheres`/`node.order_by`/`node.limit` off the
+      # live object directly, never off `to_h`), so extending `to_h` changed
+      # nothing here. `ReadModel#to_h` now spells all three explicitly, the
+      # same mechanism `Query#to_h` already used — purely additive, still
+      # agreeing with the language about everything it spells.
       #
       # What is CACHED is the declarations, not the graph. A hash carries no Ruby
       # classes, so a second load of the same chapter assembles fresh ones — which is
       # what `Namespace.install` and `spec/construct_spec` both expect. Caching the
       # graph would hand two boots the same classes.
       def self.call(bluebook)
-        return bluebook if disabled? || bootstrapping?
+        return bluebook if disabled? || bootstrapping? || shadow_parsing?
 
-        # DEFER, DON'T VALIDATE, WHILE THE REGISTRY IS STILL LOADING FILES.
-        # A chapter split across several files (conductor/{claim,worker,...}
-        # .bluebook, all `Hecks.bluebook "Conductor"`) calls `.call` once per
-        # FILE, since `BluebookBuilder#build` runs at the end of every file's
-        # own block — so a file whose content references an aggregate a
-        # LATER file declares (claim.bluebook's `belongs_to Worker`, worker
-        # not yet loaded) judged the partial view alone and refused it, even
-        # though the fully-loaded domain is well-formed. `Loader#boot` marks
-        # its registry `loading = true` for exactly the span this matters,
-        # then re-invokes `.call` once per domain — for real, judged whole —
-        # after every file has loaded (registry.rb's own `loading?` doc has
-        # the full reasoning, including why this is registry state and not
-        # a `bootstrapping?`-style class flag).
-        #
-        # Returning `bluebook` unassembled here, exactly like the
-        # `bootstrapping?` branch above, is deliberate — whatever `Loader#boot`
-        # re-registers via the deferred call is what ends up assembled ; the
-        # intermediate, per-file value only ever needs to be a valid `IR::
-        # Bluebook` for the NEXT file's accumulation, never a judged one.
-        registry = Hecksagain.current_registry
-        return bluebook if registry&.loading?
+        if deferring?
+          deferred_chapters << bluebook.hecks_name
+          return bluebook
+        end
 
         key = Digest::SHA256.hexdigest(JSON.generate(bluebook.to_h))
         held = verdicts[key] ||= hold(bluebook)
@@ -183,7 +262,21 @@ module Hecksagain
           # @bootstrapping, and call() must see bootstrapping? == false to do
           # anything at all.
           LANGUAGE_CHAPTERS.each { |name| registry.add_bluebook(call(registry.bluebook(name))) }
+          load_attached_grammar_into(registry)
           registry
+        end
+      end
+
+      # ATTACHED CHAPTERS LOAD AFTER THE FIXPOINT, NOT DURING BOOTSTRAP —
+      # they are declared IN the language the language just finished
+      # judging itself through, so they are ordinary bluebooks, judged the
+      # ordinary way (`Hecks.bluebook` → `BluebookBuilder#build` →
+      # `MetaValidator.call`, `bootstrapping?` already false). A directory
+      # with nothing in it loads nothing ; this is a no-op until a chapter
+      # is added there.
+      def self.load_attached_grammar_into(registry)
+        Hecksagain.with_registry(registry) do
+          Dir.glob(File.join(ATTACHED_GRAMMAR_DIR, "*.bluebook")).sort.each { |file| Kernel.load(file) }
         end
       end
 

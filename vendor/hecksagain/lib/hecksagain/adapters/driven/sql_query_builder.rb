@@ -1,4 +1,4 @@
-require_relative "../../presentation/value_object_shape"
+require_relative "../../forms/value_object_shape"
 require_relative "../../query_specification/common/null_policy"
 require_relative "../../query_specification/field_path"
 require_relative "../../runtime/errors"
@@ -80,7 +80,22 @@ module Hecksagain
           members = in_members(value)
           return empty_in_clause if members.empty?
 
-          "#{expression} IN (#{members.map { |member| placeholder(binds, member) }.join(', ')})"
+          # BOTH SIDES AS TEXT. `in` is a textual reading everywhere else
+          # — Ports::Query::InMemory#holds? compares `held.to_s` against
+          # stringified members, and `in_members` above stringifies its
+          # own — so a numeric field was the one shape where the engines
+          # could not agree: `in_members` binds '100', while the column
+          # expression yields the number 100, and `100 IN ('100','300')`
+          # is false in SQLite (a json_extract result carries no column
+          # affinity to coerce it) where Memory matched. Casting the
+          # expression rather than typing the members keeps one rule for
+          # every field: no type inference, and `in` means the same thing
+          # on a String, an Integer, and a value-object member.
+          #
+          # `eq`/`gt`/`lt` never had this problem because they bind the
+          # value's OWN type and route through `comparable_expression`,
+          # which Postgres overrides to cast numerics.
+          "CAST(#{expression} AS TEXT) IN (#{members.map { |member| placeholder(binds, member) }.join(', ')})"
         else
           raise ArgumentError, "#{dialect_name} query adapter does not support #{op.inspect}"
         end
@@ -136,7 +151,7 @@ module Hecksagain
                  end
         member ||= if path.empty? && attribute && value_object?(attribute)
                      object = @aggregate.value_object(attribute.type)
-                     Presentation::ValueObjectShape.numeric_member(object)&.name
+                     Forms::ValueObjectShape.numeric_member(object)&.name
                    end
         nested_expression(name, path, member)
       end

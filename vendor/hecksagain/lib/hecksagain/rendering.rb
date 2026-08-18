@@ -22,25 +22,20 @@ module Hecksagain
       when nil then "nil"
       when Hash, Array then JSON.generate(value)
       else
-        # Vendored fix, not (yet) upstream hecksagain (migration plan
-        # task 9): a Hecksagain::Runtime::Value reaching a refusal
-        # message (MutationApplier's own increment/decrement/multiply
-        # `amount`, an Admissibility `current`, ...) had no case here,
-        # falling straight through to Ruby's own #inspect and leaking a
-        # raw object pointer ("#<Hecksagain::Runtime::Value:0x...>")
-        # into an otherwise-correct domain refusal. Duck-typed on
-        # `respond_to?(:to_h)` rather than a `require`d `Runtime::Value`
-        # constant -- `Runtime::Value` itself requires THIS file
-        # (`runtime/value.rb`'s own `require_relative "../rendering"`),
-        # so naming it here would be circular -- the same guard
-        # Resolver#unwrap_scalar already uses for the identical reason.
-        # A single-field wrapper (the overwhelming common case here — an
-        # amount, an id, a lifecycle field) unwraps to its bare scalar,
-        # described recursively ; a genuinely multi-field value renders
-        # as its fields' JSON, same as a bare Hash already does two
-        # lines up. Confirmed live via CircuitBreaker::Breaker.
-        # RecordFailure / MindStream::MindStream.Think (real-dispatch
-        # smoke sweep across miette).
+        # A Hecksagain::Runtime::Value reaching a refusal message (an
+        # arithmetic op's own `amount`/`current`, an Admissibility
+        # `current`, ...) had no case here, falling straight through to
+        # Ruby's own #inspect and leaking a raw object pointer
+        # ("#<Hecksagain::Runtime::Value:0x...>") into an otherwise
+        # correct domain refusal. Duck-typed on `respond_to?(:to_h)`
+        # rather than naming `Runtime::Value` directly — `Runtime::Value`
+        # itself requires THIS file (`runtime/value.rb`'s own
+        # `require_relative "../rendering"`), so naming it here would be
+        # circular. A single-field wrapper (the overwhelming common case
+        # — an amount, an id, a lifecycle field) unwraps to its bare
+        # scalar, described recursively; a genuinely multi-field value
+        # renders as its fields' JSON, same as a bare Hash already does
+        # two lines up.
         if value.respond_to?(:to_h) && !value.is_a?(Hash) && !value.is_a?(Array)
           fields = value.to_h
           fields.size == 1 ? describe(fields.values.first) : JSON.generate(fields)

@@ -10,36 +10,56 @@ module Hecksagain
           @members    = []
         end
 
-        # Vendored no-op stub, not (yet) upstream hecksagain -- see
-        # CommandBuilder/PolicyBuilder's identical stubs.
-        def description(value) = nil
-
-        # moved to the language: a closed set admits a member, on Shape.Close.
+        # THE WRAPPER BLOCK IS GONE (ADR 0025, "Attributes" — "closed sets
+        # lose the wrapper block"). `member` lines are bare now, written
+        # directly in the `value_object` body with no `one_of do ... end`
+        # around them — `build`'s own `closed_set: @closed_set ||
+        # !@members.empty?` already treats a non-empty `@members` as closed,
+        # so nothing else has to change for that to work. A single-field set
+        # has an even shorter spelling: `attribute`'s own `one_of:` keyword
+        # (`AttributeCollector#install_inline_closed_set`, overridden below).
         #
-        # This was called unportable because an empty one_of and no one_of are
-        # both `members: []` in the IR. That was a MODELLING choice, not a law —
-        # an empty attribute NAME survives into the IR and is judged there. So
-        # the IR now records that a closed set was declared, and the language
-        # judges it like everything else.
-        # Vendored disambiguation, not (yet) upstream hecksagain: the bare
-        # word `one_of` names TWO different grammar forms that collide
-        # inside a value_object body specifically -- the closed-set BODY
-        # form (`one_of do member value: "x" end`, this class's own
-        # method) and AttributeCollector's TYPE-position sugar
-        # (`attribute :x, one_of("a", "b")`), needed when a value_object's
-        # OWN attribute wants an inline closed set. Since ValueObjectBuilder
-        # overrides AttributeCollector's `one_of`, the sugar form silently
-        # resolved to this 0-arg method and raised ArgumentError
-        # (hecks_conception's ViolationKind value_object hit this). Args-only
-        # (no block) delegates to `super` -- AttributeCollector's original;
-        # block-only (no args) keeps this class's own closed-set-body
-        # behavior. TODO upstream via hecksagain's own bin/evolve
-        # word-admission process (migration plan task 7).
+        # This also removes a real, documented landmine: the block form
+        # collided with `AttributeCollector#one_of`'s own type-position
+        # method (`one_of("a", "b")`, different arity) the moment both were
+        # mixed into the same builder — a value_object could never actually
+        # use the inline form on one of its own attributes. One `one_of`
+        # method now, not two.
+        #
+        # LEGACY UNDER SHADOW-PARSING (S0a's own bridge) — frozen era text
+        # still writes the block form (2 locations in
+        # `examples/banking/data/eras/banking/1.bluebook`, duplicated once
+        # more in that era's own archive copy), so `EraGuard.shadow_parse`
+        # still needs to read it. `block_given?` is what tells the two
+        # calling shapes apart: the type-position form
+        # (`one_of("a", "b")`) never passes a block, only the wrapper does.
         def one_of(*values, &block)
-          return super(*values) if values.any? && !block
+          unless block
+            # NO VALUES, NO BLOCK is the SCALAR spelling — nonsensical, not
+            # merely inert: it names a closed set with nothing in it. The
+            # original block form caught this by a side effect (`@closed_set
+            # = true` ran unconditionally, before the `if block`), and this
+            # keeps the same refusal rather than letting the call fall
+            # through and silently do nothing.
+            if values.empty?
+              raise Malformed,
+                    "#{@name}'s one_of names no values — one_of(\"a\", \"b\") takes at least one, or " \
+                    "give the attribute its own one_of: [...] for a named closed set"
+            end
+
+            # AttributeCollector's own `one_of(*values)` — Ruby's normal
+            # `super` reaches the included module's method from here.
+            return super(*values)
+          end
+
+          unless MetaValidator.shadow_parsing?
+            raise Malformed,
+                  "#{@name}'s one_of do ... end wrapper is gone — give the single attribute its " \
+                  "own one_of: [...], or write bare member lines with no wrapper for a multi-field set"
+          end
 
           @closed_set = true
-          instance_eval(&block) if block
+          instance_eval(&block)
         end
 
         def member(**fields)
@@ -48,7 +68,7 @@ module Hecksagain
           @members << fields
         end
 
-        def invariant(description = "an invariant holds", &predicate)
+        def invariant(description, &predicate)
           canonical = Ports::Extraction.canonical(predicate)
 
           # moved to the language: given "a rule says what it means", on Shape.Assert
@@ -59,50 +79,22 @@ module Hecksagain
                   "extraction — it would be a rule the IR cannot carry"
           end
 
-          @invariants << IR::Invariant.new(
+          @invariants << Invariant.new(
             description: description,
             canonical:   canonical,
             predicate:   predicate
           )
         end
-        # Vendored alias, not (yet) upstream hecksagain (migration plan
-        # task 8): `rule "description" do ... end` -- 21 files across the
-        # other-20-projects wave (bin-buddy/opt-website/vindiction/
-        # mietteai/...) write this instead of `invariant`. Not a random
-        # guess : this method's OWN existing comment already names "rule"
-        # as the intended word ("moved to the language: given 'a rule
-        # says what it means', on Shape.Assert") -- the alias just
-        # exposes the vocabulary hecksagain's own source already settled
-        # on. TODO upstream via bin/evolve (migration plan task 7):
-        # decide which spelling becomes canonical.
-        alias_method :rule, :invariant
 
         def build
-          # `attribute :size, one_of("small", "large")` INSIDE a value_object
-          # body reaches AttributeCollector#synthesise_closed_set (via the
-          # one_of/#one_of disambiguation this class's own `one_of` method
-          # already fixed — no more ArgumentError on the wrong arity) and
-          # pushes a real closed-set ValueObject onto `closed_sets` — but
-          # `IR::ValueObject.declare` has no member to hold a NESTED value
-          # object at all (unlike IR::Aggregate, which merges its own
-          # `closed_sets` into `value_objects`). Silently dropping it here
-          # left `:size` typed as a reference to a shape that was never
-          # registered anywhere — no crash, no refusal, and `aggregate.
-          # value_object("Size")` simply returned nil the first time anyone
-          # actually looked. Found live via docs/guides/aggregates-and-
-          # value-objects.md's own doctest, which the syntax-level
-          # disambiguation fix turned from "raises ArgumentError" into
-          # "loads clean and is silently broken" — worse, not fixed.
-          # Refused here instead, honestly, until value objects can really
-          # nest one (a structural change well beyond this fix's scope).
-          if closed_sets.any?
+          if @inline_closed_set_field && attributes.size > 1
             raise Malformed,
-                  "#{@name}'s attribute #{closed_sets.first.hecks_name.inspect} names an inline " \
-                  "one_of, which a value object cannot hold — value objects do not nest. " \
-                  "Declare the closed set as its own value_object instead."
+                  "#{@name}'s one_of: on :#{@inline_closed_set_field} only works when it is the " \
+                  "value object's only attribute — #{attributes.size} declared here; write bare " \
+                  "member lines instead for a multi-field set"
           end
 
-          IR::ValueObject.declare(
+          ValueObject.declare(
             name: @name, attributes: attributes,
             invariants: @invariants, members: @members,
             closed_set: @closed_set || !@members.empty?
@@ -113,6 +105,31 @@ module Hecksagain
           builder = new(name)
           builder.instance_eval(&block) if block
           builder.build
+        end
+
+        private
+
+        # THE NEW SPELLING — `attribute :name, String, one_of: %w[...]`,
+        # overriding `AttributeCollector`'s own refusal (every OTHER
+        # includer has no meaningful use for this). PRIVATE, like the
+        # module's own version it overrides — it is a callback `attribute`
+        # invokes on itself, never a word a bluebook author calls by name.
+        # Refuses a SECOND attribute naming one_of: on the same value
+        # object outright — a single-field set names exactly one field, by
+        # construction; two would be structurally ambiguous about which
+        # field each member line belongs to. `build` refuses the OTHER
+        # half of that same rule (this attribute coexisting with unrelated
+        # ones on a multi-field object).
+        def install_inline_closed_set(field, values)
+          if @inline_closed_set_field && @inline_closed_set_field != field
+            raise Malformed,
+                  "#{@name} declares one_of: on more than one attribute (:#{@inline_closed_set_field} " \
+                  "and :#{field}) — a single-field closed set names exactly one"
+          end
+
+          @inline_closed_set_field = field
+          @closed_set = true
+          values.each { |value| member(field => value.to_s) }
         end
       end
     end

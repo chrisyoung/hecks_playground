@@ -23,7 +23,6 @@ require_relative "ports/identity_resolution"
 require_relative "ports/authentication"
 require_relative "ports/access_control"
 require_relative "ports/identity_assignment"
-# Vendored addition, not (yet) upstream hecksagain — the impure edge behind
-# a tool-invocation aggregate (Tools::ShellTool/FileTool/SearchTool). See
-# ports/execution.rb's header for the bug it closes.
+require_relative "ports/agent"
+require_relative "ports/clock"
 require_relative "ports/execution"

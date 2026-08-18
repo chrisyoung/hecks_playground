@@ -48,43 +48,21 @@ module Hecksagain
         # meaning, because the identity is their join.
         def identity_rows(node) = node.identity_paths.map { |path| { value: path } }
 
-        # Through to_h, which is where IR.render_value spells a symbol argument as
+        # Through to_h, which is where Bluebook.render_value spells a symbol argument as
         # ":source". The raw with_spec lost the colon, and a binding that reads an
         # argument became indistinguishable from one carrying a literal string.
         def with_spec_rows(node) = pair_rows(node.to_h[:with_spec])
 
         # Same shape as `with_spec_rows` above, one construct up — a
         # handler's own remembered key/value pairs, through `to_h` for the
-        # same reason (`IR.render_value` spells a symbol argument with its
-        # leading colon, which the raw `remembers` array does not).
+        # same reason (`Bluebook.render_value` spells a symbol argument
+        # with its leading colon, which the raw `remembers` array does
+        # not).
         def remembers_rows(node) = pair_rows(node.to_h[:remembers])
 
         # A read model carries the same options an ask does, plus its filters — see
         # option_rows.
         def read_model_option_rows(node) = option_rows(node, filters: true)
-
-        # A policy's own `where field: value` conditions and `with key,
-        # value` literals — both open maps, the SAME shape Handler's
-        # `remembers`/Dispatch's `with_spec` already are, read through
-        # `to_h` for the same reason those two are: `IR::Policy#to_h`
-        # marks each value with `IR.render_value` (a leading colon for a
-        # Symbol), and reading the OBJECT instead of the wire spelling —
-        # `encode_literal`'s own `.inspect` marking, an earlier version
-        # of this method used — loses nothing on its own, but disagrees
-        # byte-for-byte with what `to_h` already wrote, which is exactly
-        # what `spec/round_trip_spec` compares this against.
-        def policy_wheres_rows(node) = pair_rows(node.to_h[:wheres])
-
-        def policy_with_literals_rows(node) = pair_rows(node.to_h[:with_literals])
-
-        # `for_each`'s own `where:` — the SAME open-map shape as `wheres`
-        # just above, except a value may be a bare Symbol
-        # (`from_event(:field)`, a reference into the triggering event's
-        # own payload) rather than always a literal. `IR.render_value`
-        # marks either correctly: a Symbol prints with its own leading
-        # colon, the exact spelling `Marks#unmark`'s reader already
-        # expects.
-        def policy_for_each_where_rows(node) = pair_rows(node.to_h[:for_each]&.dig(:where))
 
         # The canonical-form table is the expression grammar's, not this chapter's, so
         # the node is not consulted at all.
@@ -114,29 +92,35 @@ module Hecksagain
 
         # EVERY SPECIFICATION OPTION AN ASK CARRIES, flattened to rows.
         #
-        # `offset`, `cursor`, `nulls`, `authorize`, `consistency`, `freshness`,
-        # `inspect_query` and `use_index` are eight options, several compound
-        # (authorize names a policy AND a tenant) and one repeated (an index hint per
-        # occurrence). `extra_options_to_h` already spells every one of them and drops
-        # the absent ones, so this reads that rather than naming them here — a ninth
-        # option needs no change on either side.
+        # `offset`, `cursor`, `nulls`, `authorize` and `inspect_query` are
+        # five options, one compound (authorize names a policy AND a
+        # tenant). `extra_options_to_h` already spells every one of them
+        # and drops the absent ones, so this reads that rather than
+        # naming them here — a sixth option needs no change on either
+        # side.
         #
-        # `at` tells repeated rows apart, so two index hints do not collapse.
-        # `filters: true` adds a read model's wheres, order_by and limit.
+        # `filters: true` adds a read model's wheres, order_by and limit —
+        # `at` tells repeated rows apart, so two wheres do not collapse.
         #
         # THE LANGUAGE MAY HOLD MORE THAN `to_h` CARRIES, and this is where that
-        # matters. `ReadModel#to_h` omits all three — `extra_options_to_h` rejects
-        # them by name. So a read model's filtering has never been in
-        # the wire contract, and I first read that as a wall: if the wire
-        # cannot carry it, the language cannot hold it, and a graph assembled from
-        # the language must lose it.
+        # mattered. Until 2026-08-11, `ReadModel#to_h` omitted all three —
+        # `extra_options_to_h` rejects them by name, still does — so a read
+        # model's filtering had never been in the wire contract, and I first
+        # read that as a wall: if the wire cannot carry it, the language cannot
+        # hold it, and a graph assembled from the language must lose it.
         #
         # That was the wrong conclusion. `to_h` is a PROJECTION ; the language
         # is the SOURCE. They have to agree about everything
-        # to_h spells, not about everything the language knows. Held as option rows,
-        # the filters survive the round trip and the wire format does not move an
-        # inch — so read-model filtering can still become a wire
-        # contract later, deliberately, rather than as a side effect of this.
+        # to_h spells, not about everything the language knows. Held as option
+        # rows, the filters survived the round trip regardless of whether the
+        # wire carried them too — which is exactly why, when a LATER task
+        # (Rust read-model codegen) needed `wheres`/`order_by`/`limit` on the
+        # wire for an unrelated reason, `ReadModel#to_h` could be extended to
+        # spell them (the same mechanism `Query#to_h` already used) without
+        # touching this method at all: this reads `node.wheres`/`node.
+        # order_by`/`node.limit` off the live object directly below
+        # (`filter_options`), never off `to_h`, so the wire format moving did
+        # not move this.
         #
         # Named `wheres`, `order_by` and `limit` so they gather back into exactly the
         # declaration keys the assembly already reads.
@@ -180,23 +164,15 @@ module Hecksagain
           Array(node.mutations).flat_map do |mutation|
             next set_row(mutation) unless mutation.op == :append
 
-            # Vendored addition, not (yet) upstream hecksagain: a bare-symbol
-            # append (`then_set :list, append: :single_value`, appending a
-            # scalar directly rather than a hash of named fields) has no
-            # "field" to iterate -- treat it as one field named :value,
-            # mirroring IR::Command::Mutation#appended_fields's own
-            # vendored fallback. TODO upstream (migration plan task 7).
-            source = mutation.source.is_a?(Hash) ? mutation.source : { value: mutation.source }
-
-            source.map do |field, argument|
-              # Spelled the way IR::Mutation#appended_fields spells it: a symbol bare
-              # because it names an argument, anything else inspected because it IS
-              # the value. `then_set :marks, append: { direction: "out" }` binds a
-              # LITERAL, and storing it raw made it indistinguishable from an
-              # argument called out.
+            mutation.source.map do |field, argument|
+              # Spelled the way Mutation#appended_fields spells it, because
+              # Assembly::Marks reads this row back through the same reader it
+              # reads that field with. `then_set :marks, append: { direction:
+              # "out" }` binds a LITERAL, and storing it raw made it
+              # indistinguishable from an argument called out.
               { target: mutation.target, op: mutation.op, field: field,
                 kind: argument.is_a?(Symbol) ? "argument" : "literal",
-                source: argument.is_a?(Symbol) ? argument.to_s : encode_literal(argument) }
+                source: Literal.render(argument) }
             end
           end
         end
@@ -269,6 +245,13 @@ module Hecksagain
           # "#<struct LimitSpec value=3>".
           return node.limit&.to_h&.fetch(:value, nil) if "#{category}.#{field}" == "Query.limit"
 
+          # `provenance from: {...}` is a HASH offered into a text field, and
+          # handing it over raw let the runtime's own coercion spell it — which
+          # meant Ruby's `Hash#to_s`, whose spelling changed under us between
+          # 3.3 and 3.4. Encoded here, the same way `default:` already is and the
+          # same way Shapes#provenance reads it back.
+          return encode_literal(node.provenance) if field == :provenance
+
           # `identified_by` is no longer a FIELD of any declaration — it is a list,
           # filled by Identify one part at a time, so it is read through `identity_rows`
           # like every other list rather than special-cased here. What this branch
@@ -336,10 +319,13 @@ module Hecksagain
         # `to_s` threw the type away: 0.0 came back "0.0", and `{ value: "good" }`
         # came back its inspect string with nowhere to say it had been a hash. The
         # language already stores code as text — `canonical: "cents >= 0"` — so an
-        # encoding is in keeping; it simply has to be SELF-DESCRIBING. `inspect` is:
-        # a number is bare, a string is quoted, a symbol wears its colon, an object
-        # wears its braces. Shapes#decode_literal reads it back.
-        def encode_literal(value) = value.nil? ? nil : value.inspect
+        # encoding is in keeping; it simply has to be SELF-DESCRIBING. That rule is
+        # now Hecksagain::Literal's, stated once and shared with every other
+        # to_h-bound literal field ; Shapes#decode_literal reads it back.
+        #
+        # nil stays nil rather than becoming "nil": absent is a real answer here,
+        # and the language's own field is optional.
+        def encode_literal(value) = value.nil? ? nil : Literal.render(value)
 
         # The way back out: an aggregate id becomes the type the IR spells. The
         # id is a JOIN of chapter + name (Naming::IDENTITY_JOIN, the same join

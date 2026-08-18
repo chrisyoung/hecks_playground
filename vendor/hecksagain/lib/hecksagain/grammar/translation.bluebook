@@ -6,7 +6,7 @@ Hecks.bluebook "Translation" do
   aggregate "Rule" do
     description "One admitted way a value survives a shape change — its kind, where it reads from, where it writes to, and how it executes in every target that must apply it."
 
-    identified_by { source.value }
+    identified_by :source
 
     attribute :kind,        Kind
     attribute :source,      SourcePath
@@ -20,24 +20,14 @@ Hecks.bluebook "Translation" do
 
     # THE CLOSED SET OF RULE KINDS — declared as members, not a hand-rolled
     # OR-chain, so the set is data a conformance spec can hold the live
-    # builder to (spec/translation_vocabulary_conformance_spec.rb). Eight of
+    # builder to (spec/translation_vocabulary_conformance_spec.rb). Nine of
     # these are TranslationAggregateBuilder's own rule methods ; "retired" is
     # the edge-level declaration (TranslationBuilder#retired), in the set
     # because it is one admitted way a shape survives — by not surviving.
     value_object "Kind" do
-      attribute :value, String
-
-      one_of do
-        member value: "rename"
-        member value: "move"
-        member value: "convert"
-        member value: "drop"
-        member value: "retype"
-        member value: "retired"
-        member value: "compute"
-        member value: "rekey"
-        member value: "unresolved"
-      end
+      attribute :value, String,
+                one_of: ["rename", "move", "convert", "drop", "retype", "retired", "compute", "rekey",
+                         "backfill", "unresolved"]
     end
 
     value_object "SourcePath" do
@@ -86,7 +76,7 @@ Hecks.bluebook "Translation" do
 
       given("a retired rule takes no new executions") { status != "retired" }
 
-      then_set :executions, append: { target: :target, form: :form }
+      sets :executions, append: { target: :target, form: :form }
 
       emits "RuleExecuted"
     end
@@ -115,7 +105,7 @@ Hecks.bluebook "Translation" do
   aggregate "Map" do
     description "One translation edge between two minted eras — the ordered declarations that carry a domain's data across one shape change, sealed before anything boots through it."
 
-    identified_by { domain.value }
+    identified_by :domain
 
     attribute :domain,       DomainName
     attribute :from_shape,   ShapeHash
@@ -184,7 +174,7 @@ Hecks.bluebook "Translation" do
 
       given("a sealed edge takes no further declarations") { status == "drafted" }
 
-      then_set :declarations, append: { kind: :kind, source: :source, destination: :destination }
+      sets :declarations, append: { kind: :kind, source: :source, destination: :destination }
 
       emits "RuleDeclared"
     end

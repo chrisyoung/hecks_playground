@@ -87,39 +87,31 @@ module Hecksagain
         end
 
         # A literal, read back from the self-describing form Readings#encode_literal
-        # wrote. The forms are exactly the five the Primitive vocabulary admits —
-        # String, Integer, Float, TrueClass, FalseClass — plus a symbol, and a flat
+        # wrote — the same reader Assembly::Marks uses, because it is the same
+        # spelling. The forms are exactly the five the Primitive vocabulary admits —
+        # String, Integer, Float, TrueClass, FalseClass — plus a symbol, and an
         # object literal, which is what `to: { value: "good" }` is: a value object's
         # fields written inline.
-        def decode_literal(text)
-          raw = text.to_s
-          return nil if raw.empty?
-          return decode_object(raw)      if raw.start_with?("{") && raw.end_with?("}")
-          return raw[1..-2]              if raw.start_with?('"') && raw.end_with?('"')
-          return raw[1..].to_sym         if raw.start_with?(":")
-          return true                    if raw == "true"
-          return false                   if raw == "false"
-          return raw.to_i                if raw.match?(/\A-?\d+\z/)
-          return raw.to_f                if raw.match?(/\A-?\d+\.\d+\z/)
-
-          raw
-        end
-
-        # Scanned rather than split on ", ", so a quoted value carrying a comma does
-        # not tear in half.
-        def decode_object(raw)
-          raw.scan(/:(\w+)=>("[^"]*"|[^,}]+)/).to_h do |key, value|
-            [key.to_sym, decode_literal(value.strip)]
-          end
-        end
+        def decode_literal(text) = Literal.read(text)
 
         def rule(row) = { description: text(row[:description]), canonical: text(row[:canonical]) }
 
+        # S12, ADR 0025 — `projects :name, from: :"reference.remote_field"`,
+        # read back the same three plain identifiers `rule` above reads
+        # description/canonical as.
+        def projected_field(row) = { name: text(row[:name]), reference: text(row[:reference]), remote_field: text(row[:remote_field]) }
+
         # `provenance from: {...}` rides the same literal encoding `default:`
-        # does — a flat object literal, self-describing via `inspect` — one
+        # does — an object literal, self-describing via Hecksagain::Literal — one
         # level up: a whole keyword's argument rather than an attribute's
         # `default:`.
         def provenance(row) = decode_literal(text(row[:provenance]))
+
+        # `command "Debit", from: "open"` — the SAME literal encoding
+        # `provenance`/`default:` already ride (S10, ADR 0025), one
+        # state or an array of them, or nil for a command with no
+        # lifecycle guard.
+        def from(row) = decode_literal(text(row[:from]))
 
         # THE OPTION ROWS, GATHERED BACK into the shapes `extra_options_to_h` spells.
         #
@@ -145,9 +137,9 @@ module Hecksagain
         # The IR keeps a where's field as a STRING, not a symbol — it is read back
         # out, never called. The value stays RAW TEXT here on purpose : this
         # feeds the declaration hash Assembly::Marks#where_clause decodes
-        # from (via `unmark`), and decoding twice is worse than once — a
+        # from (via `read`), and decoding twice is worse than once — a
         # kwarg reference (":ceiling") decoded here into the Symbol :ceiling
-        # would have its colon stripped by `unmark`'s own `.to_s` and come
+        # would have its colon stripped by `read`'s own `.to_s` and come
         # back out as the plain string "ceiling", indistinguishable from a
         # literal of the same name. One decode, at the one place that builds
         # the object every comparator actually reads.
@@ -189,6 +181,18 @@ module Hecksagain
         end
 
         def group_by_field(row) = { field: text(row[:field]) }
+
+        # `count`'s own boolean, read back the SAME way `head`'s own
+        # `many` is (`text(row[:many]).to_s == "true"`) — except a
+        # `ReadModel.Count` command is dispatched AT ALL only when
+        # `@count` was truthy (`MetaValidator::Judge#setters` skips a
+        # setter whose every source is absent), so an undeclared read
+        # model's own `count` field never gets written and comes back
+        # `nil` here, never `"false"` — matching `ReadModel#to_h`'s own
+        # `true`/`nil` pair (never `false`) exactly, rather than the
+        # unconditional `true`/`false` `head`'s own `many` needs (every
+        # head DOES get a `Gather` dispatch, declared or derived).
+        def read_model_count(row) = (true if text(row[:count]).to_s == "true")
 
         # THE APPEND FLATTENING, IN REVERSE.
         #

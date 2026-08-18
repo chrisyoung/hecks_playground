@@ -14,14 +14,16 @@ module Hecksagain
 
         def secret(name) = @secrets << name.to_sym
 
-        # i746 step 7 — REAL now, not a stub. `handler "path/to/program"`
-        # names the out-of-process program bin/adapter-host execs when the
-        # bound event fires. Read by HecksagainRuntime.adapter_handler /
-        # the `hecksagain-cli adapter-handler` subcommand.
-        def handler(path) = @handler = path.to_s
+        # `handler "path/to/program"` — the out-of-process program
+        # `bin/adapter-host` execs when this adapter's bound event fires
+        # (Bluebook::Hexagon::Adapter#handler, documented there as "not yet
+        # wired" on the consumer side — but the DSL word must still exist so
+        # a `.adapter` file that declares it parses at all; the Stripe
+        # example this gem ships is written exactly this way).
+        def handler(value) = @handler = value.to_s
 
         def build
-          IR::Adapter.new(name: @name, port: @port, fields: @fields, secrets: @secrets, handler: @handler)
+          Adapter.new(name: @name, port: @port, fields: @fields, secrets: @secrets, handler: @handler)
         end
 
         def self.build(name, &block)

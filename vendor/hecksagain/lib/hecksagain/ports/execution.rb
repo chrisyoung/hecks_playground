@@ -93,6 +93,25 @@ module Hecksagain
       def unwrap(value)
         return value if value.is_a?(String) || value.is_a?(Integer) ||
                         value.is_a?(TrueClass) || value.is_a?(FalseClass) || value.nil?
+
+        # A coerced Runtime::Value answers `.value` directly — the common
+        # case once a command's arguments have passed through
+        # CommandInterpreter. But `perform_execution` is called with the
+        # DISPATCH's own raw kwargs (Dispatcher#dispatch never rebinds
+        # `args` to the coerced form), so a single-field value-object
+        # attribute just as often arrives here as the plain
+        # `{ value: "..." }` shorthand the DSL itself accepts at the call
+        # site — unwrapped the same way, one key deep, before falling
+        # through to `.value`/`.to_s`. A genuinely multi-field hash (no
+        # bare `:value` key) is passed through field by field rather than
+        # collapsed to a single scalar, so an adapter reading more than
+        # one of its own fields still can.
+        if value.is_a?(Hash)
+          return unwrap(value[:value]) if value.size == 1 && value.key?(:value)
+
+          return value.transform_values { |v| unwrap(v) }
+        end
+
         return unwrap(value.value) if value.respond_to?(:value)
 
         value.to_s
