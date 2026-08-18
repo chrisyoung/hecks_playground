@@ -13,15 +13,38 @@ Hecks.hecksagon "PrDelivery" do
       dispatch "Hecks::Conductor::Conductor::MergeQueue.StartMerge", with: { story_ref: "{story_ref}" }
     end
   end
-  adapter "MergeAndCompleteOnStarted" do
-    driven on "Hecks::Conductor::Conductor::MergeQueue.MergeStarted" do |event|
-      # REAL merge : squash-merge the story's PR (branch sq/<story>) into main
-      # and delete the branch. No canned RecordResult. By the time a story is
-      # approved it already passed the pr_mergeable gate, so the merge is
-      # expected clean. NOTE: failure handling (FailMerge if gh errors) needs
-      # conditional-dispatch (no DSL branch yet) ; CompleteMerge fires after.
-      run "gh pr merge sq/{story_ref} --squash --delete-branch"
-      dispatch "Hecks::Conductor::Conductor::MergeQueue.CompleteMerge", story_ref: "{story_ref}"
-    end
-  end
+  # THE MERGE LEG MOVED (i787) -> hecks_conception/aggregates/conductor/
+  # bluebook/pr_delivery_merge.hecksagon.
+  #
+  # What used to be here: an `adapter "MergeAndCompleteOnStarted"` whose
+  # driven block ran a bare `run "gh pr merge sq/{story_ref} --squash
+  # --delete-branch"` and then dispatched CompleteMerge unconditionally,
+  # right after, regardless of what the merge actually did -- the gap this
+  # file's own comment used to admit ("failure handling needs conditional-
+  # dispatch, no DSL branch yet"). i782 established that `run` is a hard
+  # no-op in the vendored gem (`DrivenCapture#run(_cmd, result_into: nil)
+  # = nil`), so the merge never once executed and the CompleteMerge was
+  # firing on a merge that had not happened.
+  #
+  # It is now a `spawned_by` bind with real success/failure ports, and it
+  # lives in conductor/ because a spawned_by bind is declared in the domain
+  # that owns the aggregate -- the trigger (MergeQueue.MergeStarted) and
+  # both verdict commands are Conductor::MergeQueue's, not Plan's.
+  #
+  # DELETED RATHER THAN LEFT DORMANT, on purpose. This file still sits in a
+  # sibling hecksagons/ directory, which i782 proved is never globbed by
+  # Folder#load_domain at any boot depth -- so everything in it is
+  # structurally invisible today. Had the dead leaf been left in place, the
+  # `git mv` into bluebook/ that the two bindings above still need would
+  # have woken it alongside the new bind and fired CompleteMerge twice per
+  # merge: once unconditionally from here, once from the real verdict.
+  #
+  # STILL OPEN (not i787's scope): the two bindings above are themselves
+  # invisible for the same hecksagons/ reason, so MergeStarted is only ever
+  # emitted by a manual StartMerge dispatch and the merge leg stays dormant
+  # in practice. Moving this file into plan/bluebook/ is what turns
+  # merge-on-approval on end to end, and that is a deliberate behaviour
+  # change (every StoryApproved would auto-enqueue, auto-start, and now
+  # really merge) -- left for an explicit decision rather than folded in
+  # silently here.
 end
