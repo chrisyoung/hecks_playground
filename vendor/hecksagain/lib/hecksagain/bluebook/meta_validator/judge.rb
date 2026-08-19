@@ -100,8 +100,23 @@ module Hecksagain
           nil
         end
 
+        # TWO DOORS, ONE CALLER — `dispatch_entity`, not `dispatch`/
+        # `reenter`, for a dotted verb naming an ENTITY's own command
+        # (several of the meta-domain's own aggregates nest entities,
+        # `ValueObject.Member` among them) : `Dispatcher#dispatch` refuses
+        # that verb shape UNCONDITIONALLY now (EntityDispatchRefused), a
+        # verb string never resolves one at all, no exception for the
+        # Judge's own bootstrap either. The Judge calling `dispatch_entity`
+        # directly is exactly the shape that door exists for — the SYSTEM
+        # materializing the meta-domain from a parsed bluebook, in-process,
+        # never a verb some caller wrote out as text and handed to a
+        # dispatcher. `Runtime::Dispatcher#entity_command?` is the same
+        # classifier `Hecksagain::Fuzzing::Replay` uses to pick a door for
+        # the identical reason (replay.rb's own header).
         def send_to(verb, label, **payload)
-          offer(label) { @runtime.dispatch(verb, **args(payload)) }
+          offer(label) {
+            @runtime.entity_command?(verb) ? @runtime.dispatch_entity(verb, **args(payload)) : @runtime.dispatch(verb, **args(payload))
+          }
         end
 
         def judge!

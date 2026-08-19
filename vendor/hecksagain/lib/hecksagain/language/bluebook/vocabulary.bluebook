@@ -187,9 +187,10 @@ Hecks.bluebook "Bluebook" do
     # a refusal list is a bug wearing a refusal's clothes.
     value_object "DomainRefusal" do
       attribute :name, String,
-                one_of: ["AbsentArgument", "AlreadyExists", "AttributeAbsent", "EnsuresNotMet", "GivenNotMet",
-                         "InvariantViolation", "LifecycleRefused", "NotFound", "ProjectionAbsent", "RemoteRefusal",
-                         "TypeMismatch", "Unauthorized", "UnknownArgument", "UnknownVerb"]
+                one_of: ["AbsentArgument", "AlreadyExists", "AttributeAbsent", "EnsuresNotMet",
+                         "EntityDispatchRefused", "GivenNotMet", "InvariantViolation", "LifecycleRefused",
+                         "NotFound", "ProjectionAbsent", "RemoteRefusal", "TypeMismatch", "Unauthorized",
+                         "UnknownArgument", "UnknownVerb"]
     end
 
     # THE WORDING ITSELF, for every DomainRefusal site that is not already
@@ -247,6 +248,9 @@ Hecks.bluebook "Bluebook" do
              template: "{aggregate} holds no list of {entity}"
       member refusal: "UnknownVerb", site: "entity_no_command",
              template: "{entity} has no command {command}"
+      member refusal: "EntityDispatchRefused", site: "direct_dispatch",
+             template: "{entity} is {aggregate}'s own nested entity — its commands run only through " \
+                       "{aggregate}'s own reactions, never dispatched directly"
       member refusal: "UnknownVerb", site: "aggregate_no_command",
              template: "{aggregate} has no command {command}"
       member refusal: "UnknownVerb", site: "port_no_operation",

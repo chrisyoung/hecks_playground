@@ -57,4 +57,9 @@ Hecks.hecksagon "Dispatch" do
     args: ["run", "{{target.bluebook_path}}", "entrypoint={{phrase}}"],
     output_format: :text,
     timeout: 60
+
+  # Explicit persisted_by, restored (i788/i789/i790) -- see
+  # command_bus.hecksagon's own comment on why the bare `adapter :memory`
+  # above no longer synthesizes this on its own.
+  Dispatch::Dispatch.persisted_by("Memory")
 end

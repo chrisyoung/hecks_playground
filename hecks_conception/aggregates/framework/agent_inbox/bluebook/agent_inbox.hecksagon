@@ -61,4 +61,13 @@ Hecks.hecksagon "AgentInbox" do
   # Send -> Poll -> Reply flow function across processes (same reasoning as
   # process_health.hecksagon).
   adapter :heki
+
+  # Explicit persisted_by, restored (i788/i789/i790) -- bare `adapter
+  # :heki` above no longer synthesizes a domain-wide default (see
+  # storehouse/bluebook/command_bus.hecksagon's own comment : `adapter`
+  # is a real defined method now, not method_missing). Both of this
+  # domain's aggregates, explicit, per this comment's own domain-wide
+  # intent.
+  AgentInbox::AgentMessage.persisted_by("Heki")
+  AgentInbox::InboxPoller.persisted_by("Heki")
 end

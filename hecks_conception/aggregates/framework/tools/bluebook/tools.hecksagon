@@ -149,6 +149,46 @@ Hecks.hecksagon "Tools" do
   # Event-sourcing carries actor, verdict, correlation and the hash chain.
   Tools::ShellTool.persisted_by("AppendLog")
 
+  # The remaining 16 aggregates below are the same shape as ShellTool/
+  # FileTool above — invocations as first-class dispatched commands, one
+  # stable id, no lifecycle, description text — so they take the same
+  # AppendLog bind for the same reason: the act HAPPENED, it doesn't get
+  # updated, so it belongs in the Log, not a store (i788 read all 21
+  # tools.bluebook aggregates in full to confirm the shape before wiring
+  # this; see hecks/inbox/i788.md). Previously all 19 fell through
+  # `Registry::Verification` with "no persisted_by bind" — masked from
+  # ever surfacing by the boot-time crashes the i788/i789/i790 arc fixed
+  # first (dead `adapter :memory`/`:heki` domain-wide-default sugar,
+  # unmasked once the pin bump to 1cce2d1 landed).
+  Tools::SearchTool.persisted_by("AppendLog")
+  Tools::WebTool.persisted_by("AppendLog")
+  Tools::AgentTool.persisted_by("AppendLog")
+  Tools::EmailTool.persisted_by("AppendLog")
+  Tools::WakeupTool.persisted_by("AppendLog")
+  Tools::MonitorTool.persisted_by("AppendLog")
+  Tools::NotifyTool.persisted_by("AppendLog")
+  Tools::PlanTool.persisted_by("AppendLog")
+  Tools::AskTool.persisted_by("AppendLog")
+  Tools::SkillTool.persisted_by("AppendLog")
+  Tools::LspTool.persisted_by("AppendLog")
+  Tools::MetaTool.persisted_by("AppendLog")
+  Tools::RemoteTriggerTool.persisted_by("AppendLog")
+  Tools::GitTool.persisted_by("AppendLog")
+  Tools::GitHubTool.persisted_by("AppendLog")
+
+  # These three are real exceptions, not append-log-shaped (i788 2b) :
+  # TaskTool has a `status` field and Update/Stop verbs — genuinely
+  # mutable current-state, not write-once. CronTool is a registry that
+  # must be enumerable and survive process restarts (a scheduled job
+  # losing its registration on every boot would silently stop firing).
+  # WorktreeTool tracks an Enter/Exit `branch`/`path` lifecycle, the same
+  # restart-durability concern. All three want real current-state, so
+  # Heki (not AppendLog, not the domain's own Memory default) — same
+  # backend the corpus's other durable-current-state aggregates use.
+  Tools::TaskTool.persisted_by("Heki")
+  Tools::CronTool.persisted_by("Heki")
+  Tools::WorktreeTool.persisted_by("Heki")
+
   # Impure edge, hecksagon-first : on Sidequest.Dispatch, spawn the sub-agent via
   # node bin/sidequest_run.mjs (i707/i708). Re-expressed (i780, 2026-08-17)
   # from the retired `adapter :exec` kwargs form onto the spawn effect port.
@@ -156,4 +196,6 @@ Hecks.hecksagon "Tools" do
     success "Cascade::Cascade.RecordResult"
     failure "Cascade::Cascade.RecordResult"
   end
+  # Same invocation-event shape as the AppendLog block above.
+  Tools::Sidequest.persisted_by("AppendLog")
 end

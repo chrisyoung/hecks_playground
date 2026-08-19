@@ -5,8 +5,38 @@ no submodule/subtree) from:
 
 - **Fork**: https://github.com/chrisyoung/hecks-hecksagain
 - **Branch**: `main`
-- **Commit**: `1cce2d10cea576efd75ff92be81f5b020878d486`
-- **Vendored**: 2026-08-18 (re-vendor #3)
+- **Commit**: `b3a9c1b06d7e35d33f0e2af98b5cd0be3ee59b7c`
+- **Vendored**: 2026-08-18 (re-vendor #4)
+
+## Re-vendor #4 — the two gaps re-vendor #3 knew about and left open
+
+Re-vendor #3's own verification section (below) documented the "known,
+pre-existing" 4/63 failures as inherited gaps, not fixed by that pass:
+`agent_inbox`/`event_sourcing` on `driving on interval`, `tools`/
+`storehouse` on adapter kwargs arity. i788/i789/i790 (2026-08-18, same
+day) independently root-caused both as real gem gaps -- `driving`/`on`/
+`cron`/`interval`/`http_post`/`file_watch` were never defined on
+`DrivingAdapterBuilder`, and `HecksagonBuilder#adapter(name, &block)`
+had no `**opts` to absorb the corpus's several legacy kwargs-form
+`adapter` calls. Fast-forward-merged straight onto the fork's `main`
+(`7ece5ef8` -> `b3a9c1b0`, one commit, two files) as the smallest patch
+that closes both -- `driving_adapter_builder.rb` gains the `driving`
+DSL mirroring `driven`'s existing shape (populates `Bluebook::
+DrivingHandler`, already carried/merged by the runtime, never before
+populated by any DSL), `hecksagon_builder.rb#adapter` takes `**_opts`
+(swallowed, unread -- turns the crash into the same no-op a bare
+`adapter :symbol` already is, not new semantics). Re-vendored from
+`1cce2d1` straight to `b3a9c1b0`, a strict fast-forward (29 files
+changed, +523/-252, all upstream drift between the two commits plus
+these two files) -- no 3-way merge needed, this directory carried no
+local-only content per re-vendor #3's own check.
+
+**Validate sweep improved**: `HecksagainRuntime.validate("hecks_conception")`
+now reports **64 valid / 0 invalid** (was 60/64 against this same
+corpus under the OLD `git:`-pinned `74ea7da` baseline, or 59/63 against
+re-vendor #3's `1cce2d1`) -- see hecks/inbox/i790.md for the full
+investigation, including the bluebook-content persisted_by wiring gaps
+this gem fix unmasked and that a separate commit closes.
 
 `rust/` and `storehouse/` are explicitly NOT vendored here and never have
 been — only `lib/` + `hecksagain.gemspec`. The `bin/` and `rust/`

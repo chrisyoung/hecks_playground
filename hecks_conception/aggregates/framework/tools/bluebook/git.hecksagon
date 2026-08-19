@@ -9,6 +9,15 @@ Hecks.hecksagon "Git" do
 
   adapter :memory
 
+  # `adapter :memory` above is inert (no domain-wide-default sugar left
+  # for it — see command_bus.hecksagon's own comment, same shape). Same
+  # invocation-event shape as ShellTool/FileTool (tools.hecksagon) — the
+  # act HAPPENED, nothing updates it — so AppendLog, not Memory, honors
+  # the file's own original intent of "don't grow a store" without
+  # silently discarding the audit trail tools.hecksagon's own history
+  # (i728) already learned the hard way (i788/i789/i790).
+  Git::Git.persisted_by("AppendLog")
+
   Git::Git.spawned_by("GitStatus", on: "StatusChecked") do
     success "Cascade::Cascade.RecordResult"
     failure "Cascade::Cascade.RecordResult"

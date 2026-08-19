@@ -46,6 +46,9 @@ module Hecksagain
           "{aggregate} holds no list of {entity}",
         %w[UnknownVerb entity_no_command] =>
           "{entity} has no command {command}",
+        %w[EntityDispatchRefused direct_dispatch] =>
+          "{entity} is {aggregate}'s own nested entity — its commands run only through " \
+          "{aggregate}'s own reactions, never dispatched directly",
         %w[UnknownVerb aggregate_no_command] =>
           "{aggregate} has no command {command}",
         %w[UnknownVerb port_no_operation] =>

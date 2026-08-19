@@ -29,4 +29,9 @@ Hecks.hecksagon "Query" do
   # subscriber (Spring REPL, Glass palette) can read values via the
   # same surface other consumers do.
   adapter :memory
+
+  # Explicit persisted_by, restored (i788/i789/i790) -- see
+  # command_bus.hecksagon's own comment on why the bare `adapter :memory`
+  # above no longer synthesizes this on its own.
+  Query::Query.persisted_by("Memory")
 end

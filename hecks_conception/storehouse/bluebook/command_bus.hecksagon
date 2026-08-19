@@ -66,12 +66,18 @@ Hecks.hecksagon "CommandBus" do
     output_format: :text,
     timeout: 60
 
-  # Migration plan task 4: this explicit bind used to duplicate `adapter
-  # :memory` above -- bare `adapter :memory` (no opts, no block) already
-  # triggers HecksagonBuilder's domain-wide-default sugar
-  # (`domain_wide_persisted_by`), synthesizing CommandBus::CommandBus.
-  # persisted_by("Memory") on its own. Restating it explicitly hit "2
-  # authoritative persisted_by bindings, declare exactly one adapter
-  # without a role" -- removed as the genuine duplicate it was, not
-  # worked around.
+  # Migration plan task 4 (superseded, i788/i789/i790): this explicit bind
+  # used to duplicate `adapter :memory` above -- bare `adapter :memory`
+  # (no opts, no block) had triggered HecksagonBuilder's domain-wide-
+  # default sugar (`domain_wide_persisted_by`), synthesizing CommandBus
+  # ::CommandBus.persisted_by("Memory") on its own, back when `adapter`
+  # still fell through to `method_missing` for that. `adapter` is a real,
+  # defined method now (not method_missing) -- the sugar this comment
+  # describes is dead, so the domain-wide default silently stopped
+  # applying and Registry::Verification started failing this aggregate
+  # for a real missing bind, masked from surfacing until the pin bump to
+  # 1cce2d1 (i787/i788/i789/i790) cleared the earlier boot-time crashes.
+  # Restored explicitly rather than re-relying on sugar that no longer
+  # fires.
+  CommandBus::CommandBus.persisted_by("Memory")
 end

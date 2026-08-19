@@ -108,7 +108,25 @@ module Hecksagain
                                                                     port: head, operation: sub.inspect))
               [nil, @port_ops.call(domain, aggregate, operation, args)]
             else
-              @entities.call(domain, aggregate, command_name, args)
+              # THE ENTITY BOUNDARY — an entity's own command shares this
+              # dotted VERB SHAPE, but never resolves through it: dispatched
+              # BY VERB STRING, an entity command refuses UNCONDITIONALLY,
+              # not merely outside a reaction. There is no carve-out for
+              # `reenter` either — that method calls straight back into
+              # THIS one (below), so a policy/saga's own trigger can no
+              # longer name an entity command any more than an external
+              # caller can. `Dispatcher#dispatch_entity` is the ONLY door
+              # that reaches one — never a verb a caller wrote out as
+              # text, always a direct in-process call (the facade's own
+              # generated `Aggregate::Entity.command!` methods are the
+              # ordinary way one gets made ; see docs/guides/entities.md).
+              # `role:` (LedgerEntry.Amend's own `role "Back office"`, in
+              # the banking example) still checks WHO may run this once
+              # `dispatch_entity` is reached — see EntityDispatchRefused's
+              # own header for why that is a narrower question now than
+              # whether an outside caller may reach this AT ALL.
+              raise EntityDispatchRefused, RefusalWording.render("EntityDispatchRefused", "direct_dispatch",
+                                                                  entity: head, aggregate: aggregate_name)
             end
           else
             command = aggregate.command(command_name) ||
@@ -174,6 +192,54 @@ module Hecksagain
         announced.each { |event| @sagas.advance(event, domain) }
 
         announced
+      end
+
+      # THE ONLY DOOR THAT REACHES A NESTED ENTITY'S OWN COMMAND —
+      # `dispatch`, above, refuses `Domain::Aggregate.Entity.Command`
+      # UNCONDITIONALLY, verb-string dispatch never resolves one at all.
+      # This is the door instead: a DIRECT in-process call, never a verb
+      # a caller wrote out as text and handed to `dispatch`/`reenter` —
+      # the facade's own generated `Aggregate::Entity.command!` methods
+      # (facade/surface/entity_door.rb) are the ordinary way one gets
+      # called, application code and a domain's OWN other command bodies
+      # calling it directly being the rest.
+      #
+      # Same verb STRING GRAMMAR `dispatch` itself parses (`parse`,
+      # `Naming.split_verb`) — not a second grammar, the same one,
+      # entered through a different door, the identical reason
+      # `dispatch_port` reuses `resolve_aggregate` rather than inventing
+      # its own aggregate lookup.
+      def dispatch_entity(verb, **args)
+        domain, aggregate_name, dotted = parse(verb)
+        aggregate = resolve_aggregate(domain, aggregate_name, verb)
+
+        instance, announced = @entities.call(domain, aggregate, dotted, args)
+
+        announced.each { |event| @policies.react(event, domain) }
+        announced.each { |event| @sagas.advance(event, domain) }
+
+        Result.new(verb: verb, instance: instance, events: announced)
+      end
+
+      # A READ-ONLY CLASSIFIER, not a second copy of `dispatch`'s own
+      # port-vs-entity branch — a dotted verb is ambiguous on its own
+      # (a port operation and an entity command share the identical
+      # `Domain::Aggregate.Head.Rest` shape), and a caller holding a
+      # step list of verb strings (`Hecksagain::Fuzzing::Replay`'s own
+      # corpus replay, the one caller today) needs to know which DOOR
+      # to call — `dispatch` for a port, `dispatch_entity` for an
+      # entity — before it can call either one. `false` for a plain
+      # (non-dotted) verb or an unresolvable one: nothing this predicate
+      # would refuse FOR, that's `dispatch`'s/`dispatch_entity`'s own job.
+      def entity_command?(verb)
+        domain, aggregate_name, command_name = parse(verb)
+        return false unless command_name.include?(".")
+
+        aggregate = resolve_aggregate(domain, aggregate_name, verb)
+        head = command_name.split(".", 2).first
+        aggregate.port(head).nil?
+      rescue UnknownVerb
+        false
       end
 
       def query(verb, **args)

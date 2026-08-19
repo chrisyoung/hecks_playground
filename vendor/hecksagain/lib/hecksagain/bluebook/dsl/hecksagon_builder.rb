@@ -49,7 +49,20 @@ module Hecksagain
         # call — no port, no family, no adapter contract — so it is built
         # by its own small capturing DSL (DrivingAdapterBuilder) and
         # accumulated here rather than going through `@binds`.
-        def adapter(name, &block)
+        #
+        # `**_opts` (swallowed, unread) absorbs legacy kwargs-form calls
+        # this corpus still has -- `adapter :web_tool, command: "...",
+        # tool: :web_fetch, result_into: "..."` / `adapter :fs, root:
+        # "..."` / `adapter :shell, name:, command:, args:, output_format:,
+        # timeout:`. Those forms predate this driven/driving grammar and
+        # named a genuinely different, still-unbuilt custom-adapter-config
+        # capability (no builder anywhere reads `root:`/`command:`/etc
+        # off an adapter call) -- accepting and discarding them turns a
+        # boot-time ArgumentError into the same silent no-op a bare
+        # `adapter :symbol` already is, rather than inventing semantics
+        # for kwargs nothing consumes. Designing that capability for real
+        # is separate, unstarted work.
+        def adapter(name, **_opts, &block)
           built = DrivingAdapterBuilder.build(name, &block)
           @driven_handlers.concat(built.driven_handlers)
           @driving_handlers.concat(built.driving_handlers)

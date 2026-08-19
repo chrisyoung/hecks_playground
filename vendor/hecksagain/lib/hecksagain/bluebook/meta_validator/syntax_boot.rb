@@ -110,7 +110,12 @@ module Hecksagain
 
             next unless row[:status].to_s == "deprecated"
 
-            runtime.dispatch("Bluebook::Syntax.Keyword.Deprecate", name: v("Syntax"), position: v(index))
+            # `dispatch_entity`, not `dispatch`/`reenter` — Keyword is
+            # Syntax's own nested entity, and a verb string never reaches
+            # one at all now (EntityDispatchRefused, dispatcher.rb), no
+            # exception for this bootstrap's own reactions either. Same
+            # door, same reasoning as Judge#send_to.
+            runtime.dispatch_entity("Bluebook::Syntax.Keyword.Deprecate", name: v("Syntax"), position: v(index))
           end
         end
 
@@ -127,7 +132,9 @@ module Hecksagain
 
             next unless row[:status].to_s == "deprecated"
 
-            runtime.dispatch("Bluebook::Syntax.Argument.Deprecate", name: v("Syntax"), position: v(index))
+            # `dispatch_entity`, same reasoning as admit_keywords' own
+            # Deprecate call just above.
+            runtime.dispatch_entity("Bluebook::Syntax.Argument.Deprecate", name: v("Syntax"), position: v(index))
           end
         end
 

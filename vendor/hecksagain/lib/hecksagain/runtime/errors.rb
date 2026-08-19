@@ -53,6 +53,28 @@ module Hecksagain
     # Runtime::TenantScope.
     class Unauthorized < StandardError; end
 
+    # `Domain::Aggregate.Entity.Command`, dispatched BY VERB STRING —
+    # Dispatcher#dispatch's own boundary, not EntityInterpreter's.
+    # Unconditional : there is no caller this refuses FOR and no caller it
+    # lets through — a nested entity's own command simply never resolves
+    # through `dispatch` (or `reenter`, which only ever calls back into
+    # `dispatch`), no matter who is asking or why. `Dispatcher#
+    # dispatch_entity` is the one door that reaches an entity command, and
+    # it takes a direct in-process call, never a verb string handed to a
+    # dispatcher — see that method's own header, and docs/guides/
+    # entities.md for the facade sugar (`Aggregate::Entity.command!`) built
+    # on top of it. `role:` (LedgerEntry.Amend's own `role "Back office"`,
+    # in the banking example) still means exactly what it always did —
+    # `dispatch_entity` runs EntityInterpreter's full DISPATCH_ORDER,
+    # `refuse_role_mismatch` included, so a caller wrapped in
+    # `Hecksagain.as_caller(role: ...)` is checked the same way any
+    # aggregate command's caller is. What `role:` no longer decides is
+    # WIRE reachability — that boundary is structural now (this refusal),
+    # not role-gated, so a `role:` an entity command declares answers a
+    # narrower question than it used to : "which caller may run this,"
+    # never "may an outside caller reach this at all."
+    class EntityDispatchRefused < StandardError; end
+
     # A Lambda-routed domain's own refusal (rust/host, `Runtime::
     # RemoteDispatcher`), carrying Rust's own refusal text verbatim —
     # NOT yet mapped back to the specific matching class above

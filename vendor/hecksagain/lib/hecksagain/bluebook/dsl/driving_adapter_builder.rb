@@ -17,16 +17,27 @@
 # `for_each:` mirrors a policy's own `for_each` the same way — one
 # dispatch per row a named query answers, instead of one per event.
 #
-# THE DRIVING SIDE (not yet built here): `driving on cron "*/10 * * * *"
-# do |clock| dispatch "..." end` — an external clock reaching IN. Its own
-# grammar and runtime scheduler are a separate, still-pending unit; no
-# `driving` method is defined on this builder, so writing one today
-# raises NoMethodError rather than silently doing nothing — the same
-# failure mode this whole file exists to close for `driven`.
+# THE DRIVING SIDE — `driving on cron "*/10 * * * *" do |clock| dispatch
+# "Domain::Aggregate.Command", field: "value" end` — an external clock
+# reaching IN, the inverse of the driven side above. Grammar only: this
+# builder captures `kind`/`arg`/`dispatch_command` onto Bluebook::
+# DrivingHandler (already carried and merged correctly across a
+# multi-file hecksagon per that struct's own comment in hexagon.rb, ahead
+# of any DSL populating it), same shape `driven` already closes for the
+# event-in direction. No runtime scheduler or `storehouse drive` CLI verb
+# exists yet to actually FIRE these on their `kind`/`arg` schedule — that
+# remains a separate, still-pending unit, same as before this closed the
+# NoMethodError. `dispatch`'s kwargs (field interpolation) are accepted
+# and discarded here, mirroring driven's own known, documented gap (the
+# corpus's `driving on interval` blocks pass them but nothing downstream
+# reads them yet — not attempted here, out of scope for closing the
+# parse-time crash).
 module Hecksagain
   module Bluebook
     module DSL
       class DrivingAdapterBuilder
+        DRIVING_KINDS = %w[cron interval http_post file_watch].freeze
+
         # What `driven`'s own block accumulates — `dispatch`'s command +
         # its `{field}` interpolation map, and the optional `success`/
         # `failure` verdict commands. Not a `Bind`: a driven handler names
@@ -63,6 +74,15 @@ module Hecksagain
           def failure(command) = @failure_command = command.to_s
         end
 
+        # The driving side's own capture — just the dispatch command FQN.
+        # `**` swallows any field-mapping kwargs without reading them (see
+        # header comment: a documented, unfixed gap shared with driven).
+        class DrivingDispatchCapture
+          attr_reader :dispatch_command
+
+          def dispatch(command, **) = @dispatch_command = command.to_s
+        end
+
         attr_reader :driven_handlers, :driving_handlers
 
         def initialize(name)
@@ -71,9 +91,32 @@ module Hecksagain
           @driving_handlers  = []
         end
 
-        # Pure readability sugar — `driven on "..."` reads as a sentence;
-        # `on` itself does nothing but hand back what it was given.
+        # Pure readability sugar — `driven on "..."`/`driving on cron
+        # "..."` both read as a sentence; `on` itself does nothing but
+        # hand back what it was given (a bare event string for `driven`,
+        # a [kind, arg] pair for `driving`, from the DRIVING_KINDS helpers
+        # below).
         def on(value) = value
+
+        # `cron("*/10 * * * *")` / `interval("2s")` / etc. — Ruby parses
+        # `driving on cron "x" do ... end` as `driving(on(cron("x"))) {
+        # ... }`, so these tiny helpers just hand `on` a [kind, arg] pair
+        # to pass straight through to `driving`.
+        DRIVING_KINDS.each do |kind|
+          define_method(kind) { |arg| [kind, arg] }
+        end
+
+        def driving((kind, arg), &block)
+          capture = DrivingDispatchCapture.new
+          capture.instance_eval(&block) if block
+
+          @driving_handlers << DrivingHandler.new(
+            adapter_name:     @name,
+            kind:             kind,
+            arg:              arg,
+            dispatch_command: capture.dispatch_command
+          )
+        end
 
         def driven(event, &block)
           capture = DrivenCapture.new

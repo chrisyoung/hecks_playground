@@ -99,7 +99,7 @@ module Hecksagain
               if question.is_a?(Hash)
                 begin
                   rows = run_filter(runtime, question)
-                  queries << { query: question, rows: rows }
+                  queries << { query: question, rows: rows, instances_at: snapshot_instances(runtime) }
                 rescue => e
                   refusals << { verb: filter_label(question), error: e.message }
                 end
@@ -116,7 +116,8 @@ module Hecksagain
                 # form, no "::") have no reference twin and record only the
                 # one answer.
                 reference = question.include?("::") ? runtime.reference_query(question, **args) : nil
-                queries << { query: question, args: args, rows: rows, reference_rows: reference }
+                queries << { query: question, args: args, rows: rows, reference_rows: reference,
+                             instances_at: snapshot_instances(runtime) }
               rescue *Runtime::DOMAIN_REFUSALS, Bluebook::Expression::EvaluationError => e
                 queries << { query: question, args: args, error: e.message }
                 refusals << { verb: question, error: e.message, kind: e.class.name }
@@ -191,8 +192,28 @@ module Hecksagain
               # step makes, then unbinds — mirrors `Caller.as`'s own
               # `ensure`-restore, so back-to-back steps with different (or
               # no) `role:` never leak into each other.
+              #
+              # `dispatch_entity`, not `dispatch`, for a DOTTED verb that
+              # resolves to an ENTITY's own command — `Dispatcher#dispatch`
+              # refuses that verb shape UNCONDITIONALLY now
+              # (EntityDispatchRefused, dispatcher.rb), a verb string never
+              # reaches one at all, no exception for a corpus script's own
+              # steps either. `dispatch_entity` is the in-process door that
+              # DOES reach one — the corpus replay calling it directly,
+              # exactly the way a generated facade method
+              # (`Aggregate::Entity.command!`) would, is what proves the
+              # entity's own rules still hold, not a special caller-only
+              # allowance. `entity_command?` tells an entity command apart
+              # from a PORT OPERATION sharing the identical dotted wire
+              # shape — a port keeps going through plain `dispatch`
+              # (`Dispatcher#dispatch` resolves a port BEFORE the entity
+              # boundary even runs), so this is not "every dotted verb
+              # gets special treatment," only the ones that actually are
+              # entity commands.
               result = if step["role"]
                          Hecksagain.as_caller(role: step["role"]) { runtime.dispatch(step["verb"], **args) }
+                       elsif runtime.entity_command?(step["verb"])
+                         runtime.dispatch_entity(step["verb"], **args)
                        else
                          runtime.dispatch(step["verb"], **args)
                        end
@@ -239,14 +260,7 @@ module Hecksagain
             end
           end
 
-          instances = {}
-          runtime.registry.bluebooks.each do |domain_name, bluebook|
-            bluebook.aggregates.each do |aggregate|
-              runtime.registry.repository(domain_name, aggregate).all.each do |record|
-                instances["#{domain_name}::#{aggregate.name}##{record.id}"] = record.state
-              end
-            end
-          end
+          instances = snapshot_instances(runtime)
 
           events = runtime.events.map { |event| { name: event.name, aggregate: event.aggregate, id: event.id, payload: event.payload } }
 
@@ -320,6 +334,35 @@ module Hecksagain
       # reference) become the step's own real dispatch outcome — this
       # is a SEPARATE, best-effort read, not part of the step's own
       # control flow.
+      # THE SAME SHAPE `call`'s own end-of-replay block used to build
+      # inline — every persisted record, keyed the way `query_eligible_rows`/
+      # `#eligible_rows` (properties.rb) already expect. Now ALSO called
+      # once PER QUERY STEP (see `call`, above), not only once at the very
+      # end: a query asked at step 1 of a script whose LATER steps go on
+      # to create more records was being checked, by every property that
+      # independently recomputes "the eligible rows," against the FINAL
+      # snapshot — the records that existed AFTER the whole replay, not
+      # the ones that existed when the query actually ran. Found live:
+      # `Banking.accounts_by_kind`, asked as literally the first step of a
+      # 3-step script, correctly answered against zero accounts (none
+      # existed yet) while `group_by_matches_recompute`'s own independent
+      # recompute claimed "1 eligible row" — the ONE account the script's
+      # later two steps went on to create. Each query step now carries
+      # its own `instances_at:` snapshot, taken at the moment it ran, so
+      # every property that recomputes against "the eligible rows" reads
+      # the state as that query actually saw it, not a shared final one.
+      def snapshot_instances(runtime)
+        instances = {}
+        runtime.registry.bluebooks.each do |domain_name, bluebook|
+          bluebook.aggregates.each do |aggregate|
+            runtime.registry.repository(domain_name, aggregate).all.each do |record|
+              instances["#{domain_name}::#{aggregate.name}##{record.id}"] = record.state
+            end
+          end
+        end
+        instances
+      end
+
       def build_guard_check(runtime, verb, args)
         domain_name, aggregate_name, command_name = Naming.split_verb(verb)
         return nil unless command_name && !command_name.include?(".")
@@ -327,7 +370,16 @@ module Hecksagain
         aggregate = runtime.registry.bluebook(domain_name)&.aggregate(aggregate_name)
         command   = aggregate&.command(command_name)
         return nil unless aggregate && command && !command.creates?
-        return nil if command.givens.empty? && !command.from
+
+        # NOTHING TO CHECK, genuinely — not "nothing THIS reproduces yet".
+        # A transition-only guard (no per-command `from:`, no `given`,
+        # only an aggregate `lifecycle do transition ... end` block
+        # naming this command — `Admit`/`Reject`'s own shape) still
+        # counts as something to check now that `admissible_transition`
+        # is reproduced below; skipping it here would just move the
+        # exact gap that call was added to close one line earlier.
+        has_transition = aggregate.lifecycle && aggregate.lifecycle.transitions_for(command.hecks_name).any?
+        return nil if command.givens.empty? && !command.from && !has_transition
 
         reference_key = command.references.to_s.empty? ? nil : Naming.reference_key(command.references)
         id = Runtime::Identity.of(aggregate, args) ||
@@ -341,6 +393,29 @@ module Hecksagain
         rules = Runtime::CommandRules.new(runtime.registry)
         recomputed_kind = begin
           rules.enforce_givens(record.dup, command, args, domain: domain_name, declaring: aggregate)
+
+          # A SECOND, SEPARATE DISPATCH_ORDER STEP — `enforce_givens`
+          # (just above) only ever checks a per-COMMAND `from:` clause
+          # (its own trailing `enforce_lifecycle_guard(declaring, ...)
+          # if declaring` call) — the aggregate's own `lifecycle do
+          # transition "X" => Y, from: Z end` block is a WHOLLY separate
+          # method (`admissible_transition`), called as its own later
+          # DISPATCH_ORDER step (`:enforce_givens` then
+          # `:admissible_transition` — Vocabulary.symbols
+          # ("AggregateDispatchOrder")), not reached from inside
+          # `enforce_givens` at all. Missing this call meant a command
+          # declared with NO per-command `from:` of its own — every real
+          # transition-guarded command in this corpus, `Admit`/`Reject`
+          # included — always recomputed "admitted" no matter the
+          # record's actual state, because the ONE check that would
+          # have refused it was never run. Found live: `Expression::
+          # Expression.Admit`, fuzzed against `lib/hecksagain/grammar`
+          # (a domain the property's own hand-verification — Banking,
+          # Pizzas — never happened to exercise a transition-guarded,
+          # no-per-command-`from:` command against). Called only when
+          # `enforce_givens` didn't already refuse, mirroring the real
+          # pipeline's own "first refusal wins" order exactly.
+          rules.admissible_transition(aggregate, command, record.dup)
           nil
         rescue *GUARD_REFUSAL_CLASSES => e
           e.class.name
