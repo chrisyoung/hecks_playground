@@ -54,16 +54,15 @@ if ARGV.first == "statusline"
   exit 0
 end
 
+# Splits each "k=v" CLI arg into a raw string pair -- NO JSON-guessing here
+# any more (that used to blindly `JSON.parse` every value, which silently
+# corrupted a JSON-shaped `content=...` string written through
+# Tools::FileTool.Write into a decoded Hash before it ever reached the
+# adapter -- see HecksagainRuntime::AttrDecode). `dispatch`/`query` decide
+# per attribute, against the verb's own declared schema, once they know
+# which command or query is being called.
 def parse_kv(pairs)
-  pairs.to_h do |pair|
-    k, v = pair.split("=", 2)
-    parsed = begin
-      JSON.parse(v)
-    rescue JSON::ParserError, TypeError
-      v
-    end
-    [k, parsed]
-  end
+  pairs.to_h { |pair| pair.split("=", 2) }
 end
 
 subcommand, root, *rest = ARGV
