@@ -868,4 +868,64 @@ Hecks.behaviors "Plan" do
     expect ref: "dd1", unresolved_dep_count: 0
   end
 
+  # ---- Board : the one working board — sprint roster + manual card order ----
+
+  test "Board.Open mints the singleton board" do
+    tests "Open", on: "Board"
+    input  name: "board"
+    expect name: "board", emits: ["BoardOpened"]
+  end
+
+  test "Board.PlaceSprint appends to the queued roster" do
+    tests "PlaceSprint", on: "Board"
+    setup  "Open", name: "board-ps"
+    input  name: "board-ps", sprint_ref: "1"
+    expect emits: ["SprintPlacedOnBoard"]
+  end
+
+  test "Board.SetWipLimit sets the board's WIP limit" do
+    tests "SetWipLimit", on: "Board"
+    setup  "Open", name: "board-wip"
+    input  name: "board-wip", wip_limit: 3
+    expect wip_limit: 3, emits: ["WipLimitSet"]
+  end
+
+  # ---- Backlog : ordered intake pool of un-sprinted story refs, per project ----
+
+  test "Backlog.Capture appends a story ref to the ordered pool" do
+    tests "Capture", on: "Backlog"
+    input  project: "plan", story_ref: "bl1"
+    expect project: "plan", emits: ["StoryBacklogged"]
+  end
+
+  test "Backlog.PullToSprint signals a story ref has been pulled into a sprint" do
+    tests "PullToSprint", on: "Backlog"
+    setup  "Capture", project: "plan", story_ref: "bl2"
+    input  project: "plan", story_ref: "bl2"
+    expect emits: ["StoryPulledToSprint"]
+  end
+
+  # ---- UseCase : one generated use case anchored to a Story ----
+
+  test "UseCase.Generate records a generated use case for a story" do
+    tests "Generate", on: "UseCase"
+    input  id: "uc1", story_ref: "dd0", title: "Deploy the warm runtime",
+           narrative: "As a stakeholder I deploy so that the runtime is warm."
+    expect id: "uc1", status: "generated", emits: ["UseCaseGenerated"]
+  end
+
+  test "UseCase.ComposeStep appends an ordered step" do
+    tests "ComposeStep", on: "UseCase"
+    setup  "Generate", id: "uc2", story_ref: "dd0", title: "T", narrative: "N"
+    input  id: "uc2", order: 0, phrase: "Hecks::Plan::Story.Forward", args: "{}"
+    expect emits: ["UseCaseStepComposed"]
+  end
+
+  test "UseCase.Run stamps the use case as ran" do
+    tests "Run", on: "UseCase"
+    setup  "Generate", id: "uc3", story_ref: "dd0", title: "T", narrative: "N"
+    input  id: "uc3", step_count: 1
+    expect status: "ran", emits: ["UseCaseRan"]
+  end
+
 end

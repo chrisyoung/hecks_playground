@@ -611,4 +611,21 @@ Hecks.behaviors "Macrophage" do
            revoked_at:     { value: "2026-06-18T10:01:00Z" }
     expect emits: ["ExemptionRevoked"]
   end
+
+  # ── Warnings aggregate (zero-warning-build enforcement) ──────────
+
+  test "StartSession sets session_started_at on Warnings" do
+    tests "StartSession", on: "Warnings"
+    input  session_started_at: "2026-06-18T10:00:00Z"
+    expect ok: "true"
+  end
+
+  test "Warnings RecordCompilerWarning increments compiler_warnings and total_warnings" do
+    tests "RecordCompilerWarning", on: "Warnings"
+    setup  "StartSession", session_started_at: "2026-06-18T10:00:00Z"
+    input  file_path:    "src/lib.rs",
+           warning_text: "warning: unused variable `x` [unused_variables]",
+           recorded_at:  "2026-06-18T10:00:01Z"
+    expect emits: ["CompilerWarningRecorded"]
+  end
 end
