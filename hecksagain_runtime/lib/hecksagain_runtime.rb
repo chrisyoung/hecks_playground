@@ -22,6 +22,7 @@ require "fileutils"
 require "digest"
 require_relative "behaviors_runner"
 require_relative "validate_sweep"
+require_relative "hecksagain_runtime/attr_decode"
 
 # Vendored addition, not (yet) upstream hecksagain (migration plan task
 # 8): `hecksagain/presentation` is DELIBERATELY not required by `require
@@ -473,6 +474,7 @@ module HecksagainRuntime
   # dispatch_render.mjs's old design, retired by this rewrite).
   def self.dispatch(root, verb, args = {})
     runtime = Hecks.boot(stage_flat_corpus(root), install_facade: false)
+    args    = AttrDecode.decode_args(runtime, verb, args, kind: :command)
     result  = runtime.dispatch(verb, **symbolize(args))
     {
       ok: true,
@@ -497,6 +499,7 @@ module HecksagainRuntime
 
   def self.query(root, verb, args = {})
     runtime = Hecks.boot(stage_flat_corpus(root), install_facade: false)
+    args    = AttrDecode.decode_args(runtime, verb, args, kind: :query)
     rows    = runtime.query(verb, **symbolize(args))
     { ok: true, rows: rows }
   rescue StandardError => e
