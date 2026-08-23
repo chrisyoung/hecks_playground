@@ -32,7 +32,7 @@ module Hecksagain
 
       # `id: @id` LAST, not first — an aggregate is free to declare its own
       # attribute literally named `id` (BurningManPrep's `Item`, `attribute
-      # :id, ItemId`, is real corpus now: `identified_by { id.value }` reads
+      # :id, ItemId`, is real corpus now: `identified_by :id` reads
       # THAT attribute for identity). When it does, `@state[:id]` holds the
       # full wrapped value object, not the bare identity string — merging
       # `@state` on top of `{ id: @id }` let that wrapped VO silently
@@ -95,15 +95,18 @@ module Hecksagain
       # method_missing only runs once Ruby finds no REAL method already
       # answering the name — and every object already answers `freeze` and
       # `send` (Kernel/Object), among others. A verb whose snake-cased name
-      # collides with one of those — `Account::Freeze` -> `freeze`,
+      # collided with one of those — `Account::Freeze` -> `freeze`,
       # `ExternalTransfer::Send` -> `send` in the banking corpus, both real —
-      # silently ran the Kernel method instead of dispatching: no error, no
-      # refusal, the call just did the wrong thing. AggregateDoor's creating
-      # verbs never had this problem because it already defines a real
-      # singleton method per verb; this closes the same gap here.
+      # used to silently run the Kernel method instead of dispatching: no
+      # error, no refusal, the call just did the wrong thing. Defining a
+      # real singleton method per verb closed that; the `!` suffix (every
+      # command, door and Handle alike) closes it a second, permanent way —
+      # `freeze!`/`send!` name nothing Kernel/Object already answers to,
+      # so this exact class of collision cannot recur no matter what a
+      # future domain names a command.
       def define_verb_methods
         @ir.commands.reject(&:creates?).each do |command|
-          define_singleton_method(Naming.snake(command.hecks_name)) do |**args|
+          define_singleton_method("#{Naming.snake(command.hecks_name)}!") do |**args|
             run(command, **args)
           end
         end
@@ -136,6 +139,17 @@ module Hecksagain
       # reference's own accessor name collided with a command's, the verb
       # should win; `initialize` calls this first so `define_verb_methods`
       # defines second and last.
+      # NO DERIVATION LEFT (ADR 0025, "References"): `reference_to`
+      # itself mints the bare attribute name now — `:account`, never
+      # `:account_id` — so the accessor is spelled exactly like the
+      # attribute it reads, with no `_id`-strip or `as:`-suffix rule to
+      # apply first. `piece.account` (a METHOD, defined here) and
+      # `piece[:account]` (`Handle#[]`, bracket access reading the raw
+      # id straight off `@instance`) never collide despite sharing a
+      # name — Ruby dispatches the two completely differently — which is
+      # what makes the OLD "studio_studio" double-suffix workaround
+      # (this method used to force a DIFFERENT name specifically to dodge
+      # that non-collision) unnecessary rather than merely simplified.
       def define_reference_accessors
         @ir.attributes.select(&:reference?).each do |attribute|
           target = attribute.type.resolve
@@ -144,23 +158,12 @@ module Hecksagain
           domain     = @domain
           field      = attribute.name
           target_fqn = "#{domain}::#{target.hecks_name}"
-          accessor   = reference_accessor_name(field, Naming.snake(target.hecks_name))
 
-          define_singleton_method(accessor) do
+          define_singleton_method(field) do
             value = self[field]
             value && Object.const_get(target_fqn).find(value)
           end
         end
-      end
-
-      # `Naming.reference_hop` owns the actual rule now — a cross-aggregate
-      # query's dotted hop needs the identical name (`piece.studio` and
-      # `:"studio_studio.x"` must agree on what "studio" means), so the
-      # rule moved somewhere both callers can reach it rather than stay
-      # duplicated. See Naming.reference_hop's own comment for the
-      # `_id`-strip / `as:`-suffix reasoning this used to carry directly.
-      def reference_accessor_name(attribute_name, target_snake)
-        Naming.reference_hop(attribute_name, target_snake)
       end
     end
   end

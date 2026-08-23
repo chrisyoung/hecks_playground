@@ -14,6 +14,7 @@
 # heki :default convention (rooted at the realm's data dir), so no .world block
 # is needed — the bind alone is the whole wiring.
 Hecks.hecksagon "EventSourcing" do
+  uses_framework "Governance"
   EventSourcing::Event.persisted_by("AppendLog")
 
   # ── The consolidation DRIVER (the driving side of the hexagon) ──────────
@@ -28,7 +29,7 @@ Hecks.hecksagon "EventSourcing" do
   # `storehouse drive` is run against this realm.
   adapter "LogConsolidation" do
     driving on interval "5s" do |clock|
-      dispatch "Hecks::Framework::EventSourcing::EventSourcing::Consolidation.Consolidate",
+      dispatch "EventSourcing::Consolidation.Consolidate",
                consolidation_id: "log"
     end
   end
@@ -47,7 +48,7 @@ Hecks.hecksagon "EventSourcing" do
   # the hot path costs plenty.
   adapter "ProjectionVerification" do
     driving on interval "60s" do |clock|
-      dispatch "Hecks::Framework::EventSourcing::EventSourcing::Verification.Verify",
+      dispatch "EventSourcing::Verification.Verify",
                verification_id: "projection"
     end
   end

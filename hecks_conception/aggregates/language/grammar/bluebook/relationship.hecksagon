@@ -1,3 +1,4 @@
 Hecks.hecksagon "Relationship" do
+  uses_framework "Governance"
   Relationship::Relationship.persisted_by("Heki")
 end

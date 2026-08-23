@@ -13,11 +13,6 @@ module Hecksagain
           @description = value
         end
 
-        def use_index(name)
-          @index_hints ||= []
-          @index_hints << QuerySpecification::Common::IndexHint.new(name: name)
-        end
-
         def reference_to(type, as: nil)
           raise Malformed, "#{@name} already has a projection reference" if @reference_target
           @reference_target = Naming.demodulise(type)
@@ -52,6 +47,32 @@ module Hecksagain
           @group_by = fields.map { |field| { field: field.to_sym } }
         end
 
+        # `count` -- a bare row count over the eligible many-side head's
+        # own rows (after `where`/`order_by`/`limit`/`offset` apply, the
+        # same rows `group_by` itself would nest) -- ANSWERS "how many
+        # match", not "which ones". A sibling REDUCTION to `group_by`,
+        # not a filter: `seal_aggregation` refuses combining it with
+        # `group_by` or with `median`, the same "exactly one many-side
+        # head" rule `seal_group_by` already enforces for the same
+        # reason -- a bare marker, so `@count` is left unset (nil, not
+        # false) rather than defaulted, matching the "ABSENT is not
+        # EMPTY" reading `Lifecycle`'s own optional fields already rely
+        # on for the Judge's setter dispatch (Behaviour::ReadModel#
+        # count?, ReadModelInterpreter#aggregation_target).
+        def count = @count = true
+
+        # `median(field)` -- the median VALUE of one numeric field
+        # across the eligible many-side head's own rows. EVEN COUNT: the
+        # average of its two middle values (the standard definition,
+        # not "the lower of the two") -- see
+        # Runtime::ReadModelInterpreter#median for where that lands and
+        # is documented for a caller. `field` must name a numeric
+        # attribute (a bare numeric primitive, or a value object
+        # carrying one) -- checked once, at read time, by
+        # ReadModelInterpreter#aggregation_target, the same place
+        # `group_by`'s own field names are checked.
+        def median(field) = @median_field = field.to_sym
+
         # `reference_to` is now OPTIONAL — a read model with no root is a
         # BULK one: every `include`d head reads its own aggregate whole
         # (no FK match against a root that doesn't exist), and dispatch
@@ -70,14 +91,15 @@ module Hecksagain
           end
           seal_query_options
           seal_group_by
+          seal_aggregation
           seal_cursor
-          IR::ReadModel.new(name: @name, description: @description, reference_name: @reference_name,
+          ReadModel.new(name: @name, description: @description, reference_name: @reference_name,
                             reference_target: @reference_target, aggregate_heads: @aggregate_heads || [],
                             wheres: @wheres || [], order_by: @order_by, limit: @limit, offset: @offset,
-                            cursor: @cursor, consistency: @consistency, freshness: @freshness,
+                            cursor: @cursor,
                             authorization: @authorization, null_semantics: @null_semantics,
                             inspection: @inspection, group_by: @group_by || [],
-                            index_hints: @index_hints || [])
+                            count: @count, median_field: @median_field)
         end
 
         def self.build(name, &block)
@@ -124,6 +146,40 @@ module Hecksagain
                 "#{@name} declares group_by but includes #{many} many-side " \
                 "aggregates, not exactly one — group_by nests a single collection's " \
                 "own rows; name which one by including only it"
+        end
+
+        # `count`/`median` are the OTHER two reductions a read model may
+        # declare over its one eligible collection — same "exactly one
+        # many-side head" rule as `seal_group_by`, plus a rule
+        # `seal_group_by` doesn't need: a read model reports ONE shape,
+        # so `count` and `median` cannot both be declared, and neither
+        # may combine with `group_by` (nesting rows and reducing them to
+        # a scalar are answers to different questions ; a caller asking
+        # "how many, nested by state" is not a shape this read model
+        # produces today — a real, deliberate scope limit, not an
+        # oversight, the same discipline the rootless model's own
+        # "each head reads independently" limit already documents).
+        def seal_aggregation
+          return unless @count || @median_field
+
+          if @count && @median_field
+            raise Malformed,
+                  "#{@name} declares both count and median — a read model reports " \
+                  "one shape; choose one"
+          end
+          if @group_by&.any?
+            raise Malformed,
+                  "#{@name} declares count/median together with group_by — a read " \
+                  "model reports one shape; choose one"
+          end
+
+          many = Array(@aggregate_heads).count { |head| head[:many] }
+          return if many == 1
+
+          raise Malformed,
+                "#{@name} declares count/median but includes #{many} many-side " \
+                "aggregates, not exactly one — count/median reduce a single " \
+                "collection's own rows; name which one by including only it"
         end
 
         # `cursor` parses, round-trips through the IR, and is read by nothing —

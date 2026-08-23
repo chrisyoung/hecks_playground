@@ -11,11 +11,11 @@ module Hecksagain
         def signal(value) = @signal = value.to_sym
 
         # Vendored addition, not (yet) upstream hecksagain (parser-removal
-        # plan, Phase 1a). See IR::Port's own comment for why this exists.
+        # plan, Phase 1a). See Port's own comment for why this exists.
         def produces(name) = @produces = name.to_sym
 
         def build
-          IR::Port.new(name: @name, verb: @verb, signal: @signal, produces: @produces)
+          Port.new(name: @name, verb: @verb, signal: @signal, produces: @produces)
         end
 
         def self.build(name, &block)

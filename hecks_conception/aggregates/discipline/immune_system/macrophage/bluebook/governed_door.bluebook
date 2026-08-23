@@ -54,8 +54,9 @@ Hecks.bluebook "Macrophage", version: "2026.06.26.2" do
   #     state — mirroring Order.Pending. This rehomes the old Governance::Violation
   #     into the macrophage that owns the governed-door rule.
 
-  aggregate "GovernedDoor", "The governed-door rule : the native->door map (PROJECTED from the command IR via LookupDoor, no stored rows) AND the per-record audit of blocked native-tool attempts (one immutable record per denial). The bluebook of record for what the governed-door hooks redirect to and log." do
-    identified_by { id.value }
+  aggregate "GovernedDoor" do
+    description "The governed-door rule : the native->door map (PROJECTED from the command IR via LookupDoor, no stored rows) AND the per-record audit of blocked native-tool attempts (one immutable record per denial). The bluebook of record for what the governed-door hooks redirect to and log."
+    identified_by :id
 
     # One record per blocked attempt — the denial audit (Pizzas Order shape).
     attribute :id,          Id
@@ -93,17 +94,17 @@ Hecks.bluebook "Macrophage", version: "2026.06.26.2" do
 
     command "Record" do
       role "Hook"
-      description "Record that a denied native tool call was attempted. Dispatched by the governed-door hooks (PreToolUse + PostToolUse) when LookupDoor returns a door for the tool. One immutable record per attempt — the audit trail."
+      goal "Record that a denied native tool call was attempted. Dispatched by the governed-door hooks (PreToolUse + PostToolUse) when LookupDoor returns a door for the tool. One immutable record per attempt — the audit trail."
       attribute :id,          Id
       attribute :tool_name,   ToolName
       attribute :door,        DoorPhrase
       attribute :reason,      Reason
       attribute :occurred_at, OccurredAt
-      then_set :id,          to: :id
-      then_set :tool_name,   to: :tool_name
-      then_set :door,        to: :door
-      then_set :reason,      to: :reason
-      then_set :occurred_at, to: :occurred_at
+      sets :id
+      sets :tool_name
+      sets :door
+      sets :reason
+      sets :occurred_at
       emits "Recorded"
     end
 

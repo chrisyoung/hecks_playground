@@ -5,52 +5,8 @@ module Hecksagain
         ListOf = Struct.new(:type)
         OneOf  = Struct.new(:values)
 
-        # Vendored addition, not (yet) upstream hecksagain (migration plan
-        # task 4): shared by BOTH `AttributeCollector#attribute` (below) AND
-        # `AggregateBuilder#attribute`'s own override, which needs the
-        # CORRECTED name/type BEFORE its own bare-primitive-wrapper decision
-        # runs, not after -- calling `super` too late let `attribute App`
-        # (no `as:`) reach AggregateBuilder's primitive check as `name: :App,
-        # type: String` (the un-fixed shape), which then synthesised a
-        # wrapper VO NAMED "App", colliding with a real hand-written one. A
-        # module_function here is the one place both layers call, instead of
-        # the correction living only where the second caller couldn't reach
-        # it in time. See `attribute`'s own comment for why the check itself
-        # (`/\A[A-Z]/`) is right.
-        def self.resolve_inverted(name, type, as)
-          return [name, type] unless name.is_a?(Symbol) && name.to_s.match?(/\A[A-Z]/)
-
-          [as || Naming.snake(name).to_sym, name]
-        end
-
-        # Vendored addition, not (yet) upstream hecksagain (migration plan
-        # task 8): `attribute :flag, Boolean` -- 55 occurrences across 19
-        # hecks_nursury files. `Boolean` is not a real Ruby constant, so it
-        # resolves through ConstShim's bare identity resolver to the Symbol
-        # `:Boolean`, same mechanism every ordinary type constant already
-        # goes through -- but `PRIMITIVE_CLASSES` (AggregateBuilder) only
-        # recognises actual Ruby classes (`TrueClass`/`FalseClass` among
-        # them), never a Symbol, so `:Boolean` fell straight through to
-        # becoming a literal type NAME string `"Boolean"`, which no
-        # ValueObject anywhere is ever declared under -- "no ValueObject
-        # with ... name Cartography:Datum:Boolean". Shared here (not only
-        # in AggregateBuilder#attribute) because `include AttributeCollector`
-        # reaches value_object/entity/command/query attributes too, and a
-        # bare `Boolean` inside any of THOSE would hit the identical dead
-        # end at type-resolution time, just later and less obviously.
-        # Mapped to `FalseClass` -- arbitrary between the two boolean
-        # classes, but `FalseClass`/`TrueClass` are already treated as
-        # interchangeable everywhere else a boolean primitive is checked
-        # (IR::Attribute::PRIMITIVES lists both), so either name reads a
-        # true/false field correctly. TODO upstream via bin/evolve
-        # (migration plan task 7): a first-class `Boolean` alias, not a
-        # Symbol-sniffing workaround.
-        def self.normalize_boolean_alias(type)
-          return FalseClass if type == :Boolean
-          return ListOf.new(FalseClass) if type.is_a?(ListOf) && type.type == :Boolean
-
-          type
-        end
+        UNSET = Object.new.freeze
+        private_constant :UNSET
 
         def attributes = @attributes ||= []
 
@@ -78,75 +34,80 @@ module Hecksagain
         # TOP-LEVEL constant, so the moment any facade exists, `Vocabulary`
         # resolves to that module and the shim is never asked. A spelling that
         # works only until a facade is built is worse than a quoted one.
-        # Vendored addition, not (yet) upstream hecksagain: 147+ lines in
-        # hecks_conception's storehouse/bluebook/ (framework kernel) write
-        # the INVERTED call shape `attribute TypeConstant, as: :field_name`
-        # (or bare `attribute TypeConstant` with no `as:` at all, name
-        # inferred from the type) instead of `attribute :field_name,
-        # TypeConstant` -- type leads, name comes from `as:` or is derived.
         #
-        # CORRECTED detection, not the original (migration plan task 4): the
-        # original checked "the first positional arg is NOT a Symbol" -- but
-        # `App` (a bare constant reference) resolves through ConstShim's
-        # bluebook-scope resolver (`->(const) { const }`, bluebook_builder.rb)
-        # to the Symbol `:App`, ALWAYS, the same way every ordinary
-        # `attribute :field, TypeConstant` call's OWN type argument already
-        # does. So "not a Symbol" can never be true for a bare constant, and
-        # the original check silently never fired: `attribute App`
-        # (command_bus.bluebook, framework kernel) parsed as `name: :App,
-        # type: String` (default) -- a bogus String field literally NAMED
-        # "App" -- which then hit the aggregate's bare-primitive auto-
-        # synthesis (Part 3a) and tried to mint a wrapper value object ALSO
-        # named "App", colliding with the real, hand-written `value_object
-        # "App" do ... end` a few lines above it ("Declare creates a
-        # ValueObject that already exists").
-        #
-        # The real, reliable signal: a bare-constant-resolved Symbol is
-        # ALWAYS PascalCase (Ruby constants must start uppercase) ; a
-        # literal field-name Symbol (`:app`, `:field_name`) is always this
-        # corpus's own snake_case convention. `/\A[A-Z]/` tells them apart
-        # regardless of whether `as:` was given.
-        # `required:` -- vendored alias, not (yet) upstream hecksagain
-        # (migration plan task 4): `attribute :project, Project, required:
-        # true` (aggregates/plan/bluebook/plan.bluebook, 3 occurrences) --
-        # semantically the exact inverse of `optional:`, different word.
-        # TODO upstream via bin/evolve (migration plan task 7): decide
-        # which spelling becomes canonical.
-        # `logged:` -- vendored addition, not (yet) upstream hecksagain
-        # (migration plan task 4): see IR::Attribute's own comment.
-        # `enum:` -- vendored alias, not (yet) upstream hecksagain
-        # (migration plan task 8): `attribute :value, String, enum:
-        # ["permit", "forbid"]` (pizzeria/domain/authorization.bluebook) --
-        # a Rails-style kwarg spelling of the SAME closed-set concept
-        # `one_of(*values)` already sugars in the type position ; the base
-        # type ("String") is a placeholder the closed set replaces, same
-        # as `one_of`'s own behavior. TODO upstream via bin/evolve
-        # (migration plan task 7): decide the one canonical spelling.
-        def attribute(name, type = String, as: nil, default: nil, optional: false, required: nil,
-                      pattern: nil, admits: nil, logged: true, enum: nil)
-          optional = !required unless required.nil?
-          type = OneOf.new(enum) if enum
-          name, type = AttributeCollector.resolve_inverted(name, type, as)
-          type = AttributeCollector.normalize_boolean_alias(type)
+        # THE TYPE POSITION TAKES A BARE CONSTANT, ALWAYS REQUIRED (ADR 0025,
+        # "Attributes") — omitting it (a mint default of String) and quoting
+        # it as text both refuse now. Neither had a real reason left: no
+        # corpus attribute ever omitted the type, and `ConstShim#const_missing`
+        # (S0b) already resolves a bare, not-yet-declared constant to the
+        # SAME forward reference the quoted form existed for — a bareword
+        # `Name` reaches a value object named "Name" declared later in the
+        # same block exactly as `"Name"` used to, `spell`'s own `to_s`
+        # renders either one identically. Neither form appears in any frozen
+        # era text (checked directly), so both are refused unconditionally —
+        # nothing for `MetaValidator.shadow_parsing?` to answer for.
+        def attribute(name, type = UNSET, default: nil, optional: false, pattern: nil,
+                      admits: nil, one_of: nil)
           # moved to the language: FieldName invariant, on Root.Attribute
+
+          if type.equal?(UNSET)
+            raise Malformed, "#{name} declares no type — attribute :#{name}, SomeType is required, " \
+                              "there is no default"
+          end
+
+          # `list_of("X")` carries the same quoted text one level down — a
+          # bare constant is required there too, checked before it unwraps
+          # below, not after (once unwrapped, a plain String in the `type:`
+          # slot looks identical to one that legitimately belongs there).
+          quoted = type.is_a?(ListOf) ? type.type : type
+          if quoted.is_a?(::String)
+            raise Malformed, "#{name}'s type #{quoted.inspect} is quoted text — give the bare constant " \
+                              "(#{quoted}) instead; a forward reference to a value object declared later " \
+                              "in the same block already resolves without quoting"
+          end
 
           refuse_unshared_pattern(name, pattern) if pattern
 
           type = synthesise_closed_set(name, type) if type.is_a?(OneOf)
           list = type.is_a?(ListOf)
-          attributes << IR::Attribute.new(
+          attributes << Attribute.new(
             name:     name,
             type:     list ? type.type : type,
             list:     list,
             default:  default,
             optional: optional,
             pattern:  pattern,
-            admits:   admits,
-            logged:   logged
+            admits:   admits
           )
+
+          install_inline_closed_set(name, one_of) if one_of
         end
 
         def list_of(type) = ListOf.new(type)
+
+        # `reference_to Account` MINTS `:account` — no `_id` — the default
+        # every `reference_to`-shaped word (`AggregateBuilder`,
+        # `EntityBuilder`, `CommandBuilder#cross_reference`,
+        # `QueryBuilder`, `PortOperationBuilder`, all `include
+        # AttributeCollector`) shares, since dropping the suffix is what
+        # makes `/` a real traversal operator possible at all (ADR 0025,
+        # "References" — a hop crosses at `/`, a field walk crosses at
+        # `.`; deriving the hop name from `account_id` is what made an
+        # explicit operator impossible before).
+        #
+        # LEGACY UNDER SHADOW-PARSING (S0a's own bridge): frozen era text
+        # was minted under the OLD default, and `EraGuard.shadow_parse`
+        # reconstructs a held aggregate's shape to DIFF against the
+        # current one — reading that text through the NEW default would
+        # silently reconstruct the WRONG historical name, not merely
+        # refuse a spelling the way S1's `identified_by` legacy forms do.
+        # This is a mint DEFAULT changing, not a syntax being removed, so
+        # there is nothing to refuse here — only a fork in what gets
+        # minted when `as:` is omitted.
+        private def default_reference_name(target)
+          suffix = MetaValidator.shadow_parsing? ? "_id" : ""
+          :"#{Naming.snake(target)}#{suffix}"
+        end
 
         # A closed set declared INLINE on the attribute:
         #
@@ -165,6 +126,24 @@ module Hecksagain
 
         private
 
+        # `one_of:` NAMES A CLOSED SET ON THE FIELD ITSELF (ADR 0025,
+        # "Attributes") — joining `pattern:`/`admits:` where value
+        # constraints already live, for the one context where it means
+        # anything: a `value_object` block, where it replaces the old
+        # `one_of do member ... end` wrapper for a SINGLE-FIELD set (a
+        # multi-field set still writes bare `member` lines, unwrapped).
+        # `ValueObjectBuilder` overrides this; every other includer
+        # (Aggregate/Entity/Command/Query/PortOperation) inherits this
+        # refusal — those contexts already have the unchanged type-position
+        # form (`attribute :status, one_of("open", "shut")`) for an
+        # anonymous inline set, so `one_of:` naming a *field* there would be
+        # a second spelling of the same idea, not a new one.
+        def install_inline_closed_set(name, _values)
+          raise Malformed,
+                "#{name}'s one_of: only means something inside a value_object — name a closed set " \
+                "with the type-position one_of(...) instead"
+        end
+
         # A pattern is refused AT DECLARATION, not when a value first meets it :
         # a regex whose meaning depends on which engine reads it is a defect in
         # the bluebook, and a bluebook that loads is one whose patterns carry
@@ -180,13 +159,130 @@ module Hecksagain
 
         def synthesise_closed_set(name, one_of)
           type = Naming.pascal(name)
-          closed_sets << IR::ValueObject.declare(
+          closed_sets << ValueObject.declare(
             name:       type,
-            attributes: [IR::Attribute.new(name: :value, type: "String")],
+            attributes: [Attribute.new(name: :value, type: "String")],
             members:    one_of.values.map { |value| { value: value.to_s } },
             closed_set: true
           )
           type
+        end
+
+        # `identified_by :reference` — DERIVING the path instead of spelling
+        # it: `field`'s own already-declared attribute names a value
+        # object, and when that value object holds EXACTLY one field there
+        # is only one thing the identity could ever mean. More than one
+        # field is genuinely ambiguous (which one names the record?) —
+        # refused, naming every candidate, rather than guessing
+        # `.value`-if-present the way an earlier draft of this did
+        # (silently wrong the moment a second field, `pad`, arrives on
+        # what used to be single-field).
+        #
+        # AN IDENTITY HEAD IS A SINGLE-FIELD VALUE OBJECT (auto-unwrapped
+        # here), A BARE SCALAR, OR A REFERENCE (ADR 0025, "References") —
+        # never a list, never a multi-field value object. A reference is
+        # already a scalar id the moment it is stored (`reference_to`
+        # mints a bare attribute, never a nested object), so it resolves
+        # to its own name unchanged, the same as a primitive.
+        #
+        # Shared by AggregateBuilder and EntityBuilder (both include this
+        # module) — each resolves it at its own BUILD time, not at
+        # `identified_by`'s own call time, since every real bluebook
+        # declares identified_by BEFORE the attribute it names, so the
+        # attribute (and its own value-object type) don't exist to look up
+        # yet at that point.
+        def resolve_identity_field!(field, value_objects, context_name)
+          attr = attributes.find { |a| a.name == field }
+
+          # `:id` OR AN `_id`-SUFFIXED NAME WITH NO MATCHING ATTRIBUTE is
+          # not a typo to refuse — it is the language's own WALK-PARENT/
+          # FALLBACK-IDENTITY convention. The `_id` suffix is the meta-
+          # domain's own (the `Command`/`Entity`/`Aggregate` etc. records
+          # identify by `owner_id`/`bluebook_id`/`aggregate_id`, supplied
+          # by the judge's replay rather than declared locally — see
+          # `behavior.bluebook`'s own "owner_id is not a declared
+          # attribute" comment); bare `:id` is `Instance#materialize_
+          # identity!`'s own fallback name (`@aggregate.identified_by ||
+          # :id`) made explicit rather than left implicit — declaring
+          # `identified_by :id` says out loud what omitting `identified_by`
+          # entirely already meant. `reference_to` mints the `_id` suffix
+          # for the same reason `attr.reference?` below resolves bare: an
+          # `_id`(-shaped) name is already a scalar by the language's own
+          # spelling convention, walk-supplied or locally declared alike.
+          return [field.to_s] if attr.nil? && (field.to_s == "id" || field.to_s.end_with?("_id"))
+
+          raise Malformed, "#{context_name}.identified_by :#{field} names no attribute #{context_name} declares" unless attr
+
+          if attr.list?
+            raise Malformed,
+                  "#{context_name}.identified_by :#{field} names a list — an identity must be " \
+                  "a single value, and a list is never one"
+          end
+
+          return [field.to_s] if attr.reference?
+
+          vo = value_objects.find { |v| v.hecks_name.to_s == attr.type.to_s }
+          return [field.to_s] unless vo # a bare primitive type — already itself scalar
+
+          case vo.attributes.size
+          when 1
+            ["#{field}.#{vo.attributes.first.name}"]
+          else
+            raise Malformed,
+                  "#{context_name}.identified_by :#{field} names #{attr.type}, which has " \
+                  "#{vo.attributes.size} fields (#{vo.attributes.map(&:name).join(', ')}) — " \
+                  "a bare field name only derives an identity when its own value object has " \
+                  "exactly one field; give #{context_name} a single-field identity of its own " \
+                  "instead"
+          end
+        end
+
+        # `identified_by PizzaName` — the bare-TYPE form, mirroring
+        # `reference_to`'s own shape exactly: pass the value object, not a
+        # field name, and the attribute itself is MINTED here (no separate
+        # `attribute :name, PizzaName` line needed at all) the same way
+        # `reference_to Team` mints `:team_id` on its own. The minted
+        # attribute's own name is `as:` if given, or `Naming.snake` of the
+        # type otherwise — same convention `reference_to`'s own `as:`
+        # already uses. Requires EXACTLY one field on the value object, for
+        # the identical reason `resolve_identity_field!` does — refused,
+        # naming every candidate, rather than guessing.
+        def resolve_identity_type!(type, as, insert_at, value_objects, context_name)
+          target = Naming.demodulise(type)
+          vo = value_objects.find { |v| v.hecks_name.to_s == target }
+          raise Malformed, "#{context_name}.identified_by names #{target}, which is not a declared value object" unless vo
+
+          if vo.attributes.size != 1
+            raise Malformed,
+                  "#{context_name}.identified_by names #{target}, which has #{vo.attributes.size} " \
+                  "fields (#{vo.attributes.map(&:name).join(', ')}) — identified_by ValueObject only " \
+                  "derives a path when it has exactly one field; write identified_by { field.<field> } " \
+                  "naming the specific one"
+          end
+
+          field = (as || Naming.snake(target)).to_sym
+          # `Attribute.new` DIRECTLY, not the public `attribute(...)` DSL
+          # entry — `target` is `Naming.demodulise`'d TEXT, not a bareword
+          # the bluebook author typed (the type position's own quoted-text
+          # refusal is about DSL source, not internal minting), and `vo`
+          # ITSELF can't be passed either: it is the real, already-built
+          # `ValueObject` subclass, permanently anonymous from Ruby's own
+          # `to_s` (only `hecks_name` carries its name) — `Attribute#spell`
+          # would demodulise it to "#<Class:0x...>", not "PizzaName".
+          attributes << Attribute.new(name: field, type: target)
+          # MOVED to `insert_at` — the attribute count AT THE MOMENT
+          # `identified_by` was actually called, captured by the caller —
+          # not left where `attribute` just appended it. Resolution happens
+          # at BUILD time, after every other attribute in the block has
+          # already run, so appending would put the identity field LAST
+          # regardless of where `identified_by` was actually written.
+          # Most real bluebooks write it first (insert_at 0); one (a
+          # ScheduledPayment corpus member) writes it after a reference_to
+          # and an attribute — this matches either, and whatever a person
+          # hand-writing `attribute field, Type` at that exact point,
+          # the way this used to be required, would have produced.
+          attributes.insert(insert_at, attributes.pop)
+          ["#{field}.#{vo.attributes.first.name}"]
         end
       end
     end

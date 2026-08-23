@@ -14,8 +14,9 @@ Hecks.bluebook "Store", version: "2026.04.28.1" do
   # aggregates moved to mind/ (encoding, recall, forgetting) and
   # body/sleep/ (consolidation).
 
-  aggregate "Store", "A long-term memory entry — one record per stored signal" do
-    identified_by { ref.value }
+  aggregate "Store" do
+    description "A long-term memory entry — one record per stored signal"
+    identified_by :ref
     attribute :ref,        Ref
     attribute :kind,       Kind
     attribute :payload,    Payload
@@ -49,16 +50,16 @@ Hecks.bluebook "Store", version: "2026.04.28.1" do
 
     command "StoreMemory" do
       role "Daemon"
-      description "Save a signal (or any payload) into long-term memory — kind/payload/source/created_at"
+      goal "Save a signal (or any payload) into long-term memory — kind/payload/source/created_at"
       attribute :kind,       Kind
       attribute :payload,    Payload
       attribute :source,     Source
       attribute :created_at, Timestamp
       emits "MemoryStored"
-      then_set :kind,       to: :kind
-      then_set :payload,    to: :payload
-      then_set :source,     to: :source
-      then_set :created_at, to: :created_at
+      sets :kind
+      sets :payload
+      sets :source
+      sets :created_at
     end
   end
 end

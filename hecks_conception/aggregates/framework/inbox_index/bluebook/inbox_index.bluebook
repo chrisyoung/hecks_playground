@@ -76,8 +76,9 @@ Hecks.bluebook "InboxIndex", version: "2026.05.20.1" do
   # worktree ; Recover is the catch-up sweep that re-grounds
   # state against ALL of disk.
 
-  aggregate "InboxIndex", "Singleton substrate for centralized i-number allocation. Owns next_number, the single source of truth for what the next inbox card's i-number should be. Allocate atomically returns + increments ; Reserve takes a contiguous range ; Recover re-scans disk to reclaim drifted state. Effectively a singleton — there is one inbox-number namespace per operator. Conventional `identified_by :name` shape for now ; under i611 phase 1 (when `singleton: true` lands) this converts." do
-    identified_by { name.value }
+  aggregate "InboxIndex" do
+    description "Singleton substrate for centralized i-number allocation. Owns next_number, the single source of truth for what the next inbox card's i-number should be. Allocate atomically returns + increments ; Reserve takes a contiguous range ; Recover re-scans disk to reclaim drifted state. Effectively a singleton — there is one inbox-number namespace per operator. Conventional `identified_by :name` shape for now ; under i611 phase 1 (when `singleton: true` lands) this converts."
+    identified_by :name
 
     attribute :name, Name
 
@@ -171,9 +172,9 @@ Hecks.bluebook "InboxIndex", version: "2026.05.20.1" do
 
     command "StartSession" do
       role "System"
-      description "Reset per-session counters at runtime boot. Lifetime totals on disk (in next.json) are preserved — this resets only the in-memory tallies the aggregate exposes for observability."
+      goal "Reset per-session counters at runtime boot. Lifetime totals on disk (in next.json) are preserved — this resets only the in-memory tallies the aggregate exposes for observability."
       attribute :session_started_at, Timestamp
-      then_set :session_started_at, to: :session_started_at
+      sets :session_started_at
       emits "SessionStarted"
     end
 
@@ -181,40 +182,40 @@ Hecks.bluebook "InboxIndex", version: "2026.05.20.1" do
 
     command "Allocate" do
       role "Agent"
-      description "Atomically return the current next_number and advance it by 1. The default verb for 'I'm about to file an inbox card ; give me the next i-number.' Atomicity is enforced by the bin/hecks-inbox shim's flock on the persistence file — concurrent Allocate dispatches from sibling agents serialize at the OS level, so each gets a distinct number. The returned number is what the caller writes as `i<N>.md` into the target inbox ; InboxIndex does not file the card or know which inbox it lands in. requester is a free-form label (branch, task tag, 'manual') recorded for the audit surface. Increments total_allocated ; updates last_allocated_at and last_allocated_to ; emits NumberAllocated so downstream observers (the statusline counter, an audit reactor) can react."
+      goal "Atomically return the current next_number and advance it by 1. The default verb for 'I'm about to file an inbox card ; give me the next i-number.' Atomicity is enforced by the bin/hecks-inbox shim's flock on the persistence file — concurrent Allocate dispatches from sibling agents serialize at the OS level, so each gets a distinct number. The returned number is what the caller writes as `i<N>.md` into the target inbox ; InboxIndex does not file the card or know which inbox it lands in. requester is a free-form label (branch, task tag, 'manual') recorded for the audit surface. Increments total_allocated ; updates last_allocated_at and last_allocated_to ; emits NumberAllocated so downstream observers (the statusline counter, an audit reactor) can react."
       attribute :allocated_number, Number
       attribute :requester,        Requester
       attribute :allocated_at,     Timestamp
       emits "NumberAllocated"
-      then_set :last_allocated_at, to: :allocated_at
-      then_set :last_allocated_to, to: :requester
+      sets :last_allocated_at, to: :allocated_at
+      sets :last_allocated_to, to: :requester
     end
 
     # ── Primary operation 2 : Reserve ──
 
     command "Reserve" do
       role "Agent"
-      description "Atomically take a contiguous range of N i-numbers and advance next_number by N. The verb for spawning sidequest agents : 'I'm dispatching 5 child agents who will each file a card ; reserve a block of 5 so they can pick from a known range without colliding with each other or with anyone else.' Returned as a Range value object (start + count). The caller is responsible for distributing the range to its children ; InboxIndex just hands out the block atomically. Increments total_reserved ; updates last_reserved_at ; emits RangeReserved."
+      goal "Atomically take a contiguous range of N i-numbers and advance next_number by N. The verb for spawning sidequest agents : 'I'm dispatching 5 child agents who will each file a card ; reserve a block of 5 so they can pick from a known range without colliding with each other or with anyone else.' Returned as a Range value object (start + count). The caller is responsible for distributing the range to its children ; InboxIndex just hands out the block atomically. Increments total_reserved ; updates last_reserved_at ; emits RangeReserved."
       attribute :reserved_range, Range
       attribute :requester,      Requester
       attribute :reserved_at,    Timestamp
       emits "RangeReserved"
-      then_set :last_reserved_at, to: :reserved_at
-      then_set :last_allocated_to, to: :requester
+      sets :last_reserved_at, to: :reserved_at
+      sets :last_allocated_to, to: :requester
     end
 
     # ── Primary operation 3 : Recover ──
 
     command "Recover" do
       role "System"
-      description "Re-scan a set of inbox directories on disk, compute the global max(i*.md), and re-ground next_number to max + 1. Idempotent — never decreases next_number, only advances it if disk reality has overtaken the persisted state (e.g. a hand-filed card with a guessed number, a worktree merge that brought in cards filed elsewhere, a rename that exposed a higher number than the allocator knew about). Run automatically on the first call to Allocate when next.json does not yet exist ; run by hand via `hecks-inbox recover` when the operator suspects drift. The scan_roots attribute carries the list of directories walked — the bin/hecks-inbox shim defaults this to the union of all `~/Projects/*/inbox/`, `~/Projects/*/*.inbox/`, and `~/Projects/*/.../hecks_conception/inbox/` directories the scan finds. Increments recoveries ; updates last_recovered_at ; emits StateRecovered carrying the max observed on disk and whether next_number was advanced."
+      goal "Re-scan a set of inbox directories on disk, compute the global max(i*.md), and re-ground next_number to max + 1. Idempotent — never decreases next_number, only advances it if disk reality has overtaken the persisted state (e.g. a hand-filed card with a guessed number, a worktree merge that brought in cards filed elsewhere, a rename that exposed a higher number than the allocator knew about). Run automatically on the first call to Allocate when next.json does not yet exist ; run by hand via `hecks-inbox recover` when the operator suspects drift. The scan_roots attribute carries the list of directories walked — the bin/hecks-inbox shim defaults this to the union of all `~/Projects/*/inbox/`, `~/Projects/*/*.inbox/`, and `~/Projects/*/.../hecks_conception/inbox/` directories the scan finds. Increments recoveries ; updates last_recovered_at ; emits StateRecovered carrying the max observed on disk and whether next_number was advanced."
       attribute :observed_max,    Number
       attribute :previous_next,   Number
       attribute :new_next,        Number
       attribute :recovered_at,    Timestamp
       emits "StateRecovered"
-      then_set :next_number,      to: :new_next
-      then_set :last_recovered_at, to: :recovered_at
+      sets :next_number,      to: :new_next
+      sets :last_recovered_at, to: :recovered_at
     end
   end
 end

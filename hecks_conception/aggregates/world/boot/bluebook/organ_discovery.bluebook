@@ -10,8 +10,9 @@ Hecks.bluebook "OrganDiscovery", version: "2026.05.12.1" do
   # no-primitive-envy rule. Per-aggregate VOs — duplication across
   # boot siblings is fine, the discipline is per-aggregate VO sets.
 
-  aggregate "OrganDiscovery", "Parse all bluebooks — count aggregates, discover nerves and vows" do
-    identified_by { name.value }
+  aggregate "OrganDiscovery" do
+    description "Parse all bluebooks — count aggregates, discover nerves and vows"
+    identified_by :name
     attribute :name,             Name
     attribute :organ_count,      OrganCount
     attribute :total_aggregates, AggregateCount
@@ -51,19 +52,19 @@ Hecks.bluebook "OrganDiscovery", version: "2026.05.12.1" do
 
     command "DiscoverOrgans" do
       role "System"
-      description "Parse every .bluebook in aggregates/"
+      goal "Parse every .bluebook in aggregates/"
       emits "OrgansDiscovered"
     end
 
     command "WriteCensus" do
       role "System"
-      description "Write organ and aggregate counts to census.heki"
+      goal "Write organ and aggregate counts to census.heki"
       emits "CensusWritten"
     end
   end
 
   policy "CensusAfterDiscovery" do
     on "OrgansDiscovered"
-    trigger "WriteCensus"
+    trigger WriteCensus
   end
 end

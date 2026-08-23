@@ -9,8 +9,9 @@ Hecks.bluebook "FewShot", version: "2026.04.28.1" do
   # Lifted out of inference.bluebook in i112. Sibling aggregates
   # moved to language/ : context_window, local_model, prompt.
 
-  aggregate "FewShot", "Real bluebooks included as examples in the context" do
-    identified_by { domain_name.value }
+  aggregate "FewShot" do
+    description "Real bluebooks included as examples in the context"
+    identified_by :domain_name
     attribute :domain_name, DomainName
     attribute :source,      Source
     attribute :purpose,     Purpose
@@ -32,14 +33,14 @@ Hecks.bluebook "FewShot", version: "2026.04.28.1" do
 
     command "AddExample" do
       role "System"
-      description "Include a real bluebook as a few-shot example"
+      goal "Include a real bluebook as a few-shot example"
       attribute :domain_name, DomainName
       attribute :source,      Source
       attribute :purpose,     Purpose
       emits "ExampleAdded"
-      then_set :domain_name, to: :domain_name
-      then_set :source,      to: :source
-      then_set :purpose,     to: :purpose
+      sets :domain_name
+      sets :source
+      sets :purpose
     end
   end
 end

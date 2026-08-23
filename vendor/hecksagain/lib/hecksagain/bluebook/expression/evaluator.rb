@@ -1,4 +1,5 @@
 require "json"
+require_relative "../../vocabulary"
 
 module Hecksagain
   module Bluebook
@@ -145,7 +146,7 @@ module Hecksagain
         # holds this equal to the language, so the set of haystack types
         # `.include?` supports cannot drift from what the language says it
         # does.
-        INCLUDE_HAYSTACKS = %w[Array String].freeze
+        INCLUDE_HAYSTACKS = Hecksagain::Vocabulary.fetch("IncludeHaystack")
 
         def includes?(parts, state, attrs)
           haystack, needle = parts

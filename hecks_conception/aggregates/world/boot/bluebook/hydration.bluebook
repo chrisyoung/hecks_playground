@@ -10,8 +10,9 @@ Hecks.bluebook "Hydration", version: "2026.05.12.1" do
   # no-primitive-envy rule. Per-aggregate VOs — duplication across
   # boot siblings is fine, the discipline is per-aggregate VO sets.
 
-  aggregate "Hydration", "Load all .heki stores from information/" do
-    identified_by { name.value }
+  aggregate "Hydration" do
+    description "Load all .heki stores from information/"
+    identified_by :name
     attribute :name,          Name
     attribute :store_count,   StoreCount
     attribute :total_records, RecordCount
@@ -37,7 +38,7 @@ Hecks.bluebook "Hydration", version: "2026.05.12.1" do
 
     command "HydrateStores" do
       role "System"
-      description "Read every .heki file into memory"
+      goal "Read every .heki file into memory"
       emits "StoresHydrated"
     end
   end

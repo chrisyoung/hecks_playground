@@ -70,35 +70,6 @@ module Hecksagain
       snake(demodulise(type)).to_sym
     end
 
-    # THE NAME A REFERENCE ANSWERS TO, PAST ITS OWN STORAGE SHAPE.
-    #
-    # `client_id` on Contract, target Client -> `client` — stripping the
-    # storage-shape `_id` suffix is always safe, because the result can
-    # never equal the raw attribute's own name (that name HAD the
-    # suffix). `source` on Transfer (an `as:` reference, no `_id`
-    # suffix), target Account -> `source_account`.
-    #
-    # NEVER collapse an `as:` name that already equals the target's own
-    # snake case (`reference_to Studio, as: :studio`) down to the bare
-    # name — caught for real, not hypothetically: `piece.studio` is a
-    # doctested reader answering the raw id ("north:3"), and a first
-    # draft of `Facade::Handle`'s own accessor silently redefined it to
-    # answer a hydrated Studio instead. Suffixing unconditionally in
-    # that branch keeps the two names distinct on purpose — `studio`
-    # still reads the value, `studio_studio` reads the record.
-    #
-    # One rule, two callers: `Facade::Handle#define_reference_accessors`
-    # (the Ruby accessor `piece.studio`) and a cross-aggregate query's
-    # dotted hop (`:"studio_studio.x"`) name the same concept — a
-    # reference spelled two ways was exactly the bug `IDENTITY_JOIN`'s
-    # own comment above describes.
-    def reference_hop(attribute_name, target_snake)
-      base = attribute_name.to_s
-      return base.delete_suffix("_id") if base.end_with?("_id")
-
-      "#{base}_#{target_snake}"
-    end
-
 
     def split_dotted(dotted)
       first, second = dotted.to_s.split(".", 2)
@@ -121,6 +92,31 @@ module Hecksagain
       return nil unless domain && aggregate && command
 
       [domain, aggregate, command]
+    end
+
+    # `trigger Account::Debit` / `dispatch Account::Debit` — a bare
+    # CONSTANT reference (`ConstShim`'s own `ScopedConstant`, S0b), not
+    # text (ADR 0025, "events and reactions" — command references become
+    # first-class). Ruby's `::` joins EVERY segment the same way a
+    # constant path always does, but a command's own `hecks_fqn` joins
+    # its aggregate with `.` (`Construct#hecks_separator`'s default,
+    # only an AGGREGATE overrides it to `::`) — so only the LAST `::`
+    # becomes a `.`; everything before it (the chapter, when a domain is
+    # spelled at all: `Banking::Account::Debit`) stays `::`-joined.
+    #
+    # A STRING PASSES THROUGH UNCHANGED, on purpose — legacy era text
+    # (S0a's own shadow-parsed spelling) already mixes `::` (domain) and
+    # `.` (command) correctly on its own, e.g. `"Banking::Account.Debit"`,
+    # and re-splitting that by content rather than by TYPE would corrupt
+    # it (its own last `::` sits between the domain and the aggregate,
+    # not the aggregate and the command). Only an actual constant object
+    # — never seen holding a `.` of its own — needs the rewrite at all.
+    def command_ref(value)
+      return value.to_s if value.is_a?(::String) || value.is_a?(::Symbol)
+
+      text = value.to_s
+      path, _, command = text.rpartition("::")
+      path.empty? ? text : "#{path}.#{command}"
     end
   end
 end

@@ -31,7 +31,7 @@ module Hecksagain
         EAGER_CHILDREN = { "Aggregate" => %w[Entity ValueObject] }.freeze
 
         # Categories an ENTITY declares as well as an aggregate. The IR reuses
-        # IR::Command and IR::Query for a piece's own commands and queries, so the
+        # Command and Query for a piece's own commands and queries, so the
         # language reuses Command and Query — and the plan cannot express a second
         # parent, because a category's parent is derived from the one `*_id` argument
         # its creating command carries. This says the other edge out loud.
@@ -100,8 +100,23 @@ module Hecksagain
           nil
         end
 
+        # TWO DOORS, ONE CALLER — `dispatch_entity`, not `dispatch`/
+        # `reenter`, for a dotted verb naming an ENTITY's own command
+        # (several of the meta-domain's own aggregates nest entities,
+        # `ValueObject.Member` among them) : `Dispatcher#dispatch` refuses
+        # that verb shape UNCONDITIONALLY now (EntityDispatchRefused), a
+        # verb string never resolves one at all, no exception for the
+        # Judge's own bootstrap either. The Judge calling `dispatch_entity`
+        # directly is exactly the shape that door exists for — the SYSTEM
+        # materializing the meta-domain from a parsed bluebook, in-process,
+        # never a verb some caller wrote out as text and handed to a
+        # dispatcher. `Runtime::Dispatcher#entity_command?` is the same
+        # classifier `Hecksagain::Fuzzing::Replay` uses to pick a door for
+        # the identical reason (replay.rb's own header).
         def send_to(verb, label, **payload)
-          offer(label) { @runtime.dispatch(verb, **args(payload)) }
+          offer(label) {
+            @runtime.entity_command?(verb) ? @runtime.dispatch_entity(verb, **args(payload)) : @runtime.dispatch(verb, **args(payload))
+          }
         end
 
         def judge!
@@ -129,19 +144,116 @@ module Hecksagain
           declare(plan, category, node, identify(category, parent_id, node, index), parent_id, index, extra)
         end
 
-        def detail_node(category, node, parent_id, index, _extra = {})
+        def detail_node(category, node, parent_id, index, extra = {})
           plan = @plan.category(category)
           return unless plan
 
-          id           = identify(category, parent_id, node, index)
+          id = identify(category, parent_id, node, index)
+          # `extra` is the CUMULATIVE identity of every entity-owned
+          # ancestor above this node (Handler's own `event_type` AND
+          # ProcessManager's own `bluebook`/`name`, by the time Dispatch
+          # is reached — S17, ADR 0026's two-level chain). `identity`
+          # adds THIS node's own on top — computed for EVERY category,
+          # entity-owned or not, because a node need not be entity-owned
+          # itself to OWN one (ValueObject isn't, and Member still needs
+          # its `aggregate:`/`name:`) — it is simply what THIS node's own
+          # `identified_by` resolves to, the same fields `identify` two
+          # lines up already derives the joined id FROM.
+          #
+          # `own` is the SUBSET actually spent on a dispatch payload —
+          # only when THIS category is itself entity-owned, since an
+          # ordinary category (Command's own "Rule"/"Argument", offered
+          # through the SAME `extra` SLOT for a DIFFERENT reason, see
+          # `within_entity` below) locates the record it attaches to
+          # through the parent id `id:` already carries, and merging
+          # unrecognized `aggregate:`/`entity_id:` into THEIR payload
+          # would have the runtime refuse them for an argument they
+          # never declared.
+          identity     = extra.merge(node_identity(plan, category, node, index, parent_id))
+          own          = plan.entity_owned ? identity : {}
           eager, later = children_of(category).partition { |child| eager?(category, child) }
 
-          eager.each { |child| walk_all(child, node, id) }
-          setters(plan, category, node, id)
-          appends(plan, category, node, id)
-          later.each { |child| walk_all(child, node, id) }
+          eager.each { |child| walk_all(child, node, id, entity_child_extra(child, identity)) }
+          setters(plan, category, node, id, own)
+          appends(plan, category, node, id, own)
+          later.each { |child| walk_all(child, node, id, entity_child_extra(child, identity)) }
           within_entity(category, node, id, parent_id)
-          sealers(plan, category, id)
+          nest_entities(category, node, id, parent_id)
+          sealers(plan, category, id, own)
+        end
+
+        # WHAT A CHILD'S OWN `extra` STARTS FROM. An entity-owned child's
+        # own dotted dispatch needs every ANCESTOR's identity, which is
+        # exactly `identity` — already accumulated one level at a time by
+        # `detail_node` itself (regardless of whether each ancestor is
+        # ITSELF entity-owned — ValueObject contributes its own `aggregate:
+        # `/`name:` to Member's payload despite being an ordinary top-
+        # level category), so there is nothing left to re-derive here. An
+        # ordinary child (one with a real top-level aggregate of its own
+        # to dispatch a bare verb into) needs none of it.
+        def entity_child_extra(child, identity)
+          @plan.category(child)&.entity_owned ? identity : {}
+        end
+
+        # ONE NODE'S OWN IDENTITY, read off its own declaration — S17,
+        # ADR 0026. Three cases, the same three `identify`/`identity_part`
+        # already resolve one level up, unified here because a chain now
+        # walks more than one level (Handler -> Dispatch) and each level
+        # needs the SAME three answered about itself, not just the first:
+        #
+        #   the parent link   (plan.parent_key)   -> `parent_id`, the id
+        #                     the walk already carries in from one level up
+        #   a walk-minted one (POSITION)           -> the walk INDEX itself ;
+        #                     never a stored field (Member's own header:
+        #                     "position is not a mint — it is read straight
+        #                     out of the source file")
+        #   a real field      (anything else)      -> `field_value`, same
+        #                     reader every other field in this file uses
+        #                     (Handler's own `event_type`, Dispatch's own
+        #                     `command_name`)
+        #
+        # `carried` still decides bare-vs-wrapped the normal way ; POSITION
+        # is the one case with no verb to ask `carried` about (`plan.
+        # declare` is always nil for an entity-owned category — Plan#read's
+        # own comment says why), so it is minted straight as a value object,
+        # matching exactly what `declare`'s own field loop already mints a
+        # POSITION field as.
+        def node_identity(plan, category, node, index, parent_id)
+          plan.identity_paths.each_with_object({}) do |path, fields|
+            head = path.to_s.split(".").first
+            next if head == OWNER
+
+            if head == POSITION
+              fields[head.to_sym] = v(index)
+            else
+              raw = head == plan.parent_key.to_s ? parent_id : field_value(category, node, head.to_sym, parent_id)
+              fields[head.to_sym] = carried(plan, plan.declare, head, raw)
+            end
+          end
+        end
+
+        # THE FULL DOTTED PREFIX a category's own verbs hang off — the
+        # plain name for an ordinary category (its own top-level
+        # aggregate reaches every verb bare), or its PARENT's own prefix
+        # with this category's name appended, for an entity-owned one.
+        # Dispatch's own parent, Handler, is itself entity-owned (S17,
+        # ADR 0026's two-level chain — `ProcessManager.Handler.Dispatch`),
+        # so this recurses rather than reading one level and stopping.
+        def dotted_prefix(plan)
+          return plan.name unless plan.entity_owned
+
+          "#{dotted_prefix(@plan.category(plan.parent))}.#{plan.name}"
+        end
+
+        # ENTITY-OWNED categories have no top-level aggregate for the runtime
+        # to route a bare verb into any more — `Member`'s own "Pair" reaches
+        # the runtime as `ValueObject.Member.Pair`, and a NESTED one
+        # (`Dispatch`, inside `Handler`) reaches it as `ProcessManager.
+        # Handler.Dispatch.Bind` — the dotted shape `EntityInterpreter#call`
+        # already splits any real entity's own verb into, one hop per
+        # segment (`walk_entity_chain`, entity_interpreter.rb).
+        def verb_for(plan, verb)
+          "#{dotted_prefix(plan)}.#{verb}"
         end
 
         def walk_all(category, node, parent_id, extra = {})
@@ -155,17 +267,55 @@ module Hecksagain
 
         # A piece's commands and queries, addressed under the PIECE so two commands
         # of the same name on an aggregate and on one of its entities cannot collide,
-        # while `aggregate_id` still names the aggregate the reference resolves
-        # against and `entity_id` says which piece declared it.
-        def within_entity(category, node, id, aggregate_id)
+        # while `aggregate` still names the aggregate the reference resolves
+        # against and `entity_id` says which piece declared it. `entity_id`
+        # keeps its own `_id` — an EXPLICIT `as:` on `reference_to Entity`,
+        # never touched by ADR 0025's rename (only the DEFAULT, un-aliased
+        # mint dropped the suffix; `aggregate` did precisely because
+        # `Command#reference_to Aggregate`/`Query#reference_to Aggregate`
+        # carry no `as:` of their own).
+        def within_entity(category, node, id, aggregate)
           return unless category == "Entity"
 
           WITHIN_ENTITY.each do |child|
             plan = @plan.category(child)
             walk_all(child, node, id,
-                     aggregate_id: carried(plan, plan&.declare, "aggregate_id", aggregate_id),
-                     entity_id:    carried(plan, plan&.declare, "entity_id", id))
+                     aggregate: carried(plan, plan&.declare, "aggregate", aggregate),
+                     entity_id: carried(plan, plan&.declare, "entity_id", id))
           end
+        end
+
+        # AN ENTITY MAY NEST FURTHER ENTITIES — S17, ADR 0026's own words:
+        # "That is what `entity` is for, and `entity` is declared by the
+        # language and used zero times in it." `Dispatch`, inside
+        # `Handler`, is the first real use. The GENERIC "Entity" category
+        # cannot express this through `children_of`/`EAGER_CHILDREN` the
+        # way Aggregate's own entities/value_objects can — there is only
+        # ONE "Entity" Plan category, describing what ANY entity looks
+        # like, not one per nesting level — so this recurses by hand,
+        # the same special case `within_entity` (above) already is for
+        # Command/Query.
+        #
+        # `owner` is the field this repurposes — `entity.bluebook`
+        # declares it (`attribute :owner, EntityText`) and it has held
+        # exactly one value since ADR 0025's rename: the SAME id
+        # `aggregate` already carries, kept as a wrapped-text COPY,
+        # never read back anywhere else in this codebase (grep finds no
+        # second reference). For a NESTED entity, the two finally
+        # diverge — `aggregate` stays the ROOT (Dispatch resolves
+        # exactly the way any other Entity record does, by its root
+        # aggregate), and `owner` becomes THIS entity's own DIRECT
+        # parent (Handler, not ProcessManager) — which is exactly the
+        # fact `Reconstruction#direct_entities` needs to tell a
+        # root-level entity apart from a nested one sharing the same
+        # root.
+        def nest_entities(category, node, id, aggregate)
+          return unless category == "Entity"
+
+          plan = @plan.category("Entity")
+          walk_all("Entity", node, aggregate,
+                   aggregate: carried(plan, plan&.declare, "aggregate", aggregate),
+                   owner: carried(plan, plan&.declare, "owner", id))
         end
 
         # WHERE IT SITS AMONG ITS SIBLINGS IS A FACT ABOUT THE WALK, not about the
@@ -198,42 +348,50 @@ module Hecksagain
                                     end
           end
 
-          send_to("Bluebook::#{category}.#{plan.declare}", id, **payload.merge(extra))
+          send_to("Bluebook::#{verb_for(plan, plan.declare)}", id, **payload.merge(extra))
         end
 
         # A setter whose every source is absent is not dispatched. An aggregate
         # with no lifecycle has no Lifecycle to offer, and a creating command has
         # no root to act on — offering either as "" would make a rule refuse a
         # bluebook that is perfectly well formed.
-        def setters(plan, category, node, id)
+        def setters(plan, category, node, id, extra = {})
           plan.setters.each do |setter|
             payload = setter.targets.to_h do |target, argument|
               [argument.to_sym, v(setter_value(category, node, target))]
             end
             next if payload.values.all?(&:nil?)
 
-            send_to("Bluebook::#{category}.#{setter.verb}", id, id: id, **payload)
+            send_to("Bluebook::#{verb_for(plan, setter.verb)}", id, id: id, **payload.merge(extra))
           end
         end
 
-        def appends(plan, category, node, id)
+        def appends(plan, category, node, id, extra = {})
           plan.appends.each do |list_name, append|
             rows_for(category, list_name, node).each_with_index do |row, index|
               chosen = append_for(category, list_name, append, row, node)
+              # `position` IS THE WALK INDEX here exactly as it is in `declare` —
+              # an appended element that names its position (ValueObject.Member,
+              # S17) is ordered by where the walk found it, never by a field the
+              # row happens to hold.
               payload = chosen.map.to_h do |field, argument|
-                [argument.to_sym,
-                 carried(@plan.category(category), chosen.verb, argument,
-                       cell(category, list_name, row, field, id, chosen))]
+                value = if field.to_s == POSITION
+                          v(index)
+                        else
+                          carried(@plan.category(category), chosen.verb, argument,
+                                  cell(category, list_name, row, field, id, chosen))
+                        end
+                [argument.to_sym, value]
               end
 
-              send_to("Bluebook::#{category}.#{chosen.verb}", "#{id}##{list_name}[#{index}]",
-                      id: id, **payload)
+              send_to("Bluebook::#{verb_for(plan, chosen.verb)}", "#{id}##{list_name}[#{index}]",
+                      id: id, **payload.merge(extra))
             end
           end
         end
 
-        def sealers(plan, category, id)
-          plan.sealers.each { |verb| send_to("Bluebook::#{category}.#{verb}", id, id: id) }
+        def sealers(plan, category, id, extra = {})
+          plan.sealers.each { |verb| send_to("Bluebook::#{verb_for(plan, verb)}", id, id: id, **extra) }
         end
 
         # An aggregate's attribute names its value object by TYPE, and the language

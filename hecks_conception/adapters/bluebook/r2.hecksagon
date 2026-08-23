@@ -1,4 +1,5 @@
 Hecks.hecksagon "R2Adapter" do
+  uses_framework "Governance"
   R2Adapter::Binding.persisted_by("Heki")
   R2Adapter::Reference.persisted_by("Heki")
 end

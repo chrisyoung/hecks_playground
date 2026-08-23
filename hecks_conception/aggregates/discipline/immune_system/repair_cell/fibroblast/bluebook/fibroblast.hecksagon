@@ -1,12 +1,17 @@
 Hecks.hecksagon "Fibroblast" do
+  uses_framework "Governance"
   Fibroblast::Fibroblast.persisted_by("Heki")
 
-  # Impure edge, hecksagon-first : on Sweep, run the repair sweeper and cascade
-  # its outcome into RecordResult. Re-homed from the RunSweepOnSweepRan
-  # Process.Spawn policy — the impure edge lives here, not in the bluebook.
-  adapter :exec,
-          name:        "fibroblast_sweep",
-          command:     "Fibroblast.Sweep",
-          exec:        "bash bin/fibroblast_sweep.sh",
-          result_into: "Hecks::Framework::Cascade::Cascade::Cascade.RecordResult"
+  # Impure edge, hecksagon-first : on Sweep (which emits SweepRan), run the
+  # repair sweeper and cascade its outcome into RecordResult. Re-expressed
+  # (i780, 2026-08-17) from the retired `adapter :exec` kwargs form onto the
+  # spawn effect port : the runtime records ONE OutboundEvent per dispatch,
+  # bin/adapter-host claims it, runs FibroblastSweep's handler, and
+  # dispatches the SAME command back on success or failure — :exec never
+  # branched, so success == failure == RecordResult expresses that
+  # unconditional shape without a new IR field.
+  Fibroblast::Fibroblast.spawned_by("FibroblastSweep", on: "SweepRan") do
+    success "Cascade::Cascade.RecordResult"
+    failure "Cascade::Cascade.RecordResult"
+  end
 end

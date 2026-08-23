@@ -29,8 +29,9 @@ Hecks.bluebook "RestartPrompt", version: "2026.05.19.1" do
   #     the bluebook-of-record aware ; Procfile entry is hand-derived
   #     per the existing pattern until i262 generator lands.
 
-  aggregate "RestartPrompt", "The session orientation singleton — one per being. Records the latest restart prompt composed, audit history via Composition entities, and a rolling count. The daemon writes restarts_inbox/latest.md whenever a new Composed event fires on the bus." do
-    identified_by { name.value }
+  aggregate "RestartPrompt" do
+    description "The session orientation singleton — one per being. Records the latest restart prompt composed, audit history via Composition entities, and a rolling count. The daemon writes restarts_inbox/latest.md whenever a new Composed event fires on the bus."
+    identified_by :name
 
     attribute :name,               Name,             default: { value: "miette" }
     attribute :latest_content,     ComposedContent,  default: { value: "—" }
@@ -75,7 +76,7 @@ Hecks.bluebook "RestartPrompt", version: "2026.05.19.1" do
     # ── Audit entity ──
 
     entity "Composition" do
-      identified_by { content.value }
+      identified_by :content
       # Audit trail — one Composition created per Compose command.
       # The daemon may use the Composition list to rotate numbered
       # history files (iNNN.md) alongside latest.md.
@@ -88,16 +89,16 @@ Hecks.bluebook "RestartPrompt", version: "2026.05.19.1" do
 
     command "Compose" do
       role "Framework"
-      description "Record a new session recap as the latest restart prompt. Sets latest_content, latest_at, latest_session_id to the incoming values ; records total_compositions from the caller (caller reads current state, increments externally). Emits RestartPromptComposed — the daemon catches this event and writes restarts_inbox/latest.md."
+      goal "Record a new session recap as the latest restart prompt. Sets latest_content, latest_at, latest_session_id to the incoming values ; records total_compositions from the caller (caller reads current state, increments externally). Emits RestartPromptComposed — the daemon catches this event and writes restarts_inbox/latest.md."
       attribute :content,             ComposedContent
       attribute :session_id,          SessionId
       attribute :composed_at,         Timestamp
       attribute :total_compositions,  Count
       emits "Composed"
-      then_set :latest_content,     to: :content
-      then_set :latest_at,          to: :composed_at
-      then_set :latest_session_id,  to: :session_id
-      then_set :total_compositions, to: :total_compositions
+      sets :latest_content,     to: :content
+      sets :latest_at,          to: :composed_at
+      sets :latest_session_id,  to: :session_id
+      sets :total_compositions
     end
   end
 end

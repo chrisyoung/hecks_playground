@@ -3,11 +3,15 @@ module Hecksagain
     module DSL
       class AggregateBuilder
         include AttributeCollector
+        include IdentityDeclaration
 
         def initialize(name)
           @name          = name
           @value_objects = []
           @commands      = []
+          @invariants    = []
+          @named_givens  = {}
+          @projected_fields = []
           @identity_paths = []
           @entities      = []
           @queries       = []
@@ -21,135 +25,6 @@ module Hecksagain
           @description = value
         end
 
-        # Vendored addition, not (yet) upstream hecksagain: hecksagain's
-        # own named principle is "primitives live in value objects
-        # only" (lib/hecksagain/language/bluebook/vocabulary.bluebook) --
-        # a bare `attribute :x, String` directly on an aggregate is
-        # refused by the self-hosted meta-validator. hecks_conception +
-        # miette's own convention does this 260+ times at the aggregate
-        # level (value_object-internal bare types were always fine and
-        # are untouched here). DECISION, documented not hidden: rather
-        # than a corpus-wide rewrite touching every declaration AND
-        # every call site that constructs these attributes, this
-        # transparently AUTO-SYNTHESISES a single-field wrapper value
-        # object per bare-primitive aggregate attribute -- the exact
-        # same mechanism `one_of(...)`'s `synthesise_closed_set` already
-        # uses for inline closed sets, just triggered by a bare
-        # primitive Class instead of a OneOf. Preserves hecksagain's own
-        # "primitives only live in VOs" invariant (the VO now just has
-        # an author of "the runtime" instead of "the corpus") rather
-        # than relaxing it. TODO upstream via bin/evolve (migration plan
-        # task 7) -- or supersede with the real corpus-wide VO-wrapping
-        # pass if Chris prefers that path instead.
-        PRIMITIVE_CLASSES = [String, Integer, Float, TrueClass, FalseClass, Numeric].freeze
-
-        # NAMED, NOT **kwargs — spelled out exactly like AttributeCollector#
-        # attribute's own signature (the method this overrides). A `**kwargs`
-        # catch-all forwards fine at runtime but ERASES the signature a
-        # projected parser reads: spec/syntax_conformance_spec's "declares
-        # every keyword argument each word's builder takes" inspects
-        # `instance_method(:attribute).parameters` and only counts real
-        # `key`/`keyreq` entries, so a `**kwargs` override made every named
-        # argument syntax.bluebook declares for Aggregate.attribute
-        # (default/optional/pattern/admits/...) look unanswered — a real
-        # regression from the primitive-wrapper synthesis pass, not a
-        # deliberate signature change. Fixed at the root, not by weakening
-        # the spec.
-        def attribute(name, type = String, as: nil, default: nil, optional: false, required: nil,
-                      pattern: nil, admits: nil, logged: true, enum: nil)
-          # Vendored fix, not (yet) upstream hecksagain (migration plan task
-          # 4): apply the SAME inverted-form correction AttributeCollector#
-          # attribute makes -- but BEFORE the primitive-wrapper check below,
-          # not after. `super` (which is where the base correction actually
-          # lived) runs LAST, so a bare `attribute App` (no `as:`) used to
-          # reach the primitive check below still shaped `name: :App, type:
-          # String` (the un-fixed positional default) -- String IS a
-          # PRIMITIVE_CLASS, so it synthesised a wrapper VO NAMED "App",
-          # colliding with a real hand-written `value_object "App"` a few
-          # lines above it in the same file. See AttributeCollector.
-          # resolve_inverted's own comment for why the check is reliable.
-          name, type = AttributeCollector.resolve_inverted(name, type, as)
-          type = AttributeCollector.normalize_boolean_alias(type)
-
-          if PRIMITIVE_CLASSES.include?(type)
-            type = synthesise_primitive_wrapper(name, type)
-          elsif type.is_a?(ListOf) && PRIMITIVE_CLASSES.include?(type.type)
-            type = ListOf.new(synthesise_primitive_wrapper(name, type.type))
-          end
-          super(name, type, as: as, default: default, optional: optional, required: required,
-                pattern: pattern, admits: admits, logged: logged, enum: enum)
-        end
-
-        def synthesise_primitive_wrapper(name, primitive_class)
-          wrapper_name = Naming.pascal(name)
-          (@closed_sets ||= closed_sets) << IR::ValueObject.declare(
-            name:       wrapper_name,
-            attributes: [IR::Attribute.new(name: :value, type: primitive_class.name)]
-          )
-          wrapper_name
-        end
-
-        # Vendored addition, not (yet) upstream hecksagain: miette's
-        # consciousness.bluebook (and others) declare NAMED, reusable
-        # boolean predicates over the aggregate's own state --
-        # `specification :in_lucid_rem do |body| body.state == "sleeping" && ... end`
-        # -- distinct from a command's `given` (precondition) or a VO's
-        # `invariant` (field rule): a specification belongs to the
-        # AGGREGATE, named, presumably referenced elsewhere by name.
-        # Stored structurally (captured via the same canonical-source
-        # extraction `given`/`invariant` use) so the corpus boots; NOT
-        # yet threaded into IR::Aggregate or referenceable by name
-        # elsewhere -- a real, documented gap, not silently pretended
-        # complete. TODO upstream via bin/evolve (migration plan task 7).
-        attr_reader :specifications
-        def specification(name, &predicate)
-          canonical = Ports::Extraction.canonical(predicate)
-          (@specifications ||= []) << { name: name.to_s, canonical: canonical, predicate: predicate }
-        end
-
-        # Vendored addition, not (yet) upstream hecksagain (migration plan
-        # task 4): an AGGREGATE-level `invariant "description" do ... end`
-        # — a whole-record rule (miette's mind/awareness/witness.bluebook:
-        # "WitnessedMoments are append-only — never updated, never
-        # deleted"), distinct from a value object's field-scoped
-        # `invariant` (ValueObjectBuilder#invariant, which this mirrors)
-        # and a command's `given` precondition. Same documented-gap shape
-        # as `specification` right above: captured structurally so the
-        # corpus boots, NOT yet threaded into IR::Aggregate or walked at
-        # dispatch time — the corpus's own comment already says as much
-        # ("once the runtime walks specifications + invariants in
-        # production... until then, the antibody at commit time scans").
-        # TODO upstream via bin/evolve (migration plan task 7).
-        attr_reader :aggregate_invariants
-        def invariant(description = "an invariant holds", &predicate)
-          canonical = Ports::Extraction.canonical(predicate)
-          (@aggregate_invariants ||= []) << { description: description, canonical: canonical, predicate: predicate }
-        end
-        # Vendored alias, not (yet) upstream hecksagain (migration plan
-        # task 8): `rule` at the AGGREGATE level too, not just inside a
-        # value_object (ValueObjectBuilder's own alias) -- bin-buddy's
-        # add_on.bluebook writes a whole-aggregate `rule` the same way
-        # macrophage.bluebook writes a whole-aggregate `invariant`.
-        alias_method :rule, :invariant
-
-        # Vendored no-op stub, not (yet) upstream hecksagain (migration
-        # plan task 8): `validation :field, presence: true` -- a Rails-
-        # style field-presence declaration (pigeoncoop.bluebook, 5
-        # occurrences, always `presence: true`). Genuinely a field-level
-        # invariant in spirit ("this field must always be present"), but
-        # NOT synthesized as a real `invariant` call here : `invariant`'s
-        # predicate is canonicalized from its OWN literal source text
-        # (Ports::Extraction.canonical reads the block's actual bluebook-
-        # file location), and a dynamically-built predicate standing in
-        # for a `validation` call has no real source line to extract from
-        # -- attempting it risked a subtly wrong canonical form rather
-        # than an honest gap. Structurally captured so the file boots,
-        # not enforced -- same documented-gap pattern as `gate`/
-        # `success`/`failure` elsewhere in this migration. TODO upstream
-        # via bin/evolve (migration plan task 7): a real field-presence
-        # sugar, not a one-off stub.
-        def validation(*) = nil
-
         # ORIGIN, not runtime identity — a concept adopted from a canonical
         # source (§28) names where it came from without that fact ever
         # touching `hecks_fqn`/dispatch. Captured raw, the same way
@@ -160,70 +35,91 @@ module Hecksagain
           @provenance = from
         end
 
-        # WHICH UNCHANGING FACTS SAY WHICH ONE THIS IS — FIELDS, not whole value
-        # objects. `identified_by { number.value }` names the scalar inside
-        # AccountNumber ; an identity is a value, and serialising a value object
-        # into one only worked while something downstream guessed at `values.first`.
-        # Nothing guesses now.
-        #
-        # SEVERAL PATHS, and the identity is their JOIN, in declaration order :
-        #
-        #   identified_by do
-        #     aggregate_id
-        #     name.value
-        #   end                        ->  "Pizzas::Order:PlaceOrder"
-        #
-        # One path is the ordinary case and reads exactly as it always did. More
-        # than one is what a thing named BENEATH another needs : a command is not
-        # named by `PlaceOrder`, which every chapter may spell, but by the
-        # aggregate it belongs to AND that name. Nothing here is minted, so the
-        # same declaration names the same record on every run.
-        #
-        # The block is never CALLED. Its source is read the same way a given's is
-        # (Ports::Extraction), which is why `number.value` needs no method called
-        # `number` to exist — the same reason `balance >= amount` works in a given.
-        # The canonical form collapses the block's newlines to single spaces, so
-        # the paths arrive here already separated and in the order written.
-        def identified_by(&path)
-          raise Malformed, "#{@name}.identified_by names no field" unless path
-
-          paths = Ports::Extraction.canonical(path).to_s.split(" ").reject(&:empty?)
-          raise Malformed, "#{@name}.identified_by names no field" if paths.empty?
-
-          @identity_paths = paths
-        end
-
-        def reference_to(type, as: nil)
+        # `optional:` — matching `CommandBuilder#reference_to`'s own
+        # signature, which already had it; this one never forwarded it
+        # to `attribute()` even though `attribute()` itself already
+        # accepts it. A real gap: an aggregate that can point at ONE OF
+        # several targets (Item's own `personal_list_id`/
+        # `camping_list_id`, never both) needs each reference optional
+        # on the aggregate's own persisted schema, not just as a
+        # command's input.
+        def reference_to(type, as: nil, optional: false)
           target = Naming.demodulise(type)
           @reference_targets << target
-          attribute(as || :"#{Naming.snake(target)}_id", IR::Reference.new(target))
+          attribute(as || default_reference_name(target), Reference.new(target), optional: optional)
         end
 
-        # `has_many`, `has_one`, `belongs_to` — relationship vocabulary Hecks
-        # already grew (README's cherry-pick note) but this DSL never
-        # declared: a bluebook using one simply failed to load here. All
-        # three are sugar over `reference_to`, differing
-        # from its default only in the attribute name they mint : no `_id`
-        # suffix (matching Hecks' own reading of them, not
-        # `reference_to`'s own `_id` mint), and `has_many`'s target is the
-        # SINGULAR of what was written (`has_many Invoices` points at Invoice).
+        # A RULE MAY ONLY READ WITHIN ITS OWN AGGREGATE BOUNDARY (S12,
+        # ADR 0025 — "Consistency across aggregate boundaries"). A
+        # `given`/`ensures`/`invariant` used to reach through a
+        # `reference_to` at RULE-EVALUATION TIME (`References#
+        # dereference`, a live query against another aggregate's own
+        # repository, unbounded and inconsistent with the "a rule reads
+        # only this record" model everywhere else) — `projects` is what
+        # replaces that: `projects :customer_status, from: :"customer.
+        # status"` declares that THIS aggregate holds its own copy of
+        # `Customer`'s own `:status`, kept fresh by a REBUILD SWEEP
+        # (`Runtime::ProjectionRebuild`) rather than read live. A rule
+        # then reads `customer_status` the same way it reads any other
+        # local field — no dot, no reference walk.
         #
-        # `has_many` keeps the EXISTING shape — a single reference, not a
-        # list. `list_of(Reference<X>)` has no precedent anywhere in this IR :
-        # `list_of` is checked everywhere as a list of VALUE OBJECTS
-        # (the mutation and read paths alike). A real one-to-many is a
-        # separate arc, not a rename of what
-        # already parses.
-        def has_many(type, as: nil)
-          plural = Naming.demodulise(type)
-          reference_to(Naming.singularize(plural), as: as || Naming.snake(plural).to_sym)
+        # `from:` NAMES THE LOCAL REFERENCE, not the target aggregate —
+        # `customer`, the attribute THIS aggregate's own `reference_to
+        # Customer` already minted, not `Customer` the type — so two
+        # references to the same aggregate (aliased differently) can
+        # each carry their own projection without ambiguity. The TARGET
+        # field's own existence cannot be checked here: the target
+        # aggregate does not exist yet while THIS one is still being
+        # declared (the same reason a query's own hop tail is checked
+        # by `BluebookBuilder#validate_query_hops!`, once every
+        # aggregate in the chapter is real, not by `AggregateBuilder`
+        # itself) — `validate_projected_fields!` is where that half
+        # happens.
+        def projects(name, from:)
+          reference, _, remote_field = from.to_s.rpartition(".")
+
+          if reference.empty? || remote_field.empty?
+            raise Malformed,
+                  "#{@name}.projects :#{name} names #{from.inspect}, which is not " \
+                  "reference.field — say which reference and which field on it, e.g. " \
+                  "from: :\"customer.status\""
+          end
+
+          @projected_fields << ProjectedField.new(name: name.to_sym, reference: reference.to_sym, remote_field: remote_field.to_sym)
         end
 
-        def has_one(type, as: nil)
-          reference_to(type, as: as || Naming.snake(Naming.demodulise(type)).to_sym)
+        # `has_many`, `has_one`, `belongs_to` — LEGACY (ADR 0025,
+        # "References"): all three were sugar over `reference_to`,
+        # differing from its default only in the attribute name they
+        # minted — no `_id` suffix. `reference_to` mints that same bare
+        # name now (`default_reference_name`, `AttributeCollector`'s own
+        # comment), so the three have no work left; `reference_to` alone
+        # says everything they did. `has_many` additionally LIED — it
+        # singularised its target and minted one scalar, so `film.backers`
+        # read `nil` and never `[]` — one more reason it earns no live
+        # replacement, in addition to `reference_to` already covering it.
+        # Kept here, refusing live, ONLY so `MetaValidator.shadow_parsing?`
+        # (S0a's own bridge) can still make sense of frozen era text that
+        # used one — real, if rare: "Combined corpus uses: one."
+        def has_many(type, as: nil, optional: false)
+          return legacy_has_many(type, as: as, optional: optional) if MetaValidator.shadow_parsing?
+
+          raise Malformed,
+                "#{@name}.has_many is gone — reference_to #{Naming.singularize(Naming.demodulise(type))} " \
+                "mints the same bare name now"
         end
 
-        def belongs_to(type, as: nil) = has_one(type, as: as)
+        def has_one(type, as: nil, optional: false)
+          return legacy_has_one(type, as: as, optional: optional) if MetaValidator.shadow_parsing?
+
+          raise Malformed, "#{@name}.has_one is gone — reference_to #{Naming.demodulise(type)} mints the same bare name now"
+        end
+
+        def belongs_to(type, as: nil, optional: false)
+          return legacy_has_one(type, as: as, optional: optional) if MetaValidator.shadow_parsing?
+
+          raise Malformed, "#{@name}.belongs_to is gone — reference_to #{Naming.demodulise(type)} mints the same bare name now"
+        end
 
         def lifecycle(field, default:, &block)
           @lifecycle = LifecycleBuilder.build(field, default: default, &block)
@@ -231,14 +127,18 @@ module Hecksagain
 
         def entity(name, &block)
           # A piece is declared IN this aggregate — its owner is stamped by
-          # `IR::Aggregate#initialize`, once the aggregate exists. Its own
+          # `Aggregate#initialize`, once the aggregate exists. Its own
           # commands were given the piece as their owner when it was declared,
           # so the chain closes as chapter -> aggregate -> entity -> command.
-          @entities << EntityBuilder.build(name, &block)
+          # `owner_value_objects:` lets a PIECE's own `identified_by :field`
+          # (see AttributeCollector#resolve_identity_field!) derive from a
+          # value object this AGGREGATE declared — a piece has none of its
+          # own — so the same bare-field form works at both levels.
+          @entities << EntityBuilder.build(name, owner_value_objects: @value_objects + closed_sets, &block)
         end
 
         def query(name, &block)
-          @queries << QueryBuilder.build(name, &block)
+          @queries << QueryBuilder.build(name, owner_attributes: attributes, &block)
         end
 
         def policy(name, &block)
@@ -247,100 +147,113 @@ module Hecksagain
           @policies << reaction
         end
 
+        # `builder.closed_sets` TOO, not only `builder.build` — a REAL,
+        # previously-unreachable gap this exact fix exposed: a
+        # value_object's own INLINE `attribute :x, one_of(...)` (now legal
+        # — S3, ADR 0025 removed the wrong-arity collision that used to
+        # make this crash before it could ever matter) synthesises its own
+        # anonymous value object via the SAME `AttributeCollector#closed_
+        # sets` mechanism an aggregate's own attributes already use — and
+        # nothing installed it anywhere. `Box.attributes` said `size:
+        # "Size"` while no "Size" value object existed in the whole
+        # domain: a dangling type name, not a working closed set. Flattened
+        # into THIS aggregate's own `@value_objects`, the identical move
+        # `@value_objects + closed_sets` already makes for the aggregate's
+        # own direct attributes (see this file's other 5 call sites).
         def value_object(name, &block)
-          @value_objects << ValueObjectBuilder.build(name, &block)
+          builder = ValueObjectBuilder.new(name)
+          builder.instance_eval(&block) if block
+          @value_objects << builder.build
+          @value_objects.concat(builder.closed_sets)
         end
 
-        # Vendored no-op stub, not (yet) upstream hecksagain (migration
-        # plan task 8): `fixture "Name" do field value ... end` declared
-        # INSIDE an aggregate block -- a THIRD fixture shape hecks_nursury
-        # uses (328 occurrences, 32 files) besides its 312 dedicated
-        # `.fixtures` files and BluebookBuilder's already-stubbed
-        # bluebook-level `fixture "Name", on: "Aggregate" do ... end`
-        # (deciderate). Same documented gap, same reasoning as that
-        # sibling stub's own comment : the field-setter calls inside
-        # (`name "House Battery Bank"`, `voltage 12.8`) have no real
-        # receiver methods, one per the aggregate's own attribute names,
-        # varying per file -- executing the block for real needs an
-        # actual seeding mechanism (dispatch a Declare-equivalent at
-        # boot, or write straight into the repository bypassing command
-        # validation), a real design question not attempted here.
-        # Accepted so the file boots ; block body captured via a tiny
-        # inert `method_missing` receiver (field names vary too widely
-        # per aggregate to enumerate), NOT stored or seeded anywhere.
-        # TODO upstream via bin/evolve (migration plan task 7): a real
-        # aggregate-fixture seeding mechanism, one design covering all
-        # three shapes at once.
-        class InlineFixtureFieldStub
-          def method_missing(*, **, &) = nil
-          def respond_to_missing?(*) = true
-        end
-
-        # Chris's call (2026-08-13, i745/i748): still ACCEPTED so the file
-        # boots -- hecksagain has no fixture-LOADING mechanism at all yet
-        # (not even the separate .fixtures-file convention bin-buddy relies
-        # on ; real seeding is a genuine subsystem build, its own decision,
-        # not attempted here) -- but no longer PURELY silent. A stderr
-        # warning at parse time surfaces through every subcommand that
-        # boots this file (validate, dispatch, behaviors alike), not just
-        # one path -- cheaper than adding a whole new warnings-collection
-        # channel to validate's own return shape, and it names the record
-        # so a caller currently blind to this real content loss can grep
-        # for it.
-        def fixture(*args, **kwargs, &block)
-          # The first positional arg is usually just the aggregate name
-          # repeated (`fixture "Train", train_number: "MT-100", ...`), not a
-          # distinguishing record id -- fold in the first non-`on:` kwarg
-          # too, so two records on the same aggregate don't log identically.
-          name   = args.first || "(unnamed)"
-          detail = kwargs.reject { |k, _| k == :on }.first
-          suffix = detail ? " #{detail[0]}=#{detail[1].inspect}" : ""
-          $stderr.puts "[fixture] #{@name}.fixture(#{name.inspect}#{suffix}) accepted but NOT seeded " \
-                       "-- hecksagain has no fixture-loading mechanism yet (i745/i748)"
-          InlineFixtureFieldStub.new.instance_eval(&block) if block
-        end
-
-        def command(name, &block)
+        # `from:` — LIFECYCLE STATE BECOMES A COMMAND GUARD (S10, ADR
+        # 0025) — `command "Debit", from: "open"` replaces `given
+        # ("account is open") { status == "open" }`, written 35 times
+        # in two wordings across the corpus. Checked against THIS
+        # aggregate's own lifecycle field (`Admissibility#enforce_
+        # lifecycle_guard`) — never a target state, never a transition:
+        # the lifecycle already declares which states exist, so naming
+        # the legal ones is checkable against it, where a free-text
+        # given could drift out of sync with the state machine and did.
+        def command(name, from: nil, &block)
           # The verb is declared ON this aggregate — the owner `acts_on` answers
-          # with — stamped by `IR::Aggregate#initialize` once the aggregate
+          # with — stamped by `Aggregate#initialize` once the aggregate
           # exists. An ENTITY's commands take the entity as their owner instead,
           # at the entity's own declaration.
-          @commands << CommandBuilder.build(name, owner: @name, &block)
+          @commands << CommandBuilder.build(name, owner: @name, from: from, named_givens: @named_givens,
+                                                   owner_attributes: attributes, &block)
+        end
+
+        # A PRECONDITION SHARED ACROSS COMMANDS, DECLARED ONCE (S10, ADR
+        # 0025) — an aggregate-level `given`, block required, stored by
+        # its own description rather than appended anywhere: a command
+        # names it back (`given("customer is active")`, no block of its
+        # own) rather than re-typing the predicate, so there is one
+        # description and therefore one refusal message no matter which
+        # command a caller hits. DECLARE BEFORE THE COMMANDS THAT
+        # REFERENCE IT — resolution happens at the referencing command's
+        # OWN build time (`CommandBuilder#given`), against whatever this
+        # aggregate has declared SO FAR, the one ordering constraint this
+        # word carries that `identified_by`/`attribute` do not.
+        def given(description, &predicate)
+          canonical = Ports::Extraction.canonical(predicate)
+
+          if canonical.to_s.empty?
+            raise Malformed,
+                  "#{@name}'s given #{description.inspect} did not survive " \
+                  "extraction — its source could not be read, so no other " \
+                  "runtime could ever evaluate it"
+          end
+
+          @named_givens[description] = Given.new(description: description, canonical: canonical, predicate: predicate)
+        end
+
+        # THE AGGREGATE BOUNDARY IS WHAT AN INVARIANT DEFINES (S10, ADR
+        # 0025 — "Rules") — checked after every command, before save,
+        # the same way a value object's already is
+        # (`ValueObjectBuilder#invariant`, whose own shape this mirrors
+        # exactly). Today `invariant` lived only inside `value_object`;
+        # an aggregate-level rule had nowhere to live, so "the balance
+        # never goes negative" was three different `given`/`ensures`
+        # texts across banking's six balance-moving commands, and the
+        # four that only increase it said nothing at all — completeness
+        # depended on someone noticing which commands could decrease it.
+        def invariant(description, &predicate)
+          canonical = Ports::Extraction.canonical(predicate)
+
+          if canonical.to_s.empty?
+            raise Malformed,
+                  "#{@name}'s invariant #{description.inspect} did not survive " \
+                  "extraction — it would be a rule the IR cannot carry"
+          end
+
+          @invariants << Invariant.new(description: description, canonical: canonical, predicate: predicate)
         end
 
         def build
-          # Vendored default, not (yet) upstream hecksagain: hecks_nursury
-          # (375 files) declares no identified_by anywhere -- hecksagain
-          # refuses an aggregate with none ("an aggregate says what it
-          # is known by"). Falls back to the FIRST declared attribute's
-          # own .value path rather than requiring a corpus-wide add-a-
-          # line pass across every nursery domain -- either exactly
-          # right (most nursery aggregates have one obviously-primary
-          # field) or a visible wrong guess a real boot/dispatch
-          # surfaces immediately, not a silent one. TODO upstream via
-          # bin/evolve (migration plan task 7).
-          if @identity_paths.empty? && attributes.any?
-            @identity_paths = ["#{attributes.first.name}.value"]
-          end
-
-          resolve_bare_primitive_collisions
-
+          resolve_pending_identity!
           seal_mutation_targets
           seal_query_targets
           seal_defaults
+          seal_lifecycle_guards
+          seal_projected_fields
 
-          ir = IR::Aggregate.new(
+          ir = Aggregate.new(
             name:          @name,
             description:   @description,
             attributes:    attributes,
             value_objects: @value_objects + closed_sets,
             commands:      @commands,
+            invariants:    @invariants,
+            preconditions: @named_givens.values,
+            projected_fields: @projected_fields,
             identified_by: @identity_paths,
             lifecycle:     @lifecycle,
             entities:      @entities,
             queries:       @queries,
             policies:      @policies,
-            reference_targets: @reference_targets,
+            reference_targets: @reference_targets + entity_reference_targets,
             provenance:    @provenance
           )
 
@@ -351,79 +264,32 @@ module Hecksagain
           ir
         end
 
-        # inline_description -- vendored addition, not (yet) upstream
-        # hecksagain. hecks_conception writes `aggregate "Name", "desc" do
-        # ... end` (a second positional string) rather than a
-        # `description "desc"` call inside the block -- syntactic sugar
-        # over the same information, so this just calls #description
-        # first rather than duplicating what it does. TODO upstream via
-        # hecksagain's own bin/evolve word-admission process (migration
-        # plan task 7).
-        def self.build(name, inline_description = nil, &block)
+        def self.build(name, &block)
           builder = new(name)
-          builder.description(inline_description) if inline_description
           builder.instance_eval(&block) if block
           builder.build
         end
 
         private
 
-        # Vendored fix, not (yet) upstream hecksagain (migration plan task
-        # 8): `synthesise_primitive_wrapper` (above) mints an auto-wrapper
-        # VO named after a bare attribute's own field (PascalCase) with NO
-        # check for whether an EXPLICIT, hand-written `value_object` of
-        # that same name already exists elsewhere in the same aggregate,
-        # for an entirely unrelated purpose. hecks_nursury's own
-        # biology.bluebook: `Neuron`'s bare `attribute :neurotransmitter,
-        # String` (a plain field on the neuron itself) shares its
-        # PascalCased name with a hand-written `value_object
-        # "Neurotransmitter" do ... end` (an embedded shape `Synapse`'s
-        # OWN `neurotransmitter` field uses) -- same English word, two
-        # unrelated, both CORRECTLY-authored concepts, an ordinary domain-
-        # modeling coincidence, not a corpus bug to rewrite around. This
-        # is the same FAMILY of bug as the earlier "App" collision
-        # (AttributeCollector's own comment) but not the same CAUSE --
-        # that one was a misparse ; this is two independently-intended
-        # declarations. And unlike the App case, attribute-call-time could
-        # not have caught this even with a perfect check : the bare
-        # attribute here is declared BEFORE the value_object it collides
-        # with, so @value_objects is not yet populated when the wrapper is
-        # synthesised. Deferred to build time on purpose, once
-        # @value_objects holds everything the block declared. Resolved by
-        # disambiguating the SYNTHESISED wrapper only -- the hand-written
-        # VO's name is real authorial intent and is never touched -- and
-        # re-pointing the bare attribute's own type string at the
-        # disambiguated name, so both concepts keep their own, non-
-        # colliding IR entry rather than the second Declare crashing the
-        # boot. TODO upstream via bin/evolve (migration plan task 7).
-        def resolve_bare_primitive_collisions
-          return if closed_sets.empty?
+        # `identified_by`'s own resolution pool (AttributeCollector#resolve_
+        # pending_identity!'s hook, S9) — an aggregate resolves a bare
+        # field's own value-object type against everything it declares
+        # itself, own inline closed sets included.
+        def identity_pool = @value_objects + closed_sets
 
-          handwritten = @value_objects.map { |vo| vo.hecks_name.to_s }
-          taken       = handwritten + closed_sets.map { |c| c.hecks_name.to_s }
-
-          closed_sets.each do |synthesised|
-            old_name = synthesised.hecks_name.to_s
-            next unless handwritten.include?(old_name)
-
-            new_name = "#{old_name}Value"
-            new_name = "#{old_name}Value#{taken.count(new_name) + 1}" while taken.include?(new_name)
-            taken << new_name
-            synthesised.hecks_name = new_name
-
-            attributes.each_with_index do |attr, i|
-              next unless attr.type.to_s == old_name
-
-              attributes[i] = IR::Attribute.new(
-                name: attr.name, type: new_name, list: attr.list?, default: attr.default,
-                optional: attr.optional?, pattern: attr.pattern, admits: attr.admits,
-                logged: attr.logged
-              )
-            end
-          end
+        # LEGACY — see `has_many`/`has_one`/`belongs_to`'s own comment;
+        # byte-identical to what those three did before this slice.
+        def legacy_has_many(type, as:, optional: false)
+          plural = Naming.demodulise(type)
+          reference_to(Naming.singularize(plural), as: as || Naming.snake(plural).to_sym, optional: optional)
         end
 
-        # Every reference is told which IR::Aggregate declares it, so it can
+        def legacy_has_one(type, as:, optional: false)
+          reference_to(type, as: as || Naming.snake(Naming.demodulise(type)).to_sym, optional: optional)
+        end
+
+        # Every reference is told which Aggregate declares it, so it can
         # find the chapter and resolve its target.
         #
         # Stamped HERE, at build, rather than at `reference_to`, because a command
@@ -435,6 +301,22 @@ module Hecksagain
         # fourteen times over.
         def stamp_references(ir)
           reference_bearing_attributes.each { |attribute| attribute.type.declared_in = ir }
+        end
+
+        # AN OWNED PIECE'S OWN `reference_to` IS AN EDGE THIS AGGREGATE
+        # POINTS ACROSS TOO (S9, ADR 0025 — "entity/aggregate shared
+        # vocabulary") — a ring closing through a contained piece (Board
+        # -> Board::Card -> Product -> Board) is the same "no boundary
+        # anyone can reason about alone" `validate_no_bidirectional_
+        # references!` already refuses for a direct aggregate-to-
+        # aggregate ring; it was invisible before this because only
+        # `AggregateBuilder#reference_to` ever fed `@reference_targets`,
+        # never `EntityBuilder#reference_to`. Command/query reference
+        # ARGUMENTS are deliberately excluded — they are data flowing
+        # through a dispatch, not persisted state the graph a cycle
+        # means anything over.
+        def entity_reference_targets
+          @entities.flat_map { |entity| entity.attributes.select(&:reference?).map { |a| a.type.target_name.to_s } }
         end
 
         def reference_bearing_attributes
@@ -496,6 +378,53 @@ module Hecksagain
           end
         end
 
+        # A command's `from:` guard needs a lifecycle field to check
+        # against — declared at BUILD time (S10, ADR 0025), the same
+        # point every other "does this actually resolve" check in this
+        # file runs, rather than left to crash `enforce_lifecycle_
+        # guard` the first time such a command is ever dispatched.
+        def seal_lifecycle_guards
+          return if @lifecycle
+
+          @commands.each do |command|
+            next unless command.from
+
+            raise Malformed,
+                  "#{@name}.#{command.hecks_name} guards from: #{Array(command.from).inspect}, but " \
+                  "#{@name} declares no lifecycle — from: checks a lifecycle field, and there is " \
+                  "none here to check"
+          end
+        end
+
+        # `projects`'s OWN half of "does this actually resolve" (S12,
+        # ADR 0025) — the LOCAL half only: `reference` must name a real
+        # reference-typed attribute this aggregate declares, and
+        # `name` must not collide with an attribute already declared
+        # (a projected field is its own kind of field, never a second
+        # spelling of one that already exists). The TARGET aggregate's
+        # own field is checked separately, once every aggregate in the
+        # chapter is real — see BluebookBuilder#validate_projected_
+        # fields!'s own comment for why that half cannot happen here.
+        def seal_projected_fields
+          declared = attributes.map { |attribute| attribute.name.to_sym }
+
+          @projected_fields.each do |field|
+            if declared.include?(field.name)
+              raise Malformed,
+                    "#{@name}.projects :#{field.name} names a field #{@name} already declares — " \
+                    "a projected field is never a second spelling of one that already exists"
+            end
+
+            reference_attribute = attributes.find { |attribute| attribute.name == field.reference }
+            unless reference_attribute&.reference?
+              raise Malformed,
+                    "#{@name}.projects :#{field.name} reads through #{field.reference.inspect}, which " \
+                    "#{@name} never declares as a reference_to — projects reads through a REFERENCE, " \
+                    "never a value object or a scalar"
+            end
+          end
+        end
+
         def seal_mutation_targets
           known = attributes.map { |attribute| attribute.name.to_sym }
           known << @lifecycle.field.to_sym if @lifecycle
@@ -547,10 +476,22 @@ module Hecksagain
             @entities.map { |entity| ["#{@name}::#{entity.hecks_name}", entity.attributes, entity.lifecycle, entity.queries] }
         end
 
+        # `/` CROSSES INTO ANOTHER RECORD, `.` WALKS FIELDS INSIDE THIS
+        # ONE (ADR 0025, "References") — the operator answers which
+        # kind of path this is now, not a name collision to arbitrate,
+        # so a hop is routed to its own method before any `.`-splitting
+        # runs at all; `seal_query_hop` below never sees a field this
+        # one would also have tried to resolve as a local dotted walk.
         def seal_query_field(owner, query, fields, lifecycle, field, ordering: false)
+          return seal_query_hop(owner, query, fields, field, ordering: ordering) if field.to_s.include?("/")
+
           name, *nested = field.to_s.split(".")
           attribute = fields.find { |candidate| candidate.name.to_s == name }
-          return if nested.empty? && (attribute || lifecycle&.field.to_s == name)
+          if nested.empty? && attribute
+            refuse_ambiguous_comparison!(owner, query, field, attribute)
+            return
+          end
+          return if nested.empty? && lifecycle&.field.to_s == name
           return if nested.any? && attribute && scalar_path?(attribute, nested)
 
           if nested.any? && attribute && resolves?(attribute, nested)
@@ -560,49 +501,49 @@ module Hecksagain
                   "member, or the engines answer it differently"
           end
 
-          if nested.any? && QuerySpecification::HopPath.hop_head?(field, fields)
-            # ORDER BY refuses a hop OUTRIGHT, right here — unlike a
-            # WHERE hop (deferred below), this doesn't need the
-            # target's shape to answer: an ask is ordered by what its
-            # own answering rows hold, and a hop answers with a
-            # candidate set, not a sort key (see Runtime::ReferenceHop).
-            if ordering
-              raise Malformed,
-                    "#{owner}.#{query.hecks_name} orders by #{field}, which hops through " \
-                    "a reference — an ask is ordered by what its own answering rows " \
-                    "hold, and a hop answers with a candidate set, not a sort key"
-            end
-
-            # RECOGNISED HERE, CHECKED LATER. The head names one of
-            # this aggregate's own references, which is answerable
-            # now — a Reference knows its own target_name at
-            # declaration. What it points AT is not: stamp_references
-            # has already run by this point, but the chapter
-            # (IR::Bluebook, and the owning aggregate's OWN place in
-            # it) does not exist yet, so Reference#resolve would
-            # answer nil for every target in the file, including ones
-            # declared above this one. The tail, and whether the
-            # target even exists, are BluebookBuilder's business —
-            # see validate_query_hops!, which runs once the chapter is
-            # real, for exactly the reason
-            # validate_no_bidirectional_references! already gives for
-            # living at that same later point.
-            return
-          end
-
           raise Malformed,
                 "#{owner}.#{query.hecks_name} asks about #{field}, which #{owner} " \
                 "never declares — a query over a field that does not exist " \
                 "matches nothing and refuses nothing"
         end
 
+        # ORDER BY refuses a hop OUTRIGHT, right here — unlike a WHERE
+        # hop (deferred below), this doesn't need the target's shape to
+        # answer: an ask is ordered by what its own answering rows
+        # hold, and a hop answers with a candidate set, not a sort key
+        # (see Runtime::ReferenceHop).
+        #
+        # A WHERE hop is only RECOGNISED here, and CHECKED LATER. The
+        # head names one of this aggregate's own references, which is
+        # answerable now — a Reference knows its own target_name at
+        # declaration. What it points AT is not: stamp_references has
+        # already run by this point, but the chapter (Bluebook, and the
+        # owning aggregate's OWN place in it) does not exist yet, so
+        # Reference#resolve would answer nil for every target in the
+        # file, including ones declared above this one. The tail, and
+        # whether the target even exists, are BluebookBuilder's
+        # business — see validate_query_hops!, which runs once the
+        # chapter is real, for exactly the reason
+        # validate_no_bidirectional_references! already gives for
+        # living at that same later point.
+        def seal_query_hop(owner, query, fields, field, ordering:)
+          unless QuerySpecification::HopPath.hop_head?(field, fields)
+            raise Malformed,
+                  "#{owner}.#{query.hecks_name} asks about #{field}, which #{owner} " \
+                  "never declares — a query over a field that does not exist " \
+                  "matches nothing and refuses nothing"
+          end
+
+          return unless ordering
+
+          raise Malformed,
+                "#{owner}.#{query.hecks_name} orders by #{field}, which hops through " \
+                "a reference — an ask is ordered by what its own answering rows " \
+                "hold, and a hop answers with a candidate set, not a sort key"
+        end
+
         def seal_ordered_comparator(owner, query, fields, clause)
           return unless ORDERED_COMPARATORS.include?(clause.op.to_s.to_sym)
-
-          name, *nested = clause.field.to_s.split(".")
-          attribute = fields.find { |candidate| candidate.name.to_s == name }
-          return if attribute &&
-                    QuerySpecification::FieldPath.numeric?(attribute, nested) { |type| declared_value_object(type) }
 
           # A WHERE clause hopping through a reference with an ordered
           # comparator is legitimate ("client whose balance > 500") —
@@ -612,7 +553,12 @@ module Hecksagain
           # same reason any other hop is: whether the tail is even
           # numeric is BluebookBuilder#validate_query_hops!'s question
           # to ask of the TARGET's shape, not this aggregate's own.
-          return if nested.any? && QuerySpecification::HopPath.hop_head?(clause.field, fields)
+          return if clause.field.to_s.include?("/") && QuerySpecification::HopPath.hop_head?(clause.field, fields)
+
+          name, *nested = clause.field.to_s.split(".")
+          attribute = fields.find { |candidate| candidate.name.to_s == name }
+          return if attribute &&
+                    QuerySpecification::FieldPath.numeric?(attribute, nested) { |type| declared_value_object(type) }
 
           held = attribute ? "holds no number" : "is the lifecycle field, which holds text"
           raise Malformed,
@@ -629,6 +575,39 @@ module Hecksagain
                 "#{owner}.#{query.hecks_name} resolves :#{value} from its arguments, " \
                 "but declares no #{value} attribute — an argument that does not exist " \
                 "resolves to nil and matches nothing"
+        end
+
+        # A BARE FIELD NAMING A VALUE OBJECT HAS TO SAY WHICH MEMBER IT
+        # MEANS, when more than one could answer. The dotted case above
+        # already refuses a path that lands on a value object rather than
+        # a scalar; a bare name was returning unconditionally, so
+        # `where(frequency: ...)` against a StatementFrequency
+        # (cadence, retention_months, paper_fee_cents) compiled — and the
+        # engines then disagreed about which member it meant, one taking
+        # the FIRST numeric and another declining to unwrap at all.
+        #
+        # Unambiguous is: exactly one member, whatever its type, or
+        # exactly one NUMERIC member among several (Money's `cents`
+        # beside its `currency` — the reading every engine already
+        # shared, and what the corpus relies on). Anything else names
+        # its member with a dotted path, which already works.
+        #
+        # A list is exempt: `contains` over a `list_of` reads element
+        # membership, not a scalar comparison, and has its own agreed
+        # reading across the engines.
+        def refuse_ambiguous_comparison!(owner, query, field, attribute)
+          return if attribute.list?
+
+          value_object = declared_value_object(attribute.type.to_s)
+          return unless value_object
+
+          members = QuerySpecification::Common::Comparison.ambiguous_members(value_object)
+          return if members.empty?
+
+          raise Malformed,
+                "#{owner}.#{query.hecks_name} asks about #{field}, which names #{attribute.type} — " \
+                "it has #{members.size} members (#{members.join(', ')}) and no single one a " \
+                "comparison can mean; name the member (#{field}.#{members.first})"
         end
 
         def scalar_path?(attribute, nested)

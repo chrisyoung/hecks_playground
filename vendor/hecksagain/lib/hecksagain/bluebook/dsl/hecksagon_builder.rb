@@ -3,115 +3,70 @@ module Hecksagain
     module DSL
       class HecksagonBuilder
         class << self
-          # i746 — current_bind mirrors collector's own class-level-
-          # channel pattern : BindingProxy#method_missing sets this to
-          # the IR::Bind it just minted before running the bind's block,
-          # so success/failure (below) can write onto it even though the
-          # block runs with self == this builder instance, not the proxy.
-          attr_accessor :collector, :current_bind
+          attr_accessor :collector
+
+          # The Bind a `success`/`failure` call (inside the block a
+          # `charged_by`-shaped verb call opens) writes onto — set for the
+          # duration of that block by `BindingProxy#method_missing`/
+          # `HecksagonBuilder#method_missing`, same save/restore shape
+          # `.collector` already uses. `self` inside that block stays the
+          # HecksagonBuilder instance (the whole `Hecks.hecksagon do ...
+          # end` chain is one `instance_eval`, and `block&.call` never
+          # rebinds it), so `success`/`failure` land here as real instance
+          # methods rather than falling into `method_missing` and minting
+          # a second, spurious Bind — which is exactly what happened
+          # before this existed.
+          attr_accessor :current_bind
         end
 
-        attr_reader :binds, :subscriptions, :framework_members, :raw_adapters, :driving_handlers, :driven_handlers
+        attr_reader :binds, :subscriptions, :framework_members, :vendored_bluebooks, :driven_handlers,
+                    :driving_handlers
 
         def initialize(domain)
           @domain             = domain
           @binds              = []
           @subscriptions      = []
           @framework_members  = []
-          @raw_adapters       = []
-          @driving_handlers   = []
+          @vendored_bluebooks = []
           @driven_handlers    = []
+          @driving_handlers   = []
         end
 
-        # Vendored addition, not (yet) upstream hecksagain (task 7 of the
-        # migration plan): `adapter "Name" do driving on <kind> "<arg>"
-        # do |signal| dispatch "Domain::Aggregate.Command" end end` --
-        # the DRIVING-SIDE construct (an external clock/file-watch/
-        # http-post reaches IN, the inverse of persisted_by/charged_by's
-        # driven-side). Confirmed real, live, 32 files in hecks_conception
-        # (cron_adapter.hecksagon, agent_inbox.hecksagon,
-        # event_sourcing.hecksagon, ...), grammar already proven in TWO
-        # other Hecks codebases (rust/src/hecksagon_parser.rs::
-        # parse_driving_handler, ruby/hecksagon/dsl/driven_adapter_builder.rb)
-        # -- ported here, not invented. STRUCTURAL support only: the
-        # actual clock that fires these on a schedule is a SEPARATE
-        # concern (Part 1 item 8 of the plan -- keep the old Rust
-        # driving-loop process alive, targeting hecksagain-cli's
-        # dispatch subcommand, until a Ruby scheduler is built) --
-        # documented, not silently pretended complete.
+        # THE EFFECT-PORT ASYNC VERDICT, captured onto whichever Bind is
+        # currently open (see .current_bind, above) — `nil` outside a
+        # bind's own block is a silent no-op rather than a raise, since a
+        # stray `success`/`failure` at the top level of a hecksagon is a
+        # writing mistake this method has no way to attribute to anything.
+        def success(command) = current_bind&.success = command.to_s
+        def failure(command) = current_bind&.failure = command.to_s
+
+        def current_bind = self.class.current_bind
+
+        # THE DRIVEN SIDE — `adapter "X" do driven on "Domain::Aggregate
+        # .Event" do dispatch "Domain::Aggregate.Command", field:
+        # "{event_field}" ; success "..." ; failure "..." end end`. Unlike
+        # a Bind, a driven handler is a direct in-process cross-context
+        # call — no port, no family, no adapter contract — so it is built
+        # by its own small capturing DSL (DrivingAdapterBuilder) and
+        # accumulated here rather than going through `@binds`.
         #
-        # ALSO still handles the OLD `adapter :symbol, key: val, ...`
-        # form (67+ files) when called with no block -- same method,
-        # dispatches on block presence.
-        # Vendored addition, not (yet) upstream hecksagain (migration plan
-        # task 8): `:sqlite` alongside the original `:heki`/`:memory`
-        # domain-wide-default kinds -- the CANONICAL PIZZAS EXAMPLE itself
-        # (pizzeria/domain/pizzas.hecksagon) writes `adapter :sqlite, db:
-        # "..." ` as a context-wide default with its own documented
-        # PRECEDENCE rule ("an aggregate-level persisted_by(...) binding
-        # is applied LAST and would OVERRIDE this wiring — exactly how
-        # Cart stays in Memory"). Unlike heki/memory, sqlite is written
-        # WITH opts (a real inline db path, not a .world-file value), so
-        # the trigger condition widens to tolerate opts for a KNOWN
-        # backend kind -- opts are accepted structurally but not yet
-        # wired to real per-deployment config (a documented, narrower
-        # gap: inline hecksagon-level adapter config bypassing .world
-        # entirely is a genuinely separate feature this migration didn't
-        # build). DOMAIN_WIDE_KINDS maps the DSL's bare kind symbol to
-        # its real registered adapter name (Sqlite's own .adapter file
-        # names it "SqlitePersistence", not "Sqlite").
-        DOMAIN_WIDE_KINDS = { heki: "Heki", memory: "Memory", sqlite: "SqlitePersistence" }.freeze
-
-        def adapter(kind, **opts, &block)
-          return domain_wide_persisted_by(kind) if !block && DOMAIN_WIDE_KINDS.key?(kind)
-          return @raw_adapters << { kind: kind.to_s, opts: opts } unless block
-
-          built = DrivingAdapterBuilder.build(kind, &block)
-          @driving_handlers.concat(built.driving_handlers)
+        # `**_opts` (swallowed, unread) absorbs legacy kwargs-form calls
+        # this corpus still has -- `adapter :web_tool, command: "...",
+        # tool: :web_fetch, result_into: "..."` / `adapter :fs, root:
+        # "..."` / `adapter :shell, name:, command:, args:, output_format:,
+        # timeout:`. Those forms predate this driven/driving grammar and
+        # named a genuinely different, still-unbuilt custom-adapter-config
+        # capability (no builder anywhere reads `root:`/`command:`/etc
+        # off an adapter call) -- accepting and discarding them turns a
+        # boot-time ArgumentError into the same silent no-op a bare
+        # `adapter :symbol` already is, rather than inventing semantics
+        # for kwargs nothing consumes. Designing that capability for real
+        # is separate, unstarted work.
+        def adapter(name, **_opts, &block)
+          built = DrivingAdapterBuilder.build(name, &block)
           @driven_handlers.concat(built.driven_handlers)
-        end
-
-        # Vendored addition, not (yet) upstream hecksagain: `adapter
-        # :heki` / `adapter :memory` / `adapter :sqlite` bare (no
-        # aggregate qualifier, no block) is a DOMAIN-WIDE default --
-        # "every aggregate in this bluebook persists here unless
-        # overridden" -- widespread across miette's organ/memory domains
-        # (i728 Phase B, "durable-by-default") and the canonical pizzas
-        # example's sqlite context, which states the precedence
-        # explicitly: "an aggregate-level persisted_by(...) binding is
-        # applied LAST and would OVERRIDE this wiring." hecksagain has no
-        # domain-wide default; every aggregate needs its own explicit
-        # persisted_by bind.
-        #
-        # DEFERRED, not immediate -- pizzeria's own file declares the
-        # domain-wide `adapter :sqlite` FIRST and Cart's overriding
-        # `Cart.persisted_by("Memory")` AFTER it, so resolving the
-        # default immediately (as this used to) saw an empty @binds and
-        # synthesized a bind for Cart too, colliding with Cart's own
-        # explicit one two lines later ("2 authoritative persisted_by
-        # bindings"). Recorded here, applied once in #build once every
-        # explicit bind in THIS FILE is known -- scoped to this
-        # hecksagon file only, the known, narrower gap a multi-file-per-
-        # domain override in a DIFFERENT file wouldn't be caught by ;
-        # pizzeria is single-file, so this is exact there. TODO upstream
-        # via bin/evolve (migration plan task 7).
-        def domain_wide_persisted_by(kind)
-          (@domain_wide_defaults ||= []) << DOMAIN_WIDE_KINDS.fetch(kind)
-        end
-
-        def apply_domain_wide_defaults!
-          return if @domain_wide_defaults.nil? || @domain_wide_defaults.empty?
-
-          bluebook_ir = Hecksagain.current_registry.bluebook(@domain) or return
-          already_bound = @binds.select { |b| b.verb == "persisted_by" }.map(&:aggregate_name).to_set
-          @domain_wide_defaults.each do |backend|
-            bluebook_ir.aggregates.each do |agg|
-              next if already_bound.include?(agg.hecks_name)
-
-              @binds << IR::Bind.new(aggregate: agg.hecks_name, verb: "persisted_by", adapter: backend, role: nil)
-              already_bound << agg.hecks_name
-            end
-          end
+          @driving_handlers.concat(built.driving_handlers)
+          self
         end
 
         # An event this hecksagon takes from OUTSIDE the domain's own
@@ -130,6 +85,31 @@ module Hecksagain
         def uses_framework(name)
           @framework_members << name.to_s
           Hecksagain::Framework.load!(name)
+        end
+
+        # A VENDORED, EXTERNAL bluebook this domain wants attached — same
+        # wiring-decision shape `uses_framework` already is, one level
+        # further out: not a member shipped inside hecksagain's own lib/,
+        # but a separate package (embryonaut_bluebooks) vendored into THIS
+        # project's own checkout. See EmbryonautBluebook's own header for
+        # the full reasoning on why its ROOT can't be a fixed constant the
+        # way Framework::ROOT is.
+        #
+        # RECORDED ONTO @vendored_bluebooks, same shape `uses_framework`
+        # already gives @framework_members — the language's own
+        # conformance suite (syntax_conformance_spec.rb's "names what each
+        # argument fills, except where nothing can") refuses a keyword
+        # argument that lands nowhere, the exact "silent decoration"
+        # this codebase's own philosophy refuses everywhere else. A
+        # SEPARATE list from framework_members on purpose — that one is
+        # load-bearing for a real check (Registry::Verification's
+        # `verify_governed_roles!` asks whether "Governance" is in the
+        # domain's MERGED framework_members, across every hecksagon block
+        # for it); conflating the two would make a vendored bluebook
+        # attachment satisfy a Governance check it has nothing to do with.
+        def uses_embryonaut_bluebook(name)
+          @vendored_bluebooks << name.to_s
+          Hecksagain::EmbryonautBluebook.load!(name)
         end
 
         # THE PRIMARY PORT, BARE AT THE ROOT — belongs to the CHAPTER as a
@@ -153,98 +133,61 @@ module Hecksagain
           built = ConstShim.with(->(const) { const }) { DomainPortBuilder.build(name, &block) }
 
           # See BindingProxy#port's own comment on the same branch — a
-          # `verb`-shaped port is a plain `IR::Port`, registered the same
+          # `verb`-shaped port is a plain `Port`, registered the same
           # way `Hecks.port`'s top-level method already does, not attached
           # to this bluebook's own IR the way an operations-shaped
-          # `IR::DomainPort` is.
-          return Hecksagain.current_registry.add_port(built) if built.is_a?(IR::Port)
+          # `DomainPort` is.
+          return Hecksagain.current_registry.add_port(built) if built.is_a?(Port)
 
           bluebook_ir.add_port(built)
         end
 
-        # Vendored no-op stub, not (yet) upstream hecksagain: hecksagon-
-        # level `gate "Aggregate", :role do allow :Cmd1, :Cmd2, ... end`
-        # (found in miette's circuit_breaker.hecksagon). Investigated, not
-        # just stubbed blind: every command in circuit_breaker.bluebook
-        # already declares its OWN `role "..."` individually, which
-        # hecksagain's `Runtime.as_caller(role:)` already checks at
-        # dispatch time — so `gate`/`allow` looks like a duplicate,
-        # centralized restatement of the same authorization from an older
-        # convention, not new capability. It's also STALE where checked:
-        # the bluebook says `Trip`/`Reset` are role "Creator", but this
-        # gate block claims :system covers them too — a real disagreement,
-        # not just redundancy, which is one more reason not to silently
-        # promote it to enforcement without reconciling the conflict
-        # first. Accepted so the file boots ; not stored or enforced.
-        # TODO upstream via bin/evolve (migration plan task 7): decide
-        # whether `gate` is retired in favor of per-command `role`, or
-        # kept as an intentional stricter allowlist — and if kept,
-        # reconcile circuit_breaker's own conflicting statement.
-        class GateStub
-          def allow(*) = nil
-        end
-
-        def gate(*, &block)
-          GateStub.new.instance_eval(&block) if block
-        end
-
-        # Vendored no-op stub, not (yet) upstream hecksagain — and a
-        # MAJOR finding, not a small one (migration plan task 4): the
-        # `Aggregate.verb("Adapter", on: "Event") do success "Cmd"
-        # failure "Cmd" end` shape — the EFFECT-family async-verdict
-        # pattern the Pizzas example itself documents as canonical
-        # (`Order.charged_by("Stripe", on: "OrderPlaced") do success
-        # "Order.Authorize" failure "Order.Decline" end`) — has NO
-        # implementation ANYWHERE in hecksagain: confirmed by grepping
-        # both the vendored copy AND the untouched original
-        # ~/Projects/hecksagain repo for `def success`/`def failure` —
-        # zero hits in either. `IR::Bind` itself
-        # (bluebook/ir/hexagon.rb) has no `on`/`success`/`failure`
-        # fields at all, only `aggregate`/`verb`/`adapter`/`role`. Found
-        # live via miette's dream.hecksagon (`BodyDream::Dream.
-        # imaged_by("DreamImage", on: "DreamImageRequested") do success
-        # "Dream.RecordImage" end`) — a block whose `success`/`failure`
-        # calls land on THIS builder (BindingProxy#method_missing just
-        # `block&.call`s the block in its ORIGINAL lexical scope, never
-        # instance_eval's it against the bind), so they need to exist
-        # here regardless of who resolves them.
-        #
-        # i746 — REAL now, not a stub. `on:` is threaded onto IR::Bind
-        # (bluebook/ir/hexagon.rb), BindingProxy#method_missing mints the
-        # bind and tracks it via HecksagonBuilder.current_bind while the
-        # bind's block runs (see that file's own comment), and these two
-        # methods write the verdict commands onto it. The remaining half
-        # of the subsystem — actual async delivery + verdict re-entry —
-        # is Dispatcher#record_effect_outbound, not this builder; this is
-        # only the DSL-capture half.
-        def success(cmd) = (self.class.current_bind&.success = cmd.to_s)
-        def failure(cmd) = (self.class.current_bind&.failure = cmd.to_s)
-
-        # Vendored catch-all no-op, not (yet) upstream hecksagain
-        # (migration plan task 8): bin-buddy's portal `.hecksagon` files
-        # (driver_portal/admin_portal/homeowner_portal) are a genuinely
-        # DIFFERENT genre of content from aggregate-wiring — app-surface
-        # branding and UI config (`capabilities :webapp`, `brand_color
-        # "#..."`, `task_colors do out "#..." end`, `refund_thresholds do
-        # role :support, cents: 2500 end`) — not persistence/payment
-        # binds at all. Real methods (`adapter`/`success`/`failure`/etc
-        # above) still win over method_missing, so this only absorbs
-        # whatever this vendored port doesn't know, same pattern as
-        # DrivingAdapterBuilder's own catch-all just above it in this
-        # migration. A block passed to an absorbed call is never
-        # yielded to, so its own inner calls (`out "#..."`, `role :x,
-        # cents: n`) never need to exist either — structurally captured,
-        # not wired to any real portal/branding concept. TODO upstream
-        # via bin/evolve (migration plan task 8).
-        def method_missing(*) = nil
-        def respond_to_missing?(*) = true
-
+        # NO refuse_ungoverned_roles! CALL HERE ANY MORE — moved to
+        # Registry::Verification#verify_governed_roles! (see that method's
+        # own header for why). This builder only ever sees ONE
+        # `Hecks.hecksagon "X" do ... end` block's own binds/framework
+        # members; a domain split across multiple files (base +
+        # environment overlay, `Hecks.boot(path, environment: ...)`) would
+        # have every block but the one declaring `uses_framework
+        # "Governance"` refused here, even though `Registry#add_hecksagon`
+        # merges them into one Hecksagon before anything dispatches
+        # against it. Checking the MERGED result once, at verify! time —
+        # after every file for this domain has loaded — is both more
+        # permissive (no need to repeat `uses_framework` in every file)
+        # and strictly more correct (a check against an incomplete,
+        # not-yet-merged hecksagon can never see the real final shape).
         def build
-          apply_domain_wide_defaults!
-          IR::Hecksagon.new(domain: @domain, binds: @binds, subscriptions: @subscriptions,
-                             framework_members: @framework_members, driving_handlers: @driving_handlers,
-                             driven_handlers: @driven_handlers)
+          Hecksagon.new(domain: @domain, binds: @binds, subscriptions: @subscriptions,
+                         framework_members: @framework_members, vendored_bluebooks: @vendored_bluebooks,
+                         driven_handlers: @driven_handlers, driving_handlers: @driving_handlers)
         end
+
+        # DOMAIN-LEVEL DEFAULT BINDS — `persisted_by "Heki"` bare, at the top
+        # of a hecksagon block, applies to every aggregate in this domain
+        # that doesn't declare its own override. Mirrors `BindingProxy`'s own
+        # `method_missing` one level down (`aggregate:` filled in there,
+        # `nil` here) — generic over verb name, not hardcoded to
+        # `persisted_by`/`projected_by` specifically, so any future verb
+        # gets a domain-level default for free too. See `Hecksagon#bind_for`
+        # for the fallback lookup this feeds.
+        def method_missing(verb, *args, **kwargs, &block)
+          return super unless args.first
+
+          bind = Bind.new(aggregate: nil, verb: verb.to_s, adapter: args.first.to_s, role: kwargs[:role]&.to_s,
+                           on: kwargs[:on]&.to_s)
+          @binds << bind
+
+          previous_bind        = self.class.current_bind
+          self.class.current_bind = bind
+          begin
+            block&.call
+          ensure
+            self.class.current_bind = previous_bind
+          end
+          self
+        end
+
+        def respond_to_missing?(_name, _include_private = false) = true
 
         def self.build(domain, &block)
           builder  = new(domain)

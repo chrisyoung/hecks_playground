@@ -1,4 +1,5 @@
 Hecks.hecksagon "Lexicon" do
+  uses_framework "Governance"
   # ============================================================
   # LEXICON — hexagonal wiring for the index declared in lexicon.bluebook
   # ============================================================
@@ -37,4 +38,9 @@ Hecks.hecksagon "Lexicon" do
   # heki upsert path. Lookup reads via heki::read. List filters in
   # memory.
   adapter :memory
+
+  # Explicit persisted_by, restored (i788/i789/i790) -- see
+  # command_bus.hecksagon's own comment on why the bare `adapter :memory`
+  # above no longer synthesizes this on its own.
+  Lexicon::Lexicon.persisted_by("Memory")
 end

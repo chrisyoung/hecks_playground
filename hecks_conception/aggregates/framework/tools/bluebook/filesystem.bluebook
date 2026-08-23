@@ -27,8 +27,9 @@ Hecks.bluebook "Filesystem", version: "2026.05.29.1" do
   # (from, to, path, offset, length) read from dispatched command state.
   # Tracked by policy-cmd-needs-interpolation-or-bin-scripts card.
 
-  aggregate "Filesystem", "Filesystem operation invocations as typed Door commands. State carries the last output via last_output so downstream policies can read results without re-running. Pure invocation record: each command mints a fresh record keyed by id. Mirrors Cargo aggregate shape." do
-    identified_by { id.value }
+  aggregate "Filesystem" do
+    description "Filesystem operation invocations as typed Door commands. State carries the last output via last_output so downstream policies can read results without re-running. Pure invocation record: each command mints a fresh record keyed by id. Mirrors Cargo aggregate shape."
+    identified_by :id
 
     attribute :id, Id
     attribute :last_output, RenderResult, default: { value: "" }
@@ -74,7 +75,7 @@ Hecks.bluebook "Filesystem", version: "2026.05.29.1" do
 
     command "File.Move" do
       role "Miette"
-      description "Move or rename a file. Passes `from` and `to` paths to bin/filesystem_file_move. Captures stdout on last_output and emits FileMoved so downstream policies can confirm the move completed."
+      goal "Move or rename a file. Passes `from` and `to` paths to bin/filesystem_file_move. Captures stdout on last_output and emits FileMoved so downstream policies can confirm the move completed."
       attribute :id, Id
       attribute :from, FilePath
       attribute :to, FilePath
@@ -83,7 +84,7 @@ Hecks.bluebook "Filesystem", version: "2026.05.29.1" do
 
     command "File.Remove" do
       role "Miette"
-      description "Delete a file. Passes `path` to bin/filesystem_file_remove. Captures stdout on last_output and emits FileRemoved so downstream policies can confirm the deletion."
+      goal "Delete a file. Passes `path` to bin/filesystem_file_remove. Captures stdout on last_output and emits FileRemoved so downstream policies can confirm the deletion."
       attribute :id, Id
       attribute :path, FilePath
       emits "FileRemoved"
@@ -91,7 +92,7 @@ Hecks.bluebook "Filesystem", version: "2026.05.29.1" do
 
     command "File.ReadRange" do
       role "Miette"
-      description "Read a range of lines or bytes from a file. Passes path, offset, and length to bin/filesystem_file_read_range. Captures the range content on last_output and emits FileRangeRead."
+      goal "Read a range of lines or bytes from a file. Passes path, offset, and length to bin/filesystem_file_read_range. Captures the range content on last_output and emits FileRangeRead."
       attribute :id, Id
       attribute :path, FilePath
       attribute :offset, RangeOffset
@@ -101,7 +102,7 @@ Hecks.bluebook "Filesystem", version: "2026.05.29.1" do
 
     command "Directory.Create" do
       role "Miette"
-      description "Create a directory (mkdir -p). Passes `path` to bin/filesystem_directory_create. Captures stdout on last_output and emits DirectoryCreated."
+      goal "Create a directory (mkdir -p). Passes `path` to bin/filesystem_directory_create. Captures stdout on last_output and emits DirectoryCreated."
       attribute :id, Id
       attribute :path, DirPath
       emits "DirectoryCreated"
@@ -109,7 +110,7 @@ Hecks.bluebook "Filesystem", version: "2026.05.29.1" do
 
     command "Directory.Remove" do
       role "Miette"
-      description "Remove a directory tree (rm -rf). Passes `path` to bin/filesystem_directory_remove. Captures stdout on last_output and emits DirectoryRemoved."
+      goal "Remove a directory tree (rm -rf). Passes `path` to bin/filesystem_directory_remove. Captures stdout on last_output and emits DirectoryRemoved."
       attribute :id, Id
       attribute :path, DirPath
       emits "DirectoryRemoved"
@@ -117,7 +118,7 @@ Hecks.bluebook "Filesystem", version: "2026.05.29.1" do
 
     command "Directory.List" do
       role "Miette"
-      description "List directory contents (ls). Passes `path` to bin/filesystem_directory_list. Captures the listing on last_output and emits DirectoryListed so downstream policies can inspect directory state."
+      goal "List directory contents (ls). Passes `path` to bin/filesystem_directory_list. Captures the listing on last_output and emits DirectoryListed so downstream policies can inspect directory state."
       attribute :id, Id
       attribute :path, DirPath
       emits "DirectoryListed"

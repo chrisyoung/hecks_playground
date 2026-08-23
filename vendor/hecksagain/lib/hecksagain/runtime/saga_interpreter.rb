@@ -1,5 +1,6 @@
+require "json"
 require_relative "saga_interpreter/correlation"
-require_relative "../bluebook/ir/process_manager"
+require_relative "../bluebook/process_manager"
 require_relative "errors"
 require_relative "value"
 
@@ -9,8 +10,14 @@ module Hecksagain
       include Correlation
 
       # The trigger lives on the declaration it triggers, not on the runtime that
-      # notices it — see IR::ProcessManager::REFUSED.
-      REFUSED = Bluebook::IR::ProcessManager::REFUSED
+      # notices it — see ProcessManager::REFUSED.
+      REFUSED = Bluebook::ProcessManager::REFUSED
+
+      # A crash gets this many extra attempts before the procedure gives up
+      # and treats it as something to compensate for — see
+      # `deliver_saga_dispatch`'s own comment for why a crash isn't unwound
+      # on the first failure the way a domain refusal is.
+      MAX_DEFECT_RETRIES = 3
 
       attr_reader :registry
 
@@ -24,15 +31,37 @@ module Hecksagain
         return unless bluebook
 
         bluebook.process_managers.each do |pm|
-          begin_saga(pm, event)
+          begin_saga(pm, event, domain)
           advance_saga(pm, event, domain)
-          end_saga(pm, event)
+          end_saga(pm, event, domain)
         end
       end
 
       private
 
-      def begin_saga(pm, event)
+      # THE CHECKPOINT WRITE, shared by every mutation site below —
+      # holds `saga_mutex` across BOTH the in-memory Hash mutation and
+      # the persistence write (§7), not just the Hash mutation alone:
+      # two threads racing the SAME (process_manager, correlation) key
+      # could otherwise interleave their writes out of order, silently
+      # reordering a saga's own transition history — worse for the
+      # adapters with no locking of their own (Heki) than for Postgres.
+      # `deep_copy` guards against the exact shape of bug PR #175 itself
+      # already found once (over-freezing a live, still-mutated Hash) —
+      # never hand a persistence adapter the SAME object `advance_saga`/
+      # `unwind` go on to mutate in place; round-tripping through JSON
+      # is also what guarantees the value is safe for every adapter that
+      # itself calls `JSON.generate` on it.
+      def checkpoint(pm, correlation, instance, domain)
+        @registry.saga_persistence(domain).save_saga(
+          process_manager: pm.name, correlation: correlation,
+          state: instance[:state], memory: deep_copy(instance[:memory])
+        )
+      end
+
+      def deep_copy(hash) = JSON.parse(JSON.generate(hash), symbolize_names: true)
+
+      def begin_saga(pm, event, domain)
         return unless event.name == pm.starts_on
 
         correlation = saga_correlation(pm, event)
@@ -41,24 +70,34 @@ module Hecksagain
                                   born: false, reason: "no #{pm.correlates_by} in the payload" }
           return
         end
-        return if @registry.saga_instances[pm.name].key?(correlation)
 
-        # `.dup`, not the SAME Hash `event.payload` already is — a real
-        # aliasing bug found live, not by inspection: `remember_into_
-        # instance` (below) mutates `instance[:memory]` in place, and
-        # without the dup that write landed on the STARTING event's own
-        # `.payload` object too, since assignment here never copied it.
-        # A `remember` declared on the SAME leg that starts the saga
-        # (`on "TransferRequested"`, banking.bluebook's own Settlement)
-        # retroactively added a field to an event already emitted and
-        # logged — the one event a saga instance's memory must never be
-        # able to reach backward and edit.
-        @registry.saga_instances[pm.name][correlation] =
-          { state: pm.states.first, memory: event.payload.dup }
+        created = @registry.saga_mutex.synchronize do
+          next false if @registry.saga_instances[pm.name].key?(correlation)
+
+          # `.dup` — vendored fix, not (yet) upstream hecksagain (i768
+          # follow-up): `remember_into_instance` mutates `instance[:memory]`
+          # in place on a later tick, and the starting event's own payload
+          # Hash is frozen (an ordinary event-immutability guarantee this
+          # runtime holds everywhere else) — a bare reference here would
+          # make the FIRST `remember` on any saga raise `FrozenError`.
+          instance = { state: pm.states.first, memory: event.payload.dup }
+          @registry.saga_instances[pm.name][correlation] = instance
+          checkpoint(pm, correlation, instance, domain)
+          true
+        end
+        return unless created
+
         @registry.saga_log << { process_manager: pm.name, on: event.name,
                                 instance: correlation, born: true, state: pm.states.first }
       end
 
+      # THE MUTEX COVERS ONLY THE STATE-CHECK-AND-MUTATE-AND-CHECKPOINT
+      # STEP, never the dispatch cascade that follows — `deliver_saga_
+      # dispatch` calls `@door.reenter`, which can recursively re-enter
+      # THIS SAME interpreter (a saga's own leg triggering another saga,
+      # or itself again) on the SAME thread, and `Mutex` is not
+      # reentrant: holding it across that call would deadlock the
+      # thread against itself the moment any real chain did that.
       def advance_saga(pm, event, domain)
         handler = pm.handler_for(event.name)
         return unless handler
@@ -66,20 +105,27 @@ module Hecksagain
         correlation = saga_correlation(pm, event)
         return if correlation.to_s.empty?
 
-        instance = @registry.saga_instances[pm.name][correlation]
         record   = { process_manager: pm.name, on: event.name, instance: correlation }
+        instance = nil
 
-        unless instance
-          @registry.saga_log << record.merge(advanced: false, reason: "no conversation remembers #{correlation.inspect}")
-          return
-        end
-        unless instance[:state] == handler.from_state
-          @registry.saga_log << record.merge(advanced: false,
-                                             reason: "in #{instance[:state].inspect}, not #{handler.from_state.inspect}")
-          return
-        end
+        advanced = @registry.saga_mutex.synchronize do
+          instance = @registry.saga_instances[pm.name][correlation]
+          unless instance
+            @registry.saga_log << record.merge(advanced: false, reason: "no conversation remembers #{correlation.inspect}")
+            next false
+          end
+          unless instance[:state] == handler.from_state
+            @registry.saga_log << record.merge(advanced: false,
+                                               reason: "in #{instance[:state].inspect}, not #{handler.from_state.inspect}")
+            next false
+          end
 
-        instance[:state] = handler.to_state
+          instance[:state] = handler.to_state
+          checkpoint(pm, correlation, instance, domain)
+          true
+        end
+        return unless advanced
+
         @registry.saga_log << record.merge(advanced: true, from: handler.from_state, to: handler.to_state)
 
         remember_into_instance(handler, event, instance, correlation)
@@ -153,12 +199,40 @@ module Hecksagain
         args   = dispatch_args(pm, spec, event, instance, correlation, iter: iter)
         record = { process_manager: pm.name, instance: correlation, dispatch: spec.command_name }
 
+        # THE RAW INPUTS `args` WAS RESOLVED FROM, captured alongside the
+        # result — never re-derived from history[:saga_instances] later
+        # (that only ever holds the FINAL memory, after every step has
+        # run; this dispatch's own memory, at the moment it actually
+        # fired, is a different fact for a saga whose memory keeps
+        # changing). `spec.with_spec.empty?` skipped: nothing declared
+        # to check, a tautological pass, the same reason a command with
+        # no givens/from is skipped by lifecycle_guard_and_given_
+        # violations_are_refused.
+        unless spec.with_spec.to_a.empty?
+          @registry.saga_dispatch_log << { process_manager: pm.name, instance: correlation, dispatch: spec.command_name,
+                                            on: event.name, correlation_head: pm.correlation_head,
+                                            event_payload: event.payload, memory: Value.materialize(instance[:memory]),
+                                            with_spec: spec.with_spec, args: args }
+        end
+
         if @door.reaction_depth_reached?
+          # THE CEILING IS NOT A DOMAIN DECISION EITHER — same reasoning as a
+          # crash, below — but unlike a crash there is nothing ambiguous
+          # about it: the leg unambiguously did not run, so it unwinds
+          # exactly like a refusal instead of stranding the instance for a
+          # human to notice. `unwind`'s own state guard (it moves to its
+          # `to_state` before its dispatches run) is what keeps this from
+          # looping if the ceiling is still in effect when the compensating
+          # leg tries to dispatch — that leg's own attempt hits this same
+          # branch, calls `unwind` again, and finds the instance already
+          # past `from_state`.
           @registry.saga_log << record.merge(delivered: false,
                                              reason: "reaction depth #{@door.max_reaction_depth} reached")
+          unwind(pm, event, instance, correlation, domain)
           return
         end
 
+        attempt = 0
         begin
           @door.reenter(qualified(spec.command_name, domain),
                         saga_correlation: { pm.correlation_head.to_s => correlation }, **args)
@@ -176,30 +250,42 @@ module Hecksagain
           # comment for the full reasoning: the same DOMAIN_REFUSALS split,
           # and the same "the triggering command already succeeded and
           # persisted by the time this runs" fact that makes catching it
-          # here safe rather than reckless. Recorded distinguishably
-          # (`defect: true`, plus the error's own class) and warned to
-          # STDERR rather than left to blow up the ORIGINAL dispatch that
-          # started this saga leg.
+          # here safe rather than reckless.
           #
-          # DELIBERATELY DOES NOT `unwind`, unlike the branch above — that
-          # is this method's one asymmetry with the policy interpreter's.
-          # `unwind` runs the domain's OWN `on :refused` compensation, which
-          # exists to undo a leg the domain itself declined. A crash is not
-          # a decision the domain made ; running the compensating dispatch
-          # for it would misrepresent what happened (there was no refusal
-          # to compensate for) and could dispatch a real command against
-          # state nobody actually decided to change. The instance is left
-          # exactly where it landed, for a human to find via the warning
-          # and the log.
+          # UNLIKE a refusal, a crash is not a decision the domain made, so
+          # it does not unwind on the first failure — MAX_DEFECT_RETRIES
+          # gives a transient failure (a DB timeout, a race, a cold start)
+          # a chance to clear on its own, retrying the identical dispatch,
+          # before this is treated as something to compensate for. Every
+          # attempt is recorded distinguishably (`defect: true`, the
+          # error's own class); only once retries are exhausted is it
+          # warned to STDERR and unwound — tagged `defect_compensated:
+          # true` rather than folded into an ordinary refusal's shape, so
+          # the log never misrepresents a crash as a decision the domain
+          # made. Compensating a genuinely stuck leg beats leaving it for a
+          # human to find; misrepresenting *why* it compensated is what the
+          # tag is for.
+          attempt += 1
+          if attempt <= MAX_DEFECT_RETRIES
+            @registry.saga_log << record.merge(delivered: false, reason: error.message,
+                                               defect: true, error_class: error.class.name,
+                                               attempt: attempt, retrying: true)
+            retry
+          end
+
           warn "[hecksagain] defect in saga #{pm.name} — instance #{correlation.inspect} " \
-               "dispatching #{spec.command_name}: #{error.class}: #{error.message}"
-          @registry.saga_log << record.merge(delivered: false, reason: error.message,
-                                             defect: true, error_class: error.class.name)
+               "dispatching #{spec.command_name} after #{attempt} attempts: #{error.class}: #{error.message}"
+          @registry.saga_log << record.merge(delivered: false, reason: error.message, defect: true,
+                                             error_class: error.class.name, defect_compensated: true)
+          unwind(pm, event, instance, correlation, domain)
         end
       end
 
       # A refused leg UNWINDS — the procedure runs the leg declared `on :refused`,
-      # which is where the compensation lives.
+      # which is where the compensation lives. So does a leg that hit the
+      # reaction-depth ceiling, and so does a leg that crashed and stayed
+      # crashing through MAX_DEFECT_RETRIES — see `deliver_saga_dispatch`'s own
+      # comments for why each of those is safe to route here.
       #
       # Until this existed a refusal was RECORDED and nothing else happened. The
       # wire's thousand was taken from the source, refused by the destination, and
@@ -216,13 +302,22 @@ module Hecksagain
         return unless handler && instance
 
         record = { process_manager: pm.name, on: REFUSED, instance: correlation }
-        unless instance[:state] == handler.from_state
-          @registry.saga_log << record.merge(advanced: false,
-                                             reason: "in #{instance[:state].inspect}, not #{handler.from_state.inspect}")
-          return
-        end
 
-        instance[:state] = handler.to_state
+        # Same non-reentrancy reasoning as `advance_saga`'s own comment —
+        # the mutex covers only the check-and-mutate-and-checkpoint step.
+        advanced = @registry.saga_mutex.synchronize do
+          unless instance[:state] == handler.from_state
+            @registry.saga_log << record.merge(advanced: false,
+                                               reason: "in #{instance[:state].inspect}, not #{handler.from_state.inspect}")
+            next false
+          end
+
+          instance[:state] = handler.to_state
+          checkpoint(pm, correlation, instance, domain)
+          true
+        end
+        return unless advanced
+
         @registry.saga_log << record.merge(advanced: true, from: handler.from_state, to: handler.to_state)
 
         handler.dispatches.each do |spec|
@@ -243,25 +338,13 @@ module Hecksagain
 
       # Vendored addition, not (yet) upstream hecksagain (migration plan
       # task 4): pulled out of `dispatch_args` unchanged, plus one new
-      # branch -- `Bluebook::IR::TemplateSpec` resolves each of its OWN
-      # args through this SAME method (recursively; a template arg can
-      # itself be `pm.correlation_head` or a plain field reference,
-      # anything an ordinary `with:` value could be) and substitutes into
-      # `format`. Fully qualified (not bare `IR`, unlike
-      # process_manager_builder.rb's own `template` sugar): THIS class
-      # lives under `Hecksagain::Runtime`, a SIBLING of `Hecksagain::
-      # Bluebook`, not nested inside it, so bare `IR` never resolves here
-      # the way it does from inside `Hecksagain::Bluebook::DSL` — this
-      # branch was never dispatched for real until burning-man-prep's own
-      # `PlaceNewItemOnOwnersPersonalList` saga hit it (migration
-      # investigation, 2026-08-11), raising `uninitialized constant
-      # Hecksagain::Runtime::SagaInterpreter::IR` on every `with:` value
-      # that happened to need a plain (non-template) resolution too,
-      # since the `case` itself never got past the `when` clause's own
-      # constant lookup.
+      # branch -- `Bluebook::TemplateSpec` resolves each of its OWN args
+      # through this SAME method (recursively; a template arg can itself
+      # be `pm.correlation_head` or a plain field reference, anything an
+      # ordinary `with:` value could be) and substitutes into `format`.
       def resolve_value(value, pm, event, instance, correlation, iter)
         case value
-        when Bluebook::IR::TemplateSpec
+        when Bluebook::TemplateSpec
           resolved_args = value.args.map { |arg| resolve_value(arg, pm, event, instance, correlation, iter) }
           format(value.format, *resolved_args)
         when Symbol
@@ -275,21 +358,20 @@ module Hecksagain
       # field, not a whole value object" idiom `identified_by`/
       # `correlates_by` already hold every other declaration to —
       # `with: { item_id: :"id.value" }` reaches into a VO-wrapped
-      # payload field (Item.Add's own `id: ItemId`) for the bare scalar
-      # a reference-typed target argument (Place's own `item_id`)
-      # actually needs, rather than handing it the whole `{value: "..."}`
-      # shape a plain top-level key would. A bare (undotted) source is
-      # unchanged from before this existed — reads the field whole,
-      # exactly as every existing `with:` mapping in the corpus already
-      # does.
+      # payload field for the bare scalar a reference-typed target
+      # argument actually needs, rather than handing it the whole
+      # `{value: "..."}` shape a plain top-level key would. A bare
+      # (undotted) source is unchanged from before this existed — reads
+      # the field whole, exactly as every existing `with:` mapping in
+      # the corpus already does.
       # `row:`, vendored addition not (yet) upstream hecksagain (migration
       # plan task 4, i225): a for_each dispatch's iteration record, tried
       # FIRST -- `from_iter`/`from_event` are indistinguishable at the IR
       # level (both HandlerBuilder methods just return the bare field
-      # Symbol, see process_manager_builder.rb's own comment), so this is
-      # a runtime-side, not parse-side, resolution: when a row is present
-      # (a for_each dispatch) and carries the field, it wins over the
-      # event/instance fallback every other dispatch already used.
+      # Symbol), so this is a runtime-side, not parse-side, resolution:
+      # when a row is present (a for_each dispatch) and carries the
+      # field, it wins over the event/instance fallback every other
+      # dispatch already used.
       def resolve_with_value(value, event, instance, row: nil)
         head, *rest = value.to_s.split(".").map(&:to_sym)
         base = if row && row.key?(head)
@@ -308,12 +390,19 @@ module Hecksagain
         command_name.include?("::") ? command_name : "#{domain}::#{command_name}"
       end
 
-      def end_saga(pm, event)
+      def end_saga(pm, event, domain)
         return unless event.name == pm.ends_on
 
         correlation = saga_correlation(pm, event)
         return if correlation.to_s.empty?
-        return unless @registry.saga_instances[pm.name].delete(correlation)
+
+        ended = @registry.saga_mutex.synchronize do
+          next false unless @registry.saga_instances[pm.name].delete(correlation)
+
+          @registry.saga_persistence(domain).delete_saga(process_manager: pm.name, correlation: correlation)
+          true
+        end
+        return unless ended
 
         @registry.saga_log << { process_manager: pm.name, on: event.name,
                                 instance: correlation, ended: true }

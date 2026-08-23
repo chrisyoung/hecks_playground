@@ -70,6 +70,22 @@ module Hecksagain
             return arithmetic_value_object(current, amount, target, sign, op)
           end
 
+          # `current` genuinely absent (no declared default, never set) and
+          # `amount` arrives VO-wrapped — a real command argument typed the
+          # same as the attribute, but with nothing to combine field-by-
+          # field against yet (that is what `arithmetic_value_object`,
+          # above, is for once BOTH sides carry real fields). Before this,
+          # falling straight to `unless amount.is_a?(Numeric)` below
+          # refused with "increment needs an Integer, got 500" — true of
+          # nothing: 500 is exactly the Integer it asked for, just still
+          # wearing the Money wrapper the command's own declared attribute
+          # type put it in. Unwrapped here, the same shape #clamp already
+          # falls through to for an absent VO-typed attribute
+          # (`current ||= 0`, then a raw scalar) — the mutation applier
+          # re-wraps the raw result into the declared VO type on write,
+          # the same way it already does for clamp's own result.
+          amount = unwrap_single_numeric_field(amount) if amount.is_a?(Value)
+
           # Widened from Integer to Numeric (migration plan task 4, i106):
           # miette's organ math increments a Float (`increment: 0.02`) --
           # the raw, non-value-object path only ever mattered for Integer
@@ -105,7 +121,42 @@ module Hecksagain
           end
 
           field = shared_numeric.first
+          refuse_disagreeing_fields!(current_fields, amount_fields, field, op, target)
           current.with(field, current[field] + (sign * amount[field]))
+        end
+
+        # A REAL BUG THIS CAUGHT, NOT A HYPOTHETICAL — `current.with(field,
+        # ...)` below only ever touches the ONE shared numeric field
+        # (cents, say); every OTHER field `current` already had — currency,
+        # for a Money-shaped accumulator — survives untouched, regardless
+        # of what `amount` itself carries for that same field. Found live:
+        # embryonaut_bluebooks/payments' own `refunded_amount` (Money,
+        # default currency "USD") silently stayed "USD" forever after
+        # `increment: :confirmed_amount` on a real EUR payment — the
+        # cents accumulated correctly; only the CURRENCY LABEL lied,
+        # invisibly, no error anywhere. `Banking::Account.balance`
+        # (examples/banking/bluebook/banking.bluebook, `sets :balance,
+        # increment: :amount`) carries the identical shape and would hit
+        # the identical silent drop for a Credit in any currency other
+        # than an account's own starting one — this was a live landmine
+        # in the corpus already, not a new pattern.
+        #
+        # THE FIX IS TO REFUSE, NOT TO ADOPT `amount`'s VALUE — a
+        # disagreeing field almost always means the CALLER passed the
+        # wrong thing (an EUR confirmation against a USD payment is a
+        # real bug to catch, not a currency this domain should silently
+        # convert), the same reasoning every other TypeMismatch in this
+        # file already refuses rather than guesses. `field` (the shared
+        # numeric one already being incremented) is excluded — that's
+        # the one field this operation is SUPPOSED to make disagree.
+        def refuse_disagreeing_fields!(current_fields, amount_fields, numeric_field, op, target)
+          disagreeing = (current_fields.keys & amount_fields.keys).reject { |f| f == numeric_field }
+                                                                    .find { |f| current_fields[f] != amount_fields[f] }
+          return unless disagreeing
+
+          raise TypeMismatch,
+                RefusalWording.render("TypeMismatch", "arithmetic_field_mismatch",
+                                       op: op, target: target, field: disagreeing.to_s)
         end
 
         def sign_of(op) = MUTATION_OPS.find { |candidate| candidate.name == op.to_s }&.sign || -1
@@ -123,6 +174,10 @@ module Hecksagain
           if current.is_a?(Value) && amount.is_a?(Value)
             return combine_value_object(current, amount, target, "multiply") { |c, a| c * a }
           end
+
+          # Same absent-`current`, VO-wrapped-`amount` gap as `#arithmetic`
+          # — see that method's own comment.
+          amount = unwrap_single_numeric_field(amount) if amount.is_a?(Value)
 
           unless amount.is_a?(Numeric) && current.is_a?(Numeric)
             raise TypeMismatch, RefusalWording.render("TypeMismatch", "arithmetic_amount",
@@ -142,6 +197,18 @@ module Hecksagain
         # one, per Part 3a's auto-synthesis).
         def clamp(current, bounds, target)
           min, max = bounds
+          # THE SAME `current ||= 0` #arithmetic/#multiply both give a
+          # PHANTOM (never-set) numeric field, one line up from each —
+          # this was the one arithmetic op that didn't, so a VO-typed
+          # attribute with no declared `default:` (genuinely absent,
+          # `Instance.defaults`/`#default_for`) hit TypeMismatch on the
+          # FIRST clamp. (#arithmetic/#multiply's OWN absent-current gap
+          # was a real, separate bug this comment used to describe wrong —
+          # they did not "silently treat the same absent field as zero";
+          # they raised too, blaming a perfectly valid `amount` for not
+          # being an Integer when it was one, just still Money-wrapped.
+          # Fixed alongside this one — see #unwrap_single_numeric_field.)
+          current ||= 0
           if current.is_a?(Value)
             fields = current.to_h
             field  = fields.keys.find { |f| fields[f].is_a?(Numeric) } or
@@ -160,6 +227,25 @@ module Hecksagain
 
         private
 
+        # `amount` arrives VO-wrapped whenever the command's own declared
+        # attribute type says so (a real `Money`, not a bare Integer) —
+        # true whether or not `current` has ever been set. Only meaningful
+        # to call once `current` is known NOT to be a Value itself (the
+        # `current.is_a?(Value) && amount.is_a?(Value)` branch, above in
+        # both callers, already owns the case where both sides carry real
+        # fields to combine). Refuses rather than guesses when more than
+        # one field is numeric — genuinely ambiguous which one an absent
+        # `current` should be treated as zero for, the same reasoning
+        # `combine_value_object`'s own `shared_numeric.size == 1` check
+        # already holds to when both sides ARE present.
+        def unwrap_single_numeric_field(value)
+          fields = value.to_h
+          numeric_fields = fields.keys.select { |field| fields[field].is_a?(Numeric) }
+          return value unless numeric_fields.size == 1
+
+          fields[numeric_fields.first]
+        end
+
         def combine_value_object(current, amount, target, op)
           current_fields = current.to_h
           amount_fields  = amount.to_h
@@ -172,6 +258,9 @@ module Hecksagain
           end
 
           field = shared_numeric.first
+          # SAME GUARD #arithmetic_value_object's OWN comment explains —
+          # multiply hits the identical silent-drop shape.
+          refuse_disagreeing_fields!(current_fields, amount_fields, field, op, target)
           current.with(field, yield(current[field], amount[field]))
         end
       end

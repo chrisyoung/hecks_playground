@@ -26,23 +26,12 @@ Hecks.bluebook "Bluebook" do
     # chapter’s aggregate whichever piece declared it ; `owner_id` names only
     # whichever declared THIS one. `owner_id` is not a declared attribute —
     # it is the WALK's immediate parent, read the same way `position` is.
-    identified_by do
-      owner_id
-      name.value
-    end
+    identified_by :owner_id, :name
 
     attribute :name,       CommandName
     attribute :role,       Actor
     attribute :goal,       Goal
     attribute :emits,      list_of(Announcement)
-    # Vendored addition, not (yet) upstream hecksagain (migration plan task
-    # 5): the self-hosted grammar's OWN "Command" aggregate never declared
-    # this field, so the meta-domain had nowhere to WRITE it even though
-    # IR::Command#to_h carries it (see ir/command.rb's own comment) and
-    # assembly/contracts.rb already reads it back on the way out. Same
-    # shape as `emits` -- a plain string list, one RedirectTarget row per
-    # native tool name. TODO upstream via bin/evolve (migration plan task 7).
-    attribute :redirects_native, list_of(RedirectTarget)
     attribute :references, EventName
     attribute :attributes, list_of(Argument)
     attribute :givens,     list_of(Rule)
@@ -52,6 +41,14 @@ Hecks.bluebook "Bluebook" do
     attribute :ensures,    list_of(Rule)
     attribute :mutations,  list_of(Change)
     attribute :provenance, CommandText
+    # LIFECYCLE STATE AS A COMMAND GUARD (S10, ADR 0025) — a LITERAL,
+    # the same shape `provenance`/`default:` already carry (`from:
+    # "open"` or `from: ["open", "frozen"]`, encoded and decoded the
+    # same way any other Ruby literal on this construct is), not a
+    # dedicated list-of-value-object the way `givens` is — the guard
+    # names no target state and moves nothing, so it needs no Rule-
+    # shaped predicate at all, only the states it admits.
+    attribute :from,       CommandText, optional: true
 
     value_object "CommandName" do
       attribute :value, String
@@ -76,14 +73,6 @@ Hecks.bluebook "Bluebook" do
     end
 
     value_object "Announcement" do
-      attribute :name, String
-    end
-
-    # Vendored addition, not (yet) upstream hecksagain (migration plan task
-    # 5): the list-element counterpart to `redirects_native` above, same
-    # single-field shape as `Announcement` -- a bare tool name, not a
-    # structured row. TODO upstream via bin/evolve (migration plan task 7).
-    value_object "RedirectTarget" do
       attribute :name, String
     end
 
@@ -139,8 +128,8 @@ Hecks.bluebook "Bluebook" do
     attribute :position, Position
 
     query "DeclaredIn" do
-      attribute :aggregate_id, CommandText
-      where(aggregate_id: :aggregate_id)
+      attribute :aggregate, CommandText
+      where(aggregate: :aggregate)
       order_by :position
     end
     command "Declare" do
@@ -149,7 +138,7 @@ Hecks.bluebook "Bluebook" do
 
       reference_to Aggregate
       # DECLARED ON AN AGGREGATE, or on one of its ENTITIES. The IR uses the same
-      # Command for both — an entity's commands are IR::Command objects — so the
+      # Command for both — an entity's commands are Command objects — so the
       # language uses the same Command, and says which piece declared it when a piece
       # did. Absent for an aggregate's own commands, and ABSENT is not EMPTY.
       reference_to Entity, as: :entity_id, optional: true
@@ -159,6 +148,8 @@ Hecks.bluebook "Bluebook" do
       # See Aggregate.Declare's own `provenance` — identical shape, one
       # level down.
       attribute :provenance, CommandText, optional: true
+      # See this aggregate's own `from` field comment, above.
+      attribute :from,       CommandText, optional: true
 
       attribute :position, Position, optional: true
       emits "VerbDeclared"
@@ -179,7 +170,7 @@ Hecks.bluebook "Bluebook" do
       # Aggregate.Attribute, which carries the same word for a head's attributes.
       attribute :admits,  ArgType, optional: true
 
-      then_set :attributes, append: { name: :name, type: :type, list: :list, default: :default, optional: :optional, pattern: :pattern, admits: :admits }
+      sets :attributes, append: { name: :name, type: :type, list: :list, default: :default, optional: :optional, pattern: :pattern, admits: :admits }
 
       emits "ArgumentAttached"
     end
@@ -210,7 +201,7 @@ Hecks.bluebook "Bluebook" do
       attribute :default, ArgType, optional: true
       attribute :admits,  ArgType, optional: true
 
-      then_set :attributes, append: { name: :name, type: :points_at, list: :list, default: :default, optional: :optional, pattern: :pattern, admits: :admits }
+      sets :attributes, append: { name: :name, type: :points_at, list: :list, default: :default, optional: :optional, pattern: :pattern, admits: :admits }
 
       emits "ArgumentReferenceAttached"
     end
@@ -236,7 +227,7 @@ Hecks.bluebook "Bluebook" do
       given("a rule says what it means")  { !description.value.to_s.empty? }
       given("a rule survives extraction") { !canonical.value.to_s.empty? }
 
-      then_set :givens, append: { description: :description, canonical: :canonical }
+      sets :givens, append: { description: :description, canonical: :canonical }
 
       emits "RuleAttached"
     end
@@ -252,7 +243,7 @@ Hecks.bluebook "Bluebook" do
       given("a rule says what it means")  { !description.value.to_s.empty? }
       given("a rule survives extraction") { !canonical.value.to_s.empty? }
 
-      then_set :ensures, append: { description: :description, canonical: :canonical }
+      sets :ensures, append: { description: :description, canonical: :canonical }
 
       emits "EnsureAttached"
     end
@@ -279,7 +270,7 @@ Hecks.bluebook "Bluebook" do
       given("a mutation names a target")     { !target.value.to_s.empty? }
       given("a mutation does something")     { !op.value.to_s.empty? }
 
-      then_set :mutations, append: { target: :target, op: :op, field: :field, kind: :kind, source: :source }
+      sets :mutations, append: { target: :target, op: :op, field: :field, kind: :kind, source: :source }
 
       emits "ChangeAttached"
     end
@@ -310,7 +301,7 @@ Hecks.bluebook "Bluebook" do
       given("a command names what it acts on") { !root.value.to_s.empty? }
       given("a command acts on ONE root")      { references.value.to_s.empty? }
 
-      then_set :references, to: :root
+      sets :references, to: :root
 
       emits "ReferenceNamed"
     end
@@ -324,35 +315,9 @@ Hecks.bluebook "Bluebook" do
 
       given("an event is named") { !announces.value.to_s.empty? }
 
-      then_set :emits, append: { name: :announces }
+      sets :emits, append: { name: :announces }
 
       emits "AnnouncementNamed"
-    end
-
-    # Vendored addition, not (yet) upstream hecksagain (migration plan task
-    # 5): the missing sub-command that closes the governed-door gap traced
-    # in the migration plan's own "the governed-door gap, traced to its
-    # actual root" section -- the Judge (bluebook/meta_validator/judge.rb)
-    # walks a built IR and fires one dispatch per list-append mutation, read
-    # generically off THIS file's own `then_set ..., append:` declarations
-    # (see meta_validator/plan.rb's `appends_in`) -- so no separate "walker"
-    # needed touching; declaring the append verb here is sufficient for the
-    # Judge to discover and fire it. Mirrors `Announce` above exactly,
-    # since `redirects_native` is the same shape as `emits` (a plain list of
-    # bare tool-name strings), not `Argument`'s multi-field row.
-    # TODO upstream via bin/evolve (migration plan task 7).
-    command "Redirect" do
-      role "Language"
-      goal "Name one native tool this command is the storehouse-door equivalent for"
-
-      reference_to Command
-      attribute :tool, EventName
-
-      given("a native tool is named") { !tool.value.to_s.empty? }
-
-      then_set :redirects_native, append: { name: :tool }
-
-      emits "RedirectNativeAttached"
     end
   end
 
@@ -367,30 +332,13 @@ Hecks.bluebook "Bluebook" do
     # THE IMMEDIATE OWNER, AND ITS NAME — the same derivation Command takes
     # (see the note there), because an ask sits exactly where a verb does and
     # an entity's asks are its own the same way its verbs are.
-    identified_by do
-      owner_id
-      name.value
-    end
+    identified_by :owner_id, :name
 
     attribute :name,        QueryName
     attribute :description, QueryText
     attribute :order_field, QueryText
     attribute :order_way,   QueryText
     attribute :limit,       QueryText
-    # Vendored addition, not (yet) upstream hecksagain (migration plan
-    # task 8): the self-hosted grammar's own "Query" aggregate never
-    # declared these three, so a query's `count`/`median`/`group_by`
-    # survived parsing but silently vanished the moment a bluebook was
-    # actually loaded (`Hecks.bluebook` always routes through
-    # `MetaValidator.call`, which replaces the built IR with what this
-    # domain reconstructs). Same shape as `order_field`/`order_way`/
-    # `limit` just above -- plain scalars, carried straight through
-    # `Query.Declare` rather than a sub-command, since all three are
-    # known in full by the time the DSL block finishes. TODO upstream
-    # via bin/evolve (migration plan task 7).
-    attribute :count,          QueryText
-    attribute :median_field,   QueryText
-    attribute :group_by_field, QueryText
     attribute :wheres,      list_of(Filter)
     attribute :attributes,  list_of(AskArgument)
     # EVERY OTHER OPTION A QUERY CAN CARRY, as an open map rather than a field
@@ -465,8 +413,8 @@ Hecks.bluebook "Bluebook" do
     attribute :position, Position
 
     query "DeclaredIn" do
-      attribute :aggregate_id, QueryText
-      where(aggregate_id: :aggregate_id)
+      attribute :aggregate, QueryText
+      where(aggregate: :aggregate)
       order_by :position
     end
     command "Declare" do
@@ -481,9 +429,6 @@ Hecks.bluebook "Bluebook" do
       attribute :order_field, QueryText, optional: true
       attribute :order_way,   QueryText, optional: true
       attribute :limit,       QueryText, optional: true
-      attribute :count,          QueryText, optional: true
-      attribute :median_field,   QueryText, optional: true
-      attribute :group_by_field, QueryText, optional: true
 
       attribute :position, Position, optional: true
       emits "AskDeclared"
@@ -499,7 +444,7 @@ Hecks.bluebook "Bluebook" do
       attribute :op,    QueryText, admits: "Vocabulary::QueryComparator"
       attribute :value, QueryText
 
-      then_set :wheres, append: { field: :field, op: :op, value: :value }
+      sets :wheres, append: { field: :field, op: :op, value: :value }
 
       emits "FilterAttached"
     end
@@ -521,7 +466,7 @@ Hecks.bluebook "Bluebook" do
 
       given("an option is named") { !option.value.to_s.empty? }
 
-      then_set :options, append: { option: :option, key: :key, value: :value, at: :at }
+      sets :options, append: { option: :option, key: :key, value: :value, at: :at }
 
       emits "OptionAttached"
     end
@@ -539,7 +484,7 @@ Hecks.bluebook "Bluebook" do
       attribute :default, QueryText, optional: true
       attribute :admits,  QueryText, optional: true
 
-      then_set :attributes, append: { name: :name, type: :type, list: :list, default: :default, optional: :optional, pattern: :pattern, admits: :admits }
+      sets :attributes, append: { name: :name, type: :type, list: :list, default: :default, optional: :optional, pattern: :pattern, admits: :admits }
 
       emits "AskArgumentAttached"
     end

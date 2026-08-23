@@ -13,8 +13,9 @@ Hecks.bluebook "Sentence", version: "2026.05.12.1" do
   # 2026-05-12 : primitives wrapped in typed value-objects per the
   # no-primitive-envy discipline.
 
-  aggregate "Sentence", "One thing a being can say that maps to a command" do
-    identified_by { phrase.value }
+  aggregate "Sentence" do
+    description "One thing a being can say that maps to a command"
+    identified_by :phrase
     attribute :phrase, Phrase
     attribute :realm, RealmName
     attribute :subrealms, list_of(SubrealmName)
@@ -87,7 +88,7 @@ Hecks.bluebook "Sentence", version: "2026.05.12.1" do
 
     command "Define" do
       role "System"
-      description "Register a single valid sentence from a bluebook command"
+      goal "Register a single valid sentence from a bluebook command"
       attribute :phrase, Phrase
       attribute :realm, RealmName
       attribute :subrealms, list_of(SubrealmName)
@@ -97,23 +98,23 @@ Hecks.bluebook "Sentence", version: "2026.05.12.1" do
       attribute :actor, ActorName
       attribute :parameters, list_of(ParameterName)
       emits "SentenceDefined"
-      then_set :phrase, to: :phrase
-      then_set :realm, to: :realm
-      then_set :subrealms, to: :subrealms
-      then_set :domain, to: :domain
-      then_set :command, to: :command
-      then_set :aggregate, to: :aggregate
-      then_set :actor, to: :actor
-      then_set :parameters, to: :parameters
+      sets :phrase
+      sets :realm
+      sets :subrealms
+      sets :domain
+      sets :command
+      sets :aggregate
+      sets :actor
+      sets :parameters
     end
 
     command "Translate" do
       role "Linguist"
-      description "Add a natural language translation — how a human would actually say it"
+      goal "Add a natural language translation — how a human would actually say it"
       reference_to(Sentence)
       attribute :natural_phrase, NaturalPhrase
       emits "TranslationAdded"
-      then_set :translations, append: :natural_phrase
+      sets :translations, append: { value: :natural_phrase }
     end
   end
 end

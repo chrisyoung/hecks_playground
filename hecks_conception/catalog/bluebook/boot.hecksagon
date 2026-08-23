@@ -1,4 +1,5 @@
 Hecks.hecksagon "Boot" do
+  uses_framework "Governance"
   Boot::Session.persisted_by("Memory")
   Boot::BrainProbe.persisted_by("Memory")
 end

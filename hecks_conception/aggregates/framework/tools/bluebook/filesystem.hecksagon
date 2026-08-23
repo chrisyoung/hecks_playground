@@ -1,14 +1,36 @@
 Hecks.hecksagon "Filesystem" do
+  uses_framework "Governance"
   Filesystem::Filesystem.persisted_by("Heki")
 
   # Impure edges, hecksagon-first : each Filesystem command shells its OS op and
-  # cascades the output. Re-homed from the RunXOnY Process.Spawn policies — the
-  # impure edge lives here, not in the bluebook. Entity-scoped command names
-  # (File.Move / Directory.Remove) match by FULL command path.
-  adapter :exec, name: "fs_file_move",       command: "Filesystem.File.Move",        exec: "bin/filesystem_file_move",        result_into: "Hecks::Framework::Cascade::Cascade::Cascade.RecordResult"
-  adapter :exec, name: "fs_file_remove",     command: "Filesystem.File.Remove",      exec: "bin/filesystem_file_remove",      result_into: "Hecks::Framework::Cascade::Cascade::Cascade.RecordResult"
-  adapter :exec, name: "fs_file_read_range", command: "Filesystem.File.ReadRange",   exec: "bin/filesystem_file_read_range",   result_into: "Hecks::Framework::Cascade::Cascade::Cascade.RecordResult"
-  adapter :exec, name: "fs_dir_create",      command: "Filesystem.Directory.Create", exec: "bin/filesystem_directory_create", result_into: "Hecks::Framework::Cascade::Cascade::Cascade.RecordResult"
-  adapter :exec, name: "fs_dir_remove",      command: "Filesystem.Directory.Remove", exec: "bin/filesystem_directory_remove", result_into: "Hecks::Framework::Cascade::Cascade::Cascade.RecordResult"
-  adapter :exec, name: "fs_dir_list",        command: "Filesystem.Directory.List",   exec: "bin/filesystem_directory_list",   result_into: "Hecks::Framework::Cascade::Cascade::Cascade.RecordResult"
+  # cascades the output. Re-expressed (i780, 2026-08-17) from the retired
+  # `adapter :exec` kwargs form onto the spawn effect port. The bind stays on
+  # the PARENT aggregate (Filesystem::Filesystem) even though the triggering
+  # commands are entity-scoped (File.Move / Directory.Remove) — events are
+  # attributed to the owning aggregate, not the entity, same as every other
+  # emitted event here.
+  Filesystem::Filesystem.spawned_by("FsFileMove", on: "FileMoved") do
+    success "Cascade::Cascade.RecordResult"
+    failure "Cascade::Cascade.RecordResult"
+  end
+  Filesystem::Filesystem.spawned_by("FsFileRemove", on: "FileRemoved") do
+    success "Cascade::Cascade.RecordResult"
+    failure "Cascade::Cascade.RecordResult"
+  end
+  Filesystem::Filesystem.spawned_by("FsFileReadRange", on: "FileRangeRead") do
+    success "Cascade::Cascade.RecordResult"
+    failure "Cascade::Cascade.RecordResult"
+  end
+  Filesystem::Filesystem.spawned_by("FsDirCreate", on: "DirectoryCreated") do
+    success "Cascade::Cascade.RecordResult"
+    failure "Cascade::Cascade.RecordResult"
+  end
+  Filesystem::Filesystem.spawned_by("FsDirRemove", on: "DirectoryRemoved") do
+    success "Cascade::Cascade.RecordResult"
+    failure "Cascade::Cascade.RecordResult"
+  end
+  Filesystem::Filesystem.spawned_by("FsDirList", on: "DirectoryListed") do
+    success "Cascade::Cascade.RecordResult"
+    failure "Cascade::Cascade.RecordResult"
+  end
 end

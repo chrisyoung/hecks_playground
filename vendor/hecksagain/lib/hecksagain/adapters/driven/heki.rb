@@ -2,6 +2,7 @@ require "json"
 require "fileutils"
 require_relative "heki/snapshot"
 require_relative "heki/journal"
+require_relative "heki/saga_store"
 require_relative "../../ports/persistence/append_only"
 require_relative "../../ports/query/in_memory"
 require_relative "in_memory_ordering"
@@ -29,6 +30,11 @@ module Hecksagain
         @path      = resolve_path(settings, root)
         @journal_path = "#{@path}.journal"
         @events    = []
+        # THE OPTIONAL saga-persistence capability's own scoping (§2/§4)
+        # — falls back to the aggregate's own name for a directly-
+        # instantiated adapter (specs), same fallback shape Postgres's
+        # own @domain already uses.
+        @domain    = (settings[:domain] || settings["domain"] || aggregate.name).to_s
 
         FileUtils.mkdir_p(File.dirname(@path))
       end
@@ -47,8 +53,15 @@ module Hecksagain
 
       def count = store.size
 
+      # `registry: context[:registry]` — Memory's own `query` already
+      # threads this through; Heki's own never did, which made
+      # `none_in_state?` (Ports::Query::InMemory) unconditionally
+      # return `true` (its own graceful "no registry, no way to look
+      # the target up" default) for EVERY `none_in_state` where-clause
+      # against a Heki-backed aggregate — silently excluding nothing,
+      # always, no matter the actual target state.
       def query(specification, args = {}, context: {})
-        Ports::Query::InMemory.execute(all, specification, args)
+        Ports::Query::InMemory.execute(all, specification, args, registry: context[:registry])
       end
 
       def append(entry)
@@ -87,7 +100,25 @@ module Hecksagain
 
       def events = @events
 
+      # ── the OPTIONAL saga-persistence capability (§2) — Heki's own
+      # shape (a sibling snapshot+journal file pair, `SagaStore`,
+      # heki/saga_store.rb) rather than a table in a store this adapter
+      # doesn't have.
+      def save_saga(process_manager:, correlation:, state:, memory:)
+        saga_store.save_saga(@domain, process_manager.to_s, correlation.to_s, state.to_s, memory)
+      end
+
+      def delete_saga(process_manager:, correlation:)
+        saga_store.delete_saga(@domain, process_manager.to_s, correlation.to_s)
+      end
+
+      def each_saga(&block) = saga_store.each_saga(@domain, &block)
+
       private
+
+      def saga_store
+        @saga_store ||= SagaStore.new(File.dirname(@path))
+      end
 
       def instance(id, record)
         Runtime::Instance.new(

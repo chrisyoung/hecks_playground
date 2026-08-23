@@ -13,7 +13,7 @@ Hecks.bluebook "Bluebook", version: "1" do
   #
   # Spined on Bluebook because a bluebook is what you ask for. Everything else
   # hangs off it, down to a Member's pairs and a Dispatch's bindings.
-  report "WholeBluebook" do
+  read_model "WholeBluebook" do
     description "Every declaration of one chapter, gathered around the chapter itself — the way back, in a single read."
     reference_to Bluebook
 
@@ -48,7 +48,7 @@ Hecks.bluebook "Bluebook", version: "1" do
     # carries, so the two cannot collide however they are spelled. The fallback was
     # hiding a lookup bug ; removing it made the bug visible, and the bug was the
     # smaller thing.
-    identified_by { name.value }
+    identified_by :name
 
     attribute :name,           BluebookName
     attribute :vision,         Vision
@@ -67,13 +67,20 @@ Hecks.bluebook "Bluebook", version: "1" do
     # reading `version` above gives.
     attribute :formerly_known_as, FormerlyKnownAs
     # Vendored addition, not (yet) upstream hecksagain (migration plan
-    # task 4): a free-form second axis alongside `classification`'s fixed
-    # core/supporting/generic set (BluebookBuilder#category's own
-    # comment) — hecks_conception writes `category "framework"` across
-    # 119 files, 12 distinct values. Same shape as `formerly_known_as`
-    # just above: plain text, no closed set, ABSENT IS NOT EMPTY.
-    attribute :category,       Category
+    # task 4): a free-form second axis alongside `classification`'s
+    # fixed core/supporting/generic set — hecks_conception writes
+    # `category "framework"` across many files. Same shape as
+    # `formerly_known_as` just above: plain text, no closed set,
+    # ABSENT IS NOT EMPTY.
+    attribute :category, Category
     attribute :normalisations, list_of(NormalisationRule)
+    # THE SEAM ADR 0026 ADDS. A sub-language chapter (Paging, so far the
+    # only one) names the core contexts its own `Syntax` aggregate
+    # contributes rows for — "Query", "ReadModel" — so SyntaxBoot's own
+    # discovery can find it without the core ever naming it back. Most
+    # chapters attach to nothing, and ABSENT IS NOT EMPTY, the same
+    # reading `version`/`formerly_known_as` above give.
+    attribute :attaches_to, list_of(AttachesToContext)
 
     value_object "RuleText" do
       # deliberately permissive : source_token and replacement are legitimately
@@ -121,6 +128,11 @@ Hecks.bluebook "Bluebook", version: "1" do
       invariant("a category says something") { !value.to_s.empty? }
     end
 
+    value_object "AttachesToContext" do
+      attribute :value, String
+      invariant("an attachment names a context") { !value.to_s.empty? }
+    end
+
     command "Declare" do
       role "Language"
       goal "Open a chapter"
@@ -133,6 +145,27 @@ Hecks.bluebook "Bluebook", version: "1" do
       attribute :category,       Category, optional: true
 
       emits "ChapterDeclared"
+    end
+
+    # ONE CONTEXT THE CHAPTER ATTACHES TO, appended the way one identity
+    # part is (Aggregate.Identify, above) — `attaches_to "Query",
+    # "ReadModel"` names any number at once, and a list is filled by a
+    # verb of its own here the same reason it is everywhere else in this
+    # language.
+    command "Attach" do
+      role "Language"
+      goal "Name one core context this chapter's own Syntax rows attach to"
+
+      reference_to Bluebook
+      attribute :context, AttachesToContext
+
+      sets :attaches_to, append: { value: :context }
+      # S16, ADR 0026 — the language's own self-use gate: an append is
+      # exactly the shape banking's own ensures already checks ("a
+      # ledger entry was posted") { ledger.size == old.ledger.size + 1
+      # } — one more row than before, never fewer, never the same.
+      ensures("the list grew by exactly one") { attaches_to.size == old.attaches_to.size + 1 }
+      emits "ChapterAttached"
     end
 
     # THE WAY BACK.
@@ -164,7 +197,7 @@ Hecks.bluebook "Bluebook", version: "1" do
       attribute :boundary,     RuleText
       attribute :position,     RuleText, optional: true
 
-      then_set :normalisations, append: {
+      sets :normalisations, append: {
         strategy: :strategy, source_token: :source_token,
         replacement: :replacement, boundary: :boundary, position: :position
       }

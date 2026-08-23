@@ -11,8 +11,9 @@ Hecks.bluebook "Prompt", version: "2026.04.28.1" do
   # The ValidateOnInference policy lives here because ValidateOutput
   # is its trigger target.
 
-  aggregate "Prompt", "A single inference request — user input + context → bluebook output" do
-    identified_by { ref.value }
+  aggregate "Prompt" do
+    description "A single inference request — user input + context → bluebook output"
+    identified_by :ref
     attribute :ref,        Ref
     attribute :input,      Input
     attribute :output,     Output
@@ -46,24 +47,24 @@ Hecks.bluebook "Prompt", version: "2026.04.28.1" do
 
     command "RunInference" do
       role "System"
-      description "Send input to the local model with full context, get bluebook output"
+      goal "Send input to the local model with full context, get bluebook output"
       attribute :input, Input
       emits "InferenceRan"
-      then_set :input, to: :input
+      sets :input
     end
 
     command "ValidateOutput" do
       role "System"
-      description "Check if the model's output is a valid bluebook — Rust validation"
+      goal "Check if the model's output is a valid bluebook — Rust validation"
       reference_to(Prompt)
       attribute :valid, Validity
       emits "OutputValidated"
-      then_set :valid, to: :valid
+      sets :valid
     end
   end
 
   policy "ValidateOnInference" do
     on "InferenceRan"
-    trigger "ValidateOutput"
+    trigger ValidateOutput
   end
 end

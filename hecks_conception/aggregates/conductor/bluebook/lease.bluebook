@@ -2,8 +2,9 @@ Hecks.bluebook "Conductor", version: "2026.06.02.2" do
   vision "The Conductor domain : workforce orchestration. The Lease aggregate is the worktree allocation — one Lease per worktree path. A Worker holds a Lease on a path for the duration of a Story. Belongs to a Story and a Worker."
   category "framework"
 
-  aggregate "Lease", "A worktree allocation. Identified by worktree_path — at most one active Lease per path (invariant). Belongs to the Story being worked and the Worker holding it. Carries an expiry timestamp and a lifecycle state." do
-    identified_by { worktree_path.value }
+  aggregate "Lease" do
+    description "A worktree allocation. Identified by worktree_path — at most one active Lease per path (invariant). Belongs to the Story being worked and the Worker holding it. Carries an expiry timestamp and a lifecycle state."
+    identified_by :worktree_path
 
     attribute :worktree_path,  WorktreePath
     attribute :expires_at,     ExpiresAt
@@ -21,7 +22,7 @@ Hecks.bluebook "Conductor", version: "2026.06.02.2" do
     # (`attribute :story, Story` / `then_set :story, to: :story`). Only
     # the aggregate-level declaration was still the old structural form.
     attribute :story, Story
-    belongs_to Worker
+    reference_to Worker
 
     value_object "Story" do
       attribute :value, String
@@ -46,41 +47,41 @@ Hecks.bluebook "Conductor", version: "2026.06.02.2" do
 
     command "Grant" do
       role "System"
-      description "Grant a lease on a worktree path to a worker for a story. Creates the record in state=active and stores the Story + Worker foreign keys (references-not-ids : the synthesised belongs_to FKs are now live)."
+      goal "Grant a lease on a worktree path to a worker for a story. Creates the record in state=active and stores the Story + Worker foreign keys (references-not-ids : the synthesised belongs_to FKs are now live)."
       attribute :worktree_path,  WorktreePath
       attribute :story,          Story
       attribute :worker,         Worker
       attribute :expires_at,     ExpiresAt
-      then_set :worktree_path,  to: :worktree_path
-      then_set :story,          to: :story
-      then_set :worker,         to: :worker
-      then_set :expires_at,     to: :expires_at
-      then_set :state,          to: "active"
+      sets :worktree_path
+      sets :story
+      sets :worker
+      sets :expires_at
+      sets :state,          to: "active"
       emits "LeaseGranted"
     end
 
     command "Renew" do
       role "System"
-      description "Extend the lease expiry. The lease stays active."
+      goal "Extend the lease expiry. The lease stays active."
       reference_to(Lease)
       attribute :expires_at, ExpiresAt
-      then_set :expires_at, to: :expires_at
+      sets :expires_at
       emits "LeaseRenewed"
     end
 
     command "Expire" do
       role "System"
-      description "Mark the lease as expired — TTL reached without renewal."
+      goal "Mark the lease as expired — TTL reached without renewal."
       reference_to(Lease)
-      then_set :state, to: "expired"
+      sets :state, to: "expired"
       emits "LeaseExpired"
     end
 
     command "Reclaim" do
       role "System"
-      description "Reclaim the worktree path — story done or worker dead. Returns the path to the pool."
+      goal "Reclaim the worktree path — story done or worker dead. Returns the path to the pool."
       reference_to(Lease)
-      then_set :state, to: "reclaimed"
+      sets :state, to: "reclaimed"
       emits "LeaseReclaimed"
     end
 

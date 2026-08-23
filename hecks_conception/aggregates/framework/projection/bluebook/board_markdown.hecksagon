@@ -1,3 +1,4 @@
 Hecks.hecksagon "BoardMarkdownProjector" do
+  uses_framework "Governance"
   BoardMarkdownProjector::BoardMarkdownProjector.persisted_by("Memory")
 end

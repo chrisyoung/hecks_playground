@@ -5,6 +5,7 @@
 # no adapter. Mirrors pizzas.hecksagon : one bind decomposes as
 # aggregate . how-verb ( adapter ).
 Hecks.hecksagon "WebDebug" do
+  uses_framework "Governance"
 
   # ── REPLY PORT · persistence ───────────────────────────────────
   # Screenshot STATE is tiny — frame_id, captured_at, path only ; the JPEG bytes

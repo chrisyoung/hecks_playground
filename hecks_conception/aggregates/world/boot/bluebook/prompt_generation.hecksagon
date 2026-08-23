@@ -1,3 +1,4 @@
 Hecks.hecksagon "PromptGeneration" do
+  uses_framework "Governance"
   PromptGeneration::PromptGeneration.persisted_by("Heki")
 end

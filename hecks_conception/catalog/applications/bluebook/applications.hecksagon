@@ -1,4 +1,5 @@
 Hecks.hecksagon "Applications" do
+  uses_framework "Governance"
   Applications::Application.persisted_by("Heki")
   Applications::DomainLifecycle.persisted_by("Heki")
   Applications::AppRegistry.persisted_by("Heki")

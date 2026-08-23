@@ -6,8 +6,9 @@ Hecks.bluebook "Labor", version: "2026.04.16.1" do
   # policy : ParityOnValidation (Labor.ValidateBluebook →
   # Labor.CheckParity).
 
-  aggregate "Labor", "Validation and naming — the domain is ready to be born" do
-    identified_by { domain_name.value }
+  aggregate "Labor" do
+    description "Validation and naming — the domain is ready to be born"
+    identified_by :domain_name
     attribute :domain_name,     DomainName
     attribute :bluebook_source, BluebookSource
     attribute :valid,           Validity, default: { value: "pending" }
@@ -41,39 +42,39 @@ Hecks.bluebook "Labor", version: "2026.04.16.1" do
 
     command "ValidateBluebook" do
       role "Midwife"
-      description "Check the domain is well-formed — verb naming, references, structure"
+      goal "Check the domain is well-formed — verb naming, references, structure"
       attribute :domain_name,     DomainName
       attribute :bluebook_source, BluebookSource
       emits "BluebookValidated"
-      then_set :domain_name,     to: :domain_name
-      then_set :bluebook_source, to: :bluebook_source
+      sets :domain_name
+      sets :bluebook_source
     end
 
     command "CheckParity" do
       role "Midwife"
-      description "Verify Ruby and Rust read the domain identically"
+      goal "Verify Ruby and Rust read the domain identically"
       reference_to(Labor)
       attribute :parity, ParityResult
       emits "ParityChecked"
-      then_set :parity, to: :parity
+      sets :parity
     end
 
     command "PassLabor" do
       role "Midwife"
-      description "Domain passes all checks — ready for delivery"
+      goal "Domain passes all checks — ready for delivery"
       reference_to(Labor)
       emits "LaborPassed"
-      then_set :valid, to: "yes"
+      sets :valid, to: "yes"
     end
 
     command "FailLabor" do
       role "Midwife"
-      description "Domain has errors — needs more gestation"
+      goal "Domain has errors — needs more gestation"
       reference_to(Labor)
       attribute :errors, list_of(ErrorMessage)
       emits "LaborFailed"
-      then_set :valid, to: "no"
-      then_set :errors, to: :errors
+      sets :valid, to: "no"
+      sets :errors
     end
 
     lifecycle :valid, default: "pending" do
@@ -85,6 +86,6 @@ Hecks.bluebook "Labor", version: "2026.04.16.1" do
 
   policy "ParityOnValidation" do
     on "BluebookValidated"
-    trigger "CheckParity"
+    trigger CheckParity
   end
 end

@@ -10,8 +10,9 @@ Hecks.bluebook "PromptGeneration", version: "2026.05.12.1" do
   # no-primitive-envy rule. Per-aggregate VOs — duplication across
   # boot siblings is fine, the discipline is per-aggregate VO sets.
 
-  aggregate "PromptGeneration", "Write the system prompt from identity and state" do
-    identified_by { name.value }
+  aggregate "PromptGeneration" do
+    description "Write the system prompt from identity and state"
+    identified_by :name
     attribute :name,      Name
     attribute :generated, Generated
 
@@ -31,14 +32,14 @@ Hecks.bluebook "PromptGeneration", version: "2026.05.12.1" do
 
     command "GeneratePrompt" do
       role "System"
-      description "Write system_prompt.md from identity, vows, and link classification"
+      goal "Write system_prompt.md from identity, vows, and link classification"
       emits "PromptGenerated"
-      then_set :generated, to: "yes"
+      sets :generated, to: "yes"
     end
   end
 
   policy "PromptAfterClassification" do
     on "StoresClassified"
-    trigger "GeneratePrompt"
+    trigger GeneratePrompt
   end
 end

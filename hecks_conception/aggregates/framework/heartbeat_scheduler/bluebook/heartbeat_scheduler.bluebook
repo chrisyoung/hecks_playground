@@ -41,8 +41,9 @@ Hecks.bluebook "HeartbeatScheduler", version: "2026.05.14.1" do
   # routing in general. The scheduler is the cadence surface only ;
   # everything else stays in the existing dispatch path.
 
-  aggregate "HeartbeatScheduler", "The rhythmic command dispatcher. Holds the tick counter and the Schedule entity collection ; each Tick advances the counter and dispatches every schedule whose cadence matches. Effectively a singleton — i611 phase 1 will convert this to a singleton-flagged aggregate." do
-    identified_by { name.value }
+  aggregate "HeartbeatScheduler" do
+    description "The rhythmic command dispatcher. Holds the tick counter and the Schedule entity collection ; each Tick advances the counter and dispatches every schedule whose cadence matches. Effectively a singleton — i611 phase 1 will convert this to a singleton-flagged aggregate."
+    identified_by :name
 
     attribute :name, Name
 
@@ -194,7 +195,7 @@ Hecks.bluebook "HeartbeatScheduler", version: "2026.05.14.1" do
     # ── Entities — child records living inside the scheduler ──
 
     entity "Schedule" do
-      identified_by { id.value }
+      identified_by :id
       description "One registered cadence binding. Says : every `cadence.ticks` ticks, dispatch `command` against `targets`. The scheduler walks every Schedule on each Tick and fires Dispatch for the ones whose `(current_tick - last_dispatched_tick) >= cadence.ticks`."
       attribute :id,                    ScheduleId
       attribute :command,               ScheduledCommand
@@ -208,9 +209,9 @@ Hecks.bluebook "HeartbeatScheduler", version: "2026.05.14.1" do
 
     command "StartSession" do
       role "System"
-      description "Reset the tick counter and dispatch tallies at session boot. The Schedule entity collection is NOT reset — schedules persist across sessions so a rule registers once and the scheduler honors it on every subsequent boot. Reset behavior is consistent with the macrophage : tallies are per-session, audit trail persists."
+      goal "Reset the tick counter and dispatch tallies at session boot. The Schedule entity collection is NOT reset — schedules persist across sessions so a rule registers once and the scheduler honors it on every subsequent boot. Reset behavior is consistent with the macrophage : tallies are per-session, audit trail persists."
       attribute :session_started_at, Timestamp
-      then_set :session_started_at, to: :session_started_at
+      sets :session_started_at
       emits "SessionStarted"
     end
 
@@ -218,9 +219,9 @@ Hecks.bluebook "HeartbeatScheduler", version: "2026.05.14.1" do
 
     command "Tick" do
       role "System"
-      description "One heartbeat. Advances current_tick by 1 and records last_tick_at. The runtime dispatches Tick on every statusline pulse ; the scheduler is responsible for then walking its Schedule entity collection and emitting Dispatch for any whose cadence matches (the dispatcher logic is in the runtime — the bluebook contract is just that Tick fires every pulse and Dispatch fires when cadence matches)."
+      goal "One heartbeat. Advances current_tick by 1 and records last_tick_at. The runtime dispatches Tick on every statusline pulse ; the scheduler is responsible for then walking its Schedule entity collection and emitting Dispatch for any whose cadence matches (the dispatcher logic is in the runtime — the bluebook contract is just that Tick fires every pulse and Dispatch fires when cadence matches)."
       attribute :last_tick_at, Timestamp
-      then_set :last_tick_at, to: :last_tick_at
+      sets :last_tick_at
       emits "Ticked"
     end
 
@@ -228,7 +229,7 @@ Hecks.bluebook "HeartbeatScheduler", version: "2026.05.14.1" do
 
     command "RegisterSchedule" do
       role "System"
-      description "Declare a new cadence binding. id is a stable slug ; command is the FQN to dispatch ; cadence.ticks is how many heartbeats between dispatches ; targets is the comma-joined repo list the dispatched command should sweep. Registration is idempotent on id — registering the same id twice replaces the prior schedule with the new cadence / command / targets."
+      goal "Declare a new cadence binding. id is a stable slug ; command is the FQN to dispatch ; cadence.ticks is how many heartbeats between dispatches ; targets is the comma-joined repo list the dispatched command should sweep. Registration is idempotent on id — registering the same id twice replaces the prior schedule with the new cadence / command / targets."
       attribute :id,      ScheduleId
       attribute :command, ScheduledCommand
       attribute :cadence, Cadence
@@ -238,7 +239,7 @@ Hecks.bluebook "HeartbeatScheduler", version: "2026.05.14.1" do
 
     command "RetireSchedule" do
       role "System"
-      description "Remove a registered schedule. Once retired, the scheduler stops considering it on future Ticks. Used when a rule decides it no longer wants autonomic sweeps, or when reconfiguring at boot."
+      goal "Remove a registered schedule. Once retired, the scheduler stops considering it on future Ticks. Used when a rule decides it no longer wants autonomic sweeps, or when reconfiguring at boot."
       attribute :id, ScheduleId
       emits "ScheduleRetired"
     end
@@ -247,11 +248,11 @@ Hecks.bluebook "HeartbeatScheduler", version: "2026.05.14.1" do
 
     command "Dispatch" do
       role "System"
-      description "Fire a registered schedule. Records last_dispatched_tick + last_dispatched_at on the matching Schedule entity, increments dispatches_fired, and updates the root's last_dispatched / last_dispatch_at surface. The runtime is responsible for ACTUALLY dispatching the command — this command records the intent and the audit trail ; the side effect (firing Macrophage::IdentityDiscipline.Check or similar) lands as a sidequest in the existing Cascade substrate."
+      goal "Fire a registered schedule. Records last_dispatched_tick + last_dispatched_at on the matching Schedule entity, increments dispatches_fired, and updates the root's last_dispatched / last_dispatch_at surface. The runtime is responsible for ACTUALLY dispatching the command — this command records the intent and the audit trail ; the side effect (firing Macrophage::IdentityDiscipline.Check or similar) lands as a sidequest in the existing Cascade substrate."
       attribute :id,               ScheduleId
       attribute :dispatched_tick,  TickCount
       attribute :last_dispatch_at, Timestamp
-      then_set :last_dispatch_at, to: :last_dispatch_at
+      sets :last_dispatch_at
       emits "Dispatched"
     end
 
@@ -259,10 +260,10 @@ Hecks.bluebook "HeartbeatScheduler", version: "2026.05.14.1" do
 
     command "RunCadence" do
       role "System"
-      description "Honor a CLI-parsed cadence invocation. The kernel-floor parse_cadence_invocation bridge parses `storehouse loop|clock|run-loop` argv into a CadenceInvocation ; this command records that the scheduler is running it and updates the last-dispatch surface. The run_loop / run_clock / run_pm_loop shims hold only the typed CadenceInvocation by the time they reach this surface — the i630 FQN-truncation bug class is structurally inexpressible because no raw FQN string survives the bridge."
+      goal "Honor a CLI-parsed cadence invocation. The kernel-floor parse_cadence_invocation bridge parses `storehouse loop|clock|run-loop` argv into a CadenceInvocation ; this command records that the scheduler is running it and updates the last-dispatch surface. The run_loop / run_clock / run_pm_loop shims hold only the typed CadenceInvocation by the time they reach this surface — the i630 FQN-truncation bug class is structurally inexpressible because no raw FQN string survives the bridge."
       attribute :invocation,       CadenceInvocation
       attribute :last_dispatch_at, Timestamp
-      then_set :last_dispatch_at, to: :last_dispatch_at
+      sets :last_dispatch_at
       emits "CadenceRan"
     end
   end

@@ -20,7 +20,7 @@ module Hecksagain
         # already reaches, because a port belongs to exactly one aggregate
         # the same way a bind does. A REAL method, not method_missing : its
         # shape (a name and a block building operations) has nothing to do
-        # with `IR::Bind`, so it does not belong in that generic verb path.
+        # with `Bind`, so it does not belong in that generic verb path.
         def port(name, &block)
           domain, aggregate_name = @fqn.split("::")
           aggregate_ir = Hecksagain.current_registry.bluebook(domain)&.aggregate(aggregate_name) or
@@ -33,13 +33,13 @@ module Hecksagain
           # `reference_to Pizza` into another BindingProxy instead of a name.
           built = ConstShim.with(->(const) { const }) { DomainPortBuilder.build(name, owner: aggregate_name, &block) }
 
-          # A `verb`-shaped port is a plain `IR::Port` — the exact struct
+          # A `verb`-shaped port is a plain `Port` — the exact struct
           # `Hecks.port`'s own top-level method registers, so it goes
           # through the same `add_port` the registry already answers for
           # that call. It belongs to no aggregate IR the way an
-          # operations-shaped `IR::DomainPort` does; the aggregate above
+          # operations-shaped `DomainPort` does; the aggregate above
           # was only needed to resolve `owner` for the operations branch.
-          if built.is_a?(IR::Port)
+          if built.is_a?(Port)
             Hecksagain.current_registry.add_port(built)
             return self
           end
@@ -51,67 +51,8 @@ module Hecksagain
           self
         end
 
-        # Vendored addition, not (yet) upstream hecksagain (migration plan
-        # task 4): `Aggregate.event_sourced` -- a bare MARKER verb, no
-        # adapter argument at all (framework/tools/bluebook/tools.
-        # hecksagon, framework/hexagon/bluebook/outbound_event.hecksagon:
-        # "this aggregate's own event log IS its persistence, no separate
-        # backend choice needed"). Every other bind verb needs a real
-        # adapter name (`args.first`) -- `event_sourced` structurally
-        # never supplies one, so the generic path below would mint an
-        # empty-string adapter and fail wiring ("unknown adapter \"\"").
-        # Reframed as sugar for `persisted_by("Heki")` -- Heki IS the
-        # durable store an event-sourced aggregate's log actually rides
-        # on, and the corpus's own bluebook text stays exactly
-        # `.event_sourced`, unchanged; only the IR::Bind this produces
-        # differs from what the text literally says. TODO upstream via
-        # bin/evolve (migration plan task 7): decide whether
-        # `event_sourced` deserves its own real persistence-family verb
-        # instead of aliasing persisted_by.
-        EVENT_SOURCED_ADAPTER = "Heki"
-
         def method_missing(verb, *args, **kwargs, &block)
-          if verb == :event_sourced
-            # Additive-only : outbound_event.hecksagon writes BOTH an
-            # explicit `persisted_by("Heki")` AND `.event_sourced` on the
-            # SAME aggregate -- the author's own "persistence+" comment
-            # says event_sourced OVERLAYS an existing bind, not replaces
-            # or duplicates it. Skip minting a second persisted_by bind
-            # when one already exists for this aggregate ; still mint one
-            # when event_sourced is the ONLY persistence statement
-            # (tools.hecksagon's FileTool/ShellTool, which have no other
-            # bind at all).
-            # `aggregate_name` (demodulised), not raw `aggregate` equality
-            # -- domain-wide-default sugar (HecksagonBuilder#
-            # domain_wide_persisted_by, a bare `adapter :memory`/`:heki`)
-            # stores the BARE aggregate name ("ShellTool"), while a
-            # BindingProxy-minted bind (this file) stores the full FQN
-            # ("Tools::ShellTool") -- raw string equality never matched
-            # the domain-wide-sugar bind, so tools.hecksagon's own
-            # `adapter :memory` + FileTool/ShellTool's `.event_sourced`
-            # combination still doubled up until this normalized.
-            already_bound = @collector.any? { |b| b.aggregate_name == Naming.demodulise(@fqn) && b.verb == "persisted_by" }
-            unless already_bound
-              @collector << IR::Bind.new(
-                aggregate: @fqn,
-                verb:      "persisted_by",
-                adapter:   EVENT_SOURCED_ADAPTER,
-                role:      kwargs[:role]&.to_s
-              )
-            end
-            block&.call
-            return self
-          end
-
-          # i746 — on: is captured here ; success/failure are filled in
-          # by HecksagonBuilder#success/#failure while `block` runs below,
-          # writing onto THIS bind via HecksagonBuilder.current_bind (see
-          # that class's own comment). block&.call runs in its original
-          # lexical scope (self == the HecksagonBuilder instance, from the
-          # outer instance_eval in HecksagonBuilder.build), never
-          # instance_eval'd against this bind directly — current_bind is
-          # the bridge between the two.
-          bind = IR::Bind.new(
+          bind = Bind.new(
             aggregate: @fqn,
             verb:      verb.to_s,
             adapter:   args.first.to_s,
@@ -120,6 +61,16 @@ module Hecksagain
           )
           @collector << bind
 
+          # THE EFFECT-PORT ASYNC VERDICT'S OWN BLOCK — `success "..."` /
+          # `failure "..."` inside `charged_by("Stripe", on: "...") do
+          # ... end` used to reach THIS object's `self` (the whole
+          # `Hecks.hecksagon do ... end` chain is one `instance_eval`, and
+          # `block&.call` alone never rebinds `self`), landing on
+          # `HecksagonBuilder#method_missing` and minting two spurious
+          # binds named "success"/"failure". Tracking the bind THIS call
+          # just minted via `HecksagonBuilder.current_bind` for the
+          # block's own duration lets those real `HecksagonBuilder#
+          # success`/`#failure` instance methods write onto it instead.
           previous_bind = HecksagonBuilder.current_bind
           HecksagonBuilder.current_bind = bind
           begin

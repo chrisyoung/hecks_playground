@@ -10,7 +10,7 @@ module Hecksagain
       #
       #   holder    which class holds it
       #   make      :declare for a construct that became a class, :new for an
-      #             instance — the boundary `IR::Query` sits on, since its body is
+      #             instance — the boundary `Query` sits on, since its body is
       #             inherited instance methods
       #   fields    each keyword the constructor takes, as
       #             keyword => [key in the declaration, how to read it]
@@ -36,38 +36,55 @@ module Hecksagain
 
       CONTRACTS = {
         "Bluebook" => Contract.new(
-          holder: IR::Bluebook, make: :new,
+          holder: Chapter, make: :new,
           fields: {
             name:           [:name,           :plain],
             version:        [:version,        :plain],
             vision:         [:vision,         :plain],
             classification: [:classification, :plain],
             formerly_known_as: [:formerly_known_as, :plain],
+            attaches_to:    [:attaches_to,    :plain],
             # Vendored addition, not (yet) upstream hecksagain (migration
-            # plan task 4): same three-part shape `redirects_native`
-            # already used to close this exact gap on Command -- the
-            # self-hosted Bluebook aggregate now declares `category`
-            # (bluebook.bluebook), so the Judge's rebuild needs to read it
-            # back too, or `IR::Bluebook.new`'s own default (`category:
+            # plan task 4): same three-part shape `formerly_known_as`
+            # already uses to close this exact gap — the self-hosted
+            # Bluebook aggregate now declares `category`
+            # (bluebook.bluebook), so the Judge's rebuild needs to read
+            # it back too, or `Chapter.new`'s own default (`category:
             # nil`) would silently win over whatever the original DSL
             # declaration said.
-            category: [:category, :plain]
+            category:       [:category,       :plain]
           },
           rows: { normalisations: :normalisation_table },
           derived: { normalisations: :elsewhere }
         ),
 
         "Aggregate" => Contract.new(
-          holder: IR::Aggregate, make: :new,
+          holder: Aggregate, make: :new,
           fields: {
             name:          [:name,          :plain],
             description:   [:description,   :plain],
             identified_by: [:identified_by, :plain],
             attributes:    [:attributes,    [:each, :attribute]],
+            # THE AGGREGATE BOUNDARY, and the precondition a command may
+            # reference by name (S10, ADR 0025 — "Rules"). Same reader
+            # shapes ValueObject's own `invariants`/Command's own
+            # `givens` already use — `invariant` builds an Invariant,
+            # `given` a Given, the same struct AggregateBuilder#given
+            # hands a referencing command's own resolved list.
+            invariants:    [:invariants,    [:each, :invariant]],
+            preconditions: [:preconditions, [:each, :given]],
+            # S12, ADR 0025 — the local half of "projects :name, from:
+            # :\"reference.remote_field\"", read the same way
+            # invariants/preconditions above are: a synthetic command
+            # (Aggregate.Projects) the judge dispatches once per
+            # declaration, folded into a list on the owning aggregate.
+            projected_fields: [:projected_fields, [:each, :projected_field]],
             provenance:    [:provenance,    :plain]
           },
           rows: { transitions: :transition_rows, value_objects: :value_object_names, identified_by: :identity_rows },
-          reads: { identified_by: [:each, :identity_path], attributes: [:each_with_id, :attribute] },
+          reads: { identified_by: [:each, :identity_path], attributes: [:each_with_id, :attribute],
+                   invariants: [:each, :rule], preconditions: [:each, :rule],
+                   projected_fields: [:each, :projected_field] },
           derived: {
             position: :walk,
             state_field:   [:folded, :lifecycle, :field],
@@ -78,7 +95,7 @@ module Hecksagain
         ),
 
         "Command" => Contract.new(
-          holder: IR::Command, make: :declare,
+          holder: Command, make: :declare,
           fields: {
             name:       [:name,       :plain],
             role:       [:role,       :plain],
@@ -89,32 +106,21 @@ module Hecksagain
             ensures:    [:ensures,    [:each, :given]],
             mutations:  [:mutations,  [:each, :mutation]],
             emits:      [:emits,      :plain],
-            provenance: [:provenance, :plain],
-            # Vendored addition, not (yet) upstream hecksagain (migration
-            # plan task 5): this Contract REBUILDS Command objects via
-            # `IR::Command.declare(**fields)` (the self-hosted meta-
-            # validator's own judging pass reads bluebook structure back
-            # through contracts like this one) -- `redirects_native` was
-            # never added to the field list, so `declare`'s own default
-            # (`redirects_native: []`) silently WON on every rebuilt
-            # command, discarding whatever the original DSL declaration
-            # actually said. Found live, not by inspection: a real
-            # `storehouse mailboxes`-adapter-facing check
-            # (GovernedDoor.LookupDoor) queried FileTool.Read's own
-            # `redirects_native "Read"` and got `[]` back -- the hard
-            # PreToolUse block's entire mechanism depends on this field
-            # surviving. Same shape as `emits`, a plain string list.
-            redirects_native: [:redirects_native, :plain]
+            # LIFECYCLE STATE AS A COMMAND GUARD (S10, ADR 0025) — a
+            # literal the same way `provenance`/`default:` already are;
+            # one state or an array of them, or nil for a command with
+            # no such guard.
+            from:       [:from,       :plain],
+            provenance: [:provenance, :plain]
           },
           rows: { mutations: :mutation_rows },
           reads: { attributes: [:each, :shape_field], givens: [:each, :rule], ensures: [:each, :rule],
-                  mutations: [:call, :mutations], emits: :names, provenance: :provenance,
-                  redirects_native: :names },
+                  mutations: [:call, :mutations], emits: :names, provenance: :provenance, from: :from },
           derived: { position: :walk }
         ),
 
         "ValueObject" => Contract.new(
-          holder: IR::ValueObject, make: :declare,
+          holder: ValueObject, make: :declare,
           fields: {
             name:       [:name,       :plain],
             attributes: [:attributes, [:each, :shape_field]],
@@ -129,7 +135,7 @@ module Hecksagain
         ),
 
         "Query" => Contract.new(
-          holder: IR::Query, make: :new,
+          holder: Query, make: :new,
           fields: {
             name:        [:name,        :plain],
             description: [:description, :plain],
@@ -137,48 +143,27 @@ module Hecksagain
             wheres:          [:wheres,          [:each, :where_clause]],
             order_by:        [:order_by,        :order_by],
             limit:           [:limit,           :limit],
-            # Vendored addition, not (yet) upstream hecksagain (migration
-            # plan task 8): `count`/`median_field`/`group_by_field` never
-            # reached this table, so a query carrying any of the three
-            # survived the DSL parse and vanished the moment the same
-            # bluebook went through `MetaValidator.call` (every ordinary
-            # `Hecks.bluebook` load). Same shape as `redirects_native`'s
-            # own gap on Command — the self-hosted grammar's own "Query"
-            # aggregate needed the matching fields too (see
-            # behavior.bluebook). `count` rides as a real Ruby boolean
-            # (`:flag`, decoded from the language's stored text by
-            # `count_flag` below — see its own comment) ; `median_field`/
-            # `group_by_field` are Symbols, the same `:identity` reading
-            # `correlates_by` already uses.
-            count:           [:count,           :flag],
-            median_field:    [:median_field,    :identity],
-            group_by_field:  [:group_by_field,  :identity],
             # Held by the language as an OPEN MAP, so every one of these reads the
             # same way and a ninth option needs no new field on either side.
             offset:          [:offset,          [:option, :offset]],
             cursor:          [:cursor,          [:option, :cursor]],
             null_semantics:  [:null_semantics,  [:option, :null_semantics]],
             authorization:   [:authorization,   [:option, :authorization]],
-            consistency:     [:consistency,     [:option, :consistency]],
-            freshness:       [:freshness,       [:option, :freshness]],
-            inspection:      [:inspection,      [:option, :inspection]],
-            index_hints:     [:index_hints,     :index_hints]
+            inspection:      [:inspection,      [:option, :inspection]]
           },
           rows: { wheres: :where_rows, options: :option_rows },
           reads: { attributes: [:each, :shape_field], wheres: [:each, :where_clause],
-                  order_by: [:call, :order_by], limit: [:call, :limit],
-                  count: [:call, :count_flag] },
+                  order_by: [:call, :order_by], limit: [:call, :limit] },
           derived: {
             position: :walk,
             order_field: [:folded, :order_by, :field],
             order_way:   [:folded, :order_by, :direction],
-            options:     [:folded, %i[offset cursor null_semantics authorization
-                                       consistency freshness inspection index_hints], nil]
+            options:     [:folded, %i[offset cursor null_semantics authorization inspection], nil]
           }
         ),
 
         "Entity" => Contract.new(
-          holder: IR::Entity, make: :declare,
+          holder: Entity, make: :declare,
           fields: {
             name:          [:name,          :plain],
             description:   [:description,   :plain],
@@ -204,61 +189,24 @@ module Hecksagain
         ),
 
         "Policy" => Contract.new(
-          holder: IR::Policy, make: :new,
+          holder: Policy, make: :new,
           fields: {
             name:            [:name,            :plain],
             aggregate:       [:aggregate,       :plain],
             on_event:        [:on_event,        :plain],
             trigger_command: [:trigger_command, :plain],
             target_domain:   [:target_domain,   :plain],
-            # Vendored addition, not (yet) upstream hecksagain (migration
-            # plan task 8): `wheres`/`with_literals`/`for_each` never
-            # reached this table, so a policy carrying any of the three
-            # survived the DSL parse and vanished the moment the same
-            # bluebook went through `MetaValidator.call` (every ordinary
-            # `Hecks.bluebook` load) — see reaction.bluebook's own
-            # comment on the matching grammar addition. `wheres`/
-            # `with_literals` are open maps, the SAME `:bindings` reading
-            # `Handler#remembers` already uses (Symbol keys, matching
-            # `where`'s own `transform_keys(&:to_sym)`) — `with_literals`
-            # needs its own `:literal_map` twin only because ITS keys are
-            # Strings (`with`/`map`'s own `transform_keys(&:to_s)`).
-            # `for_each` is a compound field the language keeps as two
-            # (`for_each_from`/`for_each_where`, both `derived:` below,
-            # since assembling `for_each` as one thing is this row's job)
-            # — see IR::Policy#for_each_from/#for_each_where's own comment.
-            wheres:          [:wheres,          :bindings],
-            with_literals:   [:with_literals,   :literal_map],
-            for_each:        [:for_each,        :for_each_spec]
+            where:           [:where,           :plain],
+            for_each:        [:for_each,        :plain],
+            with_spec:       [:with_spec,       :bindings]
           },
-          rows: {
-            wheres:         :policy_wheres_rows,
-            with_literals:  :policy_with_literals_rows,
-            for_each_where: :policy_for_each_where_rows
-          },
-          reads: {
-            wheres:        [:from, :wheres],
-            with_literals: [:from, :with_literals],
-            for_each:      [:call, :policy_for_each]
-          },
-          derived: {
-            position: :walk,
-            # `[:computed, ...]`, not `[:folded, ...]` — a folded claim
-            # needs a REAL reconstructed declaration somewhere in the
-            # assembly corpus to carry both keys together (Contract#folded's
-            # own comment), and `for_each` is new enough that nothing in
-            # that corpus exercises it yet. `computes?` asks a narrower,
-            # STATIC question instead — does `IR::Policy` answer to this
-            # name while its OWN constructor does not accept it as a
-            # keyword — which the two readers just added to `ir/policy.rb`
-            # satisfy directly, with no corpus content required.
-            for_each_from:  [:computed, :for_each_from],
-            for_each_where: [:computed, :for_each_where]
-          }
+          rows: { with_spec: :with_spec_rows },
+          reads: { with_spec: [:from, :with_spec] },
+          derived: { position: :walk }
         ),
 
         "ProcessManager" => Contract.new(
-          holder: IR::ProcessManager, make: :new,
+          holder: ProcessManager, make: :new,
           fields: {
             name:          [:name,          :plain],
             # A SYMBOL. `SagaInterpreter` does `event.payload[pm.correlates_by]` — a
@@ -272,45 +220,120 @@ module Hecksagain
             states:        [:states,        :plain]
           },
           reads: { states: :names },
-          derived: { position: :walk }
+          # S17, ADR 0026 — `handlers` is a REAL feature of the LANGUAGE's
+          # own "ProcessManager" declaration now (`attribute :handlers,
+          # list_of(Handler)`, reaction.bluebook), consumed by the judge
+          # walking `Plan`'s own containment tree (`Handler`'s own
+          # `.parent == "ProcessManager"`) rather than by any field this
+          # contract itself reads — the same `:children` shape Aggregate's
+          # own `value_objects` claim already uses, one level in.
+          derived: { position: :walk, handlers: :children }
         ),
 
+        # S17, ADR 0026 — Handler is a genuine entity now, nested under
+        # ProcessManager (`entity "Handler"`, reaction.bluebook). Neither
+        # `position` nor `handler` is a stored field any more: a saga
+        # answers each event ONCE, so `event_type` is Handler's own real,
+        # non-positional identity (no walk-minted `position` to derive),
+        # and the process manager it belongs to is structural now — which
+        # list this element sits in, not a stored field to fold a parent
+        # pointer out of.
         "Handler" => Contract.new(
-          holder: IR::ProcessManagerHandler, make: :new,
+          holder: ProcessManagerHandler, make: :new,
           fields: {
             event_type: [:event_type, :plain],
             from_state: [:from_state, :plain],
             to_state:   [:to_state,   :plain],
             # Vendored addition, not (yet) upstream hecksagain (migration
-            # plan task 4): same open-map shape Dispatch's own `with_spec`
-            # already is — `remember key: from_event(...)` has no value
-            # object that can hold it, so it rides as rows.
-            remembers:  [:remembers,  :bindings],
-            # `guard_count` is now a real seventh member of IR::
-            # ProcessManagerHandler (its own comment explains why) — only
-            # the COUNT survives the round trip, never the predicates
-            # themselves (raw Procs). `:plain`, the same as every other
-            # scalar here.
+            # plan task 4, i768 follow-up): same open-map shape Dispatch's
+            # own `with_spec` already is — `remember key: from_event(...)`
+            # has no value object that can hold it, so it rides as rows.
+            remembers:   [:remembers,   :bindings],
+            # `guard_count` is now a real seventh member of
+            # `Bluebook::ProcessManagerHandler` (its own comment explains
+            # why) — only the COUNT survives the round trip, never the
+            # predicates themselves (raw Procs). `:plain`, the same as
+            # every other scalar here.
             guard_count: [:guard_count, :plain]
           },
           rows: { remembers: :remembers_rows },
           reads: { remembers: [:from, :remembers] },
-          derived: { position: :walk }
+          # `dispatches` — same reason ProcessManager's own `handlers`
+          # claim, above, is `:children` : a real feature of the
+          # LANGUAGE's own "Handler" declaration (`attribute :dispatches,
+          # list_of(Dispatch)`), consumed by the judge walking `Plan`'s
+          # own containment tree rather than by any field this contract
+          # reads.
+          derived: { dispatches: :children }
         ),
 
+        # S17, ADR 0026 — Dispatch is a genuine entity now, nested under
+        # Handler (`entity "Dispatch"`, reaction.bluebook) — two levels
+        # deep, "no life outside its Handler" (the ADR's own words).
+        # `command_name` is Dispatch's own real, non-positional identity
+        # — neither `position` nor `handler` is a stored field any more,
+        # the same reason Handler's own contract, above, dropped them.
         "Dispatch" => Contract.new(
-          holder: IR::DispatchSpec, make: :new,
+          holder: DispatchSpec, make: :new,
           fields: {
             command_name: [:command_name, :plain],
             with_spec:    [:with_spec,    :bindings]
           },
           rows: { with_spec: :with_spec_rows },
           reads: { with_spec: [:from, :with_spec] },
-          derived: { position: :walk, handler: :parent }
+          derived: {}
+        ),
+
+        # S14, ADR 0026 — Syntax/Keyword/Argument are never built via
+        # `Build`/`Reconstruction`'s own generic path — their own data
+        # lives in a dedicated repository `SyntaxBoot` (meta_validator/
+        # syntax_boot.rb) reads directly, never through the meta-
+        # domain's own reconstruction, the same reason `Member`'s own
+        # entry (above) carries `holder: nil, make: nil` too. These
+        # entries exist purely so the introspection specs
+        # (assembly_spec.rb) can hold them to the same "every field
+        # claimed" discipline every other category answers to.
+        "Syntax" => Contract.new(
+          holder: nil, make: nil,
+          fields: { name: [:name, :plain] },
+          derived: { keywords: :children, arguments: :children }
+        ),
+
+        "Keyword" => Contract.new(
+          holder: nil, make: nil,
+          fields: {
+            word:    [:word,    :plain],
+            context: [:context, :plain],
+            body:    [:body,    :plain],
+            inner:   [:inner,   :plain],
+            opens:   [:opens,   :plain],
+            fills:   [:fills,   :plain],
+            was:     [:was,     :plain]
+          },
+          derived: { position: :walk }
+        ),
+
+        "Argument" => Contract.new(
+          holder: nil, make: nil,
+          fields: {
+            keyword:          [:keyword,          :plain],
+            context:          [:context,          :plain],
+            at:               [:at,               :plain],
+            named:            [:named,            :plain],
+            kind:             [:kind,              :plain],
+            required:         [:required,         :plain],
+            fills:            [:fills,            :plain],
+            selects:          [:selects,          :plain],
+            pair_key_fills:   [:pair_key_fills,   :plain],
+            pair_value_fills: [:pair_value_fills, :plain],
+            pairs_shape:      [:pairs_shape,      :plain],
+            variadic:         [:variadic,         :plain]
+          },
+          derived: { position: :walk }
         ),
 
         "ReadModel" => Contract.new(
-          holder: IR::ReadModel, make: :new,
+          holder: ReadModel, make: :new,
           fields: {
             name:             [:name,             :plain],
             description:      [:description,      :plain],
@@ -318,6 +341,14 @@ module Hecksagain
             reference_target: [:reference_target, :plain],
             aggregate_heads:  [:aggregate_heads,  [:each, :head]],
             group_by:         [:group_by,         [:each, :group_by_field]],
+            # `count`/`median_field` are `group_by`'s own two siblings —
+            # scalars, not lists, so no `[:each, ...]` shape ; `:plain`
+            # is what `Assembly::Build` needs (fed the native `to_h`
+            # value directly, already `true`/`nil`/a String), and the
+            # `reads:` entry below is what `Reconstruction` needs
+            # instead (fed the STRINGIFIED meta-domain row).
+            count:            [:count,            :plain],
+            median_field:     [:median_field,     :plain],
             # A read model inherits every option an ask has, so it reads them the
             # same way — see Query.
             wheres:           [:wheres,           [:each, :where_clause]],
@@ -327,29 +358,57 @@ module Hecksagain
             cursor:           [:cursor,           [:option, :cursor]],
             null_semantics:   [:null_semantics,   [:option, :null_semantics]],
             authorization:    [:authorization,    [:option, :authorization]],
-            consistency:      [:consistency,      [:option, :consistency]],
-            freshness:        [:freshness,        [:option, :freshness]],
-            inspection:       [:inspection,       [:option, :inspection]],
-            index_hints:      [:index_hints,      :index_hints]
+            inspection:       [:inspection,       [:option, :inspection]]
           },
           rows: { options: :read_model_option_rows },
-          reads: { reference_name: :symbol, aggregate_heads: [:each, :head], group_by: [:each, :group_by_field] },
+          # `wheres` needs its own reader for the same reason Query's does — a
+          # list defaults to `[]`, not the generic `text(row[key])` cell reader's
+          # `nil` — even though a read model's row never carries `wheres` as a
+          # native field the way Query's does (`[:each, :where_clause]` over an
+          # absent `row[:wheres]` is `Array(nil).map { ... }`, i.e. `[]`, always).
+          # The REAL values, when a read model declares any, arrive through
+          # `options_of(row)`'s merge in `read_model` below (dispatched as
+          # generic Option rows, `read_model_option_rows`/`filter_options` — not
+          # as dedicated where-clause rows), which overrides this default. Until
+          # `ReadModel#to_h` spelled `wheres`/`order_by`/`limit`
+          # unconditionally, `round_trip_spec`'s own "SOURCE KEYS ONLY" +compare
+          # never asked about this key at all, so the `nil`-vs-`[]` gap between
+          # this contract's default and `to_h`'s own `[]` default went unnoticed.
+          # `order_by`/`limit` need no matching entry — the generic reader's
+          # `nil` already agrees with `to_h`'s own nil-when-undeclared default
+          # for those two. `group_by` needs its own reader the same way — a
+          # rootless read model's grouping keys, added independently on main.
+          reads: { reference_name: :symbol, aggregate_heads: [:each, :head],
+                  group_by: [:each, :group_by_field], wheres: [:each, :where_clause],
+                  # `count` needs the boolean coercion `Shapes#read_model_count`
+                  # gives it (a stringified "true"/absent on the wire, a real
+                  # `true`/`nil` in `to_h`) — `median_field` needs none: the
+                  # default `text(row[key])` cell reader already returns the
+                  # same String-or-nil `ReadModel#to_h`'s own `&.to_s` does.
+                  count: :read_model_count },
           derived: {
             position: :walk,
             query_name: [:computed, :query_name],
-            options:    [:folded, %i[offset cursor null_semantics authorization
-                                      consistency freshness inspection index_hints], nil]
+            options:    [:folded, %i[offset cursor null_semantics authorization inspection], nil]
           }
         ),
 
         # A member's pairs are an OPEN MAP, which is why Member is its own root in
         # the language. The IR keeps them as a plain hash on the value object, so
         # they are assembled with their shape rather than as a construct.
+        # S17, ADR 0026 — Member is a genuine entity now, nested under
+        # ValueObject (`entity "Member"`, shape.bluebook). It no longer
+        # holds a `shape` field at all (that was the free-text, un-parsed
+        # spelling a standalone root once needed ; an entity's element is
+        # never serialized as text) — only `position` (walk-minted, see
+        # `entity_own_identity`, judge.rb) and `pairs` (still an open map,
+        # still one row per entry, still why a value object cannot hold it
+        # directly).
         "Member" => Contract.new(
           holder: nil, make: nil,
           fields: {},
           rows: { pairs: :pair_rows },
-          derived: { position: :walk, shape: :parent, pairs: [:folded, %i[members], nil] }
+          derived: { position: :walk, pairs: [:folded, %i[members], nil] }
         )
       }.freeze
     end

@@ -1,0 +1,25 @@
+Hecks.hecksagon "Plan" do
+  # pr-delivery-merge-on-accept (sprint 20) : pr_mergeable as a REAL inline gh
+  # probe, replacing the missing bin/check-pr-mergeable. Re-expressed (i782)
+  # from the retired `run`/`result_into` driven-block leaf -- confirmed a
+  # hard no-op in the vendored gem (`DrivenCapture#run(_cmd, result_into:
+  # nil) = nil` is an explicit stub ; this check has never actually fired) --
+  # onto the same spawned_by mechanism i780 already proved for the sibling
+  # checks (CheckWorktree/CheckMerged/CheckTests/CheckVerbResolves,
+  # plan.hecksagon). RecordPrMergeableCheckResult was widened (i782,
+  # plan.bluebook) to accept adapter-host's unconditional 5-key verdict
+  # shape (id/tool/output/exit_code/ok) directly, so success and failure
+  # target it straight -- no Cascade::Cascade.RecordResult indirection, no
+  # unbuilt Cascade.ResultRecorded -> Story bridge needed. success ==
+  # failure : the same command records either outcome via its own :ok
+  # attribute, matching every other spawned_by conversion in this corpus.
+  #
+  # bin/pr_mergeable_check reads the story's id off the triggering event's
+  # payload (clean, VO-unwrapped JSON on stdin) and runs the exact gh
+  # probe this file used to run inline : exits 0 IFF state == OPEN,
+  # mergeable == MERGEABLE, and no check has a non-SUCCESS conclusion.
+  Plan::Story.spawned_by("PrMergeableCheck", on: "StoryChecksRequested") do
+    success "Plan::Story.RecordPrMergeableCheckResult"
+    failure "Plan::Story.RecordPrMergeableCheckResult"
+  end
+end

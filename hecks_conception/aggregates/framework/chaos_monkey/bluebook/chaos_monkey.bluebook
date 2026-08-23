@@ -47,8 +47,9 @@ Hecks.bluebook "ChaosMonkey", version: "2026.05.14.1" do
   # of the engine that fulfills the dispatched commands is the
   # follow-up substrate.
 
-  aggregate "ChaosMonkey", "Singleton-shaped chaos-engineering aggregate — owns the corruption history, the weakness backlog, and the exemption list. The circadian dispatcher fires PerturbCircadian ; ChaosMonkey orchestrates the corrupt → verify → revert cycle." do
-    identified_by { name.value }
+  aggregate "ChaosMonkey" do
+    description "Singleton-shaped chaos-engineering aggregate — owns the corruption history, the weakness backlog, and the exemption list. The circadian dispatcher fires PerturbCircadian ; ChaosMonkey orchestrates the corrupt → verify → revert cycle."
+    identified_by :name
 
     # Singleton-shaped via identified_by :name until i611's
     # `singleton: true` declaration lands.
@@ -190,7 +191,7 @@ Hecks.bluebook "ChaosMonkey", version: "2026.05.14.1" do
     # ── Entities — child records living inside ChaosMonkey ──
 
     entity "Corruption" do
-      identified_by { perturbed_at.value }
+      identified_by :perturbed_at
       description "One act of corruption — the full audit row. Carries the target, kind, original + corrupted values, verification outcome, and revert status. Each PerturbCircadian creates one Corruption row ; the row stays even after revert as the historical trace."
       attribute :perturbed_at,        Timestamp
       attribute :target,              TargetRef
@@ -203,7 +204,7 @@ Hecks.bluebook "ChaosMonkey", version: "2026.05.14.1" do
     end
 
     entity "Weakness" do
-      identified_by { discovered_at.value }
+      identified_by :discovered_at
       description "One blind spot — a corruption the discipline layer failed to catch. This is the backlog : every Weakness row is a gap in test + macrophage coverage that needs closing. Recorded loud (the macrophage hook surfaces them in stderr) so they don't drift into a quiet log."
       attribute :discovered_at, Timestamp
       attribute :target,        TargetRef
@@ -212,7 +213,7 @@ Hecks.bluebook "ChaosMonkey", version: "2026.05.14.1" do
     end
 
     entity "ExemptedTarget" do
-      identified_by { target.value }
+      identified_by :target
       description "A target ChaosMonkey will NOT corrupt. Each exemption carries a reason — same audit-trail shape as [antibody-exempt: file — reason] markers. Adding / removing exemptions goes through the bus (ExemptTarget command) so the exemption history is itself queryable."
       attribute :target,    TargetRef
       attribute :reason,    ExemptionReason
@@ -223,9 +224,9 @@ Hecks.bluebook "ChaosMonkey", version: "2026.05.14.1" do
 
     command "StartSession" do
       role "System"
-      description "Reset counters at session boot. ChaosMonkey keeps a per-session tally so the dashboard reflects the day's chaos, not lifetime totals. Entity collections (Corruption / Weakness / ExemptedTarget) are NOT reset — they're audit trail and backlog."
+      goal "Reset counters at session boot. ChaosMonkey keeps a per-session tally so the dashboard reflects the day's chaos, not lifetime totals. Entity collections (Corruption / Weakness / ExemptedTarget) are NOT reset — they're audit trail and backlog."
       attribute :session_started_at, Timestamp
-      then_set :session_started_at, to: :session_started_at
+      sets :session_started_at
       emits "ChaosMonkeySessionStarted"
     end
 
@@ -233,17 +234,17 @@ Hecks.bluebook "ChaosMonkey", version: "2026.05.14.1" do
 
     command "PerturbCircadian" do
       role "Circadian"
-      description "The circadian dispatcher's entry into ChaosMonkey. Fires once per circadian tick. ChaosMonkey picks an aggregate + corruption kind (avoiding ExemptedTargets), records the original value, applies the corruption, runs verification, records the outcome, and auto-reverts unless revert_policy says otherwise. The whole cycle flows through the bus ; this command is the single circadian-side entry point."
+      goal "The circadian dispatcher's entry into ChaosMonkey. Fires once per circadian tick. ChaosMonkey picks an aggregate + corruption kind (avoiding ExemptedTargets), records the original value, applies the corruption, runs verification, records the outcome, and auto-reverts unless revert_policy says otherwise. The whole cycle flows through the bus ; this command is the single circadian-side entry point."
       attribute :perturbed_at, Timestamp
       emits "CircadianPerturbed"
-      then_set :last_perturbed_at, to: :perturbed_at
+      sets :last_perturbed_at, to: :perturbed_at
     end
 
     # ── Corruption commands (three kinds) ──
 
     command "CorruptAttribute" do
       role "Engine"
-      description "Mutate an aggregate's attribute to a value its value-object should reject. Tests whether the VO refuses construction OR whether downstream behaviors / queries surface the corruption. Carries the original value so RevertCorruption can restore it."
+      goal "Mutate an aggregate's attribute to a value its value-object should reject. Tests whether the VO refuses construction OR whether downstream behaviors / queries surface the corruption. Carries the original value so RevertCorruption can restore it."
       attribute :perturbed_at,    Timestamp
       attribute :target,          TargetRef
       attribute :attribute_name,  AttributeName
@@ -251,13 +252,13 @@ Hecks.bluebook "ChaosMonkey", version: "2026.05.14.1" do
       attribute :corrupted_value, CorruptedValue
       attribute :revert_policy,   RevertPolicy
       emits "AttributeCorrupted"
-      then_set :last_corruption_kind, to: "attribute"
-      then_set :last_target,          to: :target
+      sets :last_corruption_kind, to: "attribute"
+      sets :last_target,          to: :target
     end
 
     command "BreakReference" do
       role "Engine"
-      description "Change an aggregate's reference_to field to point at a non-existent id. Tests whether queries that resolve the reference catch the dangling ref, and whether any macrophage flags ref-integrity violations."
+      goal "Change an aggregate's reference_to field to point at a non-existent id. Tests whether queries that resolve the reference catch the dangling ref, and whether any macrophage flags ref-integrity violations."
       attribute :perturbed_at,    Timestamp
       attribute :target,          TargetRef
       attribute :reference_name,  ReferenceName
@@ -265,38 +266,38 @@ Hecks.bluebook "ChaosMonkey", version: "2026.05.14.1" do
       attribute :corrupted_value, CorruptedValue
       attribute :revert_policy,   RevertPolicy
       emits "ReferenceBroken"
-      then_set :last_corruption_kind, to: "reference"
-      then_set :last_target,          to: :target
+      sets :last_corruption_kind, to: "reference"
+      sets :last_target,          to: :target
     end
 
     command "CorruptHeki" do
       role "Engine"
-      description "Mutate a .heki file directly — bypass the bus, write malformed JSON / wrong schema / garbage. Tests the LOAD path : does the runtime fail loudly on next boot, or silently swallow the bad row ? Deepest layer of disturbance — the system has to defend itself from its own persistence."
+      goal "Mutate a .heki file directly — bypass the bus, write malformed JSON / wrong schema / garbage. Tests the LOAD path : does the runtime fail loudly on next boot, or silently swallow the bad row ? Deepest layer of disturbance — the system has to defend itself from its own persistence."
       attribute :perturbed_at, Timestamp
       attribute :target,       TargetRef
       attribute :heki_path,    HekiPath
       attribute :heki_patch,   HekiPatch
       attribute :revert_policy, RevertPolicy
       emits "HekiCorrupted"
-      then_set :last_corruption_kind, to: "heki"
-      then_set :last_target,          to: :target
+      sets :last_corruption_kind, to: "heki"
+      sets :last_target,          to: :target
     end
 
     # ── Verification + weakness recording ──
 
     command "RunVerification" do
       role "Engine"
-      description "Run the discipline layer against the freshly-corrupted system. Today this is a placeholder — the engine will dispatch Macrophage::Macrophage.RunSweep (i616) and a yet-to-be-specified Verification.RunSuite command, gather the outcomes, and decide whether the corruption was caught. Records the outcome on the latest Corruption row."
+      goal "Run the discipline layer against the freshly-corrupted system. Today this is a placeholder — the engine will dispatch Macrophage::Macrophage.RunSweep (i616) and a yet-to-be-specified Verification.RunSuite command, gather the outcomes, and decide whether the corruption was caught. Records the outcome on the latest Corruption row."
       attribute :verified_at, Timestamp
       attribute :target,      TargetRef
       attribute :outcome,     VerificationOutcome
       emits "VerificationRan"
-      then_set :last_outcome, to: :outcome
+      sets :last_outcome, to: :outcome
     end
 
     command "RecordWeakness" do
       role "Engine"
-      description "Record an uncaught corruption — a blind spot in the discipline layer. Carries a free-text summary of the gap. ChaosMonkey emits a loud event so the macrophage hook surfaces the weakness in the stderr complaint stream rather than burying it in a quiet log."
+      goal "Record an uncaught corruption — a blind spot in the discipline layer. Carries a free-text summary of the gap. ChaosMonkey emits a loud event so the macrophage hook surfaces the weakness in the stderr complaint stream rather than burying it in a quiet log."
       attribute :discovered_at, Timestamp
       attribute :target,        TargetRef
       attribute :kind,          CorruptionKind
@@ -308,7 +309,7 @@ Hecks.bluebook "ChaosMonkey", version: "2026.05.14.1" do
 
     command "RevertCorruption" do
       role "Engine"
-      description "Restore the original value from the Corruption row. Default behavior after RunVerification when revert_policy is 'auto'. May be dispatched manually when revert_policy is 'manual' (e.g. when Chris wants to inspect the broken state before restoring). If the revert itself fails (target deleted, heki write fails), emits RevertFailed — a loud event surfaced as a real problem."
+      goal "Restore the original value from the Corruption row. Default behavior after RunVerification when revert_policy is 'auto'. May be dispatched manually when revert_policy is 'manual' (e.g. when Chris wants to inspect the broken state before restoring). If the revert itself fails (target deleted, heki write fails), emits RevertFailed — a loud event surfaced as a real problem."
       attribute :reverted_at, Timestamp
       attribute :target,      TargetRef
       emits "CorruptionReverted"
@@ -318,7 +319,7 @@ Hecks.bluebook "ChaosMonkey", version: "2026.05.14.1" do
 
     command "ExemptTarget" do
       role "Operator"
-      description "Add a target to the exemption list. ChaosMonkey will never pick this target for corruption. Required reason — same audit-trail discipline as [antibody-exempt: file — reason] markers. Examples : 'Stripe::Charge — irreversible external side effects', 'BinBuddy::PickupRoute — customer commitment in flight'."
+      goal "Add a target to the exemption list. ChaosMonkey will never pick this target for corruption. Required reason — same audit-trail discipline as [antibody-exempt: file — reason] markers. Examples : 'Stripe::Charge — irreversible external side effects', 'BinBuddy::PickupRoute — customer commitment in flight'."
       attribute :target,    TargetRef
       attribute :reason,    ExemptionReason
       attribute :added_at,  Timestamp
@@ -327,7 +328,7 @@ Hecks.bluebook "ChaosMonkey", version: "2026.05.14.1" do
 
     command "RemoveExemption" do
       role "Operator"
-      description "Remove a target from the exemption list — chaos resumes on this target. Removal goes through the bus so 'when did this become testable again ?' has an answer in the audit trail."
+      goal "Remove a target from the exemption list — chaos resumes on this target. Removal goes through the bus so 'when did this become testable again ?' has an answer in the audit trail."
       attribute :target,     TargetRef
       attribute :removed_at, Timestamp
       emits "ExemptionRemoved"

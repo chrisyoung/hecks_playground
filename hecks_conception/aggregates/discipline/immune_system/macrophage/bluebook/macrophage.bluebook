@@ -42,8 +42,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   # an EditCount isn't an Integer, a Severity isn't a String, a
   # Timestamp isn't a String. Each carries its concept.
 
-  aggregate "Macrophage", "Live bluebook-first watcher — engulfs imperative edits as they happen ; holds the registered checks, violation history, and complaint history as child entities" do
-    identified_by { name.value }
+  aggregate "Macrophage" do
+    description "Live bluebook-first watcher — engulfs imperative edits as they happen ; holds the registered checks, violation history, and complaint history as child entities"
+    identified_by :name
 
     attribute :name, Name
 
@@ -128,7 +129,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entities — child records living inside the macrophage ──
 
     entity "Check" do
-      identified_by { id.value }
+      identified_by :id
       description "A registered enforcement rule. The macrophage kernel scans live file operations and triggers a matching check when its pattern_kind matches. Folded into Macrophage in the 2026-05-12 dense-domain pass — was its own MacrophageCheck aggregate."
       attribute :id,              CheckId
       attribute :pattern_kind,    PatternKind
@@ -138,7 +139,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     end
 
     entity "Violation" do
-      identified_by { check_id.value }
+      identified_by :check_id
       description "A specific offending file recorded against a Check — the evidence trail. Kept separate from Check so the rule definition stays clean while the activations accrete."
       attribute :check_id,    CheckId
       attribute :file_path,   FilePath
@@ -146,7 +147,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     end
 
     entity "Complaint" do
-      identified_by { complained_at.value }
+      identified_by :complained_at
       description "One historical complaint event. When the macrophage detected an imperative edit, what file, what the complaint text said. The latest_* scalars on the aggregate root mirror the most recent entry ; this collection holds the audit trail."
       attribute :complained_at,  Timestamp
       attribute :file_path,      FilePath
@@ -154,7 +155,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     end
 
     entity "FixturesViolation" do
-      identified_by { file_path.value }
+      identified_by :file_path
       description "One historical fixtures-loaded-at-runtime event. .fixtures files are TEST data only ; any runtime load is an architectural violation that gets logged here so the dashboard can surface the pattern."
       attribute :file_path,   FilePath
       attribute :violated_at, Timestamp
@@ -164,9 +165,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "StartSession" do
       role "System"
-      description "Reset counters at session boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects what landed today, not lifetime totals. Entity collections (Check / Violation / Complaint / FixturesViolation) are NOT reset — they're audit trail."
+      goal "Reset counters at session boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects what landed today, not lifetime totals. Entity collections (Check / Violation / Complaint / FixturesViolation) are NOT reset — they're audit trail."
       attribute :session_started_at, Timestamp
-      then_set :session_started_at, to: :session_started_at
+      sets :session_started_at
       emits "SessionStarted"
     end
 
@@ -174,42 +175,42 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "RecordBluebookEdit" do
       role "Hook"
-      description "A bluebook-family file (.bluebook | .hecksagon | .fixtures | .behaviors | .world) was written. No complaint."
+      goal "A bluebook-family file (.bluebook | .hecksagon | .fixtures | .behaviors | .world) was written. No complaint."
       attribute :file_path, FilePath
       emits "BluebookEdited"
     end
 
     command "RecordImperativeEdit" do
       role "Hook"
-      description "An imperative-language file (.rs | .sh | .rb | .js | .py | .go | .ts) was written. Increments imperative_edits ; the hook chains into Complain since the runtime can't yet gate policies on attribute conditions."
+      goal "An imperative-language file (.rs | .sh | .rb | .js | .py | .go | .ts) was written. Increments imperative_edits ; the hook chains into Complain since the runtime can't yet gate policies on attribute conditions."
       attribute :file_path, FilePath
       emits "ImperativeEdited"
     end
 
     command "RecordExemptedEdit" do
       role "Hook"
-      description "An imperative-language file was written, but the file carries an [antibody-exempt: ...] marker in its header — the discipline is satisfied, no complaint fires. The marker IS the audit trail. Tracked separately from imperative_edits so the dashboard can show 'exempted edits' alongside 'unexempted imperative edits'."
+      goal "An imperative-language file was written, but the file carries an [antibody-exempt: ...] marker in its header — the discipline is satisfied, no complaint fires. The marker IS the audit trail. Tracked separately from imperative_edits so the dashboard can show 'exempted edits' alongside 'unexempted imperative edits'."
       attribute :file_path, FilePath
       emits "ExemptedEdited"
     end
 
     command "RecordSupportEdit" do
       role "Hook"
-      description "A support file was written (.md | .heki | .json | .toml | .yaml | .txt). Surface glue, no complaint."
+      goal "A support file was written (.md | .heki | .json | .toml | .yaml | .txt). Surface glue, no complaint."
       attribute :file_path, FilePath
       emits "SupportEdited"
     end
 
     command "RecordDownstreamEdit" do
       role "Hook"
-      description "A DOWNSTREAM artifact was written : a test (tests?/ | spec/ | benches?/ dir, or a _test | _spec | _smoke | _bench suffix) or a file generated/projected from a floor bluebook. Downstream artifacts FOLLOW their floor (.bluebook) — a test shadows the bluebook it covers, generated code is the bluebook's projection — so they are NOT imperative gaps and draw NO complaint. Tracked separately from support_edits so the dashboard distinguishes 'tests + generated' from 'docs + config'. The marker-free rule : rewrite a floor, the downstream follows, and the macrophage stays quiet."
+      goal "A DOWNSTREAM artifact was written : a test (tests?/ | spec/ | benches?/ dir, or a _test | _spec | _smoke | _bench suffix) or a file generated/projected from a floor bluebook. Downstream artifacts FOLLOW their floor (.bluebook) — a test shadows the bluebook it covers, generated code is the bluebook's projection — so they are NOT imperative gaps and draw NO complaint. Tracked separately from support_edits so the dashboard distinguishes 'tests + generated' from 'docs + config'. The marker-free rule : rewrite a floor, the downstream follows, and the macrophage stays quiet."
       attribute :file_path, FilePath
       emits "DownstreamEdited"
     end
 
     command "RecordOtherEdit" do
       role "Hook"
-      description "A file outside the known categories was written. No complaint ; the hook just keeps the tally honest."
+      goal "A file outside the known categories was written. No complaint ; the hook just keeps the tally honest."
       attribute :file_path, FilePath
       emits "OtherEdited"
     end
@@ -218,20 +219,20 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "Complain" do
       role "Hook"
-      description "The macrophage detected an imperative edit without an exempt marker. Records the latest complaint text + timestamp + file_path so the statusline can surface it. The hook ALSO prints the complaint to stderr so Claude Code surfaces it as a system reminder on the next turn — the loop that closes the discipline mechanism. Without the stderr surface this is just a counter ; with it, the complaint lands in the agent's context and forces an exemption-naming or course-correction."
+      goal "The macrophage detected an imperative edit without an exempt marker. Records the latest complaint text + timestamp + file_path so the statusline can surface it. The hook ALSO prints the complaint to stderr so Claude Code surfaces it as a system reminder on the next turn — the loop that closes the discipline mechanism. Without the stderr surface this is just a counter ; with it, the complaint lands in the agent's context and forces an exemption-naming or course-correction."
       attribute :file_path,         FilePath
       attribute :complaint,         ComplaintText
       attribute :last_complaint_at, Timestamp
-      then_set :last_complaint,    to: :complaint
-      then_set :last_complaint_at, to: :last_complaint_at
+      sets :last_complaint,    to: :complaint
+      sets :last_complaint_at
       emits "ComplaintIssued"
     end
 
     command "ComplainFixturesAsRuntime" do
       role "System"
-      description "A .fixtures file was detected being loaded at runtime (outside a test context). Mirrors Complain — records the file path and sets last_fixtures_violation so the dashboard can surface the pattern. The hook ALSO prints to stderr so the complaint lands in the agent's context on the next turn. .fixtures files are TEST data only ; any runtime load is an architectural violation."
+      goal "A .fixtures file was detected being loaded at runtime (outside a test context). Mirrors Complain — records the file path and sets last_fixtures_violation so the dashboard can surface the pattern. The hook ALSO prints to stderr so the complaint lands in the agent's context on the next turn. .fixtures files are TEST data only ; any runtime load is an architectural violation."
       attribute :file_path, FilePath
-      then_set :last_fixtures_violation, to: :file_path
+      sets :last_fixtures_violation, to: :file_path
       emits "FixturesAsRuntimeComplained"
     end
 
@@ -243,7 +244,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "RegisterCheck" do
       role "System"
-      description "Declare a new enforcement rule. id is a stable slug ; pattern_kind names the detection strategy the kernel uses ; severity is 'block' or 'warn' ; complaint is the stderr text the hook emits when the rule matches."
+      goal "Declare a new enforcement rule. id is a stable slug ; pattern_kind names the detection strategy the kernel uses ; severity is 'block' or 'warn' ; complaint is the stderr text the hook emits when the rule matches."
       attribute :id,           CheckId
       attribute :pattern_kind, PatternKind
       attribute :severity,     Severity
@@ -253,14 +254,14 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "TriggerCheck" do
       role "System"
-      description "The macrophage kernel matched this check's pattern_kind against a live file operation. Triggering records the activation in the matching Check entity ; the kernel is responsible for also dispatching ComplainFixturesAsRuntime (or the appropriate Complain variant) so the complaint surfaces."
+      goal "The macrophage kernel matched this check's pattern_kind against a live file operation. Triggering records the activation in the matching Check entity ; the kernel is responsible for also dispatching ComplainFixturesAsRuntime (or the appropriate Complain variant) so the complaint surfaces."
       attribute :id, CheckId
       emits "CheckTriggered"
     end
 
     command "RecordViolation" do
       role "System"
-      description "Attach a specific offending file to a check's activation log — appends a Violation entity. Called after TriggerCheck when the kernel has resolved the exact file path. The check record carries the rule ; the violation collection carries concrete evidence."
+      goal "Attach a specific offending file to a check's activation log — appends a Violation entity. Called after TriggerCheck when the kernel has resolved the exact file path. The check record carries the rule ; the violation collection carries concrete evidence."
       attribute :id,        CheckId
       attribute :file_path, FilePath
       emits "ViolationRecorded"
@@ -310,8 +311,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   # The existing Macrophage aggregate is NOT retired here — this
   # aggregate is a sibling. Migration step 2 of the i595 plan.
 
-  aggregate "BluebookFirst", "Per-rule macrophage for the bluebook-first enforcement — tracks imperative edits, exempted edits, and the complaint history for this rule alone" do
-    identified_by { name.value }
+  aggregate "BluebookFirst" do
+    description "Per-rule macrophage for the bluebook-first enforcement — tracks imperative edits, exempted edits, and the complaint history for this rule alone"
+    identified_by :name
 
     attribute :name, Name
 
@@ -364,7 +366,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — complaint audit trail ──
 
     entity "Complaint" do
-      identified_by { complained_at.value }
+      identified_by :complained_at
       description "One historical complaint event for the bluebook-first rule. Records which file triggered the complaint, what the complaint text said, and when. The last_complaint / last_complaint_at scalars on the root mirror the most recent entry; this collection holds the full audit trail."
       attribute :complained_at,  Timestamp
       attribute :file_path,      FilePath
@@ -375,9 +377,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "StartSession" do
       role "System"
-      description "Reset per-session counters at boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects what landed today, not lifetime totals. The Complaint entity collection is NOT reset — it is audit trail."
+      goal "Reset per-session counters at boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects what landed today, not lifetime totals. The Complaint entity collection is NOT reset — it is audit trail."
       attribute :session_started_at, Timestamp
-      then_set :session_started_at, to: :session_started_at
+      sets :session_started_at
       emits "SessionStarted"
     end
 
@@ -385,21 +387,21 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "RecordBluebookEdit" do
       role "Hook"
-      description "A bluebook-family file (.bluebook | .hecksagon | .fixtures | .behaviors | .world) was written. The bluebook-first rule is satisfied — no complaint. Increments bluebook_edits so the session scoreboard can show the ratio of declarative to imperative writes."
+      goal "A bluebook-family file (.bluebook | .hecksagon | .fixtures | .behaviors | .world) was written. The bluebook-first rule is satisfied — no complaint. Increments bluebook_edits so the session scoreboard can show the ratio of declarative to imperative writes."
       attribute :file_path, FilePath
       emits "BluebookEdited"
     end
 
     command "RecordImperativeEdit" do
       role "Hook"
-      description "An imperative-language file (.rs | .sh | .rb | .js | .py | .go | .ts) was written without an antibody-exempt marker. Increments imperative_edits. The hook chains into Complain to surface the complaint on the next turn — this command records the fact; Complain records the reaction."
+      goal "An imperative-language file (.rs | .sh | .rb | .js | .py | .go | .ts) was written without an antibody-exempt marker. Increments imperative_edits. The hook chains into Complain to surface the complaint on the next turn — this command records the fact; Complain records the reaction."
       attribute :file_path, FilePath
       emits "ImperativeEdited"
     end
 
     command "RecordExemptedEdit" do
       role "Hook"
-      description "An imperative-language file was written, but carries an [antibody-exempt: ...] marker — the bluebook-first discipline is satisfied by the marker. Tracked separately so the scoreboard can distinguish 'exempted imperative edits' from 'unexempted imperative edits' and confirm the exemption discipline is being followed."
+      goal "An imperative-language file was written, but carries an [antibody-exempt: ...] marker — the bluebook-first discipline is satisfied by the marker. Tracked separately so the scoreboard can distinguish 'exempted imperative edits' from 'unexempted imperative edits' and confirm the exemption discipline is being followed."
       attribute :file_path, FilePath
       emits "ExemptedEdited"
     end
@@ -408,12 +410,12 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "Complain" do
       role "Hook"
-      description "The BluebookFirst macrophage detected an imperative edit without an antibody-exempt marker. Records the complaint text and timestamp on the root for fast statusline reads, and appends a Complaint entity for the audit trail. The hook ALSO prints to stderr so Claude Code surfaces the complaint as a system reminder on the next turn — the feedback loop that closes the discipline mechanism. Complaint text should begin 'The BluebookFirst macrophage expected ...' so the rule's name is visible at a glance."
+      goal "The BluebookFirst macrophage detected an imperative edit without an antibody-exempt marker. Records the complaint text and timestamp on the root for fast statusline reads, and appends a Complaint entity for the audit trail. The hook ALSO prints to stderr so Claude Code surfaces the complaint as a system reminder on the next turn — the feedback loop that closes the discipline mechanism. Complaint text should begin 'The BluebookFirst macrophage expected ...' so the rule's name is visible at a glance."
       attribute :file_path,         FilePath
       attribute :complaint,         ComplaintText
       attribute :last_complaint_at, Timestamp
-      then_set :last_complaint,    to: :complaint
-      then_set :last_complaint_at, to: :last_complaint_at
+      sets :last_complaint,    to: :complaint
+      sets :last_complaint_at
       emits "ComplaintIssued"
     end
   end
@@ -447,8 +449,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   # The existing Macrophage aggregate is NOT retired here — this
   # aggregate is a sibling. Migration step 2 of the i595 plan.
 
-  aggregate "FixturesRuntime", "Per-rule macrophage for the fixtures-at-runtime enforcement — tracks .fixtures file accesses, violations, and the complaint history for this rule alone" do
-    identified_by { name.value }
+  aggregate "FixturesRuntime" do
+    description "Per-rule macrophage for the fixtures-at-runtime enforcement — tracks .fixtures file accesses, violations, and the complaint history for this rule alone"
+    identified_by :name
 
     attribute :name, Name
 
@@ -502,7 +505,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — violation audit trail ──
 
     entity "FixturesViolation" do
-      identified_by { violated_at.value }
+      identified_by :violated_at
       description "One historical violation event for the fixtures-at-runtime rule. Records which .fixtures file was loaded, who loaded it, what the violation text said, and when. The last_violation / last_violation_at / last_violation_file_path scalars on the root mirror the most recent entry; this collection holds the full audit trail."
       attribute :violated_at,     Timestamp
       attribute :file_path,       FilePath
@@ -513,9 +516,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "StartSession" do
       role "System"
-      description "Reset per-session counters at boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects what loaded today, not lifetime totals. The FixturesViolation entity collection is NOT reset — it is audit trail."
+      goal "Reset per-session counters at boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects what loaded today, not lifetime totals. The FixturesViolation entity collection is NOT reset — it is audit trail."
       attribute :session_started_at, Timestamp
-      then_set :session_started_at, to: :session_started_at
+      sets :session_started_at
       emits "SessionStarted"
     end
 
@@ -523,14 +526,14 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "RecordFixturesAccess" do
       role "Hook"
-      description "A .fixtures file was loaded — neutral signal from the hook. Increments files_checked so the session scoreboard can show what proportion of accesses were violations versus safe behaviors-test loads. No complaint is issued here; the caller discriminates safe from violation and routes accordingly."
+      goal "A .fixtures file was loaded — neutral signal from the hook. Increments files_checked so the session scoreboard can show what proportion of accesses were violations versus safe behaviors-test loads. No complaint is issued here; the caller discriminates safe from violation and routes accordingly."
       attribute :file_path, FilePath
       emits "FixturesAccessed"
     end
 
     command "RecordRuntimeViolation" do
       role "Hook"
-      description "A .fixtures file was loaded by non-test code — the violation signal. Increments fixtures_violations. The hook chains into Complain to surface the complaint on the next turn — this command records the fact; Complain records the reaction."
+      goal "A .fixtures file was loaded by non-test code — the violation signal. Increments fixtures_violations. The hook chains into Complain to surface the complaint on the next turn — this command records the fact; Complain records the reaction."
       attribute :file_path, FilePath
       emits "RuntimeViolationRecorded"
     end
@@ -539,13 +542,13 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "Complain" do
       role "Hook"
-      description "The FixturesRuntime macrophage detected a .fixtures file loaded outside a behaviors-test context. Records the violation text and timestamp on the root for fast statusline reads, and appends a FixturesViolation entity for the audit trail. The hook ALSO prints to stderr so Claude Code surfaces the complaint as a system reminder on the next turn — the feedback loop that closes the discipline mechanism. Complaint text should begin 'The FixturesRuntime macrophage expected ...' so the rule's name is visible at a glance."
+      goal "The FixturesRuntime macrophage detected a .fixtures file loaded outside a behaviors-test context. Records the violation text and timestamp on the root for fast statusline reads, and appends a FixturesViolation entity for the audit trail. The hook ALSO prints to stderr so Claude Code surfaces the complaint as a system reminder on the next turn — the feedback loop that closes the discipline mechanism. Complaint text should begin 'The FixturesRuntime macrophage expected ...' so the rule's name is visible at a glance."
       attribute :file_path,       FilePath
       attribute :violation,       ViolationText
       attribute :violated_at,     Timestamp
-      then_set :last_violation,           to: :violation
-      then_set :last_violation_at,        to: :violated_at
-      then_set :last_violation_file_path, to: :file_path
+      sets :last_violation,           to: :violation
+      sets :last_violation_at,        to: :violated_at
+      sets :last_violation_file_path, to: :file_path
       emits "ComplaintIssued"
     end
   end
@@ -581,8 +584,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   # The existing Macrophage aggregate is NOT retired here — this
   # aggregate is a sibling. i595 decomposition #3 of 7.
 
-  aggregate "AntibodyExemption", "Per-rule macrophage for the antibody-exemption-marker well-formedness enforcement — tracks all exemption markers seen, classifies them as well-formed or malformed, and maintains the complaint history for this rule alone" do
-    identified_by { name.value }
+  aggregate "AntibodyExemption" do
+    description "Per-rule macrophage for the antibody-exemption-marker well-formedness enforcement — tracks all exemption markers seen, classifies them as well-formed or malformed, and maintains the complaint history for this rule alone"
+    identified_by :name
 
     attribute :name, Name
 
@@ -651,7 +655,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — malformed-exemption audit trail ──
 
     entity "MalformedExemption" do
-      identified_by { recorded_at.value }
+      identified_by :recorded_at
       description "One historical record of a malformed or pre-emptive [antibody-exempt: ...] marker. Records the file where the marker appeared, the verbatim marker text, and the reason the macrophage judged it malformed. The last_complaint / last_complaint_at scalars on the root mirror the most recent complaint; this collection holds the full audit trail."
       attribute :recorded_at,           Timestamp
       attribute :file_path,             FilePath
@@ -663,9 +667,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "StartSession" do
       role "System"
-      description "Reset per-session counters at boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects what landed today, not lifetime totals. The MalformedExemption entity collection is NOT reset — it is audit trail."
+      goal "Reset per-session counters at boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects what landed today, not lifetime totals. The MalformedExemption entity collection is NOT reset — it is audit trail."
       attribute :session_started_at, Timestamp
-      then_set :session_started_at, to: :session_started_at
+      sets :session_started_at
       emits "SessionStarted"
     end
 
@@ -673,7 +677,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "RecordExemption" do
       role "Hook"
-      description "An [antibody-exempt: <reason>] marker was seen in a commit message or file header. Neutral intake — increments total_exemptions_seen before classification is complete. The hook follows up immediately with RecordWellFormedExemption or RecordMalformedExemption once it evaluates the marker's specificity and timing."
+      goal "An [antibody-exempt: <reason>] marker was seen in a commit message or file header. Neutral intake — increments total_exemptions_seen before classification is complete. The hook follows up immediately with RecordWellFormedExemption or RecordMalformedExemption once it evaluates the marker's specificity and timing."
       attribute :file_path,   FilePath
       attribute :marker_text, MarkerText
       emits "ExemptionSeen"
@@ -681,7 +685,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "RecordWellFormedExemption" do
       role "Hook"
-      description "The [antibody-exempt: <reason>] marker names a specific, concrete, per-file concern and was written after the hook blocked — not pre-emptively. The exemption discipline is satisfied. Increments well_formed_exemptions so the scoreboard can confirm the exemption gate is functioning as designed."
+      goal "The [antibody-exempt: <reason>] marker names a specific, concrete, per-file concern and was written after the hook blocked — not pre-emptively. The exemption discipline is satisfied. Increments well_formed_exemptions so the scoreboard can confirm the exemption gate is functioning as designed."
       attribute :file_path,   FilePath
       attribute :marker_text, MarkerText
       emits "WellFormedExemptionRecorded"
@@ -689,7 +693,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "RecordMalformedExemption" do
       role "Hook"
-      description "The [antibody-exempt: <reason>] marker is too vague, pre-emptive, or blanket. Increments malformed_exemptions and, if the marker is specifically pre-emptive, also increments preemptive_exemptions. The hook chains into Complain to surface the complaint on the next turn — this command records the fact; Complain records the reaction."
+      goal "The [antibody-exempt: <reason>] marker is too vague, pre-emptive, or blanket. Increments malformed_exemptions and, if the marker is specifically pre-emptive, also increments preemptive_exemptions. The hook chains into Complain to surface the complaint on the next turn — this command records the fact; Complain records the reaction."
       attribute :file_path,             FilePath
       attribute :marker_text,           MarkerText
       attribute :reason_for_malformation, ReasonText
@@ -700,15 +704,15 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "Complain" do
       role "Hook"
-      description "The AntibodyExemption macrophage detected a malformed or pre-emptive exemption marker. Records the complaint text and timestamp on the root for fast statusline reads, and appends a MalformedExemption entity for the audit trail. The hook ALSO prints to stderr so Claude Code surfaces the complaint as a system reminder on the next turn — the feedback loop that closes the discipline mechanism. Complaint text should begin 'The AntibodyExemption macrophage expected ...' so the rule's name is visible at a glance."
+      goal "The AntibodyExemption macrophage detected a malformed or pre-emptive exemption marker. Records the complaint text and timestamp on the root for fast statusline reads, and appends a MalformedExemption entity for the audit trail. The hook ALSO prints to stderr so Claude Code surfaces the complaint as a system reminder on the next turn — the feedback loop that closes the discipline mechanism. Complaint text should begin 'The AntibodyExemption macrophage expected ...' so the rule's name is visible at a glance."
       attribute :file_path,             FilePath
       attribute :marker_text,           MarkerText
       attribute :complaint,             ComplaintText
       attribute :last_complaint_at,     Timestamp
       attribute :reason_for_malformation, ReasonText
-      then_set :last_complaint,             to: :complaint
-      then_set :last_complaint_at,          to: :last_complaint_at
-      then_set :last_offending_marker_text, to: :marker_text
+      sets :last_complaint,             to: :complaint
+      sets :last_complaint_at
+      sets :last_offending_marker_text, to: :marker_text
       emits "ComplaintIssued"
     end
   end
@@ -748,8 +752,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   # named and intentional; pre-emptive suppression is itself a
   # violation surfaced by Complain.
 
-  aggregate "Warnings", "Per-rule macrophage for the zero-warning-build enforcement — tracks compiler, test, and lint warnings plus explicit suppression markers and the complaint history for this rule alone" do
-    identified_by { name.value }
+  aggregate "Warnings" do
+    description "Per-rule macrophage for the zero-warning-build enforcement — tracks compiler, test, and lint warnings plus explicit suppression markers and the complaint history for this rule alone"
+    identified_by :name
 
     attribute :name, Name
 
@@ -823,7 +828,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — warning audit trail ──
 
     entity "Warning" do
-      identified_by { recorded_at.value }
+      identified_by :recorded_at
       description "One historical warning event. Records which file triggered the warning, the source tool, the raw warning text, and when it was recorded. The total_warnings / compiler_warnings / test_warnings / lint_warnings scalars on the root mirror live counts; this collection holds the full audit trail so individual warnings remain queryable after the session."
       attribute :recorded_at,   Timestamp
       attribute :file_path,     FilePath
@@ -835,9 +840,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "StartSession" do
       role "System"
-      description "Reset per-session counters at boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects what surfaced today, not lifetime totals. The Warning entity collection is NOT reset — it is audit trail."
+      goal "Reset per-session counters at boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects what surfaced today, not lifetime totals. The Warning entity collection is NOT reset — it is audit trail."
       attribute :session_started_at, Timestamp
-      then_set :session_started_at, to: :session_started_at
+      sets :session_started_at
       emits "SessionStarted"
     end
 
@@ -845,7 +850,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "RecordCompilerWarning" do
       role "Hook"
-      description "The compiler (cargo / rustc / similar) produced a warning line during a build. Increments compiler_warnings and total_warnings. The hook chains into Complain to surface the complaint on the next turn — this command records the fact; Complain records the reaction."
+      goal "The compiler (cargo / rustc / similar) produced a warning line during a build. Increments compiler_warnings and total_warnings. The hook chains into Complain to surface the complaint on the next turn — this command records the fact; Complain records the reaction."
       attribute :file_path,    FilePath
       attribute :warning_text, WarningText
       attribute :recorded_at,  Timestamp
@@ -854,7 +859,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "RecordTestWarning" do
       role "Hook"
-      description "The test runner (rspec / jest / similar) produced a deprecation warning or warning trace. Increments test_warnings and total_warnings. Deprecation traces are pre-failures — treating them as warnings under this rule surfaces the debt before it becomes a breakage."
+      goal "The test runner (rspec / jest / similar) produced a deprecation warning or warning trace. Increments test_warnings and total_warnings. Deprecation traces are pre-failures — treating them as warnings under this rule surfaces the debt before it becomes a breakage."
       attribute :file_path,    FilePath
       attribute :warning_text, WarningText
       attribute :recorded_at,  Timestamp
@@ -863,7 +868,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "RecordLintWarning" do
       role "Hook"
-      description "A linter (ESLint / rubocop / clippy / similar) produced a rule violation. Increments lint_warnings and total_warnings. Lint warnings that are swallowed or ignored become permanent technical debt; this command makes each one visible in the audit trail."
+      goal "A linter (ESLint / rubocop / clippy / similar) produced a rule violation. Increments lint_warnings and total_warnings. Lint warnings that are swallowed or ignored become permanent technical debt; this command makes each one visible in the audit trail."
       attribute :file_path,    FilePath
       attribute :warning_text, WarningText
       attribute :recorded_at,  Timestamp
@@ -872,7 +877,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "RecordSuppressedWarning" do
       role "Hook"
-      description "A suppression marker (#[allow(...)], eslint-disable-next-line, rubocop:disable, etc.) was added to a file — the warnings discipline is satisfied by the explicit marker. Tracked separately so the scoreboard can distinguish 'suppressed warnings' from 'unacknowledged warnings' and confirm the suppression discipline is case-by-case rather than blanket. Suppression without a corresponding named reason is itself a violation that Complain should surface."
+      goal "A suppression marker (#[allow(...)], eslint-disable-next-line, rubocop:disable, etc.) was added to a file — the warnings discipline is satisfied by the explicit marker. Tracked separately so the scoreboard can distinguish 'suppressed warnings' from 'unacknowledged warnings' and confirm the suppression discipline is case-by-case rather than blanket. Suppression without a corresponding named reason is itself a violation that Complain should surface."
       attribute :file_path,    FilePath
       attribute :warning_text, WarningText
       attribute :recorded_at,  Timestamp
@@ -883,13 +888,13 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "Complain" do
       role "Hook"
-      description "The Warnings macrophage detected a warning (or an unsanctioned suppression marker) that violates the zero-warning build rule. Records the complaint text and timestamp on the root for fast statusline reads, records the offending file, and appends a Warning entity for the audit trail. The hook ALSO prints to stderr so Claude Code surfaces the complaint as a system reminder on the next turn — the feedback loop that closes the discipline mechanism. Complaint text should begin 'The Warnings macrophage expected ...' so the rule's name is visible at a glance."
+      goal "The Warnings macrophage detected a warning (or an unsanctioned suppression marker) that violates the zero-warning build rule. Records the complaint text and timestamp on the root for fast statusline reads, records the offending file, and appends a Warning entity for the audit trail. The hook ALSO prints to stderr so Claude Code surfaces the complaint as a system reminder on the next turn — the feedback loop that closes the discipline mechanism. Complaint text should begin 'The Warnings macrophage expected ...' so the rule's name is visible at a glance."
       attribute :file_path,        FilePath
       attribute :complaint,        ComplaintText
       attribute :last_complaint_at, Timestamp
-      then_set :last_complaint,      to: :complaint
-      then_set :last_complaint_at,   to: :last_complaint_at
-      then_set :last_offending_file, to: :file_path
+      sets :last_complaint,      to: :complaint
+      sets :last_complaint_at
+      sets :last_offending_file, to: :file_path
       emits "ComplaintIssued"
     end
   end
@@ -919,8 +924,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   # The existing Macrophage aggregate is NOT retired here — this
   # aggregate is a sibling. Migration step 5 of the i595 plan.
 
-  aggregate "LinearReference", "Per-rule macrophage for the retired-tool-reference enforcement — tracks which tools are being watched, records detected references, and maintains the complaint history for this rule alone" do
-    identified_by { name.value }
+  aggregate "LinearReference" do
+    description "Per-rule macrophage for the retired-tool-reference enforcement — tracks which tools are being watched, records detected references, and maintains the complaint history for this rule alone"
+    identified_by :name
 
     attribute :name, Name
 
@@ -991,7 +997,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — retired-tool registry ──
 
     entity "TrackedRetiredTool" do
-      identified_by { tool_name.value }
+      identified_by :tool_name
       description "One tool that has been retired and whose references should be flagged. Adding a new entry via TrackRetiredTool is the only change required when a new tool is retired — the detection loop iterates this collection at runtime, so the set is data, not code."
       attribute :tool_name,    ToolName
       attribute :retired_at,   Timestamp
@@ -1002,7 +1008,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — reference audit trail ──
 
     entity "RetiredReference" do
-      identified_by { recorded_at.value }
+      identified_by :recorded_at
       description "One detected reference to a tracked retired tool. Records when it was seen, which file contained it, which tool was referenced, the line number, and the verbatim snippet. The last_offending_file / last_offending_tool scalars on the root mirror the most recent entry; this collection holds the full audit trail."
       attribute :recorded_at,      Timestamp
       attribute :file_path,        FilePath
@@ -1015,9 +1021,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "StartSession" do
       role "System"
-      description "Reset per-session counters at boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects what was detected today, not lifetime totals. The TrackedRetiredTool and RetiredReference entity collections are NOT reset — they are persistent state and audit trail respectively."
+      goal "Reset per-session counters at boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects what was detected today, not lifetime totals. The TrackedRetiredTool and RetiredReference entity collections are NOT reset — they are persistent state and audit trail respectively."
       attribute :session_started_at, Timestamp
-      then_set :session_started_at, to: :session_started_at
+      sets :session_started_at
       emits "SessionStarted"
     end
 
@@ -1025,7 +1031,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "TrackRetiredTool" do
       role "System"
-      description "Register a newly-retired tool so the macrophage will flag references to it going forward. This is the only change needed when a tool is retired — no code edit, no redeploy. Appends a TrackedRetiredTool entity. If the tool_name already exists, the entry is refreshed with the new metadata."
+      goal "Register a newly-retired tool so the macrophage will flag references to it going forward. This is the only change needed when a tool is retired — no code edit, no redeploy. Appends a TrackedRetiredTool entity. If the tool_name already exists, the entry is refreshed with the new metadata."
       attribute :tool_name,   ToolName
       attribute :retired_at,  Timestamp
       attribute :replaced_by, ToolName
@@ -1035,7 +1041,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "UntrackRetiredTool" do
       role "System"
-      description "Remove a tool from the watch list once all references to it have been purged from the codebase. This acknowledges that the cleanup is complete and prevents false positives on historical commits or example output that legitimately names the old tool in a 'was replaced by' context."
+      goal "Remove a tool from the watch list once all references to it have been purged from the codebase. This acknowledges that the cleanup is complete and prevents false positives on historical commits or example output that legitimately names the old tool in a 'was replaced by' context."
       attribute :tool_name, ToolName
       emits "RetiredToolUntracked"
     end
@@ -1044,14 +1050,14 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "RecordReference" do
       role "Hook"
-      description "A tracked retired tool was referenced in a file. Increments total_references_seen, updates last_offending_file and last_offending_tool, and appends a RetiredReference entity for the audit trail. The hook chains into Complain to surface the violation on the next turn — this command records the fact; Complain records the reaction."
+      goal "A tracked retired tool was referenced in a file. Increments total_references_seen, updates last_offending_file and last_offending_tool, and appends a RetiredReference entity for the audit trail. The hook chains into Complain to surface the violation on the next turn — this command records the fact; Complain records the reaction."
       attribute :file_path,      FilePath
       attribute :tool_name,      ToolName
       attribute :line_number,    LineNumber
       attribute :reference_text, ReferenceText
       attribute :recorded_at,    Timestamp
-      then_set :last_offending_file, to: :file_path
-      then_set :last_offending_tool, to: :tool_name
+      sets :last_offending_file, to: :file_path
+      sets :last_offending_tool, to: :tool_name
       emits "ReferenceRecorded"
     end
 
@@ -1059,12 +1065,12 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "Complain" do
       role "Hook"
-      description "The LinearReference macrophage detected a reference to a tracked retired tool. Records the complaint text and timestamp on the root for fast statusline reads, and appends a Complaint for the audit trail. The hook ALSO prints to stderr so Claude Code surfaces the complaint as a system reminder on the next turn — the feedback loop that closes the discipline mechanism. Complaint text should begin 'The LinearReference macrophage expected ...' so the rule's name is visible at a glance."
+      goal "The LinearReference macrophage detected a reference to a tracked retired tool. Records the complaint text and timestamp on the root for fast statusline reads, and appends a Complaint for the audit trail. The hook ALSO prints to stderr so Claude Code surfaces the complaint as a system reminder on the next turn — the feedback loop that closes the discipline mechanism. Complaint text should begin 'The LinearReference macrophage expected ...' so the rule's name is visible at a glance."
       attribute :file_path,         FilePath
       attribute :complaint,         ComplaintText
       attribute :last_complaint_at, Timestamp
-      then_set :last_complaint,    to: :complaint
-      then_set :last_complaint_at, to: :last_complaint_at
+      sets :last_complaint,    to: :complaint
+      sets :last_complaint_at
       emits "ComplaintIssued"
     end
   end
@@ -1104,8 +1110,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   #   WarningFile  — between threshold and limit (start extracting now)
   #   OversizedFile — at or over limit (a rule violation)
 
-  aggregate "LineCount", "Per-rule macrophage for the 200-line file limit — tracks checked files, records warning and over-limit files as distinct entities, and surfaces a complaint for every violation" do
-    identified_by { name.value }
+  aggregate "LineCount" do
+    description "Per-rule macrophage for the 200-line file limit — tracks checked files, records warning and over-limit files as distinct entities, and surfaces a complaint for every violation"
+    identified_by :name
 
     attribute :name, Name
 
@@ -1175,7 +1182,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — oversized-file audit trail ──
 
     entity "OversizedFile" do
-      identified_by { recorded_at.value }
+      identified_by :recorded_at
       description "One file that crossed the line-count limit. Recorded when RecordLineCount routes to over-limit, or when RecordOversizedFile is dispatched directly. The exceeded_by field makes the delta legible without subtraction — how many lines over the limit the file sits."
       attribute :recorded_at,  Timestamp
       attribute :file_path,    FilePath
@@ -1187,7 +1194,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — warning-file audit trail ──
 
     entity "WarningFile" do
-      identified_by { recorded_at.value }
+      identified_by :recorded_at
       description "One file that sits between warning_threshold_lines and limit_lines — approaching the limit but not yet over it. Distinct from OversizedFile so urgency reads at a glance: WarningFile = act soon, OversizedFile = rule violated. The lines_to_limit field shows the remaining headroom."
       attribute :recorded_at,    Timestamp
       attribute :file_path,      FilePath
@@ -1200,13 +1207,13 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "StartSession" do
       role "System"
-      description "Reset per-session counters at boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects today's activity, not lifetime totals. The OversizedFile and WarningFile entity collections are NOT reset — they are audit trail. Thresholds are set here with defaults if not provided."
+      goal "Reset per-session counters at boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects today's activity, not lifetime totals. The OversizedFile and WarningFile entity collections are NOT reset — they are audit trail. Thresholds are set here with defaults if not provided."
       attribute :session_started_at,      Timestamp
       attribute :limit_lines,             LineCount
       attribute :warning_threshold_lines, LineCount
-      then_set :session_started_at,      to: :session_started_at
-      then_set :limit_lines,             to: :limit_lines
-      then_set :warning_threshold_lines, to: :warning_threshold_lines
+      sets :session_started_at
+      sets :limit_lines
+      sets :warning_threshold_lines
       emits "SessionStarted"
     end
 
@@ -1214,7 +1221,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "RecordLineCount" do
       role "Hook"
-      description "A file was checked for line count. Routes internally to within-limit, at-warning, or over-limit depending on where line_count falls relative to warning_threshold_lines and limit_lines. Increments the appropriate session counter. The hook calls this once per file write; the macrophage decides the category. Only Imperative files trigger a complaint — Declarative, Support, and Other files are tallied but never complained about."
+      goal "A file was checked for line count. Routes internally to within-limit, at-warning, or over-limit depending on where line_count falls relative to warning_threshold_lines and limit_lines. Increments the appropriate session counter. The hook calls this once per file write; the macrophage decides the category. Only Imperative files trigger a complaint — Declarative, Support, and Other files are tallied but never complained about."
       attribute :file_path,  FilePath
       attribute :line_count, LineCount
       attribute :kind,       FileKind
@@ -1225,7 +1232,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "RecordOversizedFile" do
       role "Hook"
-      description "A file has exceeded the line-count limit. Records an OversizedFile entity for the audit trail and increments files_over_limit. The hook chains into Complain after this command to surface the complaint — this command records the fact; Complain records the reaction. exceeded_by is pre-computed by the hook (line_count minus limit_lines) so the entity is self-describing."
+      goal "A file has exceeded the line-count limit. Records an OversizedFile entity for the audit trail and increments files_over_limit. The hook chains into Complain after this command to surface the complaint — this command records the fact; Complain records the reaction. exceeded_by is pre-computed by the hook (line_count minus limit_lines) so the entity is self-describing."
       attribute :file_path,  FilePath
       attribute :line_count, LineCount
       attribute :kind,       FileKind
@@ -1235,7 +1242,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "RecordWarningFile" do
       role "Hook"
-      description "A file sits between warning_threshold_lines and limit_lines — approaching the limit. Records a WarningFile entity and increments files_at_warning. The hook may emit a softer warning (not a hard complaint) so the author knows to start extracting. lines_to_limit is pre-computed by the hook (limit_lines minus line_count)."
+      goal "A file sits between warning_threshold_lines and limit_lines — approaching the limit. Records a WarningFile entity and increments files_at_warning. The hook may emit a softer warning (not a hard complaint) so the author knows to start extracting. lines_to_limit is pre-computed by the hook (limit_lines minus line_count)."
       attribute :file_path,      FilePath
       attribute :line_count,     LineCount
       attribute :kind,           FileKind
@@ -1247,11 +1254,11 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "AdjustLimit" do
       role "Lead"
-      description "Change the line-count thresholds when the team agrees on a new default. One-shot domain command — the new values persist as domain attributes and apply to all subsequent RecordLineCount dispatches. Does not retroactively reclassify existing entities; the audit trail records what the rule said at the time of each check."
+      goal "Change the line-count thresholds when the team agrees on a new default. One-shot domain command — the new values persist as domain attributes and apply to all subsequent RecordLineCount dispatches. Does not retroactively reclassify existing entities; the audit trail records what the rule said at the time of each check."
       attribute :limit_lines,             LineCount
       attribute :warning_threshold_lines, LineCount
-      then_set :limit_lines,             to: :limit_lines
-      then_set :warning_threshold_lines, to: :warning_threshold_lines
+      sets :limit_lines
+      sets :warning_threshold_lines
       emits "LimitAdjusted"
     end
 
@@ -1259,13 +1266,13 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "Complain" do
       role "Hook"
-      description "The LineCount macrophage detected a file that has exceeded the line-count limit. Records the complaint text and timestamp on the root for fast statusline reads, and sets last_offending_file. The hook ALSO prints to stderr so Claude Code surfaces the complaint as a system reminder on the next turn — the feedback loop that closes the discipline mechanism. Complaint text should begin 'The LineCount macrophage expected ...' so the rule's name is visible at a glance."
+      goal "The LineCount macrophage detected a file that has exceeded the line-count limit. Records the complaint text and timestamp on the root for fast statusline reads, and sets last_offending_file. The hook ALSO prints to stderr so Claude Code surfaces the complaint as a system reminder on the next turn — the feedback loop that closes the discipline mechanism. Complaint text should begin 'The LineCount macrophage expected ...' so the rule's name is visible at a glance."
       attribute :file_path,         FilePath
       attribute :complaint,         ComplaintText
       attribute :last_complaint_at, Timestamp
-      then_set :last_complaint,      to: :complaint
-      then_set :last_complaint_at,   to: :last_complaint_at
-      then_set :last_offending_file, to: :file_path
+      sets :last_complaint,      to: :complaint
+      sets :last_complaint_at
+      sets :last_offending_file, to: :file_path
       emits "ComplaintIssued"
     end
   end
@@ -1306,8 +1313,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   # The existing Macrophage aggregate is NOT retired here — this
   # aggregate is a sibling. Migration step 7 of the i595 plan.
 
-  aggregate "TestSpeed", "Per-rule macrophage for the tests-under-1-second enforcement — tracks suite durations, threshold breaches, and named exemptions for this rule alone" do
-    identified_by { name.value }
+  aggregate "TestSpeed" do
+    description "Per-rule macrophage for the tests-under-1-second enforcement — tracks suite durations, threshold breaches, and named exemptions for this rule alone"
+    identified_by :name
 
     attribute :name, Name
 
@@ -1397,7 +1405,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — slow run audit trail ──
 
     entity "SlowTestRun" do
-      identified_by { recorded_at.value }
+      identified_by :recorded_at
       description "One recorded test run that exceeded the warning or error threshold. Appended by the Complain command. Provides the full audit trail of slow runs this session — the last_offending_suite / last_complaint_at scalars on the root mirror the most recent entry for fast reads, but this collection holds everything."
       attribute :recorded_at,   Timestamp
       attribute :suite_name,    SuiteName
@@ -1409,7 +1417,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — named exemptions ──
 
     entity "ExemptedSlowTest" do
-      identified_by { suite_name.value }
+      identified_by :suite_name
       description "A suite whose slowness is officially exempted with a named, case-by-case reason. Registered via ExemptSlowTest. The macrophage will not issue a complaint for a suite that appears in this collection — but the exemption must carry a non-empty reason, enforcing the same discipline as antibody markers. Exemptions are never pre-emptive; they are registered after the hook has complained and the team has decided."
       attribute :suite_name, SuiteName
       attribute :reason,     ExemptionReason
@@ -1420,9 +1428,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "StartSession" do
       role "System"
-      description "Reset per-session counters at boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects what ran today, not lifetime totals. The SlowTestRun and ExemptedSlowTest entity collections are NOT reset — they are audit trail and configuration respectively."
+      goal "Reset per-session counters at boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects what ran today, not lifetime totals. The SlowTestRun and ExemptedSlowTest entity collections are NOT reset — they are audit trail and configuration respectively."
       attribute :session_started_at, Timestamp
-      then_set :session_started_at, to: :session_started_at
+      sets :session_started_at
       emits "SessionStarted"
     end
 
@@ -1430,7 +1438,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "RecordTestRun" do
       role "Hook"
-      description "A test suite finished. Routes the run into the correct bucket based on duration_ms vs threshold_ms and warning_threshold_ms : within-threshold increments runs_within_threshold; at-warning increments runs_at_warning; over-threshold increments runs_over_threshold and chains into Complain (unless the suite is in ExemptedSlowTest). Always increments total_runs and adds duration_ms to total_duration_ms."
+      goal "A test suite finished. Routes the run into the correct bucket based on duration_ms vs threshold_ms and warning_threshold_ms : within-threshold increments runs_within_threshold; at-warning increments runs_at_warning; over-threshold increments runs_over_threshold and chains into Complain (unless the suite is in ExemptedSlowTest). Always increments total_runs and adds duration_ms to total_duration_ms."
       attribute :suite_name,  SuiteName
       attribute :kind,        TestKind
       attribute :duration_ms, DurationMs
@@ -1441,7 +1449,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "ExemptSlowTest" do
       role "Developer"
-      description "Register a named exemption for a specific suite so the macrophage will not complain about its duration. The reason attribute is required and must be non-empty — an exemption without a named reason falls into the pre-emptive trap the discipline forbids. Exemptions are registered after the hook has fired, never before; the SlowTestRun audit trail should already contain an entry for this suite. Appends an ExemptedSlowTest entity."
+      goal "Register a named exemption for a specific suite so the macrophage will not complain about its duration. The reason attribute is required and must be non-empty — an exemption without a named reason falls into the pre-emptive trap the discipline forbids. Exemptions are registered after the hook has fired, never before; the SlowTestRun audit trail should already contain an entry for this suite. Appends an ExemptedSlowTest entity."
       attribute :suite_name,  SuiteName
       attribute :reason,      ExemptionReason
       attribute :exempted_at, Timestamp
@@ -1452,11 +1460,11 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "AdjustThreshold" do
       role "Developer"
-      description "Update the error and/or warning thresholds if the team decides on a new default. The canonical CLAUDE.md contract is 1000 ms / 800 ms; this command exists for deliberate, team-agreed changes — not for relaxing the rule to hide rot. Both threshold_ms and warning_threshold_ms must be provided so the two values stay consistent."
+      goal "Update the error and/or warning thresholds if the team decides on a new default. The canonical CLAUDE.md contract is 1000 ms / 800 ms; this command exists for deliberate, team-agreed changes — not for relaxing the rule to hide rot. Both threshold_ms and warning_threshold_ms must be provided so the two values stay consistent."
       attribute :threshold_ms,         DurationMs
       attribute :warning_threshold_ms, DurationMs
-      then_set :threshold_ms,         to: :threshold_ms
-      then_set :warning_threshold_ms, to: :warning_threshold_ms
+      sets :threshold_ms
+      sets :warning_threshold_ms
       emits "ThresholdAdjusted"
     end
 
@@ -1464,16 +1472,16 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "Complain" do
       role "Hook"
-      description "The TestSpeed macrophage detected a test suite that exceeded the threshold_ms. Records the complaint text and timestamp on the root for fast statusline reads, appends a SlowTestRun entity to the audit trail, and updates last_offending_suite. The hook ALSO prints to stderr so Claude Code surfaces the complaint as a system reminder on the next turn — the feedback loop that closes the discipline mechanism. Complaint text should begin 'The TestSpeed macrophage expected ...' so the rule's name is visible at a glance and attribution is unambiguous."
+      goal "The TestSpeed macrophage detected a test suite that exceeded the threshold_ms. Records the complaint text and timestamp on the root for fast statusline reads, appends a SlowTestRun entity to the audit trail, and updates last_offending_suite. The hook ALSO prints to stderr so Claude Code surfaces the complaint as a system reminder on the next turn — the feedback loop that closes the discipline mechanism. Complaint text should begin 'The TestSpeed macrophage expected ...' so the rule's name is visible at a glance and attribution is unambiguous."
       attribute :suite_name,         SuiteName
       attribute :kind,               TestKind
       attribute :duration_ms,        DurationMs
       attribute :exceeded_by_ms,     DurationMs
       attribute :complaint,          ComplaintText
       attribute :last_complaint_at,  Timestamp
-      then_set :last_complaint,        to: :complaint
-      then_set :last_complaint_at,     to: :last_complaint_at
-      then_set :last_offending_suite,  to: :suite_name
+      sets :last_complaint,        to: :complaint
+      sets :last_complaint_at
+      sets :last_offending_suite,  to: :suite_name
       emits "ComplaintIssued"
     end
   end
@@ -1503,8 +1511,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   # The existing Macrophage aggregate is NOT retired here — this
   # aggregate is a sibling. Migration step 8 of the i595 plan.
 
-  aggregate "CardLock", "Per-rule macrophage for the card-lock enforcement — tracks edits against locked card scopes and maintains the full violation history for this rule alone" do
-    identified_by { name.value }
+  aggregate "CardLock" do
+    description "Per-rule macrophage for the card-lock enforcement — tracks edits against locked card scopes and maintains the full violation history for this rule alone"
+    identified_by :name
 
     attribute :name,                    Name
 
@@ -1583,7 +1592,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — violation audit trail ──
 
     entity "LockComplaint" do
-      identified_by { recorded_at.value }
+      identified_by :recorded_at
       description "One historical lock-violation event. Records which file triggered the complaint, which card's signoff covers that path, who signed off and at which commit, and the full complaint text. The last_complaint / last_complaint_at / last_offending_* scalars on the root mirror the most recent entry; this collection holds the full audit trail."
       attribute :recorded_at,       Timestamp
       attribute :file_path,         FilePath
@@ -1597,9 +1606,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "StartSession" do
       role "System"
-      description "Reset per-session counters at boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects what landed today, not lifetime totals. The LockComplaint entity collection is NOT reset — it is audit trail."
+      goal "Reset per-session counters at boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects what landed today, not lifetime totals. The LockComplaint entity collection is NOT reset — it is audit trail."
       attribute :session_started_at, Timestamp
-      then_set :session_started_at, to: :session_started_at
+      sets :session_started_at
       emits "SessionStarted"
     end
 
@@ -1607,21 +1616,21 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "RecordEdit" do
       role "Hook"
-      description "An edit was checked against the set of locked card scopes. No violation was found — the path does not match any locked scope, or the commit message carries an exemption marker. Increments edits_checked so the session scoreboard can show the total volume of checks performed, including clean ones."
+      goal "An edit was checked against the set of locked card scopes. No violation was found — the path does not match any locked scope, or the commit message carries an exemption marker. Increments edits_checked so the session scoreboard can show the total volume of checks performed, including clean ones."
       attribute :file_path, FilePath
       emits "EditRecorded"
     end
 
     command "RecordLockViolation" do
       role "Hook"
-      description "An edit touches a path that falls within the signoff_scope of a locked Inbox card, and no exemption marker is present. Appends a LockComplaint entity to the audit trail and updates the last_offending_* scalars on the root. The hook chains into Complain to surface the complaint on the next turn — this command records the fact; Complain records the reaction."
+      goal "An edit touches a path that falls within the signoff_scope of a locked Inbox card, and no exemption marker is present. Appends a LockComplaint entity to the audit trail and updates the last_offending_* scalars on the root. The hook chains into Complain to surface the complaint on the next turn — this command records the fact; Complain records the reaction."
       attribute :file_path,          FilePath
       attribute :offending_card_ref,  CardRef
       attribute :signed_off_by,      ClientName
       attribute :signoff_commit,     CommitSha
       attribute :recorded_at,        Timestamp
-      then_set :last_offending_file_path, to: :file_path
-      then_set :last_offending_card_ref,  to: :offending_card_ref
+      sets :last_offending_file_path, to: :file_path
+      sets :last_offending_card_ref,  to: :offending_card_ref
       emits "LockViolationRecorded"
     end
 
@@ -1629,15 +1638,15 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "Complain" do
       role "Hook"
-      description "The CardLock macrophage detected an edit inside the scope of a signed-off locked card. Records the complaint text and timestamp on the root for fast statusline reads. The hook ALSO prints to stderr so Claude Code surfaces the complaint as additionalContext on the next turn — the feedback loop that closes the card-lock discipline. Complaint text begins 'The CardLock macrophage expected ...' so the rule's name is visible at a glance."
+      goal "The CardLock macrophage detected an edit inside the scope of a signed-off locked card. Records the complaint text and timestamp on the root for fast statusline reads. The hook ALSO prints to stderr so Claude Code surfaces the complaint as additionalContext on the next turn — the feedback loop that closes the card-lock discipline. Complaint text begins 'The CardLock macrophage expected ...' so the rule's name is visible at a glance."
       attribute :file_path,         FilePath
       attribute :offending_card_ref, CardRef
       attribute :signed_off_by,     ClientName
       attribute :signoff_commit,    CommitSha
       attribute :complaint,         ComplaintText
       attribute :last_complaint_at, Timestamp
-      then_set :last_complaint,    to: :complaint
-      then_set :last_complaint_at, to: :last_complaint_at
+      sets :last_complaint,    to: :complaint
+      sets :last_complaint_at
       emits "ComplaintIssued"
     end
   end
@@ -1681,8 +1690,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   # Vernon's identity rules. The existing Macrophage aggregate is
   # NOT retired here — this aggregate is a sibling.
 
-  aggregate "BidirectionalAssociation", "Per-rule macrophage for the unidirectional-association enforcement — scans bluebook attribute declarations for mutual aggregate references and maintains the full violation history for this rule alone" do
-    identified_by { name.value }
+  aggregate "BidirectionalAssociation" do
+    description "Per-rule macrophage for the unidirectional-association enforcement — scans bluebook attribute declarations for mutual aggregate references and maintains the full violation history for this rule alone"
+    identified_by :name
 
     attribute :name, Name
 
@@ -1762,7 +1772,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — violation audit trail ──
 
     entity "PairViolation" do
-      identified_by { recorded_at.value }
+      identified_by :recorded_at
       description "One historical bidirectionality violation event. Records which two aggregates form the offending pair, in which bluebooks the two offending attributes were found, the full complaint text, and when the check ran. The last_complaint / last_complaint_at / last_offending_pair scalars on the root mirror the most recent entry; this collection holds the full audit trail."
       attribute :recorded_at,      Timestamp
       attribute :aggregate_a,      AggregateName
@@ -1775,7 +1785,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — named exemptions ──
 
     entity "Exemption" do
-      identified_by { pair.value }
+      identified_by :pair
       description "An explicitly named exemption for an aggregate pair that is allowed to hold mutual references despite the rule. Exemptions must name a concrete per-pair reason — a vague rationale ('legacy', 'ok', 'skip') is itself a macrophage violation. The runtime check skips pairs that appear in this collection."
       attribute :pair,            AggregatePair
       attribute :reason,          ExemptionReason
@@ -1786,9 +1796,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "StartSession" do
       role "System"
-      description "Reset per-session counters at boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects what was scanned today, not lifetime totals. The PairViolation and Exemption entity collections are NOT reset — they are audit trail and standing rules respectively."
+      goal "Reset per-session counters at boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects what was scanned today, not lifetime totals. The PairViolation and Exemption entity collections are NOT reset — they are audit trail and standing rules respectively."
       attribute :session_started_at, Timestamp
-      then_set :session_started_at, to: :session_started_at
+      sets :session_started_at
       emits "SessionStarted"
     end
 
@@ -1796,32 +1806,32 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "Check" do
       role "Hook"
-      description "Run the bidirectionality check against a single .bluebook file or a pair of bluebooks. The hook resolves all aggregate-typed attributes in the target(s), builds the full reference graph, and for each pair (A, B) where A references B AND B references A : chains into RecordViolation + Complain. Self-references (A → A) and value-object-to-aggregate references are excluded before the pair graph is built. Pairs listed in the Exemption collection are skipped silently."
+      goal "Run the bidirectionality check against a single .bluebook file or a pair of bluebooks. The hook resolves all aggregate-typed attributes in the target(s), builds the full reference graph, and for each pair (A, B) where A references B AND B references A : chains into RecordViolation + Complain. Self-references (A → A) and value-object-to-aggregate references are excluded before the pair graph is built. Pairs listed in the Exemption collection are skipped silently."
       attribute :bluebook_path,  BluebookPath
       emits "CheckRun"
     end
 
     command "RecordViolation" do
       role "Hook"
-      description "Record a detected bidirectional pair in the violation audit trail. Appends a PairViolation entity, increments violations_detected, and updates the last_offending_pair scalar on the root. Called by the Check command for each offending pair before Complain fires — this command records the fact; Complain records the reaction."
+      goal "Record a detected bidirectional pair in the violation audit trail. Appends a PairViolation entity, increments violations_detected, and updates the last_offending_pair scalar on the root. Called by the Check command for each offending pair before Complain fires — this command records the fact; Complain records the reaction."
       attribute :aggregate_a,   AggregateName
       attribute :aggregate_b,   AggregateName
       attribute :bluebook_a,    BluebookPath
       attribute :bluebook_b,    BluebookPath
       attribute :recorded_at,   Timestamp
-      then_set :last_offending_pair, to: :aggregate_a
+      sets :last_offending_pair, to: :aggregate_a
       emits "ViolationRecorded"
     end
 
     command "Complain" do
       role "Hook"
-      description "The BidirectionalAssociation macrophage detected a mutual aggregate reference. Records the complaint text and timestamp on the root for fast statusline reads, and appends a PairViolation entity for the audit trail. The hook ALSO prints to stderr so Claude Code surfaces the complaint as a system reminder on the next turn — the feedback loop that closes the discipline. Complaint text begins 'The BidirectionalAssociation macrophage expected a unidirectional reference between <A> and <B>. Currently <A> references <B> AND <B> references <A>. Drop one direction — keep the reference in the aggregate whose consistency boundary actually requires it; replace the back-pointer with a query or an identity-typed attribute.' so the rule name and corrective action are both visible."
+      goal "The BidirectionalAssociation macrophage detected a mutual aggregate reference. Records the complaint text and timestamp on the root for fast statusline reads, and appends a PairViolation entity for the audit trail. The hook ALSO prints to stderr so Claude Code surfaces the complaint as a system reminder on the next turn — the feedback loop that closes the discipline. Complaint text begins 'The BidirectionalAssociation macrophage expected a unidirectional reference between <A> and <B>. Currently <A> references <B> AND <B> references <A>. Drop one direction — keep the reference in the aggregate whose consistency boundary actually requires it; replace the back-pointer with a query or an identity-typed attribute.' so the rule name and corrective action are both visible."
       attribute :aggregate_a,      AggregateName
       attribute :aggregate_b,      AggregateName
       attribute :complaint,        ComplaintText
       attribute :last_complaint_at, Timestamp
-      then_set :last_complaint,    to: :complaint
-      then_set :last_complaint_at, to: :last_complaint_at
+      sets :last_complaint,    to: :complaint
+      sets :last_complaint_at
       emits "ComplaintIssued"
     end
 
@@ -1829,7 +1839,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "Exempt" do
       role "System"
-      description "Grant a named exemption for an aggregate pair that is legitimately allowed to hold mutual references. The reason attribute must name a concrete, per-pair rationale — not a generic phrase. Once an Exemption entity exists for a pair, Check silently skips that pair on future runs. Exemptions are standing rules (not per-session) and survive session resets."
+      goal "Grant a named exemption for an aggregate pair that is legitimately allowed to hold mutual references. The reason attribute must name a concrete, per-pair rationale — not a generic phrase. Once an Exemption entity exists for a pair, Check silently skips that pair on future runs. Exemptions are standing rules (not per-session) and survive session resets."
       attribute :aggregate_a, AggregateName
       attribute :aggregate_b, AggregateName
       attribute :reason,      ExemptionReason
@@ -1898,8 +1908,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   # per-rule sibling, counters, complaint history entity, Complain
   # command, exemption support.
 
-  aggregate "IdentityDiscipline", "Per-rule macrophage for the i611 natural-key-identity enforcement — tracks bluebook structural violations of the no-surrogate-id contract (four hard checks : id_attribute, identified_by_id, id_value_object, dangling_identity) and maintains the complaint history. Missing identified_by is NOT a violation — the runtime defaults to UUID when absent (2026-05-14 UUID-default softening)." do
-    identified_by { name.value }
+  aggregate "IdentityDiscipline" do
+    description "Per-rule macrophage for the i611 natural-key-identity enforcement — tracks bluebook structural violations of the no-surrogate-id contract (four hard checks : id_attribute, identified_by_id, id_value_object, dangling_identity) and maintains the complaint history. Missing identified_by is NOT a violation — the runtime defaults to UUID when absent (2026-05-14 UUID-default softening)."
+    identified_by :name
 
     attribute :name, Name
 
@@ -2013,7 +2024,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — violation audit trail ──
 
     entity "IdentityViolation" do
-      identified_by { recorded_at.value }
+      identified_by :recorded_at
       description "One historical violation event for the identity-discipline rule. Records the bluebook file, the offending aggregate / entity name, the field that triggered the violation, the kind of check that fired, the line number, and when it was recorded. The last_complaint / last_offending_* scalars on the root mirror the most recent entry; this collection holds the full audit trail."
       attribute :recorded_at,    Timestamp
       attribute :file_path,      FilePath
@@ -2026,7 +2037,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — named exemptions ──
 
     entity "ExemptedAggregate" do
-      identified_by { aggregate_name.value }
+      identified_by :aggregate_name
       description "An aggregate (or aggregate.entity pair) whose identity-discipline violation is officially exempted with a named, case-by-case reason. Registered via ExemptAggregate. The macrophage will not issue a complaint for a violation against an entry in this collection — but the exemption must carry a non-empty ReasonText, mirroring the AntibodyExemption discipline. Exemptions are never pre-emptive; they are registered after the macrophage has complained and the team has decided the conversion is queued, not skipped."
       attribute :aggregate_name, AggregateName
       attribute :kind,           ViolationKind
@@ -2038,9 +2049,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "StartSession" do
       role "System"
-      description "Reset per-session counters at boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects what landed today, not lifetime totals. The IdentityViolation and ExemptedAggregate entity collections are NOT reset — they are audit trail and configuration respectively."
+      goal "Reset per-session counters at boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects what landed today, not lifetime totals. The IdentityViolation and ExemptedAggregate entity collections are NOT reset — they are audit trail and configuration respectively."
       attribute :session_started_at, Timestamp
-      then_set :session_started_at, to: :session_started_at
+      sets :session_started_at
       emits "SessionStarted"
     end
 
@@ -2070,7 +2081,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # migration plan's dedicated dated section for the full trace.
     command "Check" do
       role "Hook"
-      description "Scan one bluebook file for identity-discipline violations. Increments bluebooks_checked. Internally walks every aggregate, command, entity, and value_object declaration ; for each of the four hard checks (id_attribute, identified_by_id, id_value_object, dangling_identity), dispatches RecordViolation when the pattern matches. Missing identified_by is NOT checked — aggregates without it are valid under the UUID-default fallback. The hook calls this once per .bluebook write ; the macrophage decides what fired. No complaint is issued here — Complain is the surface command."
+      goal "Scan one bluebook file for identity-discipline violations. Increments bluebooks_checked. Internally walks every aggregate, command, entity, and value_object declaration ; for each of the four hard checks (id_attribute, identified_by_id, id_value_object, dangling_identity), dispatches RecordViolation when the pattern matches. Missing identified_by is NOT checked — aggregates without it are valid under the UUID-default fallback. The hook calls this once per .bluebook write ; the macrophage decides what fired. No complaint is issued here — Complain is the surface command."
       attribute :file_path, FilePath
       emits "BluebookChecked"
     end
@@ -2079,15 +2090,15 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "RecordViolation" do
       role "Hook"
-      description "A specific identity-discipline violation was detected. Records the file path, aggregate/entity name, offending field, violation kind, and line number ; appends an IdentityViolation entity ; increments the kind-specific counter (id_attribute_violations / identified_by_id_violations / id_value_object_violations / dangling_identity_violations) and total_violations ; updates last_offending_file and last_offending_kind. Valid kinds are the four hard checks only — id_attribute, identified_by_id, id_value_object, dangling_identity. The hook chains into Complain to surface the violation on the next turn — this command records the fact; Complain records the reaction. If the aggregate_name + kind appears in ExemptedAggregate, the hook skips Complain and increments exempted_violations instead."
+      goal "A specific identity-discipline violation was detected. Records the file path, aggregate/entity name, offending field, violation kind, and line number ; appends an IdentityViolation entity ; increments the kind-specific counter (id_attribute_violations / identified_by_id_violations / id_value_object_violations / dangling_identity_violations) and total_violations ; updates last_offending_file and last_offending_kind. Valid kinds are the four hard checks only — id_attribute, identified_by_id, id_value_object, dangling_identity. The hook chains into Complain to surface the violation on the next turn — this command records the fact; Complain records the reaction. If the aggregate_name + kind appears in ExemptedAggregate, the hook skips Complain and increments exempted_violations instead."
       attribute :file_path,      FilePath
       attribute :aggregate_name, AggregateName
       attribute :field_name,     FieldName
       attribute :kind,           ViolationKind
       attribute :line_number,    LineNumber
       attribute :recorded_at,    Timestamp
-      then_set :last_offending_file, to: :file_path
-      then_set :last_offending_kind, to: :kind
+      sets :last_offending_file, to: :file_path
+      sets :last_offending_kind, to: :kind
       emits "ViolationRecorded"
     end
 
@@ -2095,7 +2106,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "ExemptAggregate" do
       role "Lead"
-      description "Register a named exemption for a specific aggregate (or aggregate.entity pair) so the macrophage will not complain about its identity-discipline violation of a specific kind. The reason attribute is required and must be non-empty — an exemption without a named reason falls into the pre-emptive trap the AntibodyExemption discipline forbids. Exemptions are registered after the macrophage has fired, never before; the IdentityViolation audit trail should already contain an entry for this aggregate + kind. Appends an ExemptedAggregate entity. Typical use : 'Tools::EmailTool, kind: id_attribute, reason: \"phase 3 conversion queued — see i611\"'."
+      goal "Register a named exemption for a specific aggregate (or aggregate.entity pair) so the macrophage will not complain about its identity-discipline violation of a specific kind. The reason attribute is required and must be non-empty — an exemption without a named reason falls into the pre-emptive trap the AntibodyExemption discipline forbids. Exemptions are registered after the macrophage has fired, never before; the IdentityViolation audit trail should already contain an entry for this aggregate + kind. Appends an ExemptedAggregate entity. Typical use : 'Tools::EmailTool, kind: id_attribute, reason: \"phase 3 conversion queued — see i611\"'."
       attribute :aggregate_name, AggregateName
       attribute :kind,           ViolationKind
       attribute :reason,         ReasonText
@@ -2105,7 +2116,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "RevokeExemption" do
       role "Lead"
-      description "Remove an existing exemption — typically after the conversion has landed and the violation should no longer fire because the bluebook now follows the i611 contract. Matches by aggregate_name + kind. The ExemptedAggregate entity is marked revoked rather than deleted so the audit trail of who exempted what when stays intact."
+      goal "Remove an existing exemption — typically after the conversion has landed and the violation should no longer fire because the bluebook now follows the i611 contract. Matches by aggregate_name + kind. The ExemptedAggregate entity is marked revoked rather than deleted so the audit trail of who exempted what when stays intact."
       attribute :aggregate_name, AggregateName
       attribute :kind,           ViolationKind
       attribute :revoked_at,     Timestamp
@@ -2116,16 +2127,16 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "Complain" do
       role "Hook"
-      description "The IdentityDiscipline macrophage detected a bluebook that breaks the i611 natural-key-identity contract. Records the complaint text and timestamp on the root for fast statusline reads, and updates last_offending_file / last_offending_kind. The hook ALSO prints to stderr so Claude Code surfaces the complaint as a system reminder on the next turn — the feedback loop that closes the discipline mechanism. Complaint text begins 'The IdentityDiscipline macrophage expected ...' so the rule's name is visible at a glance. Each ViolationKind has a templated complaint body, for example : 'The IdentityDiscipline macrophage expected aggregate ShellTool to declare a natural-key `identified_by`, not `identified_by :id`. The :id field is a surrogate (i611 rule 1). Use `identified_by :shell_command, suffix: :ulid` — the shell command IS the entity ; the ULID is the disambiguator for concurrent invocations.'"
+      goal "The IdentityDiscipline macrophage detected a bluebook that breaks the i611 natural-key-identity contract. Records the complaint text and timestamp on the root for fast statusline reads, and updates last_offending_file / last_offending_kind. The hook ALSO prints to stderr so Claude Code surfaces the complaint as a system reminder on the next turn — the feedback loop that closes the discipline mechanism. Complaint text begins 'The IdentityDiscipline macrophage expected ...' so the rule's name is visible at a glance. Each ViolationKind has a templated complaint body, for example : 'The IdentityDiscipline macrophage expected aggregate ShellTool to declare a natural-key `identified_by`, not `identified_by :id`. The :id field is a surrogate (i611 rule 1). Use `identified_by :shell_command, suffix: :ulid` — the shell command IS the entity ; the ULID is the disambiguator for concurrent invocations.'"
       attribute :file_path,         FilePath
       attribute :aggregate_name,    AggregateName
       attribute :kind,              ViolationKind
       attribute :complaint,         ComplaintText
       attribute :last_complaint_at, Timestamp
-      then_set :last_complaint,    to: :complaint
-      then_set :last_complaint_at, to: :last_complaint_at
-      then_set :last_offending_file, to: :file_path
-      then_set :last_offending_kind, to: :kind
+      sets :last_complaint,    to: :complaint
+      sets :last_complaint_at
+      sets :last_offending_file, to: :file_path
+      sets :last_offending_kind, to: :kind
       emits "ComplaintIssued"
     end
   end
@@ -2180,8 +2191,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   # collection for the audit trail, Complain surface, exemption
   # support keyed by named draft.
 
-  aggregate "WritingDiscipline", "Per-rule macrophage for the i623 writing-style enforcement. Runs registered rule checks against composed draft text (em_dash, we_dont_we_do, ...) and maintains the complaint history for this rule alone. Scoped to Writing.Compose / Writing.Revise dispatches ; bluebook files and imperative files are out of scope." do
-    identified_by { name.value }
+  aggregate "WritingDiscipline" do
+    description "Per-rule macrophage for the i623 writing-style enforcement. Runs registered rule checks against composed draft text (em_dash, we_dont_we_do, ...) and maintains the complaint history for this rule alone. Scoped to Writing.Compose / Writing.Revise dispatches ; bluebook files and imperative files are out of scope."
+    identified_by :name
 
     attribute :name, Name
 
@@ -2312,7 +2324,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity : violation audit trail ──
 
     entity "WritingViolation" do
-      identified_by { recorded_at.value }
+      identified_by :recorded_at
       description "One historical writing-rule violation event. Records the draft id, the rule kind that fired, the exact excerpt that matched, the byte offset of the match, the complaint text issued, and when the check ran. The last_offending_* scalars on the root mirror the most recent entry ; this collection holds the full audit trail."
       attribute :recorded_at,    Timestamp
       attribute :draft_id,       DraftId
@@ -2325,7 +2337,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity : named exemptions ──
 
     entity "ExemptedDraft" do
-      identified_by { draft_id.value }
+      identified_by :draft_id
       description "A specific draft (by id) whose violation of a specific rule kind is officially exempted with a named, case-by-case reason. Registered via ExemptDraft. The macrophage will not issue a complaint for a violation against an entry in this collection, but the exemption must carry a non-empty ReasonText, mirroring the AntibodyExemption discipline. Exemptions are never pre-emptive ; they are registered after the macrophage has complained and Chris has decided the prose stays."
       attribute :draft_id,     DraftId
       attribute :kind,         ViolationKind
@@ -2337,9 +2349,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "StartSession" do
       role "System"
-      description "Reset per-session counters at boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects what landed today, not lifetime totals. The WritingViolation and ExemptedDraft entity collections are NOT reset ; they are audit trail and standing rules respectively. The we_dont_we_do_threshold also persists across sessions."
+      goal "Reset per-session counters at boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects what landed today, not lifetime totals. The WritingViolation and ExemptedDraft entity collections are NOT reset ; they are audit trail and standing rules respectively. The we_dont_we_do_threshold also persists across sessions."
       attribute :session_started_at, Timestamp
-      then_set :session_started_at, to: :session_started_at
+      sets :session_started_at
       emits "SessionStarted"
     end
 
@@ -2347,7 +2359,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "Check" do
       role "Hook"
-      description "Scan one composed draft for writing-style violations. Inputs : the draft id and the full draft_text. Increments drafts_checked. Internally runs every registered rule (currently em_dash and we_dont_we_do) against draft_text ; for each match, dispatches RecordViolation. The runtime policy that wires Writing::Writing.DraftComposed to this command supplies the draft id and text from the Compose event payload. No complaint is issued here ; Complain is the surface command and fires once per detected violation."
+      goal "Scan one composed draft for writing-style violations. Inputs : the draft id and the full draft_text. Increments drafts_checked. Internally runs every registered rule (currently em_dash and we_dont_we_do) against draft_text ; for each match, dispatches RecordViolation. The runtime policy that wires Writing::Writing.DraftComposed to this command supplies the draft id and text from the Compose event payload. No complaint is issued here ; Complain is the surface command and fires once per detected violation."
       attribute :draft_id,    DraftId
       attribute :draft_text,  DraftText
       emits "DraftChecked"
@@ -2357,16 +2369,16 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "RecordViolation" do
       role "Hook"
-      description "A specific writing-rule violation was detected on a draft. Records the draft id, rule kind, offending excerpt, byte offset, and complaint text. Appends a WritingViolation entity. Increments the kind-specific counter (em_dash_violations or we_dont_we_do_violations) and total_violations. Updates last_offending_draft, last_offending_kind, and last_offending_excerpt on the root. If the (draft_id, kind) pair appears in ExemptedDraft, the hook skips Complain and increments exempted_violations instead."
+      goal "A specific writing-rule violation was detected on a draft. Records the draft id, rule kind, offending excerpt, byte offset, and complaint text. Appends a WritingViolation entity. Increments the kind-specific counter (em_dash_violations or we_dont_we_do_violations) and total_violations. Updates last_offending_draft, last_offending_kind, and last_offending_excerpt on the root. If the (draft_id, kind) pair appears in ExemptedDraft, the hook skips Complain and increments exempted_violations instead."
       attribute :draft_id,       DraftId
       attribute :kind,           ViolationKind
       attribute :excerpt,        ExcerptText
       attribute :offset,         OffsetIndex
       attribute :complaint_text, ComplaintText
       attribute :recorded_at,    Timestamp
-      then_set :last_offending_draft,   to: :draft_id
-      then_set :last_offending_kind,    to: :kind
-      then_set :last_offending_excerpt, to: :excerpt
+      sets :last_offending_draft,   to: :draft_id
+      sets :last_offending_kind,    to: :kind
+      sets :last_offending_excerpt, to: :excerpt
       emits "ViolationRecorded"
     end
 
@@ -2374,7 +2386,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "ExemptDraft" do
       role "Lead"
-      description "Register a named exemption for a specific draft + rule kind pair so the macrophage will not complain about that draft's violation of that rule. The reason attribute is required and must be non-empty ; an exemption without a named reason falls into the pre-emptive trap the AntibodyExemption discipline forbids. Exemptions are registered after the macrophage has fired, never before ; the WritingViolation audit trail should already contain an entry for this draft + kind. Appends an ExemptedDraft entity."
+      goal "Register a named exemption for a specific draft + rule kind pair so the macrophage will not complain about that draft's violation of that rule. The reason attribute is required and must be non-empty ; an exemption without a named reason falls into the pre-emptive trap the AntibodyExemption discipline forbids. Exemptions are registered after the macrophage has fired, never before ; the WritingViolation audit trail should already contain an entry for this draft + kind. Appends an ExemptedDraft entity."
       attribute :draft_id,     DraftId
       attribute :kind,         ViolationKind
       attribute :reason,       ReasonText
@@ -2384,7 +2396,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "RevokeExemption" do
       role "Lead"
-      description "Remove an existing exemption, typically after the prose has been revised and the macrophage should fire again on future passes. Matches by draft_id + kind. The ExemptedDraft entity is marked revoked rather than deleted so the audit trail of who exempted what when stays intact."
+      goal "Remove an existing exemption, typically after the prose has been revised and the macrophage should fire again on future passes. Matches by draft_id + kind. The ExemptedDraft entity is marked revoked rather than deleted so the audit trail of who exempted what when stays intact."
       attribute :draft_id,    DraftId
       attribute :kind,        ViolationKind
       attribute :revoked_at,  Timestamp
@@ -2393,9 +2405,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "SetThreshold" do
       role "Lead"
-      description "Tune the threshold for the we_dont_we_do rule. The rule fires only when occurrences strictly exceed this value within a single draft. Default is 1 (one occurrence is acceptable, two or more triggers a complaint). Other rules currently have no threshold ; future rules with frequency thresholds will gain their own SetThreshold variants."
+      goal "Tune the threshold for the we_dont_we_do rule. The rule fires only when occurrences strictly exceed this value within a single draft. Default is 1 (one occurrence is acceptable, two or more triggers a complaint). Other rules currently have no threshold ; future rules with frequency thresholds will gain their own SetThreshold variants."
       attribute :we_dont_we_do_threshold, OccurrenceCount
-      then_set :we_dont_we_do_threshold, to: :we_dont_we_do_threshold
+      sets :we_dont_we_do_threshold
       emits "ThresholdSet"
     end
 
@@ -2403,17 +2415,17 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "Complain" do
       role "Hook"
-      description "The WritingDiscipline macrophage detected a draft that breaks a style rule. Records the complaint text and timestamp on the root for fast statusline reads, and updates last_offending_draft / last_offending_kind / last_offending_excerpt. The hook ALSO prints to stderr so Claude Code surfaces the complaint as a system reminder on the next turn ; the feedback loop that closes the discipline mechanism. Complaint text begins 'The WritingDiscipline macrophage expected ...' so the rule's name is visible at a glance. Each ViolationKind has a templated complaint body, for example : 'The WritingDiscipline macrophage expected zero em-dashes (U+2014) in draft 01JCKZWRITE0001 ; one occurrence found at offset 42, excerpt: \"...prose flows through Writing.Compose...\". Replace the em-dash with a colon, semicolon, comma, or period.' For we_dont_we_do : 'The WritingDiscipline macrophage expected sparse use of the \"we don.t X, we Y\" construction in draft 01JCKZWRITE0001 ; 3 occurrences found (threshold 1). Rewrite as direct positive constructions.'"
+      goal "The WritingDiscipline macrophage detected a draft that breaks a style rule. Records the complaint text and timestamp on the root for fast statusline reads, and updates last_offending_draft / last_offending_kind / last_offending_excerpt. The hook ALSO prints to stderr so Claude Code surfaces the complaint as a system reminder on the next turn ; the feedback loop that closes the discipline mechanism. Complaint text begins 'The WritingDiscipline macrophage expected ...' so the rule's name is visible at a glance. Each ViolationKind has a templated complaint body, for example : 'The WritingDiscipline macrophage expected zero em-dashes (U+2014) in draft 01JCKZWRITE0001 ; one occurrence found at offset 42, excerpt: \"...prose flows through Writing.Compose...\". Replace the em-dash with a colon, semicolon, comma, or period.' For we_dont_we_do : 'The WritingDiscipline macrophage expected sparse use of the \"we don.t X, we Y\" construction in draft 01JCKZWRITE0001 ; 3 occurrences found (threshold 1). Rewrite as direct positive constructions.'"
       attribute :draft_id,          DraftId
       attribute :kind,              ViolationKind
       attribute :excerpt,           ExcerptText
       attribute :complaint,         ComplaintText
       attribute :last_complaint_at, Timestamp
-      then_set :last_complaint,         to: :complaint
-      then_set :last_complaint_at,      to: :last_complaint_at
-      then_set :last_offending_draft,   to: :draft_id
-      then_set :last_offending_kind,    to: :kind
-      then_set :last_offending_excerpt, to: :excerpt
+      sets :last_complaint,         to: :complaint
+      sets :last_complaint_at
+      sets :last_offending_draft,   to: :draft_id
+      sets :last_offending_kind,    to: :kind
+      sets :last_offending_excerpt, to: :excerpt
       emits "ComplaintIssued"
     end
   end
@@ -2469,8 +2481,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   # non-empty ReasonText, Complain surface that pipes through the
   # additionalContext channel.
 
-  aggregate "CorrespondenceDiscipline", "Per-rule macrophage for the i624 correspondence-flow enforcement. Watches the bus for dispatches to AI-generated correspondence surfaces (EmailTool.CreateDraft, native Gmail create_draft, etc.) and fires when no preceding Writing.Compose dispatch with matching content was observed within the configured window. Maintains the watched-surface list, the flow-violation audit trail, per-surface exemptions, and the complaint history." do
-    identified_by { name.value }
+  aggregate "CorrespondenceDiscipline" do
+    description "Per-rule macrophage for the i624 correspondence-flow enforcement. Watches the bus for dispatches to AI-generated correspondence surfaces (EmailTool.CreateDraft, native Gmail create_draft, etc.) and fires when no preceding Writing.Compose dispatch with matching content was observed within the configured window. Maintains the watched-surface list, the flow-violation audit trail, per-surface exemptions, and the complaint history."
+    identified_by :name
 
     attribute :name, Name
 
@@ -2615,7 +2628,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity - flow-violation audit trail ──
 
     entity "FlowViolation" do
-      identified_by { recorded_at.value }
+      identified_by :recorded_at
       description "One historical flow-violation event for the correspondence-discipline rule. Records the offending command FQN, the invocation id, the offending body snippet, the kind of check that fired, the window that was searched, and when it was recorded. The last_complaint / last_offending_* scalars on the root mirror the most recent entry ; this collection holds the full audit trail."
       attribute :recorded_at,   Timestamp
       attribute :command_fqn,   CommandFqn
@@ -2629,7 +2642,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity - registered watched surfaces ──
 
     entity "RegisteredSurface" do
-      identified_by { surface.value }
+      identified_by :surface
       description "A correspondence surface FQN the macrophage actively observes. Registered via WatchSurface ; retired via UnwatchSurface. The seed list ships pre-registered with the live EmailTool commands and the native Gmail MCP tool names. A dispatch to an FQN not in this collection is invisible to this rule."
       attribute :surface,     WatchedSurface
       attribute :match_kind,  MatchKind
@@ -2639,7 +2652,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity - named per-surface exemptions ──
 
     entity "ExemptedSurface" do
-      identified_by { surface.value }
+      identified_by :surface
       description "A correspondence surface whose flow-violation is officially exempted with a named, case-by-case reason. Registered via ExemptSurface. The macrophage will not issue a complaint for a violation against an entry in this collection ; the FlowViolation row is still recorded for the audit trail. Exemptions must carry a non-empty ReasonText, mirroring the AntibodyExemption and IdentityDiscipline disciplines. Exemptions are never pre-emptive ; they are registered after the macrophage has complained and the team has decided this surface is an audited bypass (e.g. transactional notifications with no discretionary prose)."
       attribute :surface,     WatchedSurface
       attribute :reason,      ReasonText
@@ -2650,9 +2663,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "StartSession" do
       role "System"
-      description "Reset per-session counters at boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects what landed today, not lifetime totals. The FlowViolation, RegisteredSurface, and ExemptedSurface entity collections are NOT reset - they are audit trail and configuration respectively."
+      goal "Reset per-session counters at boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects what landed today, not lifetime totals. The FlowViolation, RegisteredSurface, and ExemptedSurface entity collections are NOT reset - they are audit trail and configuration respectively."
       attribute :session_started_at, Timestamp
-      then_set :session_started_at, to: :session_started_at
+      sets :session_started_at
       emits "SessionStarted"
     end
 
@@ -2660,15 +2673,15 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "SetWindow" do
       role "Lead"
-      description "Configure how far back the macrophage looks for a matching Writing.Compose dispatch. Default is 5 minutes. Raise this if long-form drafting sessions produce false positives ; lower it if the window swallows stale compositions that should not count. Values must be positive integers."
+      goal "Configure how far back the macrophage looks for a matching Writing.Compose dispatch. Default is 5 minutes. Raise this if long-form drafting sessions produce false positives ; lower it if the window swallows stale compositions that should not count. Values must be positive integers."
       attribute :compose_window_minutes, ComposeWindowMinutes
-      then_set :compose_window_minutes, to: :compose_window_minutes
+      sets :compose_window_minutes
       emits "WindowSet"
     end
 
     command "WatchSurface" do
       role "Lead"
-      description "Register a correspondence surface FQN for active observation. The seed list ships pre-registered ; this command is the surface for adding new correspondence aggregates (SlackTool.Post, SmsTool.Send) as their bluebooks land. The match_kind attribute selects the per-surface matching semantics ; if omitted the macrophage falls back to default_match_kind."
+      goal "Register a correspondence surface FQN for active observation. The seed list ships pre-registered ; this command is the surface for adding new correspondence aggregates (SlackTool.Post, SmsTool.Send) as their bluebooks land. The match_kind attribute selects the per-surface matching semantics ; if omitted the macrophage falls back to default_match_kind."
       attribute :surface,       WatchedSurface
       attribute :match_kind,    MatchKind
       attribute :registered_at, Timestamp
@@ -2677,7 +2690,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "UnwatchSurface" do
       role "Lead"
-      description "Retire a correspondence surface from active observation. The RegisteredSurface entity is marked retired rather than deleted so the audit trail of who watched what when stays intact."
+      goal "Retire a correspondence surface from active observation. The RegisteredSurface entity is marked retired rather than deleted so the audit trail of who watched what when stays intact."
       attribute :surface,    WatchedSurface
       attribute :retired_at, Timestamp
       emits "SurfaceUnwatched"
@@ -2687,7 +2700,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "Check" do
       role "Hook"
-      description "Observe one dispatch to a watched correspondence surface. Increments dispatches_checked. The hook reads the recent dispatch history for any Writing.Compose whose draft_text matches the correspondence body (per the surface's MatchKind) within compose_window_minutes ; if no match is found, dispatches RecordViolation. If the surface appears in ExemptedSurface, the violation is recorded but Complain is skipped and exempted_violations is incremented instead. No complaint is issued from this command directly - Complain is the surface command."
+      goal "Observe one dispatch to a watched correspondence surface. Increments dispatches_checked. The hook reads the recent dispatch history for any Writing.Compose whose draft_text matches the correspondence body (per the surface's MatchKind) within compose_window_minutes ; if no match is found, dispatches RecordViolation. If the surface appears in ExemptedSurface, the violation is recorded but Complain is skipped and exempted_violations is incremented instead. No complaint is issued from this command directly - Complain is the surface command."
       attribute :surface,       WatchedSurface
       attribute :command_fqn,   CommandFqn
       attribute :invocation_id, InvocationId
@@ -2700,7 +2713,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "RecordViolation" do
       role "Hook"
-      description "A specific correspondence-flow violation was detected. Records the command FQN, invocation id, surface, body snippet, violation kind, and the window that was searched ; appends a FlowViolation entity ; increments correspondence_without_compose_violations and total_violations ; updates last_offending_surface and last_offending_invocation. The hook chains into Complain to surface the violation on the next turn - this command records the fact ; Complain records the reaction. If the surface appears in ExemptedSurface, the hook skips Complain and increments exempted_violations instead."
+      goal "A specific correspondence-flow violation was detected. Records the command FQN, invocation id, surface, body snippet, violation kind, and the window that was searched ; appends a FlowViolation entity ; increments correspondence_without_compose_violations and total_violations ; updates last_offending_surface and last_offending_invocation. The hook chains into Complain to surface the violation on the next turn - this command records the fact ; Complain records the reaction. If the surface appears in ExemptedSurface, the hook skips Complain and increments exempted_violations instead."
       attribute :recorded_at,    Timestamp
       attribute :command_fqn,    CommandFqn
       attribute :surface,        WatchedSurface
@@ -2708,8 +2721,8 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       attribute :body,           CorrespondenceBody
       attribute :kind,           ViolationKind
       attribute :window_minutes, ComposeWindowMinutes
-      then_set :last_offending_surface,    to: :surface
-      then_set :last_offending_invocation, to: :invocation_id
+      sets :last_offending_surface,    to: :surface
+      sets :last_offending_invocation, to: :invocation_id
       emits "ViolationRecorded"
     end
 
@@ -2717,7 +2730,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "ExemptSurface" do
       role "Lead"
-      description "Register a named exemption for a specific correspondence surface so the macrophage will not complain about its flow violation. The reason attribute is required and must be non-empty - an exemption without a named reason falls into the pre-emptive trap the AntibodyExemption discipline forbids. Exemptions are registered after the macrophage has fired, never before ; the FlowViolation audit trail should already contain an entry for this surface. Appends an ExemptedSurface entity. Typical use : 'Tools::EmailTool.LabelMessage, reason: \"header-only surface ; no discretionary prose to compose\"'."
+      goal "Register a named exemption for a specific correspondence surface so the macrophage will not complain about its flow violation. The reason attribute is required and must be non-empty - an exemption without a named reason falls into the pre-emptive trap the AntibodyExemption discipline forbids. Exemptions are registered after the macrophage has fired, never before ; the FlowViolation audit trail should already contain an entry for this surface. Appends an ExemptedSurface entity. Typical use : 'Tools::EmailTool.LabelMessage, reason: \"header-only surface ; no discretionary prose to compose\"'."
       attribute :surface,     WatchedSurface
       attribute :reason,      ReasonText
       attribute :exempted_at, Timestamp
@@ -2726,7 +2739,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "RevokeExemption" do
       role "Lead"
-      description "Remove an existing exemption - typically after the surface evolves to carry real prose and should flow through Writing.Compose again. Matches by surface. The ExemptedSurface entity is marked revoked rather than deleted so the audit trail of who exempted what when stays intact."
+      goal "Remove an existing exemption - typically after the surface evolves to carry real prose and should flow through Writing.Compose again. Matches by surface. The ExemptedSurface entity is marked revoked rather than deleted so the audit trail of who exempted what when stays intact."
       attribute :surface,    WatchedSurface
       attribute :revoked_at, Timestamp
       emits "ExemptionRevoked"
@@ -2736,16 +2749,16 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "Complain" do
       role "Hook"
-      description "The CorrespondenceDiscipline macrophage detected a correspondence-surface dispatch that bypassed Writing.Compose. Records the complaint text and timestamp on the root for fast statusline reads, and updates last_offending_surface / last_offending_invocation. The hook ALSO prints to stderr so Claude Code surfaces the complaint as a system reminder on the next turn - the feedback loop that closes the discipline mechanism. Complaint text begins 'The CorrespondenceDiscipline macrophage expected ...' so the rule's name is visible at a glance. Template : 'The CorrespondenceDiscipline macrophage expected Writing.Compose to dispatch before <command_fqn>#<invocation_id>. None was found in the prior <window_minutes> minutes. Correspondence sent without composing through the bluebook misses the style rules WritingDiscipline enforces and the cumulative audit trail.'"
+      goal "The CorrespondenceDiscipline macrophage detected a correspondence-surface dispatch that bypassed Writing.Compose. Records the complaint text and timestamp on the root for fast statusline reads, and updates last_offending_surface / last_offending_invocation. The hook ALSO prints to stderr so Claude Code surfaces the complaint as a system reminder on the next turn - the feedback loop that closes the discipline mechanism. Complaint text begins 'The CorrespondenceDiscipline macrophage expected ...' so the rule's name is visible at a glance. Template : 'The CorrespondenceDiscipline macrophage expected Writing.Compose to dispatch before <command_fqn>#<invocation_id>. None was found in the prior <window_minutes> minutes. Correspondence sent without composing through the bluebook misses the style rules WritingDiscipline enforces and the cumulative audit trail.'"
       attribute :command_fqn,       CommandFqn
       attribute :surface,           WatchedSurface
       attribute :invocation_id,     InvocationId
       attribute :complaint,         ComplaintText
       attribute :last_complaint_at, Timestamp
-      then_set :last_complaint,             to: :complaint
-      then_set :last_complaint_at,          to: :last_complaint_at
-      then_set :last_offending_surface,     to: :surface
-      then_set :last_offending_invocation,  to: :invocation_id
+      sets :last_complaint,             to: :complaint
+      sets :last_complaint_at
+      sets :last_offending_surface,     to: :surface
+      sets :last_offending_invocation,  to: :invocation_id
       emits "ComplaintIssued"
     end
   end
@@ -2791,8 +2804,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   # i595 family). The existing Macrophage aggregate is NOT retired
   # here — this aggregate is a sibling.
 
-  aggregate "AdapterLocation", "Per-rule macrophage for the adapter-location enforcement — adapters must live at <bluebook>/hecksagons/<service>.hecksagon so the convention-discovery contract can find them. Tracks scanned files, records misplaced declarations, and maintains the complaint history for this rule alone." do
-    identified_by { name.value }
+  aggregate "AdapterLocation" do
+    description "Per-rule macrophage for the adapter-location enforcement — adapters must live at <bluebook>/hecksagons/<service>.hecksagon so the convention-discovery contract can find them. Tracks scanned files, records misplaced declarations, and maintains the complaint history for this rule alone."
+    identified_by :name
 
     attribute :name, Name
 
@@ -2859,7 +2873,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — violation audit trail ──
 
     entity "LocationViolation" do
-      identified_by { recorded_at.value }
+      identified_by :recorded_at
       description "One historical adapter-location violation event. Records the offending file path, the adapter name declared inside, the expected canonical path, and the full complaint text. The last_complaint / last_complaint_at / last_offending_* scalars on the root mirror the most recent entry; this collection holds the full audit trail."
       attribute :recorded_at,    Timestamp
       attribute :file_path,      FilePath
@@ -2871,7 +2885,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — named exemptions ──
 
     entity "Exemption" do
-      identified_by { file_path.value }
+      identified_by :file_path
       description "An explicitly named exemption for an adapter declaration that is legitimately allowed to live outside the canonical hecksagons/ directory (typically the legacy framework/adapter_families/ shims during the sprint-14 migration). Exemptions must name a concrete rationale; a vague reason is itself a macrophage violation."
       attribute :file_path,   FilePath
       attribute :reason,      ExemptionReason
@@ -2882,9 +2896,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "StartSession" do
       role "System"
-      description "Reset per-session counters at boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects what was scanned today, not lifetime totals. The LocationViolation and Exemption entity collections are NOT reset — they are audit trail and standing rules respectively."
+      goal "Reset per-session counters at boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects what was scanned today, not lifetime totals. The LocationViolation and Exemption entity collections are NOT reset — they are audit trail and standing rules respectively."
       attribute :session_started_at, Timestamp
-      then_set :session_started_at, to: :session_started_at
+      sets :session_started_at
       emits "SessionStarted"
     end
 
@@ -2892,33 +2906,33 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "Check" do
       role "Hook"
-      description "Run the adapter-location check against a single .hecksagon file. The hook reads the file looking for the new adapter declaration shape ; if any are found and the file path is NOT under <some-bluebook>/hecksagons/<service>.hecksagon, chains into RecordViolation + Complain. Files listed in the Exemption collection are skipped silently. Increments files_scanned regardless of outcome."
+      goal "Run the adapter-location check against a single .hecksagon file. The hook reads the file looking for the new adapter declaration shape ; if any are found and the file path is NOT under <some-bluebook>/hecksagons/<service>.hecksagon, chains into RecordViolation + Complain. Files listed in the Exemption collection are skipped silently. Increments files_scanned regardless of outcome."
       attribute :file_path, FilePath
       emits "FileScanned"
     end
 
     command "RecordViolation" do
       role "Hook"
-      description "Record a detected misplaced adapter declaration in the violation audit trail. Appends a LocationViolation entity, increments misplaced_declarations, and updates the last_offending_* scalars on the root. Called by the Check command for each offending file before Complain fires — this command records the fact; Complain records the reaction."
+      goal "Record a detected misplaced adapter declaration in the violation audit trail. Appends a LocationViolation entity, increments misplaced_declarations, and updates the last_offending_* scalars on the root. Called by the Check command for each offending file before Complain fires — this command records the fact; Complain records the reaction."
       attribute :file_path,     FilePath
       attribute :adapter_name,  AdapterName
       attribute :expected_path, FilePath
       attribute :recorded_at,   Timestamp
-      then_set :last_offending_file, to: :file_path
-      then_set :last_expected_path,  to: :expected_path
+      sets :last_offending_file, to: :file_path
+      sets :last_expected_path,  to: :expected_path
       emits "ViolationRecorded"
     end
 
     command "Complain" do
       role "Hook"
-      description "The AdapterLocation macrophage detected an adapter declaration outside <bluebook>/hecksagons/<service>.hecksagon. Records the complaint text and timestamp on the root for fast statusline reads. The hook ALSO prints to stderr so Claude Code surfaces the complaint as a system reminder on the next turn — the feedback loop that closes the discipline. Complaint text begins 'The AdapterLocation macrophage expected the adapter declared in <file_path> to live at <expected_path>. Adapters must live under <bluebook>/hecksagons/<service>.hecksagon so the convention-discovery contract (sprint 14) can register their subscriptions at boot. Move the file and update any references.' so the rule name and corrective action are both visible."
+      goal "The AdapterLocation macrophage detected an adapter declaration outside <bluebook>/hecksagons/<service>.hecksagon. Records the complaint text and timestamp on the root for fast statusline reads. The hook ALSO prints to stderr so Claude Code surfaces the complaint as a system reminder on the next turn — the feedback loop that closes the discipline. Complaint text begins 'The AdapterLocation macrophage expected the adapter declared in <file_path> to live at <expected_path>. Adapters must live under <bluebook>/hecksagons/<service>.hecksagon so the convention-discovery contract (sprint 14) can register their subscriptions at boot. Move the file and update any references.' so the rule name and corrective action are both visible."
       attribute :file_path,         FilePath
       attribute :adapter_name,      AdapterName
       attribute :expected_path,     FilePath
       attribute :complaint,         ComplaintText
       attribute :last_complaint_at, Timestamp
-      then_set :last_complaint,    to: :complaint
-      then_set :last_complaint_at, to: :last_complaint_at
+      sets :last_complaint,    to: :complaint
+      sets :last_complaint_at
       emits "ComplaintIssued"
     end
 
@@ -2926,7 +2940,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "Exempt" do
       role "System"
-      description "Grant a named exemption for an adapter file that is legitimately allowed to live outside the canonical hecksagons/ directory — typically the legacy framework/adapter_families/ shims during the sprint-14 migration. The reason attribute must name a concrete, per-file rationale — not a generic phrase. Once an Exemption entity exists for a file, Check silently skips it on future runs. Exemptions are standing rules (not per-session) and survive session resets."
+      goal "Grant a named exemption for an adapter file that is legitimately allowed to live outside the canonical hecksagons/ directory — typically the legacy framework/adapter_families/ shims during the sprint-14 migration. The reason attribute must name a concrete, per-file rationale — not a generic phrase. Once an Exemption entity exists for a file, Check silently skips it on future runs. Exemptions are standing rules (not per-session) and survive session resets."
       attribute :file_path,   FilePath
       attribute :reason,      ExemptionReason
       attribute :exempted_at, Timestamp
@@ -2977,8 +2991,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   # i595 family). The existing Macrophage aggregate is NOT retired
   # here — this aggregate is a sibling.
 
-  aggregate "SuccessFailurePairing", "Per-rule macrophage for the success-failure-pairing enforcement — every driven adapter body must dispatch both a success and a failure event. Tracks scanned adapters, records pairing violations, and maintains the complaint history for this rule alone." do
-    identified_by { name.value }
+  aggregate "SuccessFailurePairing" do
+    description "Per-rule macrophage for the success-failure-pairing enforcement — every driven adapter body must dispatch both a success and a failure event. Tracks scanned adapters, records pairing violations, and maintains the complaint history for this rule alone."
+    identified_by :name
 
     attribute :name, Name
 
@@ -3064,7 +3079,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — violation audit trail ──
 
     entity "PairingViolation" do
-      identified_by { recorded_at.value }
+      identified_by :recorded_at
       description "One historical pairing-violation event. Records which adapter in which file lacks a complete success/failure dispatch pair, what was found (verbatim FoundPair text), and the full complaint text. The last_complaint / last_complaint_at / last_offending_* scalars on the root mirror the most recent entry; this collection holds the full audit trail."
       attribute :recorded_at,    Timestamp
       attribute :file_path,      FilePath
@@ -3076,7 +3091,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — named exemptions ──
 
     entity "Exemption" do
-      identified_by { file_path.value }
+      identified_by :file_path
       description "An explicitly named exemption for an adapter that is legitimately allowed to dispatch only one outcome — e.g. a fire-and-forget broadcast adapter, or an adapter wrapping an operation that cannot fail by construction. Exemptions must name a concrete rationale; a vague reason is itself a macrophage violation."
       attribute :file_path,    FilePath
       attribute :adapter_name, AdapterName
@@ -3088,9 +3103,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "StartSession" do
       role "System"
-      description "Reset per-session counters at boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects what was scanned today, not lifetime totals. The PairingViolation and Exemption entity collections are NOT reset — they are audit trail and standing rules respectively."
+      goal "Reset per-session counters at boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects what was scanned today, not lifetime totals. The PairingViolation and Exemption entity collections are NOT reset — they are audit trail and standing rules respectively."
       attribute :session_started_at, Timestamp
-      then_set :session_started_at, to: :session_started_at
+      sets :session_started_at
       emits "SessionStarted"
     end
 
@@ -3098,33 +3113,33 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "Check" do
       role "Hook"
-      description "Run the success-failure-pairing check against a single .hecksagon file. The hook parses each adapter block, enumerates the dispatch calls reachable from the body, and applies the pairing heuristic : both a success-shaped and a failure-shaped event name must be present (default convention <X>.Completed and <X>.Failed, alternatives Succeeded/Failed, Ok/Err accepted as long as both polarities appear). On violation, chains into RecordViolation + Complain. Adapters listed in the Exemption collection are skipped silently. Increments adapters_checked once per adapter in the file."
+      goal "Run the success-failure-pairing check against a single .hecksagon file. The hook parses each adapter block, enumerates the dispatch calls reachable from the body, and applies the pairing heuristic : both a success-shaped and a failure-shaped event name must be present (default convention <X>.Completed and <X>.Failed, alternatives Succeeded/Failed, Ok/Err accepted as long as both polarities appear). On violation, chains into RecordViolation + Complain. Adapters listed in the Exemption collection are skipped silently. Increments adapters_checked once per adapter in the file."
       attribute :file_path, FilePath
       emits "FileScanned"
     end
 
     command "RecordViolation" do
       role "Hook"
-      description "Record a detected pairing violation in the audit trail. Appends a PairingViolation entity, increments pairing_violations, and updates the last_offending_* scalars on the root. Called by the Check command for each offending adapter before Complain fires — this command records the fact; Complain records the reaction."
+      goal "Record a detected pairing violation in the audit trail. Appends a PairingViolation entity, increments pairing_violations, and updates the last_offending_* scalars on the root. Called by the Check command for each offending adapter before Complain fires — this command records the fact; Complain records the reaction."
       attribute :file_path,    FilePath
       attribute :adapter_name, AdapterName
       attribute :found_pair,   FoundPair
       attribute :recorded_at,  Timestamp
-      then_set :last_offending_adapter, to: :adapter_name
-      then_set :last_offending_file,    to: :file_path
+      sets :last_offending_adapter, to: :adapter_name
+      sets :last_offending_file,    to: :file_path
       emits "ViolationRecorded"
     end
 
     command "Complain" do
       role "Hook"
-      description "The SuccessFailurePairing macrophage detected an adapter that does not dispatch both a success and a failure event. Records the complaint text and timestamp on the root for fast statusline reads. The hook ALSO prints to stderr so Claude Code surfaces the complaint as a system reminder on the next turn — the feedback loop that closes the discipline. Complaint text begins 'The SuccessFailurePairing macrophage expected the adapter <adapter_name> in <file_path> to dispatch both a success and a failure event. Found <found_pair>. Add the missing dispatch — the bus must observe both outcomes so downstream actors can wait on either. Default convention : <X>.Completed for success, <X>.Failed for failure.' so the rule name, the diagnosis, and the corrective action are all visible."
+      goal "The SuccessFailurePairing macrophage detected an adapter that does not dispatch both a success and a failure event. Records the complaint text and timestamp on the root for fast statusline reads. The hook ALSO prints to stderr so Claude Code surfaces the complaint as a system reminder on the next turn — the feedback loop that closes the discipline. Complaint text begins 'The SuccessFailurePairing macrophage expected the adapter <adapter_name> in <file_path> to dispatch both a success and a failure event. Found <found_pair>. Add the missing dispatch — the bus must observe both outcomes so downstream actors can wait on either. Default convention : <X>.Completed for success, <X>.Failed for failure.' so the rule name, the diagnosis, and the corrective action are all visible."
       attribute :file_path,         FilePath
       attribute :adapter_name,      AdapterName
       attribute :found_pair,        FoundPair
       attribute :complaint,         ComplaintText
       attribute :last_complaint_at, Timestamp
-      then_set :last_complaint,    to: :complaint
-      then_set :last_complaint_at, to: :last_complaint_at
+      sets :last_complaint,    to: :complaint
+      sets :last_complaint_at
       emits "ComplaintIssued"
     end
 
@@ -3132,7 +3147,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "Exempt" do
       role "System"
-      description "Grant a named exemption for an adapter that is legitimately allowed to dispatch only one outcome — fire-and-forget broadcasts, infallible operations. The reason attribute must name a concrete, per-adapter rationale — not a generic phrase. Once an Exemption entity exists, Check silently skips that adapter on future runs. Exemptions are standing rules (not per-session) and survive session resets."
+      goal "Grant a named exemption for an adapter that is legitimately allowed to dispatch only one outcome — fire-and-forget broadcasts, infallible operations. The reason attribute must name a concrete, per-adapter rationale — not a generic phrase. Once an Exemption entity exists, Check silently skips that adapter on future runs. Exemptions are standing rules (not per-session) and survive session resets."
       attribute :file_path,    FilePath
       attribute :adapter_name, AdapterName
       attribute :reason,       ExemptionReason
@@ -3185,8 +3200,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   # i595 family). The existing Macrophage aggregate is NOT retired
   # here — this aggregate is a sibling.
 
-  aggregate "InvocationPrinciple", "Per-rule macrophage for the no-callback-to-bus-from-adapter-body enforcement — adapter bodies must not synchronously query the bus. Tracks scanned adapters, records callback violations, and maintains the complaint history for this rule alone." do
-    identified_by { name.value }
+  aggregate "InvocationPrinciple" do
+    description "Per-rule macrophage for the no-callback-to-bus-from-adapter-body enforcement — adapter bodies must not synchronously query the bus. Tracks scanned adapters, records callback violations, and maintains the complaint history for this rule alone."
+    identified_by :name
 
     attribute :name, Name
 
@@ -3267,7 +3283,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — violation audit trail ──
 
     entity "CallbackViolation" do
-      identified_by { recorded_at.value }
+      identified_by :recorded_at
       description "One historical callback-violation event. Records which adapter in which file made a forbidden synchronous bus query, the verbatim forbidden-call text, the line number, and the full complaint text. The last_complaint / last_complaint_at / last_offending_* scalars on the root mirror the most recent entry; this collection holds the full audit trail."
       attribute :recorded_at,    Timestamp
       attribute :file_path,      FilePath
@@ -3280,7 +3296,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — named exemptions ──
 
     entity "Exemption" do
-      identified_by { file_path.value }
+      identified_by :file_path
       description "An explicitly named exemption for an adapter that is legitimately allowed to synchronously query the bus (typically migration shims that wrap legacy synchronous-query call sites during the sprint-14 cutover). Exemptions must name a concrete rationale; a vague reason is itself a macrophage violation."
       attribute :file_path,    FilePath
       attribute :adapter_name, AdapterName
@@ -3292,9 +3308,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "StartSession" do
       role "System"
-      description "Reset per-session counters at boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects what was scanned today, not lifetime totals. The CallbackViolation and Exemption entity collections are NOT reset — they are audit trail and standing rules respectively."
+      goal "Reset per-session counters at boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects what was scanned today, not lifetime totals. The CallbackViolation and Exemption entity collections are NOT reset — they are audit trail and standing rules respectively."
       attribute :session_started_at, Timestamp
-      then_set :session_started_at, to: :session_started_at
+      sets :session_started_at
       emits "SessionStarted"
     end
 
@@ -3302,36 +3318,36 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "Check" do
       role "Hook"
-      description "Run the no-callback-to-bus check against a single .hecksagon file. The hook parses each adapter block and scans the body source for forbidden synchronous-bus-query substrings (rt.find(, rt.resolve_query(, rt.state_of(, bus.query(, runtime.find(). On any match, chains into RecordViolation + Complain. Adapters listed in the Exemption collection are skipped silently. Increments adapters_checked once per adapter in the file."
+      goal "Run the no-callback-to-bus check against a single .hecksagon file. The hook parses each adapter block and scans the body source for forbidden synchronous-bus-query substrings (rt.find(, rt.resolve_query(, rt.state_of(, bus.query(, runtime.find(). On any match, chains into RecordViolation + Complain. Adapters listed in the Exemption collection are skipped silently. Increments adapters_checked once per adapter in the file."
       attribute :file_path, FilePath
       emits "FileScanned"
     end
 
     command "RecordViolation" do
       role "Hook"
-      description "Record a detected callback violation in the audit trail. Appends a CallbackViolation entity, increments callback_violations, and updates the last_offending_* and last_forbidden_call scalars on the root. Called by the Check command for each offending adapter before Complain fires — this command records the fact; Complain records the reaction."
+      goal "Record a detected callback violation in the audit trail. Appends a CallbackViolation entity, increments callback_violations, and updates the last_offending_* and last_forbidden_call scalars on the root. Called by the Check command for each offending adapter before Complain fires — this command records the fact; Complain records the reaction."
       attribute :file_path,      FilePath
       attribute :adapter_name,   AdapterName
       attribute :forbidden_call, ForbiddenCall
       attribute :line_number,    LineNumber
       attribute :recorded_at,    Timestamp
-      then_set :last_offending_adapter, to: :adapter_name
-      then_set :last_offending_file,    to: :file_path
-      then_set :last_forbidden_call,    to: :forbidden_call
+      sets :last_offending_adapter, to: :adapter_name
+      sets :last_offending_file,    to: :file_path
+      sets :last_forbidden_call,    to: :forbidden_call
       emits "ViolationRecorded"
     end
 
     command "Complain" do
       role "Hook"
-      description "The InvocationPrinciple macrophage detected an adapter body that synchronously queries the bus. Records the complaint text and timestamp on the root for fast statusline reads. The hook ALSO prints to stderr so Claude Code surfaces the complaint as a system reminder on the next turn — the feedback loop that closes the discipline. Complaint text begins 'The InvocationPrinciple macrophage expected the adapter <adapter_name> in <file_path> to read its inputs from the event payload, not from the bus. Found <forbidden_call> at line <line_number>. Move the data into the upstream event, or split the dependency into a new dispatched command. Adapter bodies are fire-and-forget — no synchronous bus queries (Cockburn Invocation Principle).' so the rule name, the diagnosis, and the corrective action are all visible."
+      goal "The InvocationPrinciple macrophage detected an adapter body that synchronously queries the bus. Records the complaint text and timestamp on the root for fast statusline reads. The hook ALSO prints to stderr so Claude Code surfaces the complaint as a system reminder on the next turn — the feedback loop that closes the discipline. Complaint text begins 'The InvocationPrinciple macrophage expected the adapter <adapter_name> in <file_path> to read its inputs from the event payload, not from the bus. Found <forbidden_call> at line <line_number>. Move the data into the upstream event, or split the dependency into a new dispatched command. Adapter bodies are fire-and-forget — no synchronous bus queries (Cockburn Invocation Principle).' so the rule name, the diagnosis, and the corrective action are all visible."
       attribute :file_path,         FilePath
       attribute :adapter_name,      AdapterName
       attribute :forbidden_call,    ForbiddenCall
       attribute :line_number,       LineNumber
       attribute :complaint,         ComplaintText
       attribute :last_complaint_at, Timestamp
-      then_set :last_complaint,    to: :complaint
-      then_set :last_complaint_at, to: :last_complaint_at
+      sets :last_complaint,    to: :complaint
+      sets :last_complaint_at
       emits "ComplaintIssued"
     end
 
@@ -3339,7 +3355,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "Exempt" do
       role "System"
-      description "Grant a named exemption for an adapter that is legitimately allowed to synchronously query the bus — typically a migration shim wrapping a legacy synchronous call site during the sprint-14 cutover. The reason attribute must name a concrete, per-adapter rationale — not a generic phrase. Once an Exemption entity exists, Check silently skips that adapter on future runs. Exemptions are standing rules (not per-session) and survive session resets."
+      goal "Grant a named exemption for an adapter that is legitimately allowed to synchronously query the bus — typically a migration shim wrapping a legacy synchronous call site during the sprint-14 cutover. The reason attribute must name a concrete, per-adapter rationale — not a generic phrase. Once an Exemption entity exists, Check silently skips that adapter on future runs. Exemptions are standing rules (not per-session) and survive session resets."
       attribute :file_path,    FilePath
       attribute :adapter_name, AdapterName
       attribute :reason,       ExemptionReason
@@ -3394,8 +3410,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   # i595 family). The existing Macrophage aggregate is NOT retired
   # here — this aggregate is a sibling.
 
-  aggregate "IdempotentByConstruction", "Per-rule macrophage for the runtime-universal-idempotency lock — bans user-space idempotency opt-in in .hecksagon and .bluebook source so the runtime's universal event-id dedup remains the single mechanism. Tracks scanned files, records opt-in violations, and maintains the complaint history for this rule alone." do
-    identified_by { name.value }
+  aggregate "IdempotentByConstruction" do
+    description "Per-rule macrophage for the runtime-universal-idempotency lock — bans user-space idempotency opt-in in .hecksagon and .bluebook source so the runtime's universal event-id dedup remains the single mechanism. Tracks scanned files, records opt-in violations, and maintains the complaint history for this rule alone."
+    identified_by :name
 
     attribute :name, Name
 
@@ -3469,7 +3486,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — violation audit trail ──
 
     entity "OptInViolation" do
-      identified_by { recorded_at.value }
+      identified_by :recorded_at
       description "One historical idempotency-opt-in violation event. Records which file attempted to opt into idempotency, the verbatim forbidden-pattern text, the line number, and the full complaint text. The last_complaint / last_complaint_at / last_offending_* scalars on the root mirror the most recent entry; this collection holds the full audit trail."
       attribute :recorded_at,       Timestamp
       attribute :file_path,         FilePath
@@ -3481,7 +3498,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — named exemptions ──
 
     entity "Exemption" do
-      identified_by { file_path.value }
+      identified_by :file_path
       description "An explicitly named exemption for a file that is legitimately allowed to use idempotency-opt-in vocabulary in non-architectural contexts (typically documentation files describing the runtime mechanism, or test fixtures negative-testing the macrophage itself). Exemptions must name a concrete rationale; a vague reason is itself a macrophage violation."
       attribute :file_path,   FilePath
       attribute :reason,      ExemptionReason
@@ -3492,9 +3509,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "StartSession" do
       role "System"
-      description "Reset per-session counters at boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects what was scanned today, not lifetime totals. The OptInViolation and Exemption entity collections are NOT reset — they are audit trail and standing rules respectively."
+      goal "Reset per-session counters at boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects what was scanned today, not lifetime totals. The OptInViolation and Exemption entity collections are NOT reset — they are audit trail and standing rules respectively."
       attribute :session_started_at, Timestamp
-      then_set :session_started_at, to: :session_started_at
+      sets :session_started_at
       emits "SessionStarted"
     end
 
@@ -3502,33 +3519,33 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "Check" do
       role "Hook"
-      description "Run the no-idempotency-opt-in check against a single .hecksagon or .bluebook file. The hook scans source for forbidden user-space idempotency opt-in patterns (idempotent, dedup_by, idempotency_key, if_not_already_dispatched, adapter_idempotency_log). On any match, chains into RecordViolation + Complain. Files listed in the Exemption collection are skipped silently. Increments files_scanned regardless of outcome."
+      goal "Run the no-idempotency-opt-in check against a single .hecksagon or .bluebook file. The hook scans source for forbidden user-space idempotency opt-in patterns (idempotent, dedup_by, idempotency_key, if_not_already_dispatched, adapter_idempotency_log). On any match, chains into RecordViolation + Complain. Files listed in the Exemption collection are skipped silently. Increments files_scanned regardless of outcome."
       attribute :file_path, FilePath
       emits "FileScanned"
     end
 
     command "RecordViolation" do
       role "Hook"
-      description "Record a detected opt-in violation in the audit trail. Appends an OptInViolation entity, increments opt_in_violations, and updates the last_offending_* and last_forbidden_pattern scalars on the root. Called by the Check command for each offending site before Complain fires — this command records the fact; Complain records the reaction."
+      goal "Record a detected opt-in violation in the audit trail. Appends an OptInViolation entity, increments opt_in_violations, and updates the last_offending_* and last_forbidden_pattern scalars on the root. Called by the Check command for each offending site before Complain fires — this command records the fact; Complain records the reaction."
       attribute :file_path,         FilePath
       attribute :forbidden_pattern, ForbiddenPattern
       attribute :line_number,       LineNumber
       attribute :recorded_at,       Timestamp
-      then_set :last_offending_file,    to: :file_path
-      then_set :last_forbidden_pattern, to: :forbidden_pattern
+      sets :last_offending_file,    to: :file_path
+      sets :last_forbidden_pattern, to: :forbidden_pattern
       emits "ViolationRecorded"
     end
 
     command "Complain" do
       role "Hook"
-      description "The IdempotentByConstruction macrophage detected user-space code attempting to opt into idempotency. Records the complaint text and timestamp on the root for fast statusline reads. The hook ALSO prints to stderr so Claude Code surfaces the complaint as a system reminder on the next turn — the feedback loop that closes the discipline. Complaint text begins 'The IdempotentByConstruction macrophage expected zero user-space idempotency opt-in. Found <forbidden_pattern> in <file_path> at line <line_number>. Idempotency lives in the runtime — the driven_adapter_resolver dedups every event by bus event-id automatically. Remove the opt-in ; if you need retry semantics, dispatch a new event-id.' so the rule name, the diagnosis, and the corrective action are all visible."
+      goal "The IdempotentByConstruction macrophage detected user-space code attempting to opt into idempotency. Records the complaint text and timestamp on the root for fast statusline reads. The hook ALSO prints to stderr so Claude Code surfaces the complaint as a system reminder on the next turn — the feedback loop that closes the discipline. Complaint text begins 'The IdempotentByConstruction macrophage expected zero user-space idempotency opt-in. Found <forbidden_pattern> in <file_path> at line <line_number>. Idempotency lives in the runtime — the driven_adapter_resolver dedups every event by bus event-id automatically. Remove the opt-in ; if you need retry semantics, dispatch a new event-id.' so the rule name, the diagnosis, and the corrective action are all visible."
       attribute :file_path,         FilePath
       attribute :forbidden_pattern, ForbiddenPattern
       attribute :line_number,       LineNumber
       attribute :complaint,         ComplaintText
       attribute :last_complaint_at, Timestamp
-      then_set :last_complaint,    to: :complaint
-      then_set :last_complaint_at, to: :last_complaint_at
+      sets :last_complaint,    to: :complaint
+      sets :last_complaint_at
       emits "ComplaintIssued"
     end
 
@@ -3536,7 +3553,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "Exempt" do
       role "System"
-      description "Grant a named exemption for a file that is legitimately allowed to use idempotency-opt-in vocabulary — typically documentation describing the runtime mechanism, or test fixtures negative-testing the macrophage itself. The reason attribute must name a concrete, per-file rationale — not a generic phrase. Once an Exemption entity exists, Check silently skips that file on future runs. Exemptions are standing rules (not per-session) and survive session resets."
+      goal "Grant a named exemption for a file that is legitimately allowed to use idempotency-opt-in vocabulary — typically documentation describing the runtime mechanism, or test fixtures negative-testing the macrophage itself. The reason attribute must name a concrete, per-file rationale — not a generic phrase. Once an Exemption entity exists, Check silently skips that file on future runs. Exemptions are standing rules (not per-session) and survive session resets."
       attribute :file_path,   FilePath
       attribute :reason,      ExemptionReason
       attribute :exempted_at, Timestamp
@@ -3597,8 +3614,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   #
   # File kinds checked : .bluebook and .hecksagon only. i595 family member.
 
-  aggregate "RelationshipDiscipline", "Per-rule macrophage for the relationship-grammar surface enforcement — the verb carries the boundary, in English. Tracks three structural checks against .bluebook / .hecksagon source (codey_double_colon : `::` in a cross-reference target ; cross_verb_at_value_object : a cross verb pointing at a VO/entity, already caught by the validator ; inside_verb_at_root : an inside verb pointing at another root, needs a corpus pass) and maintains the complaint history for this rule alone. CONCEPTION ONLY — live codey_double_colon detection is gated on the upsert-on-identity merge that lands the English `from <Context>` parser, because until then `::` is the only working cross-context remedy the AmbiguousCrossReferenceErrors validator can suggest." do
-    identified_by { name.value }
+  aggregate "RelationshipDiscipline" do
+    description "Per-rule macrophage for the relationship-grammar surface enforcement — the verb carries the boundary, in English. Tracks three structural checks against .bluebook / .hecksagon source (codey_double_colon : `::` in a cross-reference target ; cross_verb_at_value_object : a cross verb pointing at a VO/entity, already caught by the validator ; inside_verb_at_root : an inside verb pointing at another root, needs a corpus pass) and maintains the complaint history for this rule alone. CONCEPTION ONLY — live codey_double_colon detection is gated on the upsert-on-identity merge that lands the English `from <Context>` parser, because until then `::` is the only working cross-context remedy the AmbiguousCrossReferenceErrors validator can suggest."
+    identified_by :name
 
     attribute :name, Name
 
@@ -3655,13 +3673,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       #   "codey_double_colon"          — `::` in a cross-reference target
       #   "inside_verb_at_root"         — list_of / reference_to at a root
       #   "cross_verb_at_value_object"  — has_* / belongs_to at a VO/entity
-      attribute :value, String
-
-      one_of do
-        member value: "codey_double_colon"
-        member value: "inside_verb_at_root"
-        member value: "cross_verb_at_value_object"
-      end
+      attribute :value, String, one_of: %w[codey_double_colon inside_verb_at_root cross_verb_at_value_object]
     end
 
     value_object "CheckCount" do
@@ -3694,7 +3706,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — violation audit trail ──
 
     entity "NotationViolation" do
-      identified_by { recorded_at.value }
+      identified_by :recorded_at
       description "One historical relationship-discipline violation event. Records the file, the aggregate/VO whose declaration carried the offending line, the verbatim reference line, which check fired, the line number, the full complaint text, and when it was recorded. The last_complaint / last_offending_* scalars on the root mirror the most recent entry ; this collection holds the full audit trail."
       attribute :recorded_at,    Timestamp
       attribute :file_path,      FilePath
@@ -3708,7 +3720,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
     # ── Entity — named exemptions ──
 
     entity "ExemptedReference" do
-      identified_by { registered_at.value }
+      identified_by :registered_at
       description "A specific relationship line whose violation is officially exempted with a named, case-by-case reason. Registered via ExemptReference AFTER the macrophage has complained and the team has decided the conversion is queued, not skipped — never pre-emptively. The reason must be non-empty. Check skips a matching file + reference_line + kind silently on future runs."
       attribute :registered_at,  Timestamp
       attribute :file_path,      FilePath
@@ -3721,9 +3733,9 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "StartSession" do
       role "System"
-      description "Reset per-session counters at boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects what was scanned today, not lifetime totals. The NotationViolation and ExemptedReference collections are NOT reset — they are audit trail and standing rules respectively."
+      goal "Reset per-session counters at boot. The macrophage keeps a per-session tally so the discipline scoreboard reflects what was scanned today, not lifetime totals. The NotationViolation and ExemptedReference collections are NOT reset — they are audit trail and standing rules respectively."
       attribute :session_started_at, Timestamp
-      then_set :session_started_at, to: :session_started_at
+      sets :session_started_at
       emits "SessionStarted"
     end
 
@@ -3731,33 +3743,33 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "Check" do
       role "Hook"
-      description "Scan one .bluebook / .hecksagon file for relationship-discipline violations. Increments files_checked. Walks each relationship declaration (list_of / reference_to / has_one / has_many / belongs_to) ; for codey_double_colon (a `::` in a cross-reference target) dispatches RecordViolation. cross_verb_at_value_object is left to the validator's unknown_aggregate_errors ; inside_verb_at_root needs a corpus pass. The hook calls this once per .bluebook / .hecksagon write ; the macrophage decides what fired. No complaint is issued here — Complain is the surface command. CONCEPTION ONLY until the upsert-on-identity merge (see the block comment above)."
+      goal "Scan one .bluebook / .hecksagon file for relationship-discipline violations. Increments files_checked. Walks each relationship declaration (list_of / reference_to / has_one / has_many / belongs_to) ; for codey_double_colon (a `::` in a cross-reference target) dispatches RecordViolation. cross_verb_at_value_object is left to the validator's unknown_aggregate_errors ; inside_verb_at_root needs a corpus pass. The hook calls this once per .bluebook / .hecksagon write ; the macrophage decides what fired. No complaint is issued here — Complain is the surface command. CONCEPTION ONLY until the upsert-on-identity merge (see the block comment above)."
       attribute :file_path, FilePath
       emits "CheckRun"
     end
 
     command "RecordViolation" do
       role "Hook"
-      description "A specific relationship-discipline violation was detected. Records the file, aggregate/VO name, the verbatim reference line, the violation kind, and the line number ; appends a NotationViolation entity ; increments the kind-specific counter and total_violations ; updates last_offending_file and last_offending_kind. The hook chains into Complain to surface the violation — this command records the fact ; Complain records the reaction. If the file + reference_line + kind appears in ExemptedReference, the hook skips Complain and increments exempted_violations instead."
+      goal "A specific relationship-discipline violation was detected. Records the file, aggregate/VO name, the verbatim reference line, the violation kind, and the line number ; appends a NotationViolation entity ; increments the kind-specific counter and total_violations ; updates last_offending_file and last_offending_kind. The hook chains into Complain to surface the violation — this command records the fact ; Complain records the reaction. If the file + reference_line + kind appears in ExemptedReference, the hook skips Complain and increments exempted_violations instead."
       attribute :file_path,      FilePath
       attribute :aggregate_name, AggregateName
       attribute :reference_line, ReferenceLine
       attribute :kind,           ViolationKind
       attribute :line_number,    LineNumber
       attribute :recorded_at,    Timestamp
-      then_set :last_offending_file, to: :file_path
-      then_set :last_offending_kind, to: :kind
+      sets :last_offending_file, to: :file_path
+      sets :last_offending_kind, to: :kind
       emits "ViolationRecorded"
     end
 
     command "Complain" do
       role "Hook"
-      description "The RelationshipDiscipline macrophage detected a relationship-grammar violation. Records the complaint text + timestamp on the root for fast statusline reads. The hook ALSO prints to stderr so Claude Code surfaces it on the next turn — the feedback loop that closes the discipline. For codey_double_colon the complaint reads 'The RelationshipDiscipline macrophage expected the English `from <Context>` form, not the codey `::` — <line>. Rewrite `Domain::Type` as `Type from <Domain>` ; the verb carries the boundary, no constant-resolution operator in the domain language.'"
+      goal "The RelationshipDiscipline macrophage detected a relationship-grammar violation. Records the complaint text + timestamp on the root for fast statusline reads. The hook ALSO prints to stderr so Claude Code surfaces it on the next turn — the feedback loop that closes the discipline. For codey_double_colon the complaint reads 'The RelationshipDiscipline macrophage expected the English `from <Context>` form, not the codey `::` — <line>. Rewrite `Domain::Type` as `Type from <Domain>` ; the verb carries the boundary, no constant-resolution operator in the domain language.'"
       attribute :kind,             ViolationKind
       attribute :complaint,        ComplaintText
       attribute :last_complaint_at, Timestamp
-      then_set :last_complaint,    to: :complaint
-      then_set :last_complaint_at, to: :last_complaint_at
+      sets :last_complaint,    to: :complaint
+      sets :last_complaint_at
       emits "ComplaintIssued"
     end
 
@@ -3765,7 +3777,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "ExemptReference" do
       role "System"
-      description "Register a named exemption for a specific relationship line so the macrophage will not complain about its violation of a given kind. The reason must be non-empty — an exemption without a named reason falls into the pre-emptive trap the AntibodyExemption discipline forbids. Registered after the macrophage has fired, never before ; the NotationViolation audit trail should already hold an entry for this file + line. Appends an ExemptedReference entity."
+      goal "Register a named exemption for a specific relationship line so the macrophage will not complain about its violation of a given kind. The reason must be non-empty — an exemption without a named reason falls into the pre-emptive trap the AntibodyExemption discipline forbids. Registered after the macrophage has fired, never before ; the NotationViolation audit trail should already hold an entry for this file + line. Appends an ExemptedReference entity."
       attribute :file_path,      FilePath
       attribute :reference_line, ReferenceLine
       attribute :kind,           ViolationKind
@@ -3776,7 +3788,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
 
     command "RevokeExemption" do
       role "System"
-      description "Remove an existing exemption — typically after the `::` -> `from` conversion has landed and the line should no longer fire. Matches by file_path + reference_line + kind. The ExemptedReference entity is marked revoked rather than deleted so the audit trail of who exempted what when stays intact."
+      goal "Remove an existing exemption — typically after the `::` -> `from` conversion has landed and the line should no longer fire. Matches by file_path + reference_line + kind. The ExemptedReference entity is marked revoked rather than deleted so the audit trail of who exempted what when stays intact."
       attribute :file_path,      FilePath
       attribute :reference_line, ReferenceLine
       attribute :kind,           ViolationKind

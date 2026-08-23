@@ -4,8 +4,9 @@ Hecks.bluebook "ConversationTranscript", version: "2026.04.28.1" do
 
   # Lifted out of training_corpus.bluebook in i112 split.
 
-  aggregate "ConversationTranscript", "A recorded session between Miette and a person — teaches voice and behavior" do
-    identified_by { ref.value }
+  aggregate "ConversationTranscript" do
+    description "A recorded session between Miette and a person — teaches voice and behavior"
+    identified_by :ref
     attribute :ref,                Ref
     attribute :person,             PersonName
     attribute :turns,              TurnCount
@@ -37,14 +38,14 @@ Hecks.bluebook "ConversationTranscript", version: "2026.04.28.1" do
 
     command "RecordTranscript" do
       role "System"
-      description "Capture a conversation session as training data"
+      goal "Capture a conversation session as training data"
       attribute :person,            PersonName
       attribute :turns,             TurnCount
       attribute :domains_conceived, EventCount
       emits "TranscriptRecorded"
-      then_set :person,            to: :person
-      then_set :turns,             to: :turns
-      then_set :domains_conceived, to: :domains_conceived
+      sets :person
+      sets :turns
+      sets :domains_conceived
     end
   end
 end

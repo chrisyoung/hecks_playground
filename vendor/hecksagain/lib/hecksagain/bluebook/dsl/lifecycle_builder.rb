@@ -15,13 +15,13 @@ module Hecksagain
           mapping.each do |command, target|
             @transitions << [
               command.to_s,
-              IR::StateTransition.new(target: target, from: from)
+              StateTransition.new(target: target, from: from)
             ]
           end
         end
 
         def build
-          IR::Lifecycle.new(field: @field, default: @default, transitions: @transitions)
+          Lifecycle.new(field: @field, default: @default, transitions: @transitions)
         end
 
         def self.build(field, default:, &block)

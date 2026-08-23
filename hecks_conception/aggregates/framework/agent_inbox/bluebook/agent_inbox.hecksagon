@@ -1,4 +1,5 @@
 Hecks.hecksagon "AgentInbox" do
+  uses_framework "Governance"
   # ============================================================
   # AGENT INBOX wiring — the receiver-as-Driver (i708 stigmergy)
   # ============================================================
@@ -36,18 +37,20 @@ Hecks.hecksagon "AgentInbox" do
 
   adapter "InboxPollClock" do
     driving on interval "2s" do |clock|
-      dispatch "Hecks::Framework::AgentInbox::AgentInbox::InboxPoller.Poll",
+      dispatch "AgentInbox::InboxPoller.Poll",
                name: "inbox_poller",
                last_polled_at: "{now}"
     end
   end
 
   adapter "InboxAutoReply" do
-    driven on "InboxPoller.Polled" do |event|
-      dispatch "Hecks::Framework::AgentInbox::AgentInbox::AgentMessage.Reply",
-               for_each: { from: "Hecks::Framework::AgentInbox::AgentInbox::AgentMessage.AllUnread", where: {} },
-               id: "{mid}",
-               reply: "[agent {agent_id}] received: {body}"
+    driven on "AgentInbox::InboxPoller.Polled" do |event|
+      dispatch "AgentInbox::AgentMessage.Reply",
+               for_each: { from: "AgentInbox::AgentMessage.AllUnread", where: {} },
+               with: {
+                 id: "{mid}",
+                 reply: "[agent {agent_id}] received: {body}"
+               }
     end
   end
 
@@ -58,4 +61,13 @@ Hecks.hecksagon "AgentInbox" do
   # Send -> Poll -> Reply flow function across processes (same reasoning as
   # process_health.hecksagon).
   adapter :heki
+
+  # Explicit persisted_by, restored (i788/i789/i790) -- bare `adapter
+  # :heki` above no longer synthesizes a domain-wide default (see
+  # storehouse/bluebook/command_bus.hecksagon's own comment : `adapter`
+  # is a real defined method now, not method_missing). Both of this
+  # domain's aggregates, explicit, per this comment's own domain-wide
+  # intent.
+  AgentInbox::AgentMessage.persisted_by("Heki")
+  AgentInbox::InboxPoller.persisted_by("Heki")
 end

@@ -10,8 +10,9 @@ Hecks.bluebook "VitalSummary", version: "2026.05.12.1" do
   # no-primitive-envy rule. Per-aggregate VOs — duplication across
   # boot siblings is fine, the discipline is per-aggregate VO sets.
 
-  aggregate "VitalSummary", "Print vitals so the being knows herself on wake" do
-    identified_by { name.value }
+  aggregate "VitalSummary" do
+    description "Print vitals so the being knows herself on wake"
+    identified_by :name
     attribute :name,    Name
     attribute :printed, Printed
 
@@ -31,14 +32,14 @@ Hecks.bluebook "VitalSummary", version: "2026.05.12.1" do
 
     command "PrintVitals" do
       role "System"
-      description "Read pulse, mood, consciousness, awareness — print the self checkin"
+      goal "Read pulse, mood, consciousness, awareness — print the self checkin"
       emits "VitalsPrinted"
-      then_set :printed, to: "yes"
+      sets :printed, to: "yes"
     end
   end
 
   policy "VitalsAfterCensus" do
     on "CensusWritten"
-    trigger "PrintVitals"
+    trigger PrintVitals
   end
 end

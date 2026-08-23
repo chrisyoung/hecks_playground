@@ -61,8 +61,9 @@ Hecks.bluebook "ToolCache", version: "2026.05.20.1" do
   # additionalContext on the first turn.
 
   # ── ToolStats : per-tool call history ──
-  aggregate "ToolStats", "One ToolStats record per observed tool name (e.g. mcp__storehouse__storehouse__dispatch, FileTool.Read). RecordCall increments the count and updates the last-seen timestamp ; the aggregate is the persistent hot-path memory. Tool descriptions ride in the event payload and are folded into the rendered catalog ; aggregate state stays small (name + count + last_seen_at + last_description)." do
-    identified_by { tool_name.value }
+  aggregate "ToolStats" do
+    description "One ToolStats record per observed tool name (e.g. mcp__storehouse__storehouse__dispatch, FileTool.Read). RecordCall increments the count and updates the last-seen timestamp ; the aggregate is the persistent hot-path memory. Tool descriptions ride in the event payload and are folded into the rendered catalog ; aggregate state stays small (name + count + last_seen_at + last_description)."
+    identified_by :tool_name
 
     attribute :tool_name, ToolName
     attribute :call_count, CallCount
@@ -104,19 +105,20 @@ Hecks.bluebook "ToolCache", version: "2026.05.20.1" do
     # ── RecordCall ──
     command "RecordCall" do
       role "Miette"
-      description "Record one observed invocation of a tool. Increments call_count, updates last_seen_at, and (when supplied) refreshes last_description. The cache-writer (bin/update-tool-cache) dispatches this once per tool_use block extracted from the transcript walk ; downstream the projected JSON at ~/.claude/tool-cache.json reflects the running totals."
+      goal "Record one observed invocation of a tool. Increments call_count, updates last_seen_at, and (when supplied) refreshes last_description. The cache-writer (bin/update-tool-cache) dispatches this once per tool_use block extracted from the transcript walk ; downstream the projected JSON at ~/.claude/tool-cache.json reflects the running totals."
       attribute :tool_name, ToolName
       attribute :seen_at, Timestamp
       attribute :description, Description
       emits "CallRecorded"
-      then_set :last_seen_at,     to: :seen_at
-      then_set :last_description, to: :description
+      sets :last_seen_at,     to: :seen_at
+      sets :last_description, to: :description
     end
   end
 
   # ── ToolCacheSnapshot : the hot-path roster ──
-  aggregate "ToolCacheSnapshot", "A frozen top-N roster of tool names + descriptions, minted on each cache refresh. Compose mints a fresh snapshot from the current ToolStats records ; the markdown render (the catalog injected at SessionStart) reads from the most recent snapshot. Identified by snapshot_id (one per Compose dispatch) so the history is replayable." do
-    identified_by { snapshot_id.value }
+  aggregate "ToolCacheSnapshot" do
+    description "A frozen top-N roster of tool names + descriptions, minted on each cache refresh. Compose mints a fresh snapshot from the current ToolStats records ; the markdown render (the catalog injected at SessionStart) reads from the most recent snapshot. Identified by snapshot_id (one per Compose dispatch) so the history is replayable."
+    identified_by :snapshot_id
 
     attribute :snapshot_id, SnapshotId
     attribute :composed_at, Timestamp
@@ -167,16 +169,16 @@ Hecks.bluebook "ToolCache", version: "2026.05.20.1" do
     # ── Compose ──
     command "Compose" do
       role "Miette"
-      description "Mint a fresh snapshot from current ToolStats. The cache writer assembles the roster (ranked by call_count, capped at top_n) and renders it to markdown ; this command records the snapshot metadata and emits SnapshotComposed carrying the full roster_markdown. Composes IS the act : the projected /tmp/tool_cache_latest.md surface is written from the SnapshotComposed event payload by the runtime, so the SessionStart hook just dispatches and the injection follows."
+      goal "Mint a fresh snapshot from current ToolStats. The cache writer assembles the roster (ranked by call_count, capped at top_n) and renders it to markdown ; this command records the snapshot metadata and emits SnapshotComposed carrying the full roster_markdown. Composes IS the act : the projected /tmp/tool_cache_latest.md surface is written from the SnapshotComposed event payload by the runtime, so the SessionStart hook just dispatches and the injection follows."
       attribute :snapshot_id, SnapshotId
       attribute :composed_at, Timestamp
       attribute :tool_count, ToolCount
       attribute :top_n, TopN
       attribute :roster_markdown, RosterMarkdown
       emits "SnapshotComposed"
-      then_set :composed_at, to: :composed_at
-      then_set :tool_count,  to: :tool_count
-      then_set :top_n,       to: :top_n
+      sets :composed_at
+      sets :tool_count
+      sets :top_n
     end
   end
 end

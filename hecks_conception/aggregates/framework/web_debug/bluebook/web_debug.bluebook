@@ -4,7 +4,7 @@ Hecks.bluebook "WebDebug" do
 
   aggregate "Screenshot" do
     description "One captured frame of a running UI. State records only WHAT was captured + WHEN + WHERE it landed (frame_id, captured_at, path) ; the base64 JPEG bytes are an event-only payload that rides FrameCaptured to the screenshot_buffer adapter. The buffer is circular (capacity 100) : the adapter writes frame_NNNN.jpg + refreshes latest.jpg + prunes the oldest, so the heki never grows with image bytes."
-    identified_by { frame_id.value }
+    identified_by :frame_id
     attribute :frame_id, FrameId
     attribute :captured_at, CapturedAt
     attribute :path, FramePath, default: { value: "—" }
@@ -38,7 +38,7 @@ Hecks.bluebook "WebDebug" do
       attribute :frame_id, FrameId
       attribute :captured_at, CapturedAt
       attribute :frame_data, FrameData
-      then_set :captured_at, to: :captured_at
+      sets :captured_at
       emits "FrameCaptured"
     end
 
@@ -51,7 +51,7 @@ Hecks.bluebook "WebDebug" do
       # written basename so Latest can report WHERE the frame landed.
       reference_to Screenshot
       attribute :path, FramePath
-      then_set :path, to: :path
+      sets :path
       emits "FrameStored"
     end
 
@@ -61,9 +61,11 @@ Hecks.bluebook "WebDebug" do
       limit 1
     end
 
-    # How many frames are buffered.
+    # How many frames are buffered. `count` was never a real QueryBuilder
+    # verb -- no counting primitive exists ; this returns every record and
+    # the caller reads its own length, same as any other unfiltered query.
     query "Count" do
-      count
+      description "Every buffered frame ; caller reads .length for the count"
     end
   end
 end

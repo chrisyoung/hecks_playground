@@ -2,8 +2,9 @@ Hecks.bluebook "Git", version: "2026.05.29.1" do
   vision "Git tool invocations as typed Door commands — each verb a first-class dispatch. The caller computes and attaches results (branch name, log output, diff text, worktree list) as value objects; the command records them on state and emits a typed event. Mirrors the board_markdown.bluebook pattern: caller computes, command records. The :git_tool adapter family (framework/adapter_families/git_tool.hecksagon) binds each command to the matching kernel-floor shell-out; the result chains back via Cascade.RecordResult. Sprint 7 done-is-done gates lean on this aggregate — WorktreeList lets a gate confirm worktree clean; CurrentBranch confirms merged-to-main."
   category "framework"
 
-  aggregate "Git", "Git command invocations as first-class dispatches. Each command records its captured output on state and emits a typed event. The :git_tool adapter family shells out and cascades the result back; this bluebook is the pure contract, not the execution." do
-    identified_by { id.value }
+  aggregate "Git" do
+    description "Git command invocations as first-class dispatches. Each command records its captured output on state and emits a typed event. The :git_tool adapter family shells out and cascades the result back; this bluebook is the pure contract, not the execution."
+    identified_by :id
 
     attribute :id, Id
     attribute :status_output,       StatusOutput,       default: { value: "" }
@@ -57,49 +58,49 @@ Hecks.bluebook "Git", version: "2026.05.29.1" do
 
     command "Status" do
       role "Miette"
-      description "Record the output of `git status`. The :git_tool adapter shells out, captures stdout, and cascades the result back via Cascade.RecordResult which drives a follow-on Git.Status dispatch carrying the captured text on status_output. The command records the result and emits StatusChecked."
+      goal "Record the output of `git status`. The :git_tool adapter shells out, captures stdout, and cascades the result back via Cascade.RecordResult which drives a follow-on Git.Status dispatch carrying the captured text on status_output. The command records the result and emits StatusChecked."
       attribute :id, Id
       attribute :status_output, StatusOutput
       emits "StatusChecked"
-      then_set :status_output, to: :status_output
+      sets :status_output
     end
 
     command "Log" do
       role "Miette"
-      description "Record the output of `git log <range>`. RangeSpec is required; pass an empty string to default to the full log. The :git_tool adapter shells out and cascades the captured log text back via Cascade.RecordResult. Emits LogRead."
+      goal "Record the output of `git log <range>`. RangeSpec is required; pass an empty string to default to the full log. The :git_tool adapter shells out and cascades the captured log text back via Cascade.RecordResult. Emits LogRead."
       attribute :id, Id
       attribute :range, RangeSpec
       attribute :log_output, LogOutput
       emits "LogRead"
-      then_set :log_output, to: :log_output
+      sets :log_output
     end
 
     command "Diff" do
       role "Miette"
-      description "Record the output of `git diff <range>`. RangeSpec is required; pass an empty string for the working-tree diff. The :git_tool adapter shells out and cascades the captured diff text back via Cascade.RecordResult. Emits DiffRead."
+      goal "Record the output of `git diff <range>`. RangeSpec is required; pass an empty string for the working-tree diff. The :git_tool adapter shells out and cascades the captured diff text back via Cascade.RecordResult. Emits DiffRead."
       attribute :id, Id
       attribute :range, RangeSpec
       attribute :diff_output, DiffOutput
       emits "DiffRead"
-      then_set :diff_output, to: :diff_output
+      sets :diff_output
     end
 
     command "CurrentBranch" do
       role "Miette"
-      description "Record the current git branch name from `git rev-parse --abbrev-ref HEAD`. The :git_tool adapter shells out and cascades the branch name back via Cascade.RecordResult. Emits CurrentBranchRead."
+      goal "Record the current git branch name from `git rev-parse --abbrev-ref HEAD`. The :git_tool adapter shells out and cascades the branch name back via Cascade.RecordResult. Emits CurrentBranchRead."
       attribute :id, Id
       attribute :current_branch, CurrentBranch
       emits "CurrentBranchRead"
-      then_set :current_branch, to: :current_branch
+      sets :current_branch
     end
 
     command "WorktreeList" do
       role "Miette"
-      description "Record the output of `git worktree list --porcelain`. Downstream done-is-done gates parse this to confirm the worktree is clean and merged to main. The :git_tool adapter shells out and cascades back via Cascade.RecordResult. Emits WorktreeListRead."
+      goal "Record the output of `git worktree list --porcelain`. Downstream done-is-done gates parse this to confirm the worktree is clean and merged to main. The :git_tool adapter shells out and cascades back via Cascade.RecordResult. Emits WorktreeListRead."
       attribute :id, Id
       attribute :worktree_list_output, WorktreeListOutput
       emits "WorktreeListRead"
-      then_set :worktree_list_output, to: :worktree_list_output
+      sets :worktree_list_output
     end
   end
 end

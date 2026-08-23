@@ -20,8 +20,9 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
   # Append is THE ONE WRITER. There is no Event.Update / Event.Delete :
   # the Log is append-only by construction (no mutating command exists).
 
-  aggregate "Event", "The immutable atom of the substrate. Carries BOTH the command (intent + inputs) and the resulting delta (the fact of what changed), plus the lineage ids (causation_id / correlation_id), the acting party, the monotonic sequence, and the recorded_at stamp. Identified by event_id. Append is the only writer ; the Log is append-only because no mutating command exists." do
-    identified_by { event_id.value }
+  aggregate "Event" do
+    description "The immutable atom of the substrate. Carries BOTH the command (intent + inputs) and the resulting delta (the fact of what changed), plus the lineage ids (causation_id / correlation_id), the acting party, the monotonic sequence, and the recorded_at stamp. Identified by event_id. Append is the only writer ; the Log is append-only because no mutating command exists."
+    identified_by :event_id
 
     attribute :event_id,       EventId
     attribute :aggregate_name, AggregateName
@@ -188,7 +189,7 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
     command "Append" do
       role "System"
       goal "Append one immutable event to the Log — the single write path of the whole substrate"
-      description "Record an event as fact. Carries BOTH the command (intent + inputs) and the resolved delta, the lineage ids, the actor, the monotonic sequence, and recorded_at. The runtime's sequencer supplies a strictly-increasing sequence ; the delta is already resolved (now/rand/compute frozen) so the fold is deterministic. This is the only writer — there is no update or delete, which is what makes the Log append-only."
+      goal "Record an event as fact. Carries BOTH the command (intent + inputs) and the resolved delta, the lineage ids, the actor, the monotonic sequence, and recorded_at. The runtime's sequencer supplies a strictly-increasing sequence ; the delta is already resolved (now/rand/compute frozen) so the fold is deterministic. This is the only writer — there is no update or delete, which is what makes the Log append-only."
       attribute :event_id,       EventId
       attribute :aggregate_name, AggregateName
       attribute :aggregate_id,   AggregateId
@@ -217,10 +218,14 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
     query "Replay" do |aggregate_name|
       # The Log for one aggregate kind, in sequence order — the universal
       # fold input. The trivial per-aggregate projection replays this.
-      where(aggregate_name: aggregate_name)
+      where(aggregate_name: :aggregate_name)
     end
 
     query "AtSequence" do |seq|
+      # `seq` names no owner attribute (the owner's own field is
+      # `sequence`), so derive_from_owner! can't infer its type -- declared
+      # explicitly instead, matching Sequence's own type.
+      attribute :seq, Sequence
       # Point lookup : the event AT a sequence. where() carries ordered
           # predicates (Gt/Gte/Lt/Lte) in the matcher, so the "tail strictly
           # AFTER a watermark" that Snapshot's fall-forward needs IS expressible.
@@ -241,7 +246,7 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
           # behaviors (VO-as-string) and the live storehouse (VO-as-map) now
           # agree. The sequence-range SEEK that Snapshot fall-forward needs runs
           # through SinceSequence, which drives the nested value directly.
-      where(sequence: seq)
+      where(sequence: :seq)
     end
 
     query "SinceSequence" do |sequence|
@@ -259,12 +264,12 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
     query "ForAggregate" do |aggregate_id|
       # Every event for one aggregate instance — the input to the trivial
       # per-aggregate (current-state) projection.
-      where(aggregate_id: aggregate_id)
+      where(aggregate_id: :aggregate_id)
     end
 
     query "ByCorrelation" do |correlation_id|
           # Every event in one originating flow — the lineage-ready slice.
-          where(correlation_id: correlation_id)
+          where(correlation_id: :correlation_id)
         end
 
         # ── Lineage facet-queries ──────────────────────────────────────
@@ -273,7 +278,7 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
           # Every event a given party issued — a plain equality slice over the
           # actor field. Expressible as an ordinary where() (the lineage facet
           # that needs no traversal).
-          where(actor: actor)
+          where(actor: :actor)
         end
 
         query "CausationTrace" do |event_id|
@@ -341,8 +346,9 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
   # the fold keeps only the latest delta per field. Read models are NAMED
   # projections with their own fold. Both are the same machine.
 
-  aggregate "Projection", "A view derived by folding event deltas. Identified by name. Apply folds one delta (incrementing events_applied, appending the derived row) ; Rebuild empties it for a fresh replay. Current-state is the trivial per-aggregate projection ; read models are named projections — the same fold machine." do
-    identified_by { name.value }
+  aggregate "Projection" do
+    description "A view derived by folding event deltas. Identified by name. Apply folds one delta (incrementing events_applied, appending the derived row) ; Rebuild empties it for a fresh replay. Current-state is the trivial per-aggregate projection ; read models are named projections — the same fold machine."
+    identified_by :name
 
     attribute :name,           ProjectionName
     attribute :events_applied, AppliedCount, default: { value: 0 }
@@ -387,25 +393,25 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
     command "Rebuild" do
       role "System"
       goal "Empty the projection so the Log can be replayed into it from scratch"
-      description "Reset the fold. The runtime calls Rebuild then replays the Log (Event.Replay) folding each delta via Apply — a projection is always reproducible from the Log alone. Clears the derived view and the counters."
+      goal "Reset the fold. The runtime calls Rebuild then replays the Log (Event.Replay) folding each delta via Apply — a projection is always reproducible from the Log alone. Clears the derived view and the counters."
       attribute :name, ProjectionName
-      then_set :events_applied, to: 0
-      then_set :last_sequence,  to: 0
-      then_set :view,           to: []
+      sets :events_applied, to: 0
+      sets :last_sequence,  to: 0
+      sets :view,           to: []
       emits "ProjectionRebuilt"
     end
 
     command "Apply" do
       role "System"
       goal "Fold one event delta into the view — the actual derivation step"
-      description "Apply a single event's delta to the projection : append the derived row (key=field, value=resolved value), advance the watermark to the event's sequence, and increment events_applied. The runtime drives this once per event during replay or live tailing. This is the honest fold : the view is DERIVED from the deltas, never recorded precomputed."
+      goal "Apply a single event's delta to the projection : append the derived row (key=field, value=resolved value), advance the watermark to the event's sequence, and increment events_applied. The runtime drives this once per event during replay or live tailing. This is the honest fold : the view is DERIVED from the deltas, never recorded precomputed."
       attribute :name,      ProjectionName
       attribute :row_key,   RowKey
       attribute :row_value, RowValue
       attribute :sequence,  Sequence
-      then_set :view,           append: { key: :row_key, value: :row_value }
-      then_set :last_sequence,  to: :sequence
-      then_set :events_applied, increment: 1
+      sets :view,           append: { key: :row_key, value: :row_value }
+      sets :last_sequence,  to: :sequence
+      sets :events_applied, increment: 1
       emits "DeltaApplied"
     end
   end
@@ -437,8 +443,9 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
   # AtSequence is the equality slice ; the fall-forward scan is its ordered
   # generalisation.
 
-  aggregate "Snapshot", "A cached fold of a projection at a sequence watermark. Identified by projection_name. Capture records the folded state + watermark ; on read (ReadForward) the runtime SEEKS the Log tail from watermark+1 to head via the Event-Log sequence-range index and folds those deltas forward, so a snapshot is never wrong, only stale, and the read is O(tail) not O(whole-log). The SQL backend also pushes numeric ranges on INTEGER columns (CAST AS INTEGER). Threshold/on-demand cadence, not time-based." do
-    identified_by { projection_name.value }
+  aggregate "Snapshot" do
+    description "A cached fold of a projection at a sequence watermark. Identified by projection_name. Capture records the folded state + watermark ; on read (ReadForward) the runtime SEEKS the Log tail from watermark+1 to head via the Event-Log sequence-range index and folds those deltas forward, so a snapshot is never wrong, only stale, and the read is O(tail) not O(whole-log). The SQL backend also pushes numeric ranges on INTEGER columns (CAST AS INTEGER). Threshold/on-demand cadence, not time-based."
+    identified_by :projection_name
 
     attribute :projection_name, ProjectionName
     attribute :watermark,       Watermark
@@ -464,12 +471,12 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
     command "Capture" do
       role "System"
       goal "Cache a projection's folded state at a sequence watermark"
-      description "Record the projection's current folded state and the sequence it is valid as of. The runtime captures on a threshold (every N events) or on demand — never on a timer. On read it range-scans the Log from watermark+1 to head and folds those deltas forward, so this cache is always safe : stale at worst, never wrong."
+      goal "Record the projection's current folded state and the sequence it is valid as of. The runtime captures on a threshold (every N events) or on demand — never on a timer. On read it range-scans the Log from watermark+1 to head and folds those deltas forward, so this cache is always safe : stale at worst, never wrong."
       attribute :projection_name, ProjectionName
       attribute :watermark,       Watermark
       attribute :state,           list_of(Row)
-      then_set :watermark, to: :watermark
-      then_set :state,     to: :state
+      sets :watermark
+      sets :state
       emits "SnapshotCaptured"
     end
 
@@ -484,7 +491,7 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
       # snapshot captured yet -> watermark 0 -> a full replay. Serves the
       # trivial current-state projection (Row key "agg::id::field") ;
       # custom-projection reducers are a later lift.
-      where(projection_name: projection_name)
+      where(projection_name: :projection_name)
     end
   end
 
@@ -506,8 +513,9 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
   # continuously-dispatching aggregate races the gauge by nature — and an alarm
   # that fires on every race is one everybody learns to ignore.
 
-  aggregate "Verification", "A singleton standing verdict on derivability : does fold(Log) still reconstruct the live store? One record, keyed \"projection\". Verify is the trigger a Driver fires on an interval ; the runtime performs the fold+compare (kernel-floor, sibling of the consolidation merge) and dispatches Record with the outcome. Persistent drift means the Log and the store genuinely disagree — an unlogged write or a fold bug. Transient drift is the liveness race of reading two stores that cannot be snapshotted atomically, and is counted, not alarmed on." do
-    identified_by { verification_id.value }
+  aggregate "Verification" do
+    description "A singleton standing verdict on derivability : does fold(Log) still reconstruct the live store? One record, keyed \"projection\". Verify is the trigger a Driver fires on an interval ; the runtime performs the fold+compare (kernel-floor, sibling of the consolidation merge) and dispatches Record with the outcome. Persistent drift means the Log and the store genuinely disagree — an unlogged write or a fold bug. Transient drift is the liveness race of reading two stores that cannot be snapshotted atomically, and is counted, not alarmed on."
+    identified_by :verification_id
 
     attribute :verification_id, VerificationId
     attribute :status,          Status,     default: { value: "unknown" }
@@ -526,14 +534,7 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
       # derivable = every folded field matches the store. drifted = at least one
       # PERSISTENT mismatch survived re-measurement. empty = the Log has nothing
       # to verify yet (the gate is off, or nothing has been dispatched).
-      attribute :value, String
-
-      one_of do
-        member value: "unknown"
-        member value: "derivable"
-        member value: "drifted"
-        member value: "empty"
-      end
+      attribute :value, String, one_of: %w[unknown derivable drifted empty]
     end
     value_object "CheckedAt" do
       attribute :value, String
@@ -570,16 +571,16 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
     command "Verify" do
       role "System"
       goal "Ask whether current state is still derivable from the Log"
-      description "The TRIGGER. Carries no result : the runtime hook folds the complete Log (consolidated event.heki + the unconsolidated shard tail), compares each reconstructed field to the live store, re-measures to strip transient races, and dispatches Record with the verdict. Fired by the ProjectionVerification Driver on an interval, or by hand."
+      goal "The TRIGGER. Carries no result : the runtime hook folds the complete Log (consolidated event.heki + the unconsolidated shard tail), compares each reconstructed field to the live store, re-measures to strip transient races, and dispatches Record with the verdict. Fired by the ProjectionVerification Driver on an interval, or by hand."
       attribute :verification_id, VerificationId
-      then_set :verification_id, to: :verification_id
+      sets :verification_id
       emits "VerificationRequested"
     end
 
     command "Record" do
       role "System"
       goal "Record the standing verdict on derivability"
-      description "Where the measurement lands, so the answer is queryable domain state rather than console output. Upserts on the singleton key — the LATEST verdict is the one that matters ; the history of verdicts rides the Log like any other fact."
+      goal "Where the measurement lands, so the answer is queryable domain state rather than console output. Upserts on the singleton key — the LATEST verdict is the one that matters ; the history of verdicts rides the Log like any other fact."
       attribute :verification_id, VerificationId
       attribute :status,          Status
       attribute :checked_at,      CheckedAt
@@ -588,13 +589,13 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
       attribute :fields_checked,  FieldsChecked
       attribute :missing_rows,    MissingRows
       attribute :detail,          Detail
-      then_set :status,         to: :status
-      then_set :checked_at,     to: :checked_at
-      then_set :drift_fields,   to: :drift_fields
-      then_set :transient,      to: :transient
-      then_set :fields_checked, to: :fields_checked
-      then_set :missing_rows,   to: :missing_rows
-      then_set :detail,         to: :detail
+      sets :status
+      sets :checked_at
+      sets :drift_fields
+      sets :transient
+      sets :fields_checked
+      sets :missing_rows
+      sets :detail
       emits "VerificationRecorded"
     end
 
@@ -619,8 +620,9 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
   # performs one merge pass (kernel-floor persistence IO, event_merge.rs). This
   # is what retires the hand-written run_merge daemon.
 
-  aggregate "Consolidation", "A singleton marker that the per-process Event shards were folded into the global ordered Log AND the fully-folded shards of dead processes reclaimed. The fold and the reclaim are both kernel-floor persistence IO (event_merge.rs, sibling of heki.rs) ; this aggregate is the DOMAIN trigger for them — one record, keyed \"log\", touched by each Consolidate. Reclamation matters because every dispatch process single-writes its own shard then exits, so without GC the shard directory grows without bound ; a shard is reclaimed only once the merge has folded it whole AND its owning process is dead (a live owner holds the file open, so unlinking it would lose its future appends). Fired by a driving-on-interval Driver, replacing the run_merge daemon." do
-    identified_by { consolidation_id.value }
+  aggregate "Consolidation" do
+    description "A singleton marker that the per-process Event shards were folded into the global ordered Log AND the fully-folded shards of dead processes reclaimed. The fold and the reclaim are both kernel-floor persistence IO (event_merge.rs, sibling of heki.rs) ; this aggregate is the DOMAIN trigger for them — one record, keyed \"log\", touched by each Consolidate. Reclamation matters because every dispatch process single-writes its own shard then exits, so without GC the shard directory grows without bound ; a shard is reclaimed only once the merge has folded it whole AND its owning process is dead (a live owner holds the file open, so unlinking it would lose its future appends). Fired by a driving-on-interval Driver, replacing the run_merge daemon."
+    identified_by :consolidation_id
 
     # Singleton key : defaults to "log" so a no-arg Consolidate keys the one
     # record. The driver dispatches Consolidate with no domain attrs, so the
@@ -634,7 +636,7 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
     command "Consolidate" do
       role "System"
       goal "Fold this realm's per-process Event shards into the global ordered Log"
-      description "Maintenance command — the AppendLog adapter's consolidation half. Carries no shard data : the runtime hook run_consolidate performs ONE merge pass (read each shard from its checkpoint offset, order by (ts, shard, seq), write new records to the global event.heki idempotently by event_id, advance the checkpoint), then RECLAIMS every shard the merge has now folded whole whose owning process is dead (deleting the file and pruning its checkpoint entry, guarded by a trustworthy live-process probe so a live owner's open shard is never unlinked). Dispatched by the driving-on-interval Driver, never by hand. Touches the singleton so the record's existence is the freshness signal."
+      goal "Maintenance command — the AppendLog adapter's consolidation half. Carries no shard data : the runtime hook run_consolidate performs ONE merge pass (read each shard from its checkpoint offset, order by (ts, shard, seq), write new records to the global event.heki idempotently by event_id, advance the checkpoint), then RECLAIMS every shard the merge has now folded whole whose owning process is dead (deleting the file and pruning its checkpoint entry, guarded by a trustworthy live-process probe so a live owner's open shard is never unlinked). Dispatched by the driving-on-interval Driver, never by hand. Touches the singleton so the record's existence is the freshness signal."
     end
   end
 end

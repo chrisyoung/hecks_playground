@@ -1,0 +1,15 @@
+# PrDeliveryMerge — a concrete async SPAWN adapter (i787), re-expressing
+# pr_delivery.hecksagon's 3rd binding — a bare `run "gh pr merge ..."`
+# leaf, confirmed a hard no-op in the vendored gem (`DrivenCapture#run` is
+# an explicit stub) — onto the proven spawned_by mechanism.
+#
+# MUTATING: squash-merges a real PR and deletes its branch. See
+# pr_delivery_merge.hecksagon for the full rationale and the success-path-
+# only field-delivery asymmetry that shaped CompleteMerge/FailMerge.
+#
+# Resolves IFF this adapter's declared port (spawn) carries the
+# `spawned_by` verb. bin/adapter-host runs the handler via `/bin/sh -c`.
+Hecks.adapter "PrDeliveryMerge" do
+  port "spawn"
+  handler "bin/pr_delivery_merge"
+end

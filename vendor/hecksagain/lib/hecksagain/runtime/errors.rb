@@ -1,4 +1,5 @@
 require_relative "value/invariant_violation"
+require_relative "../vocabulary"
 
 
 module Hecksagain
@@ -23,12 +24,56 @@ module Hecksagain
     # record it would have overwritten stands ; the dispatch that tried to
     # mint a second one over it is what refuses.
     class AlreadyExists < StandardError; end
+    # A declared, non-optional attribute a record predates — added since
+    # it was written, with no default: to fill it and no translation
+    # declaring what an old record should read there. `GuardState`
+    # (command_rules/admissibility.rb) is the one place this is raised: a
+    # `given`/`ensures`/`invariant` that reads the field would otherwise
+    # evaluate against a value nobody wrote, which is the same silent-
+    # wrong-answer class as an unpopulated projection reading "not
+    # active" (ADR 0025, "Added attributes and absence"). An OPTIONAL
+    # attribute in the same spot reads nil instead — that is what
+    # optional means, and this refusal is deliberately narrower than the
+    # nil-read it sits beside, not a replacement for it.
+    class AttributeAbsent < StandardError; end
+    # THE SAME SILENT-WRONG-ANSWER CLASS AS ABOVE, one line up — a
+    # `projects` field (S12, ADR 0025) this record predates, or that no
+    # rebuild sweep has populated yet, read by a `given`/`ensures`/
+    # `invariant` as though it carried a real value. `GuardState` is
+    # the one place this is raised, the same way AttributeAbsent is —
+    # a DECLARED field the record does not yet carry, distinguished
+    # from that one only in WHY: an ordinary attribute is absent
+    # because nobody backfilled it, a projected field is absent
+    # because nobody has swept it yet.
+    class ProjectionAbsent < StandardError; end
     # A query or read model declares `authorize policy, tenant: :field` and
     # the caller did not pass that field — the one half of `authorize` this
     # runtime can enforce without a caller-identity system: the boundary
     # itself, not whether the caller actually holds `policy`. See
     # Runtime::TenantScope.
     class Unauthorized < StandardError; end
+
+    # `Domain::Aggregate.Entity.Command`, dispatched BY VERB STRING —
+    # Dispatcher#dispatch's own boundary, not EntityInterpreter's.
+    # Unconditional : there is no caller this refuses FOR and no caller it
+    # lets through — a nested entity's own command simply never resolves
+    # through `dispatch` (or `reenter`, which only ever calls back into
+    # `dispatch`), no matter who is asking or why. `Dispatcher#
+    # dispatch_entity` is the one door that reaches an entity command, and
+    # it takes a direct in-process call, never a verb string handed to a
+    # dispatcher — see that method's own header, and docs/guides/
+    # entities.md for the facade sugar (`Aggregate::Entity.command!`) built
+    # on top of it. `role:` (LedgerEntry.Amend's own `role "Back office"`,
+    # in the banking example) still means exactly what it always did —
+    # `dispatch_entity` runs EntityInterpreter's full DISPATCH_ORDER,
+    # `refuse_role_mismatch` included, so a caller wrapped in
+    # `Hecksagain.as_caller(role: ...)` is checked the same way any
+    # aggregate command's caller is. What `role:` no longer decides is
+    # WIRE reachability — that boundary is structural now (this refusal),
+    # not role-gated, so a `role:` an entity command declares answers a
+    # narrower question than it used to : "which caller may run this,"
+    # never "may an outside caller reach this at all."
+    class EntityDispatchRefused < StandardError; end
 
     # A Lambda-routed domain's own refusal (rust/host, `Runtime::
     # RemoteDispatcher`), carrying Rust's own refusal text verbatim —
@@ -67,9 +112,12 @@ module Hecksagain
     # invariant is declined, not crashed. Found by spec/domain_refusal_spec on
     # its first run : every corpus refusal must be a class named here, and 23
     # of banking's were InvariantViolation.
-    DOMAIN_REFUSALS = [
-      AbsentArgument, AlreadyExists, EnsuresNotMet, GivenNotMet, InvariantViolation, LifecycleRefused, NotFound,
-      RemoteRefusal, TypeMismatch, Unauthorized, UnknownArgument, UnknownVerb
-    ].freeze
+    # THE NAMES COME FROM THE LANGUAGE, the classes from this module.
+    # `DomainRefusal` declares WHICH refusals are the domain's own —
+    # a rule the caller broke — as against a runtime fault. Resolving
+    # each name here means a refusal declared but never defined fails
+    # at load with a NameError, rather than being quietly absent from
+    # a list nothing re-checks.
+    DOMAIN_REFUSALS = Hecksagain::Vocabulary.fetch("DomainRefusal").map { |name| const_get(name) }.freeze
   end
 end

@@ -1,3 +1,4 @@
 Hecks.hecksagon "InboxIndex" do
+  uses_framework "Governance"
   InboxIndex::InboxIndex.persisted_by("Heki")
 end

@@ -2,11 +2,23 @@ Hecks.bluebook "Court", version: "2026.05.12.1" do
   vision "Judge specific actions against the Law book — every tool use, commit, conception, and deployment is a case that receives a ruling"
   category "meta"
 
-  aggregate "Case", "A specific action submitted for judgment — what happened, who did it, what evidence exists" do
+  aggregate "Case" do
+    description "A specific action submitted for judgment — what happened, who did it, what evidence exists"
+    # Many cases over time — nothing else on a case is unique, so the
+    # caller mints case_id at File time (Finding already references
+    # case_id as a foreign key ; Case itself never declared the field).
+    identified_by :case_id
 
     # ── Value-objects : wrapped primitives (no-primitive-envy, 2026-05-12) ──
     # Per i555 VOs live inside their aggregate ; one wrapper per
     # surface primitive, each carrying `attribute :value, <Primitive>`.
+
+    value_object "CaseId" do
+      attribute :value, String
+      invariant "must not be empty" do
+        !value.empty?
+      end
+    end
 
     value_object "ActionType" do
       # Typed wrapper around the underlying String on this aggregate.
@@ -58,6 +70,7 @@ Hecks.bluebook "Court", version: "2026.05.12.1" do
       attribute :value, String
     end
 
+    attribute :case_id, CaseId
     attribute :action_type, ActionType
     attribute :actor, Actor
     attribute :target, Target
@@ -72,38 +85,40 @@ Hecks.bluebook "Court", version: "2026.05.12.1" do
 
     command "File" do
       role "Enforcer"
-      description "File a case — submit an action for review against applicable laws"
+      goal "File a case — submit an action for review against applicable laws"
+      attribute :case_id, CaseId
       attribute :action_type, ActionType
       attribute :actor, Actor
       attribute :target, Target
       attribute :detail, Detail
       attribute :occurred_at, OccurredAt
       emits "CaseFiled"
-      then_set :action_type, to: :action_type
-      then_set :actor, to: :actor
-      then_set :target, to: :target
-      then_set :detail, to: :detail
-      then_set :occurred_at, to: :occurred_at
-      then_set :status, to: "filed"
-      then_set :laws_applicable, to: 0
-      then_set :laws_passed, to: 0
-      then_set :laws_violated, to: 0
+      sets :case_id
+      sets :action_type
+      sets :actor
+      sets :target
+      sets :detail
+      sets :occurred_at
+      sets :status, to: "filed"
+      sets :laws_applicable, to: 0
+      sets :laws_passed, to: 0
+      sets :laws_violated, to: 0
     end
 
     command "Hear" do
       role "Judge"
-      description "Begin hearing the case — identify which laws apply to this action type"
+      goal "Begin hearing the case — identify which laws apply to this action type"
       reference_to(Case)
       attribute :laws_applicable, LawsApplicable
       emits "CaseHeard"
-      given { status == "filed" }
-      then_set :laws_applicable, to: :laws_applicable
-      then_set :status, to: "hearing"
+      given("case must be filed") { status == "filed" }
+      sets :laws_applicable
+      sets :status, to: "hearing"
     end
 
     command "CheckLaw" do
       role "Judge"
-      description "Check one applicable law against the action — pass or violate"
+      goal "Check one applicable law against the action — pass or violate"
       reference_to(Case)
       attribute :passed, TrueClass
       emits "LawCheckedInCase"
@@ -111,29 +126,29 @@ Hecks.bluebook "Court", version: "2026.05.12.1" do
 
     command "RuleInnocent" do
       role "Judge"
-      description "All applicable laws passed — the action was lawful"
+      goal "All applicable laws passed — the action was lawful"
       reference_to(Case)
       emits "RuledInnocent"
       given("no violations") { laws_violated == 0 }
-      then_set :ruling, to: "innocent"
-      then_set :status, to: "closed"
+      sets :ruling, to: "innocent"
+      sets :status, to: "closed"
     end
 
     command "RuleGuilty" do
       role "Judge"
-      description "One or more laws were violated — the action was unlawful"
+      goal "One or more laws were violated — the action was unlawful"
       reference_to(Case)
       emits "RuledGuilty"
-      then_set :ruling, to: "guilty"
-      then_set :status, to: "closed"
+      sets :ruling, to: "guilty"
+      sets :status, to: "closed"
     end
 
     command "Appeal" do
       role "Architect"
-      description "Reopen a closed case for re-examination — new evidence or amended law"
+      goal "Reopen a closed case for re-examination — new evidence or amended law"
       reference_to(Case)
       emits "CaseAppealed"
-      then_set :status, to: "appealed"
+      sets :status, to: "appealed"
     end
 
     lifecycle :status, default: "unfiled" do
@@ -146,7 +161,10 @@ Hecks.bluebook "Court", version: "2026.05.12.1" do
     end
   end
 
-  aggregate "Finding", "One law checked against one action — the atomic unit of judgment" do
+  aggregate "Finding" do
+    description "One law checked against one action — the atomic unit of judgment"
+    # Composite : one finding per law checked per case.
+    identified_by :case_id, :law_name
 
     # ── Value-objects : wrapped primitives (no-primitive-envy, 2026-05-12) ──
     # Per i555 VOs live inside their aggregate ; one wrapper per
@@ -177,33 +195,40 @@ Hecks.bluebook "Court", version: "2026.05.12.1" do
       attribute :value, String
     end
 
+    value_object "Passed" do
+      attribute :value, TrueClass
+    end
+
     attribute :case_id, CaseId
     attribute :law_name, LawName
     attribute :check_expression, CheckExpression
     attribute :evidence, Evidence
-    attribute :passed, TrueClass
+    attribute :passed, Passed
     attribute :explanation, Explanation
 
     command "RecordFinding" do
       role "Judge"
-      description "Record whether a specific law was satisfied or violated for this action"
+      goal "Record whether a specific law was satisfied or violated for this action"
       attribute :case_id, CaseId
       attribute :law_name, LawName
       attribute :check_expression, CheckExpression
       attribute :evidence, Evidence
-      attribute :passed, TrueClass
+      attribute :passed, Passed
       attribute :explanation, Explanation
       emits "FindingRecorded"
-      then_set :case_id, to: :case_id
-      then_set :law_name, to: :law_name
-      then_set :check_expression, to: :check_expression
-      then_set :evidence, to: :evidence
-      then_set :passed, to: :passed
-      then_set :explanation, to: :explanation
+      sets :case_id
+      sets :law_name
+      sets :check_expression
+      sets :evidence
+      sets :passed
+      sets :explanation
     end
   end
 
-  aggregate "Precedent", "A ruling that informs future judgments — when a case establishes a pattern" do
+  aggregate "Precedent" do
+    description "A ruling that informs future judgments — when a case establishes a pattern"
+    # Composite : one live precedent per law+action-type combination.
+    identified_by :law_name, :action_type
 
     # ── Value-objects : wrapped primitives (no-primitive-envy, 2026-05-12) ──
     # Per i555 VOs live inside their aggregate ; one wrapper per
@@ -242,45 +267,45 @@ Hecks.bluebook "Court", version: "2026.05.12.1" do
 
     command "Establish" do
       role "Judge"
-      description "Record a precedent — this ruling should apply to similar future actions"
+      goal "Record a precedent — this ruling should apply to similar future actions"
       attribute :law_name, LawName
       attribute :action_type, ActionType
       attribute :ruling, Ruling
       attribute :reasoning, Reasoning
       attribute :established_at, EstablishedAt
       emits "PrecedentEstablished"
-      then_set :law_name, to: :law_name
-      then_set :action_type, to: :action_type
-      then_set :ruling, to: :ruling
-      then_set :reasoning, to: :reasoning
-      then_set :established_at, to: :established_at
+      sets :law_name
+      sets :action_type
+      sets :ruling
+      sets :reasoning
+      sets :established_at
     end
 
     command "Overturn" do
       role "Architect"
-      description "A precedent no longer applies — the law was amended or the reasoning was wrong"
+      goal "A precedent no longer applies — the law was amended or the reasoning was wrong"
       reference_to(Precedent)
       attribute :reasoning, Reasoning
       emits "PrecedentOverturned"
-      then_set :ruling, to: "overturned"
-      then_set :reasoning, to: :reasoning
+      sets :ruling, to: "overturned"
+      sets :reasoning
     end
   end
 
   # Court flow
   policy "HearOnFiling" do
     on "CaseFiled"
-    trigger "Hear"
+    trigger Hear
   end
 
   policy "FindingUpdatesCase" do
     on "FindingRecorded"
-    trigger "CheckLaw"
+    trigger CheckLaw
   end
 
   policy "ViolationToLaw" do
     on "RuledGuilty"
-    trigger "RecordViolation"
+    trigger RecordViolation
   end
 
   # === Case fixtures — real actions judged ===

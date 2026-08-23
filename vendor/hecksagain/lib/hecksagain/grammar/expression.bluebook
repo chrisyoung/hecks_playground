@@ -18,7 +18,7 @@ Hecks.bluebook "Expression" do
     # Forcing them into this shape would stretch `renderings` and the
     # Arity invariant past what they mean. They stay declared only in
     # prose — named here rather than silently left out.
-    identified_by { symbol.value }
+    identified_by :symbol
 
     attribute :symbol,     OperatorSymbol
     attribute :category,   Category
@@ -144,7 +144,7 @@ Hecks.bluebook "Expression" do
 
       given("a retired operator takes no new renderings") { status != "retired" }
 
-      then_set :renderings, append: { target: :target, form: :form }
+      sets :renderings, append: { target: :target, form: :form }
 
       emits "OperatorRendered"
     end
@@ -173,7 +173,7 @@ Hecks.bluebook "Expression" do
   aggregate "Normalisation" do
     description "One rule that turns written source into canonical text — its boundary condition, where it sits in the order, and how it reads in every target that must apply it."
 
-    identified_by { name.value }
+    identified_by :name
 
     attribute :name,         RuleName
     attribute :strategy,     Strategy
@@ -231,10 +231,8 @@ Hecks.bluebook "Expression" do
       attribute :boundary,     String
       attribute :position,     Integer
 
-      one_of do
-        member strategy: "collapse_whitespace", source_token: "", replacement: "", boundary: "none", position: 1
-        member strategy: "replace", source_token: ".length", replacement: ".size", boundary: "word", position: 2
-      end
+      member strategy: "collapse_whitespace", source_token: "", replacement: "", boundary: "none", position: 1
+      member strategy: "replace", source_token: ".length", replacement: ".size", boundary: "word", position: 2
     end
 
     value_object "Reading" do
@@ -275,7 +273,7 @@ Hecks.bluebook "Expression" do
 
       given("a retired rule takes no new readings") { status != "retired" }
 
-      then_set :readings, append: { target: :target, form: :form }
+      sets :readings, append: { target: :target, form: :form }
 
       emits "NormalisationRead"
     end
@@ -304,7 +302,7 @@ Hecks.bluebook "Expression" do
   aggregate "Expression" do
     description "One predicate extracted from regular Ruby — the source as written, the canonical text the evaluator runs, and the subject it reads against."
 
-    identified_by { canonical.value }
+    identified_by :canonical
 
     attribute :description, Description
     attribute :source,      Source
@@ -388,7 +386,7 @@ Hecks.bluebook "Expression" do
       attribute :name, ReferenceName
       attribute :kind, Kind
 
-      then_set :references, append: { name: :name, kind: :kind }
+      sets :references, append: { name: :name, kind: :kind }
 
       emits "ReferenceNoted"
     end

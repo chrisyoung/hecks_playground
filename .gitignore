@@ -26,6 +26,15 @@ examples/pizzas_rails/.ruby-version
 db/migrate/*_hecks_migration.sql
 HECKS_README.md
 doc/
+# ...but not a vendored library's own doc/ source. `doc/` above means
+# generated RDoc output; unqualified it also swallowed
+# vendor/hecksagain/lib/hecksagain/doc/, so the vendored copy shipped
+# without doc/reference.rb and `require "hecksagain"` raised LoadError
+# from a clean clone — every IR path (catalog, describe, validate,
+# dispatch) dead, invisible to CI because CI checks out the private
+# hecksagain fork as a sibling instead of exercising vendor/.
+!vendor/**/doc/
+!vendor/**/doc/**
 .claude/settings.local.json
 .claude/worktrees/
 .mcp.json

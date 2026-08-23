@@ -56,8 +56,9 @@ Hecks.bluebook "ArtifactClaim", version: "2026.06.16.1" do
   # This aggregate only RECORDS the verdict the mechanism produces ; it
   # is identical to how it would look behind any other driver.
 
-  aggregate "ArtifactClaim", "One artifact path a bluebook claims to exist, the source that claims it, and the macrophage's current verdict on whether the promise is kept. The bluebook of record for the no-promises check ; keyed by (source, claimed_path) so re-scans upsert." do
-    identified_by { claim_id.value }
+  aggregate "ArtifactClaim" do
+    description "One artifact path a bluebook claims to exist, the source that claims it, and the macrophage's current verdict on whether the promise is kept. The bluebook of record for the no-promises check ; keyed by (source, claimed_path) so re-scans upsert."
+    identified_by :claim_id
 
     attribute :claim_id,        ClaimId
     attribute :source,          SourceRef
@@ -102,14 +103,7 @@ Hecks.bluebook "ArtifactClaim", version: "2026.06.16.1" do
       # checked) | "satisfied" (path exists) | "broken" (path missing —
       # the documented-the-unbuilt violation) | "retracted" (source no
       # longer claims it).
-      attribute :value, String
-
-      one_of do
-        member value: "unverified"
-        member value: "satisfied"
-        member value: "broken"
-        member value: "retracted"
-      end
+      attribute :value, String, one_of: %w[unverified satisfied broken retracted]
     end
 
     value_object "Severity" do
@@ -129,46 +123,46 @@ Hecks.bluebook "ArtifactClaim", version: "2026.06.16.1" do
 
     command "RecordClaim" do
       role "Scanner"
-      description "The scanner extracted an artifact-path token from a bluebook's source. UPSERT keyed by claim_id : a fresh scan of an unchanged claim only re-stamps last_scanned_at. Sets the source / claimed_path / context and re-arms the claim to 'unverified' so the next verify pass re-checks it (a path that vanished after once being satisfied must be re-verifiable). emits ArtifactClaimRecorded."
+      goal "The scanner extracted an artifact-path token from a bluebook's source. UPSERT keyed by claim_id : a fresh scan of an unchanged claim only re-stamps last_scanned_at. Sets the source / claimed_path / context and re-arms the claim to 'unverified' so the next verify pass re-checks it (a path that vanished after once being satisfied must be re-verifiable). emits ArtifactClaimRecorded."
       attribute :claim_id,        ClaimId
       attribute :source,          SourceRef
       attribute :claimed_path,    ArtifactPath
       attribute :context,         ClaimContext
       attribute :last_scanned_at, Timestamp
-      then_set :claim_id,        to: :claim_id
-      then_set :source,          to: :source
-      then_set :claimed_path,    to: :claimed_path
-      then_set :context,         to: :context
-      then_set :last_scanned_at, to: :last_scanned_at
-      then_set :verdict,         to: "unverified"
+      sets :claim_id
+      sets :source
+      sets :claimed_path
+      sets :context
+      sets :last_scanned_at
+      sets :verdict,         to: "unverified"
       emits "ArtifactClaimRecorded"
     end
 
     command "MarkSatisfied" do
       role "Macrophage"
-      description "The filesystem existence check replied true : the claimed path exists on disk, the promise is kept. Sets verdict 'satisfied' and stamps last_verified_at. No complaint."
+      goal "The filesystem existence check replied true : the claimed path exists on disk, the promise is kept. Sets verdict 'satisfied' and stamps last_verified_at. No complaint."
       reference_to(ArtifactClaim)
       attribute :last_verified_at, Timestamp
-      then_set :verdict,          to: "satisfied"
-      then_set :last_verified_at, to: :last_verified_at
+      sets :verdict,          to: "satisfied"
+      sets :last_verified_at
       emits "ArtifactClaimSatisfied"
     end
 
     command "MarkBroken" do
       role "Macrophage"
-      description "The filesystem existence check replied false : the claimed path does NOT exist — the bluebook is documenting the unbuilt. Sets verdict 'broken' and stamps last_verified_at. This is the complaint event ; warn-first, the hook surfaces it without blocking until the work-list clears. emits BrokenPromiseDetected."
+      goal "The filesystem existence check replied false : the claimed path does NOT exist — the bluebook is documenting the unbuilt. Sets verdict 'broken' and stamps last_verified_at. This is the complaint event ; warn-first, the hook surfaces it without blocking until the work-list clears. emits BrokenPromiseDetected."
       reference_to(ArtifactClaim)
       attribute :last_verified_at, Timestamp
-      then_set :verdict,          to: "broken"
-      then_set :last_verified_at, to: :last_verified_at
+      sets :verdict,          to: "broken"
+      sets :last_verified_at
       emits "BrokenPromiseDetected"
     end
 
     command "Retract" do
       role "Scanner"
-      description "The scanner reconciled a source and found this claim is no longer made (the path token was removed or the promise rewritten). Sets verdict 'retracted' so the macrophage stops complaining about a promise no longer on the page. The record is kept as audit trail, not deleted. emits ArtifactClaimRetracted."
+      goal "The scanner reconciled a source and found this claim is no longer made (the path token was removed or the promise rewritten). Sets verdict 'retracted' so the macrophage stops complaining about a promise no longer on the page. The record is kept as audit trail, not deleted. emits ArtifactClaimRetracted."
       reference_to(ArtifactClaim)
-      then_set :verdict, to: "retracted"
+      sets :verdict, to: "retracted"
       emits "ArtifactClaimRetracted"
     end
 
@@ -216,8 +210,9 @@ Hecks.bluebook "ArtifactClaim", version: "2026.06.16.1" do
   # dispatch the per-claim commands back through the door ; their stdout
   # cascades into Cascade.RecordResult.
 
-  aggregate "NoPromisesSweep", "The singleton no-promises driver. Holds the scan root + last-run timestamps ; Scan and Verify are the two recurring verbs whose emitted events fire the Process.Spawn policies that run the discovery + verification leaves. One per being." do
-    identified_by { name.value }
+  aggregate "NoPromisesSweep" do
+    description "The singleton no-promises driver. Holds the scan root + last-run timestamps ; Scan and Verify are the two recurring verbs whose emitted events fire the Process.Spawn policies that run the discovery + verification leaves. One per being."
+    identified_by :name
 
     attribute :name,             SweepName,  default: { value: "no_promises" }
     attribute :scan_root,        ScanRoot,   default: { value: "aggregates" }
@@ -245,17 +240,17 @@ Hecks.bluebook "ArtifactClaim", version: "2026.06.16.1" do
 
     command "Scan" do
       role "Macrophage"
-      description "One discovery tick. The runtime (the RunScanOnScanRequested policy) binds this to bin/artifact_claim_scan.mjs via Process.Spawn ; the leaf walks scan_root for .bluebook source, extracts artifact-path tokens, dispatches RecordClaim per token, and Retracts claims a source no longer makes. Scan itself only records the tick — the per-claim fan-out is the leaf's job."
+      goal "One discovery tick. The runtime (the RunScanOnScanRequested policy) binds this to bin/artifact_claim_scan.mjs via Process.Spawn ; the leaf walks scan_root for .bluebook source, extracts artifact-path tokens, dispatches RecordClaim per token, and Retracts claims a source no longer makes. Scan itself only records the tick — the per-claim fan-out is the leaf's job."
       attribute :last_scanned_at, Timestamp
-      then_set :last_scanned_at, to: :last_scanned_at
+      sets :last_scanned_at
       emits "ScanRequested"
     end
 
     command "Verify" do
       role "Macrophage"
-      description "One verification tick. The RunVerifyOnVerifyRequested policy binds this to bin/artifact_claim_verify.mjs via Process.Spawn ; the leaf reads the Unverified work-list, runs `test -e` per claimed_path, and dispatches MarkSatisfied (exit 0) or MarkBroken (non-0) back per claim. Verify itself only records the tick."
+      goal "One verification tick. The RunVerifyOnVerifyRequested policy binds this to bin/artifact_claim_verify.mjs via Process.Spawn ; the leaf reads the Unverified work-list, runs `test -e` per claimed_path, and dispatches MarkSatisfied (exit 0) or MarkBroken (non-0) back per claim. Verify itself only records the tick."
       attribute :last_verified_at, Timestamp
-      then_set :last_verified_at, to: :last_verified_at
+      sets :last_verified_at
       emits "VerifyRequested"
     end
   end

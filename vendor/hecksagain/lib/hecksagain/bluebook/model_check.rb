@@ -38,9 +38,33 @@ module Hecksagain
       # never closes it. Real domain activity is unaffected; the saga's
       # OWN tracking of it is not. Left named rather than redesigning a
       # corpus fixture that is not this checker's to redesign.
+      # S7, ADR 0025 — the ExternalSettlement finding this used to
+      # allowlist is GONE, not just quieted: its "sent" state was a
+      # `state "x"` line never named by any handler's own from:/to:, a
+      # pure declaration-drift artifact. States are DERIVED from the
+      # transitions that name them now (ProcessManagerBuilder#derived_
+      # states), so a state nothing ever transitions into or out of no
+      # longer exists to be unreachable — the finding this allowlisted
+      # cannot occur any more, by construction.
+      # "r2_adapter"/BindOnBoot + ResolveOnDispatch — this framework
+      # member's own two policies fire `on "InterpreterBooted"` and
+      # `on "CommandExecuted"`, ported verbatim from hecks_conception's
+      # R2Adapter (see the bluebook's own header comment): KERNEL
+      # lifecycle events the runtime itself emits on every boot/dispatch,
+      # never a user command inside any single bluebook — no domain in
+      # this checker's per-bluebook walk could ever "emit" them, the same
+      # way heki's own boot hook isn't a domain event either. Both
+      # policies' own `trigger` targets (BindAggregate, ResolveReference)
+      # ARE real commands this same bluebook declares — the
+      # unknown_trigger findings are a consequence of the deaf_policy
+      # findings above them (the checker gives up resolving a trigger
+      # once it can't place the policy's own domain), not a second,
+      # independent gap.
       ALLOWED_FINDINGS = {
-        "banking" => [
-          [:unreachable_pm_state, "ExternalSettlement"]
+        "r2_adapter" => [
+          [:deaf_policy, "BindOnBoot"],
+          [:unknown_trigger, "BindOnBoot"],
+          [:deaf_policy, "ResolveOnDispatch"]
         ]
       }.freeze
 
@@ -173,17 +197,23 @@ module Hecksagain
 
         pm.handlers.each do |handler|
           # The compensating leg answers REFUSED, a synthetic trigger no
-          # command ever emits by name (IR::ProcessManager::REFUSED) — not
+          # command ever emits by name (ProcessManager::REFUSED) — not
           # a deaf handler, the one handler this domain's own events can
           # never satisfy on purpose.
-          if handler.event_type != IR::ProcessManager::REFUSED && !emitted.include?(bare(handler.event_type))
+          if handler.event_type != ProcessManager::REFUSED && !emitted.include?(bare(handler.event_type))
             findings << Finding.new(kind: :deaf_handler, severity: :error, subject: pm.name,
                                      message: "a handler answers #{handler.event_type.inspect}, which no command " \
                                               "in this domain emits")
           end
 
           handler.dispatches.each do |dispatch|
-            next if verbs.include?(dispatch.command_name)
+            # SAME-DOMAIN, same as `SagaInterpreter#qualified` — a dispatch
+            # naming no domain at all (the ordinary shape a bare command
+            # constant now produces, S6) means THIS one, and is compared
+            # against `verbs_of`'s own fully-qualified spelling qualified
+            # the identical way, not left bare to miss it on a technicality.
+            qualified = dispatch.command_name.include?("::") ? dispatch.command_name : "#{bluebook.name}::#{dispatch.command_name}"
+            next if verbs.include?(qualified)
 
             findings << Finding.new(kind: :unknown_dispatch, severity: :error, subject: pm.name,
                                      message: "dispatches #{dispatch.command_name.inspect}, which this domain " \
@@ -216,7 +246,7 @@ module Hecksagain
         loop do
           grown = false
           pm.handlers.each do |handler|
-            next unless handler.event_type == IR::ProcessManager::REFUSED || emitted.include?(bare(handler.event_type))
+            next unless handler.event_type == ProcessManager::REFUSED || emitted.include?(bare(handler.event_type))
             next unless reached.include?(handler.from_state)
             next if reached.include?(handler.to_state)
 

@@ -12,8 +12,9 @@ Hecks.bluebook "LazyIndex", version: "2026.05.16.1" do
   # Cache eviction releases unused domains. No cross-aggregate
   # policies bind to this index.
 
-  aggregate "LazyIndex", "Load domain entries on demand — not all at boot" do
-    identified_by { name.value }
+  aggregate "LazyIndex" do
+    description "Load domain entries on demand — not all at boot"
+    identified_by :name
     attribute :name,             IndexName
     attribute :total_indexed,    TotalIndexed
     attribute :loaded_in_memory, LoadedInMemory
@@ -41,15 +42,15 @@ Hecks.bluebook "LazyIndex", version: "2026.05.16.1" do
 
     command "QueryIndex" do
       role "System"
-      description "Look up domains by name, sector, or pattern — load from .heki on demand"
+      goal "Look up domains by name, sector, or pattern — load from .heki on demand"
       attribute :loaded_in_memory, LoadedInMemory
       emits "IndexQueried"
-      then_set :loaded_in_memory, to: :loaded_in_memory
+      sets :loaded_in_memory
     end
 
     command "EvictCache" do
       role "System"
-      description "Release domains from memory that haven't been accessed recently"
+      goal "Release domains from memory that haven't been accessed recently"
       reference_to(LazyIndex)
       emits "CacheEvicted"
     end

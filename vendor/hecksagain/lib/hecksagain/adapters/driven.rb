@@ -11,14 +11,17 @@ end
 require_relative "driven/memory"
 require_relative "driven/sqlite"
 require_relative "driven/postgres"
+require_relative "driven/postgres_era"
 require_relative "driven/lambda"
 require_relative "driven/heki"
 require_relative "driven/append_log"
 require_relative "driven/prism"
 require_relative "driven/folder"
 require_relative "driven/d1"
+require_relative "driven/r2"
 require_relative "driven/mock_stripe_adapter"
 require_relative "driven/secure_random_identity"
+require_relative "driven/system_clock"
 # `SequentialIdentity` — the deterministic identity_generation test
 # double — is NOT required here on purpose. It lives at
 # spec/fixtures/sequential_identity.{adapter,rb}, loaded explicitly by
@@ -32,14 +35,8 @@ require_relative "driven/secure_random_identity"
 require_relative "driven/governance_authorization"
 require_relative "driven/identity_registry"
 require_relative "driven/google_authentication"
-# Vendored addition, not (yet) upstream hecksagain — the three execution-port
-# adapters. Unlike the identity_generation pair noted above, these are NOT
-# ambiguous: the execution port resolves per-aggregate through binds_for
-# (Ports::Execution), never by a global "who implements this port" scan, so
-# three adapters sharing one port is the intended shape here.
+require_relative "driven/claude_code"
 require_relative "driven/shell"
 require_relative "driven/filesystem"
 require_relative "driven/search"
-# i757 -- the fourth execution-port adapter, Gmail. Same non-ambiguous
-# per-aggregate resolution as the three above.
 require_relative "driven/email"

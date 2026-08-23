@@ -1,3 +1,4 @@
 Hecks.hecksagon "ChaosMonkey" do
+  uses_framework "Governance"
   ChaosMonkey::ChaosMonkey.persisted_by("Heki")
 end

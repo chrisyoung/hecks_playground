@@ -18,8 +18,9 @@ Hecks.bluebook "Call", version: "2026.04.28.1" do
   # command_ref links the spend record back to whatever Miette was
   # doing when she shelled out (e.g., "Speech.Speak:speech_42").
 
-  aggregate "Call", "One invocation of an LLM — provider, token counts, cost, and what command triggered it" do
-    identified_by { ref.value }
+  aggregate "Call" do
+    description "One invocation of an LLM — provider, token counts, cost, and what command triggered it"
+    identified_by :ref
     attribute :ref,         Ref
     attribute :provider,    ProviderName
     attribute :tokens_in,   TokenCount
@@ -60,7 +61,7 @@ Hecks.bluebook "Call", version: "2026.04.28.1" do
 
     command "RecordCall" do
       role "System"
-      description "Record a single LLM invocation — provider, token counts, cost, and the command that triggered it"
+      goal "Record a single LLM invocation — provider, token counts, cost, and the command that triggered it"
       attribute :provider,    ProviderName
       attribute :tokens_in,   TokenCount
       attribute :tokens_out,  TokenCount
@@ -68,12 +69,12 @@ Hecks.bluebook "Call", version: "2026.04.28.1" do
       attribute :command_ref, CommandRef
       attribute :recorded_at, Timestamp
       emits "CallRecorded"
-      then_set :provider,    to: :provider
-      then_set :tokens_in,   to: :tokens_in
-      then_set :tokens_out,  to: :tokens_out
-      then_set :cost_usd,    to: :cost_usd
-      then_set :command_ref, to: :command_ref
-      then_set :recorded_at, to: :recorded_at
+      sets :provider
+      sets :tokens_in
+      sets :tokens_out
+      sets :cost_usd
+      sets :command_ref
+      sets :recorded_at
     end
   end
 end

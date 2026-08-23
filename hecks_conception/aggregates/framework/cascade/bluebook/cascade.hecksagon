@@ -1,3 +1,4 @@
 Hecks.hecksagon "Cascade" do
+  uses_framework "Governance"
   Cascade::Cascade.persisted_by("Heki")
 end

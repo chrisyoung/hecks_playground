@@ -24,8 +24,9 @@ Hecks.bluebook "SessionLog", version: "2026.05.21.1" do
   #             adapter's mp3 lands after ; or a sidequest agent
   #             launched by a command reports back minutes later.
 
-  aggregate "StorehouseEntry", "One dispatch through the bus, captured as a domain record. Identified by its invocation id. Carries the command FQN, the args, the outcome + result state, the elapsed wall-clock, the sync/async kind, and (for async) the parent invocation that caused it. The PostToolUse dispatch-detail hook renders these ; analysis tools query them ; the timeline reconstructs from them." do
-    identified_by { invocation_id.value }
+  aggregate "StorehouseEntry" do
+    description "One dispatch through the bus, captured as a domain record. Identified by its invocation id. Carries the command FQN, the args, the outcome + result state, the elapsed wall-clock, the sync/async kind, and (for async) the parent invocation that caused it. The PostToolUse dispatch-detail hook renders these ; analysis tools query them ; the timeline reconstructs from them."
+    identified_by :invocation_id
 
     value_object "InvocationId" do
       # The runtime's inv_xxxxxxxx identifier, unique per dispatch.
@@ -53,12 +54,7 @@ Hecks.bluebook "SessionLog", version: "2026.05.21.1" do
     value_object "Outcome" do
       # ok | error — whether the dispatch succeeded. Stored as a
       # closed-set string ; the renderer colours accordingly.
-      attribute :value, String
-
-      one_of do
-        member value: "ok"
-        member value: "error"
-      end
+      attribute :value, String, one_of: %w[ok error]
     end
 
     value_object "ResultState" do
@@ -81,12 +77,7 @@ Hecks.bluebook "SessionLog", version: "2026.05.21.1" do
     value_object "DispatchKind" do
       # sync — result inline, one self-contained block.
       # async — outcome lands later, references parent_invocation_id.
-      attribute :value, String
-
-      one_of do
-        member value: "sync"
-        member value: "async"
-      end
+      attribute :value, String, one_of: %w[sync async]
     end
 
     value_object "EventCount" do
@@ -112,16 +103,7 @@ Hecks.bluebook "SessionLog", version: "2026.05.21.1" do
       #                       background dispatch.
       # Chris filters the log by this : "show me everything the process
       # managers dispatched."
-      attribute :value, String
-
-      one_of do
-        member value: "process-manager"
-        member value: "operator"
-        member value: "hook"
-        member value: "sidequest-agent"
-        member value: "cascade"
-        member value: "daemon"
-      end
+      attribute :value, String, one_of: %w[process-manager operator hook sidequest-agent cascade daemon]
     end
 
     value_object "MetadataJson" do
@@ -142,20 +124,24 @@ Hecks.bluebook "SessionLog", version: "2026.05.21.1" do
       # line by kind : dispatch=cyan, event=green, cascade-ok=green,
       # cascade-fail=red, adapter=magenta, error=bright-red,
       # fallback=yellow.
+      # `one_of:` (the inline single-attribute closed-set keyword) only
+      # works when the value object has exactly one attribute -- EventTrace
+      # has three, so it needs the bare `member` form instead (ADR 0025).
+      # Only `kind` is a closed set here ; `verb` (the FQN/name that fired)
+      # and `ok` are free-form/unconstrained per record, so each member
+      # names only the field it constrains.
       attribute :kind, String
-
-      one_of do
-        member value: "dispatch"
-        member value: "event"
-        member value: "cascade"
-        member value: "adapter"
-        member value: "policy"
-        member value: "attr"
-        member value: "error"
-        member value: "fallback"
-      end
       attribute :verb, String
       attribute :ok,   Bool
+
+      member kind: "dispatch"
+      member kind: "event"
+      member kind: "cascade"
+      member kind: "adapter"
+      member kind: "policy"
+      member kind: "attr"
+      member kind: "error"
+      member kind: "fallback"
     end
 
     attribute :invocation_id,        InvocationId
@@ -182,7 +168,7 @@ Hecks.bluebook "SessionLog", version: "2026.05.21.1" do
 
     command "Record" do
       role "Daemon"
-      description "Capture one completed dispatch. Fired by the PostToolUse dispatch-detail hook (i692) after each storehouse dispatch returns. For sync dispatches all fields land at once ; for async outcomes the parent_invocation_id links back to the originating command so the timeline reconstructs cause→effect."
+      goal "Capture one completed dispatch. Fired by the PostToolUse dispatch-detail hook (i692) after each storehouse dispatch returns. For sync dispatches all fields land at once ; for async outcomes the parent_invocation_id links back to the originating command so the timeline reconstructs cause→effect."
       attribute :invocation_id,        InvocationId
       attribute :command,              Command
       attribute :summary,              Summary
@@ -198,20 +184,20 @@ Hecks.bluebook "SessionLog", version: "2026.05.21.1" do
       attribute :metadata_json,        MetadataJson
       attribute :events,               list_of(EventTrace)
       emits "Recorded"
-      then_set :invocation_id,        to: :invocation_id
-      then_set :command,              to: :command
-      then_set :summary,              to: :summary
-      then_set :args_json,            to: :args_json
-      then_set :outcome,              to: :outcome
-      then_set :result_state,         to: :result_state
-      then_set :elapsed_ms,           to: :elapsed_ms
-      then_set :dispatched_at,        to: :dispatched_at
-      then_set :kind,                 to: :kind
-      then_set :parent_invocation_id, to: :parent_invocation_id
-      then_set :event_count,          to: :event_count
-      then_set :source_tag,           to: :source_tag
-      then_set :metadata_json,        to: :metadata_json
-      then_set :events,               to: :events
+      sets :invocation_id
+      sets :command
+      sets :summary
+      sets :args_json
+      sets :outcome
+      sets :result_state
+      sets :elapsed_ms
+      sets :dispatched_at
+      sets :kind
+      sets :parent_invocation_id
+      sets :event_count
+      sets :source_tag
+      sets :metadata_json
+      sets :events
     end
 
     query Recent do

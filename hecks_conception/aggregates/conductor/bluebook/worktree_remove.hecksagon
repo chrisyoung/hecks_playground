@@ -1,0 +1,23 @@
+Hecks.hecksagon "Conductor" do
+  # worktree-pool-lease-reclaim : remove the REAL git worktree when a Lease
+  # is reclaimed. Re-expressed (i782) from the retired `run` driven-block
+  # leaf -- confirmed a hard no-op in the vendored gem (`DrivenCapture#run
+  # (_cmd, result_into: nil) = nil` is an explicit stub ; this has never
+  # actually fired) -- onto the proven spawned_by mechanism i780 landed
+  # for the sibling :exec sites. MUTATING : this turns on real automation
+  # (a git worktree is genuinely destroyed for every LeaseReclaimed).
+  # Converted only with Chris's explicit sign-off (i782 -> /goal execute
+  # 1-3).
+  #
+  # Lease.identified_by :worktree_path -- the Lease's own id IS the path
+  # ({id} in the old run leaf's token interpolation was already the path,
+  # not a separate field), so adapter-host's automatic id=<source_id> on
+  # the verdict dispatch is already the right value ; bin/worktree_remove
+  # reads it straight off the triggering event's payload. success ==
+  # failure -> Cascade::Cascade.RecordResult, matching every other
+  # spawned_by conversion in this corpus.
+  Conductor::Lease.spawned_by("WorktreeRemove", on: "LeaseReclaimed") do
+    success "Cascade::Cascade.RecordResult"
+    failure "Cascade::Cascade.RecordResult"
+  end
+end

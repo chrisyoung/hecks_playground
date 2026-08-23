@@ -1,4 +1,5 @@
 Hecks.hecksagon "BehaviorsConception" do
+  uses_framework "Governance"
   BehaviorsConception::TestSuite.persisted_by("Heki")
   BehaviorsConception::Behavior.persisted_by("Heki")
   BehaviorsConception::Precondition.persisted_by("Heki")

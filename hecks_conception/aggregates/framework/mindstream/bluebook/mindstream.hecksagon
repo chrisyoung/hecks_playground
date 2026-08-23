@@ -1,4 +1,5 @@
 Hecks.hecksagon "Mindstream" do
+  uses_framework "Governance"
   Mindstream::Mindstream.persisted_by("Heki")
   Mindstream::MindstreamMember.persisted_by("Heki")
 end
