@@ -142,7 +142,22 @@ Hecks.bluebook "AgentInbox" do
       role "System"
       goal "One inbox-sweep tick — record it happened ; the runtime fans out across AllUnread"
       goal "One poll tick. The Driver (agent_inbox.hecksagon's InboxPollClock `driving on interval`, projected to the Procfile inbox_poller drive member) fires this on its cadence ; Poll records last_polled_at + emits Polled. The per-message fan-out — sweep AllUnread, Reply each by its mid — is the runtime's job, done by the InboxAutoReply driven adapter off Polled. Poll itself expresses no fan-out, mirroring ProcessMacrophage.Sweep (records the tick, the cascade walks the records)."
+      # i784 fallout — `name` was missing here, so the hecksagon's
+      # `name: "inbox_poller"` dispatch attr was an UNDECLARED key : the
+      # declared-attrs gate silently dropped it before identity
+      # resolution ever saw it. With no self-ref key and no `id`,
+      # id_for_command fell back to "singleton fallback: store.len==1"
+      # — which self-heals only until the store ever holds >1 record,
+      # then every future tick with no id match auto-increments a BRAND
+      # NEW record forever. 9,192 junk records accumulated this way ;
+      # each Poll dispatch paid a whole-file heki read+recompress+write
+      # over the growing pile (inbox_poller stuck at ~56% CPU, the same
+      # shape as the OrganMonitor bug above, different mechanism).
+      # Declaring :name here lets id_for_command's identified_by lookup
+      # (attrs.get("name")) actually see the id the caller already sends.
+      attribute :name, Name
       attribute :last_polled_at, Timestamp
+      sets :name
       sets :last_polled_at
       emits "Polled"
     end
