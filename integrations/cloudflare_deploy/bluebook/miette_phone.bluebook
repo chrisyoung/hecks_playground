@@ -1,4 +1,4 @@
-Hecks.bluebook "MiettePhone", version: "2026.05.12.1" do
+HecksPlayground.bluebook "MiettePhone", version: "2026.05.12.1" do
   vision "Talk to Miette from your phone — chat UI on Cloudflare Pages, inference proxied to Summer, password-gated"
   category "capability"
 

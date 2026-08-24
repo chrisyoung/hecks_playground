@@ -5,7 +5,7 @@
 require "fileutils"
 
 REPO = File.expand_path("..", __dir__)
-INDEX = File.join(ENV["HOME"], ".claude/projects/-Users-christopheryoung-Projects-hecks/memory/codebase_index.md")
+INDEX = File.join(ENV["HOME"], ".claude/projects/-Users-christopheryoung-Projects-hecks_playground/memory/codebase_index.md")
 
 Dir.chdir(REPO)
 
@@ -17,7 +17,7 @@ groups = files.group_by { |f| File.dirname(f) }
 lines = []
 lines << "---"
 lines << "name: codebase_index"
-lines << "description: Complete file-by-file index of every .rb file in the hecks repo for fast navigation"
+lines << "description: Complete file-by-file index of every .rb file in the hecks_playground repo for fast navigation"
 lines << "type: reference"
 lines << "---"
 lines << ""

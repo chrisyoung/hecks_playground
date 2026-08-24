@@ -1,4 +1,4 @@
-Hecks.bluebook "PageCompliance", version: "2026.05.12.1" do
+HecksPlayground.bluebook "PageCompliance", version: "2026.05.12.1" do
   vision "Generate pages from aggregates and validate them against the bluebook — no orphan elements"
   category "infrastructure"
 

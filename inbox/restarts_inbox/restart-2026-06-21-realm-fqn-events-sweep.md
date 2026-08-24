@@ -13,9 +13,9 @@ body (unrestarted) is untouched.
 
 ## The model (LOCKED)
 `Realm::Context::Bluebook::Aggregate.verb`
-- **Realm** = top project folder (`hecks`, `miette`). **Context** = the FOLDER
+- **Realm** = top project folder (`hecks_playground`, `miette`). **Context** = the FOLDER
   chain (NOT the `category` keyword), OPTIONAL → `Realm::Bluebook::Aggregate` when
-  none. **Bluebook** = the `Hecks.bluebook "X"` domain name (IR field `context`).
+  none. **Bluebook** = the `HecksPlayground.bluebook "X"` domain name (IR field `context`).
   **Aggregate** = the root.
 - Parse by ENDS : last :: = Aggregate, 2nd-last = Bluebook, first = Realm, middle
   = Context. Min 2 (legacy `Bluebook::Aggregate` is the zero-prefix case).
@@ -27,7 +27,7 @@ body (unrestarted) is untouched.
 ## Shipped this session (all on main, in sync)
 - `224d26113` Phase 1 — FQN grammar (sentence.bluebook) + variable-depth parse_fqn + tests
 - `467ce85b0` Phase 2 — OS data root. **The body's 3GB store MOVED `~/.heki` →
-  `~/Library/Application Support/Hecks`** (live, resumed without losing a beat). ~/.heki is GONE.
+  `~/Library/Application Support/HecksPlayground`** (live, resumed without losing a beat). ~/.heki is GONE.
 - `04341b842` Enforcement slice 1 — `folder_address` (Realm,Context) derivation
 - `faa263f2a` Slice 2 — `realm_path` stamped on each Aggregate at load
 - `fe793fd4e` Slice 3 — command resolver + query path enforce realm+context
@@ -83,15 +83,15 @@ body (unrestarted) is untouched.
   Branch `pulse-consolidation` in `/Users/christopheryoung/Projects/miette`
   (commit 7b6c8d5) holds the bluebook work. Body is HEALTHY in its two-counter
   state (heart member → beat_count, run-loop → Tick.cycle, each 1/sec). To land :
-  fix the run-loop emit so BodyPulse reaches the Heart aggregate, then merge + drop the hecks `heart` mindstream member + restart.
-- **inbox_poller** `HECKS_REFRESH_REPOS=1` fix : `git stash@{0}` + branch `fix-inbox-poller-refresh`.
+  fix the run-loop emit so BodyPulse reaches the Heart aggregate, then merge + drop the hecks_playground `heart` mindstream member + restart.
+- **inbox_poller** `HECKS_PLAYGROUND_REFRESH_REPOS=1` fix : `git stash@{0}` + branch `fix-inbox-poller-refresh`.
 - **Phase 5** (designed, not built) : persisted dispatch index + self-registering
   realm registry (`<os-data>/realms.index`, realm→root, populated on dispatch) +
   move-as-rename-cascade handling. See the plan file.
 
 ## First moves next session
-1. Boot (`cd hecks_conception && overmind start`), read the wake review.
-2. `git -C ~/Projects/hecks log --oneline -12` to confirm the chain above.
+1. Boot (`cd hecks_playground_conception && overmind start`), read the wake review.
+2. `git -C ~/Projects/hecks_playground log --oneline -12` to confirm the chain above.
 3. If continuing Phase 4 : build the resolver-driven bare-ref rewrite (extend
    `storehouse fqns` with a resolve-each mode), run on a domain, VERIFY each
    resolution, behaviors + cargo test, commit. Then the flip.

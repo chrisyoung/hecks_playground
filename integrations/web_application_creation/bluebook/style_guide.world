@@ -1,4 +1,4 @@
-Hecks.world "StyleGuide" do
+HecksPlayground.world "StyleGuide" do
   persisted_by("Heki") do
     dir :default
   end

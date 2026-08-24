@@ -1,8 +1,8 @@
-Glass — command palette for the entire Hecks conception. 929 callable phrases, every one routed through the bus.
+Glass — command palette for the entire HecksPlayground conception. 929 callable phrases, every one routed through the bus.
 
 Invoke: `/glass <query>` or `Ctrl+K` or just type a command naturally.
 
-Everything goes through `hecks-life storehouse` (the bus door). Never `heki append`, never raw file edits to information/*.heki — those bypass the bus and are a mistake.
+Everything goes through `hecks_playground-life storehouse` (the bus door). Never `heki append`, never raw file edits to information/*.heki — those bypass the bus and are a mistake.
 
 ## Instructions
 
@@ -13,7 +13,7 @@ When invoked with no arguments or a partial search term, act as a command palett
 1. Browse the lexicon for matching phrases (substring filter on the phrase):
 
 ```bash
-hecks-life storehouse list "$ARGUMENTS"
+hecks_playground-life storehouse list "$ARGUMENTS"
 ```
 
    Output is tab-separated `Phrase<TAB>bluebook_path`, e.g.
@@ -33,7 +33,7 @@ When invoked with a full `Aggregate.Command` phrase:
 1. Resolve the phrase to its target (exact match — substrings miss):
 
 ```bash
-hecks-life storehouse lookup "$ARGUMENTS"
+hecks_playground-life storehouse lookup "$ARGUMENTS"
 ```
 
    Returns JSON: `{aggregate, command, bluebook_path, domain_phrase, phrase}`.
@@ -43,7 +43,7 @@ hecks-life storehouse lookup "$ARGUMENTS"
    `bluebook_path` the lookup returned (through the bus):
 
 ```bash
-hecks-life storehouse route Tools::FileTool.Read file_path=<bluebook_path>
+hecks_playground-life storehouse route Tools::FileTool.Read file_path=<bluebook_path>
 ```
 
    (or just open it) and read the command's `attribute` lines.
@@ -53,7 +53,7 @@ hecks-life storehouse route Tools::FileTool.Read file_path=<bluebook_path>
 4. Execute by routing through the bus — this IS the dispatch:
 
 ```bash
-hecks-life storehouse route "$ARGUMENTS" key=value key2=value2 ...
+hecks_playground-life storehouse route "$ARGUMENTS" key=value key2=value2 ...
 ```
 
 5. Show the result envelope and offer related commands.
@@ -69,14 +69,14 @@ Always show the Glass dispatch transparently:
 ```
 ⚡ Glass → Aggregate.Command
   params: name, description, ...
-  → hecks-life storehouse route <phrase> key=value
+  → hecks_playground-life storehouse route <phrase> key=value
   result: { dispatch envelope }
 ```
 
 ## Browsing
 
-Full surface (929 phrases): `hecks-life storehouse list`
-By substring:               `hecks-life storehouse list <filter>`
-Resolve one phrase to JSON:  `hecks-life storehouse lookup <Aggregate.Command>`
-Project a heki attribute:    `hecks-life storehouse read <Aggregate.attribute>`
-Rebuild the lexicon:         `hecks-life storehouse compile`
+Full surface (929 phrases): `hecks_playground-life storehouse list`
+By substring:               `hecks_playground-life storehouse list <filter>`
+Resolve one phrase to JSON:  `hecks_playground-life storehouse lookup <Aggregate.Command>`
+Project a heki attribute:    `hecks_playground-life storehouse read <Aggregate.attribute>`
+Rebuild the lexicon:         `hecks_playground-life storehouse compile`

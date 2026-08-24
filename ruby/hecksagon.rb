@@ -1,6 +1,6 @@
 # Hecksagon
 #
-# Hexagonal architecture wiring DSL for Hecks. Declares infrastructure
+# Hexagonal architecture wiring DSL for HecksPlayground. Declares infrastructure
 # concerns separately from domain modeling: gates (access control),
 # adapters (persistence), extensions, cross-domain subscriptions,
 # and tenancy.
@@ -9,7 +9,7 @@
 # and is loaded during boot to wire the domain into its runtime
 # infrastructure.
 #
-#   Hecks.hecksagon do
+#   HecksPlayground.hecksagon do
 #     adapter :sqlite, database: "pizzas.db"
 #     gate "Pizza", :admin do
 #       allow :find, :all, :create_pizza
@@ -58,7 +58,7 @@ module Hecksagon
   end
 
   # Guarded loader for .hecksagon / .world files (retires Kernel.load
-  # for DSL files — see lib/hecks/runtime/boot.rb).
+  # for DSL files — see lib/hecks_playground/runtime/boot.rb).
   autoload :Loader,           "hecksagon/loader"
 
   # Legacy heksagons functionality (merged from heksagons/ gem)

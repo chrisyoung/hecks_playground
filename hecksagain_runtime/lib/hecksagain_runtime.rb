@@ -16,7 +16,7 @@
 #   BUNDLE_GEMFILE=Gemfile bundle exec ruby -Ihecksagain_runtime/lib \
 #     -r hecksagain_runtime -e 'puts HecksagainRuntime.dispatch(root, verb, args).to_json'
 
-require "hecksagain"
+require "hecks"
 require "json"
 require "fileutils"
 require "digest"
@@ -37,9 +37,9 @@ require_relative "hecksagain_runtime/attr_decode"
 # for a caller that never needed it, rather than a hard `require` that
 # would force every corpus through this wrapper to carry the dependency.
 # Found live: pizzas' own bluebook/web.bluebook (the canonical example
-# ITSELF) uses `Hecksagain::Presentation.configure "Web" do ... end`.
+# ITSELF) uses `Hecks::Presentation.configure "Web" do ... end`.
 begin
-  require "hecksagain/presentation"
+  require "hecks/presentation"
 rescue LoadError
   nil
 end
@@ -50,7 +50,7 @@ module HecksagainRuntime
   # Dir[directory/*.bluebook], non-recursive) -- multiple domains only
   # compose together (cross-domain references, like GovernedDoor.LookupDoor
   # scanning Tools.bluebook's commands) when their files live in the SAME
-  # directory. hecks_conception's deeply-nested aggregates/<category>/<name>/
+  # directory. hecks_playground_conception's deeply-nested aggregates/<category>/<name>/
   # bluebook/ layout was never going to compose that way.
   #
   # DECISION (documented, not hidden): rather than a second massive
@@ -63,7 +63,7 @@ module HecksagainRuntime
   # corpus's own layout converges toward hecksagain's flat convention for
   # other reasons.
   #
-  # Two genuine filename collisions found in hecks_conception's real corpus
+  # Two genuine filename collisions found in hecks_playground_conception's real corpus
   # (two different domains independently named "Inbox"/"Bluebook",
   # confirmed as distinct aggregates, not duplicates) -- disambiguated by
   # prefixing the relative directory path, not silently dropped.
@@ -71,16 +71,16 @@ module HecksagainRuntime
   # framework kernel), adapters/ (persistence/heki/ollama/r2 wiring).
   # Deliberately excludes catalog/ (deferred: still load-bearing for the
   # OLD Rust test suite, see migration plan Part 4 "catalog/" note) and
-  # anything else at hecks_conception's root that isn't canon.
+  # anything else at hecks_playground_conception's root that isn't canon.
   CANON_SUBDIRS = %w[aggregates storehouse adapters].freeze
 
   # Vendored addition, not (yet) upstream hecksagain (migration plan task
   # 4/5): miette's own root has a DIFFERENT top-level shape than
-  # hecks_conception's (body/library/self/mind/discipline/framework/
+  # hecks_playground_conception's (body/library/self/mind/discipline/framework/
   # world/surface/storehouse/catalog/..., not aggregates/storehouse/
   # adapters) -- a second, PARALLEL canon-subdir list rather than
   # generalizing CANON_SUBDIRS to "any directory with bluebook content
-  # recursively", which would silently swallow hecks_conception's own
+  # recursively", which would silently swallow hecks_playground_conception's own
   # deliberately-excluded catalog/ too.
   # Scoped to directories the corpus's own inventory confirms carry real
   # bluebook content -- deploy/tooling/tools/inbox/docs/information/
@@ -89,16 +89,16 @@ module HecksagainRuntime
   # unscoped glob risking a parse attempt on prose is exactly what this
   # list avoids).
   #
-  # 2026-08-14 (hecks->hecksagain cutover PRD, slice 3.1): framework/,
+  # 2026-08-14 (hecks_playground->hecksagain cutover PRD, slice 3.1): framework/,
   # world/, and surface/ were already miette top-level dirs BEFORE this
   # slice but were left off this list under the (now stale) claim they
   # were "confirmed empty" of bluebook content -- framework/adapters/ and
   # surface/bluebook/ already carried real content at the time. This
-  # slice's hecks_conception import made the gap much larger by landing
+  # slice's hecks_playground_conception import made the gap much larger by landing
   # eight more real-content top-level dirs (storehouse/catalog/demo/plan/
   # correspondence/language/test_automation/drafting) that were silently
   # invisible to any bare-root dispatch/query/catalog/list call --
-  # confirmed by comparing hecksagain-cli list against hecks_conception's
+  # confirmed by comparing hecksagain-cli list against hecks_playground_conception's
   # root (returns ~200 aggregates, everything below included) versus
   # against miette's new root pre-fix (ArgumentError on the five-dir
   # flatten, and even had it succeeded, none of the eight new dirs'
@@ -115,7 +115,7 @@ module HecksagainRuntime
         # directly present) doesn't need the whole-corpus flatten, and
         # forcing it through would couple every scoped dispatch to every
         # OTHER file in the corpus being boot-clean too. Only a true
-        # multi-domain root (hecks_conception: aggregates/storehouse/
+        # multi-domain root (hecks_playground_conception: aggregates/storehouse/
         # adapters ; miette: body/library/self/mind/discipline) gets
         # flattened.
         # `.all?`, not `.any?` -- vendored fix, not (yet) upstream
@@ -123,7 +123,7 @@ module HecksagainRuntime
         # bin-buddy (a scattered-shape project, below) purely because it
         # happens to have its OWN top-level `aggregates/` directory --
         # "aggregates" alone is a common, generic name, not a reliable
-        # hecks_conception signature ; the COMBINATION of aggregates +
+        # hecks_playground_conception signature ; the COMBINATION of aggregates +
         # storehouse + adapters all present is. Once matched, the wrong
         # glob (requiring a "bluebook/" segment bin-buddy's own layout
         # never has) staged ZERO files -- not an error, a silent EMPTY
@@ -205,7 +205,7 @@ module HecksagainRuntime
         canon_globs =
           if CANON_SUBDIRS.all? { |d| File.directory?(File.join(root, d)) }
             # Slice 1.3 (driving-adapter-grammar port) fix, real and
-            # confirmed live: hecks_conception's own documented convention
+            # confirmed live: hecks_playground_conception's own documented convention
             # for `driving on`/`driven on` adapters is a SIBLING
             # `hecksagons/` folder next to `bluebook/`
             # (aggregates/framework/tools/hecksagons/{shell_adapter,
@@ -264,7 +264,7 @@ module HecksagainRuntime
         # task 8): the staleness check used to compare ONLY the newest
         # source mtime against the marker -- correct for edits and
         # additions, but blind to DELETIONS. Deleting a source file
-        # (hecks_nursury's blog/hecks/ duplicate, this migration's own
+        # (hecks_playground_nursury's blog/hecks_playground/ duplicate, this migration's own
         # dedup fix) never makes any REMAINING file newer than an
         # already-fresh marker, so the stale cache -- still holding the
         # deleted file's copy -- kept being reused, and `validate` kept
@@ -283,7 +283,7 @@ module HecksagainRuntime
         # DIFFERENT bug than the deletion case above -- which BRANCH
         # produced canon_globs (CANON_SUBDIRS / MIETTE_SUBDIRS /
         # scattered_project?) can itself flip between calls if a
-        # directory this root depends on (hecks_conception/adapters,
+        # directory this root depends on (hecks_playground_conception/adapters,
         # /storehouse) transiently vanishes from another process racing
         # this one, then reappears. If the transient scattered-glob pass
         # happens to stage the SAME file count as a later, correctly-
@@ -527,7 +527,7 @@ module HecksagainRuntime
   #
   # PER-ROOT for a multi-domain corpus (i745 -- parser-removal plan, Phase
   # 1b): a single combined boot over the WHOLE corpus reported valid:true
-  # while 36 of hecks_conception's own 58 sub-roots were individually
+  # while 36 of hecks_playground_conception's own 58 sub-roots were individually
   # invalid -- a crash anywhere makes the whole thing false with no "which
   # root", and a name collision between two roots' declarations can make a
   # broken root silently PASS (confirmed live this session: heki.adapter

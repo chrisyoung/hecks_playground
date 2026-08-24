@@ -1,0 +1,26 @@
+# spawn — the effect port `:exec`-family bindings ride, declared once and
+# reused across every domain's hexagon (mirrors execution.port / payment.port,
+# the gem's own bundled ports — this one lives in the consuming corpus
+# because `spawned_by` is a hecks_playground_conception vocabulary word, not a
+# hecksagain-upstream one yet).
+#
+# Signal is :effect (async, matches charged_by's shape) — the domain composes
+# the call (`Aggregate.spawned_by("AdapterName", on: "TriggeringEvent") do
+# success "..." ; failure "..." end`) and the runtime's record_effect_outbound
+# (hecks-hecksagain, runtime/dispatcher.rb) durably hands it to the
+# OutboundEvent outbox — ONE Record per subscribing adapter, delivered
+# out-of-process by bin/adapter-host, never the core itself.
+#
+# UNCONDITIONAL, unlike charged_by : the :exec family this port replaces
+# never branched (exec.hecksagon's own vision : "routes the result into
+# :result_into as a follow-on dispatch", one target, no success/failure
+# distinction). A spawned_by bind is written with success == failure ==
+# the SAME command (typically Cascade.RecordResult) to express that —
+# OutboundEvent already carries both fields, so no new IR shape was needed.
+#
+# i780 (2026-08-17) — the design proposal this implements. See there for
+# the full :exec -> spawned_by re-expression rationale.
+Hecks.port "spawn" do
+  verb   "spawned_by"
+  signal :effect
+end

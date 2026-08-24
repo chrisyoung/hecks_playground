@@ -267,7 +267,7 @@ module Hecksagon
       private :_build_io_adapter
 
       # Internal: mark adapters seeded from an earlier hecksagon block as
-      # overridable by the current block. Used by Hecks.hecksagon's merge
+      # overridable by the current block. Used by HecksPlayground.hecksagon's merge
       # path; not part of the DSL surface.
       def _seed_shell_adapter(adapter)
         @_shell_adapter_seeded_names ||= []
@@ -429,7 +429,7 @@ module Hecksagon
       #
       # @return [AnnotationSelector]
       def method_missing(name, *args, &block)
-        if Hecks::DSL::TypeName.match?(name.to_s)
+        if HecksPlayground::DSL::TypeName.match?(name.to_s)
           AnnotationSelector.new(@annotations, name.to_s)
         else
           super
@@ -437,7 +437,7 @@ module Hecksagon
       end
 
       def respond_to_missing?(name, _ = false)
-        Hecks::DSL::TypeName.match?(name.to_s) || super
+        HecksPlayground::DSL::TypeName.match?(name.to_s) || super
       end
 
       # Build and return the Hecksagon IR object.
@@ -473,9 +473,9 @@ module Hecksagon
       private
 
       # Check if the current environment matches.
-      # Reads HECKS_ENV, RACK_ENV, RAILS_ENV, or defaults to :development.
+      # Reads HECKS_PLAYGROUND_ENV, RACK_ENV, RAILS_ENV, or defaults to :development.
       def env_matches?(required_env)
-        current = (ENV["HECKS_ENV"] || ENV["RACK_ENV"] || ENV["RAILS_ENV"] || "development").to_sym
+        current = (ENV["HECKS_PLAYGROUND_ENV"] || ENV["RACK_ENV"] || ENV["RAILS_ENV"] || "development").to_sym
         Array(required_env).map(&:to_sym).include?(current)
       end
 

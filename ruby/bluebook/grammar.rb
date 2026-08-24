@@ -18,7 +18,7 @@ module BlueBook
     ].freeze
 
     HANDLE_METHODS = begin
-      dsl_methods = (Hecks::DSL::AggregateBuilder.public_instance_methods -
+      dsl_methods = (HecksPlayground::DSL::AggregateBuilder.public_instance_methods -
                      Object.public_instance_methods).map(&:to_s)
       crud = %w[create new all find count]
       introspection = %w[describe preview errors valid?]

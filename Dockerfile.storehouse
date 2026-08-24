@@ -8,7 +8,7 @@
 # Build the cross-compiled binary first:
 #   cd rust && cargo build --release --target x86_64-unknown-linux-gnu
 #
-# Then build the image (from the hecks/ repo root):
+# Then build the image (from the hecks_playground/ repo root):
 #   docker build -f Dockerfile.storehouse -t storehouse:latest .
 #
 # The image bundles:
@@ -34,12 +34,12 @@ COPY rust/target/release/storehouse /usr/local/bin/storehouse
 RUN chmod +x /usr/local/bin/storehouse
 
 # Aggregates root and heki state
-COPY hecks_conception/aggregates /conception/aggregates
-COPY hecks_conception/catalog     /conception/catalog
+COPY hecks_playground_conception/aggregates /conception/aggregates
+COPY hecks_playground_conception/catalog     /conception/catalog
 # information/ (.heki stores) is volume-mounted at runtime so state
 # persists across container restarts. If you want a sealed image
 # (stateless), COPY it here instead.
-# COPY hecks_conception/information /conception/information
+# COPY hecks_playground_conception/information /conception/information
 
 # Socket directory (shared volume mount point)
 RUN mkdir -p /root/.config/miette/sockets

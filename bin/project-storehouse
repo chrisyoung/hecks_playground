@@ -1,7 +1,7 @@
 #!/bin/sh
 # project-storehouse — PROJECT the framework into a consumer app as compiled
 # artifacts. The standalone rule (2026-07-03) : an app never references the
-# hecks tree by source or build ; the framework reaches it as a projected
+# hecks_playground tree by source or build ; the framework reaches it as a projected
 # binary. This script is the projection step.
 #
 #   bin/project-storehouse <app_dir>
@@ -15,7 +15,7 @@
 # Drops into <app_dir>/vendor/storehouse/ :
 #   storehouse            — the CLI binary (shell-out door)
 #   storehouse_rb.bundle  — the in-process Ruby binding (COPY, never a symlink :
-#                           a symlink would point back into the hecks tree)
+#                           a symlink would point back into the hecks_playground tree)
 #
 # Fails loudly on any build or copy error (set -e) and prints what landed.
 set -eu
@@ -26,7 +26,7 @@ if [ $# -ne 1 ]; then
 fi
 
 APP_DIR=$1
-HECKS_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+HECKS_PLAYGROUND_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 
 if [ ! -d "$APP_DIR" ]; then
   echo "project-storehouse: app dir not found: $APP_DIR" >&2
@@ -37,13 +37,13 @@ APP_DIR=$(CDPATH= cd -- "$APP_DIR" && pwd)
 echo "== projecting storehouse -> $APP_DIR/vendor/storehouse"
 
 echo "-- building storehouse CLI (release)"
-( cd "$HECKS_ROOT/rust" && cargo build --release --quiet -p storehouse-cli )
+( cd "$HECKS_PLAYGROUND_ROOT/rust" && cargo build --release --quiet -p storehouse-cli )
 
 echo "-- building storehouse_rb cdylib (release, workspace-excluded)"
-( cd "$HECKS_ROOT/rust/ruby_ext" && cargo build --release --quiet )
+( cd "$HECKS_PLAYGROUND_ROOT/rust/ruby_ext" && cargo build --release --quiet )
 
-BIN="$HECKS_ROOT/rust/target/release/storehouse"
-DYLIB="$HECKS_ROOT/rust/ruby_ext/target/release/libstorehouse_rb.dylib"
+BIN="$HECKS_PLAYGROUND_ROOT/rust/target/release/storehouse"
+DYLIB="$HECKS_PLAYGROUND_ROOT/rust/ruby_ext/target/release/libstorehouse_rb.dylib"
 
 for f in "$BIN" "$DYLIB"; do
   if [ ! -f "$f" ]; then
@@ -59,6 +59,6 @@ chmod 755 "$DEST/storehouse"
 # macOS Ruby requires the .bundle extension ; always a COPY (standalone rule).
 cp "$DYLIB" "$DEST/storehouse_rb.bundle"
 
-REV=$(git -C "$HECKS_ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)
-echo "== projected (hecks @ $REV)"
+REV=$(git -C "$HECKS_PLAYGROUND_ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)
+echo "== projected (hecks_playground @ $REV)"
 ls -lh "$DEST/storehouse" "$DEST/storehouse_rb.bundle"

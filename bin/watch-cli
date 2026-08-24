@@ -1,5 +1,5 @@
 #!/usr/bin/env ruby
-# Watches lib/hecks_cli/ for changes and reinstalls the gem automatically.
+# Watches lib/hecks_playground_cli/ for changes and reinstalls the gem automatically.
 # Pure Ruby — works on macOS, Linux, and Windows. No dependencies.
 #
 # Usage: bin/watch-cli
@@ -7,7 +7,7 @@
 Dir.chdir(File.expand_path("..", __dir__))
 
 def snapshot
-  Dir["lib/hecks_cli/**/*.rb"].each_with_object({}) do |f, h|
+  Dir["lib/hecks_playground_cli/**/*.rb"].each_with_object({}) do |f, h|
     h[f] = File.mtime(f).to_i
   end
 end
@@ -15,9 +15,9 @@ end
 def rebuild
   puts ""
   puts "==> Change detected, reinstalling gem..."
-  Dir.glob("hecks-*.gem").each { |f| File.delete(f) }
-  system("gem build hecks.gemspec --silent")
-  gem_file = Dir["hecks-*.gem"].max_by { |f| File.mtime(f) }
+  Dir.glob("hecks_playground-*.gem").each { |f| File.delete(f) }
+  system("gem build hecks_playground.gemspec --silent")
+  gem_file = Dir["hecks_playground-*.gem"].max_by { |f| File.mtime(f) }
   if gem_file && system("gem install #{gem_file} --no-document")
     puts "==> Installed #{gem_file}"
   else
@@ -27,7 +27,7 @@ end
 
 $stdout.sync = true
 
-puts "Watching lib/hecks_cli/ for changes..."
+puts "Watching lib/hecks_playground_cli/ for changes..."
 puts "Press Ctrl-C to stop."
 
 begin

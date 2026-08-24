@@ -22,7 +22,7 @@ module HecksagainRuntime
     module Expectations
       module_function
 
-      REFUSAL_CLASSES = Hecksagain::Runtime::DOMAIN_REFUSALS
+      REFUSAL_CLASSES = Hecks::Runtime::DOMAIN_REFUSALS
       NON_STATE_KEYS  = %i[ok emits refused count].freeze
 
       def run_one(test, source:, corpus_root: nil, staged_root: nil)
@@ -95,13 +95,13 @@ module HecksagainRuntime
       # `kind: :driving_tick` (slice 1.3) -- proves a `driving on
       # cron/interval` handler dispatches, deterministically (no real
       # clock wait). Fires every CRON handler exactly once via
-      # Hecksagain::Runtime::DrivingScheduler#fire_all! -- `kinds:
+      # Hecks::Runtime::DrivingScheduler#fire_all! -- `kinds:
       # ["cron"]` deliberately excludes `interval` handlers loaded from
       # the same sibling `hecksagons/` folder (interval_adapter.hecksagon
       # sits right beside cron_adapter.hecksagon), matching this test's
       # own comment ("the runner fires every cron handler once").
       def run_driving_tick(test, runtime)
-        scheduler = Hecksagain::Runtime::DrivingScheduler.new(runtime)
+        scheduler = Hecks::Runtime::DrivingScheduler.new(runtime)
         results   = scheduler.fire_all!(kinds: ["cron"])
         actual    = results.flat_map { |r| r.events.map(&:name) }
 
@@ -148,13 +148,13 @@ module HecksagainRuntime
       # The real corpus writes VO-typed `expect` values BOTH ways: bare
       # (`expect sweeper_id: "fleet"`) and wrapped (`expect repo:
       # {value: "..."}`). A live record's field always comes back as a
-      # Hecksagain::Runtime::Value ; unwrapping ONLY the actual side (the
+      # Hecks::Runtime::Value ; unwrapping ONLY the actual side (the
       # obvious first fix) broke every wrapped-form expectation the other
       # way -- found live sweeping the real corpus (i745), not guessed.
       # Normalizing BOTH sides to the same bare-scalar-or-plain-hash shape
       # is the one comparison that accepts either spelling.
       def normalize(value)
-        return Hecksagain::Runtime::Value.materialize_unwrapped(value) if value.is_a?(Hecksagain::Runtime::Value)
+        return Hecks::Runtime::Value.materialize_unwrapped(value) if value.is_a?(Hecks::Runtime::Value)
         return normalize(value[:value]) if value.is_a?(Hash) && value.keys == [:value]
 
         value

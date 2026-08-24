@@ -1,4 +1,4 @@
-Hecks.bluebook "Antibody", version: "2026.04.21.1" do
+HecksPlayground.bluebook "Antibody", version: "2026.04.21.1" do
   vision "Miette's own immune system — every commit inspected, every un-triaged script rejected, every exemption auditable"
   category "capability"
 

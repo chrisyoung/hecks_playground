@@ -47,7 +47,7 @@ set -euo pipefail
 ROOT="${1:?usage: adapter-host <root> <adapter> [--once]}"
 ADAPTER="${2:?adapter name required}"
 ONCE="${3:-}"
-SH="${STOREHOUSE:-/Users/christopheryoung/Projects/hecks/hecksagain_runtime/bin/hecksagain-cli}"
+SH="${STOREHOUSE:-/Users/christopheryoung/Projects/hecks_playground/hecksagain_runtime/bin/hecksagain-cli}"
 
 # Resolve the handler DECLARATIVELY — i746 step 7 : hecksagain-cli's
 # adapter-handler subcommand boots ROOT and reads the named adapter's own
@@ -71,7 +71,7 @@ HANDLER=$("$SH" adapter-handler "$ROOT" "$ADAPTER" | jq -r '.handler // empty')
 # documents (adapters/driven/shell.rb: "the process's own working
 # directory, inherited, NOT the registry root") — so a relative path like
 # "bin/git_status" resolves against wherever adapter-host itself was
-# launched from (hecks/, for every handler this corpus declares today).
+# launched from (hecks_playground/, for every handler this corpus declares today).
 
 process_one() {
   local d="$1" did src success failure payload verdict code ok out err combined

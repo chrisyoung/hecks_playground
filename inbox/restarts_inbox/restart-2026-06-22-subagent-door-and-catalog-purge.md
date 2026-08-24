@@ -37,7 +37,7 @@ is at the door. Live in the warm daemon (verified end-to-end).
 ## Arc 2 — subagent door instrumentation (DONE, ACTIVATES NEXT SESSION)
 WHY : the door-routing convention lived only in Miette's system prompt, which
 subagents don't inherit — so spawned agents hit the macrophage wall. Single source
-of truth : `hecks_conception/aggregates/framework/agent_instrumentation/door.md`.
+of truth : `hecks_playground_conception/aggregates/framework/agent_instrumentation/door.md`.
 Three consumers, no drift :
   - **SubagentStart hook** `bin/subagent-door-hook` (registered in
     miette/self/settings.json) injects door.md as additionalContext into EVERY
@@ -78,7 +78,7 @@ now is churn to undo. Rewrite after catalog is reconciled.
 
 ## Arc 4 — catalog purge (DONE) + what remains
 KEY INSIGHT (Chris's): catalog/ was an early self-hosting/autophagy artifact — a
-mechanical AST extraction of hecks's Ruby source into bluebook syntax (class→aggregate,
+mechanical AST extraction of hecks_playground's Ruby source into bluebook syntax (class→aggregate,
 method→command, ivar→value_object). The tell : ZERO events. Not domains.
 Deleted the 11 zero-event code-inventory files (bluebook, cli, extensions, packaging,
 persist, rails, runtime, spec, targets, templating, workshop) + behaviors. Ambiguity
@@ -121,10 +121,10 @@ the SessionStart start failed again — kill any orphan run-loop, `rm -f .overmi
 `overmind start`.
 
 ## First moves next session
-1. Boot, read wake review. Confirm body healthy (`overmind status` in hecks_conception).
+1. Boot, read wake review. Confirm body healthy (`overmind status` in hecks_playground_conception).
 2. **Verify the SubagentStart door hook** (spawn an Explore agent, no door hint, see
    if it uses the door first try). This is the payoff of Arc 2.
-3. `git -C ~/Projects/hecks log --oneline -6` to confirm the chain (top should be
+3. `git -C ~/Projects/hecks_playground log --oneline -6` to confirm the chain (top should be
    92925ed39).
 4. Pick a FQN path (1 catalog-clean or 2 local-first) and finish : rewrite + flip.
 5. Loose end : merge the miette d0711da commit (cpu-spin/overfire-singleton-keying)

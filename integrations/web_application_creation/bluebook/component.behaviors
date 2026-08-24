@@ -1,4 +1,4 @@
-Hecks.behaviors "Component" do
+HecksPlayground.behaviors "Component" do
   vision "Behavioral tests for the Component domain — exercises every command in memory"
 
   # ── Component aggregate ──────────────────────────────────────────

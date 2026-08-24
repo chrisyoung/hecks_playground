@@ -39,11 +39,11 @@ wasm-bindgen              = "=0.2.126"
 # [package] name -- no `path =` needed alongside `git =`. Bump the `rev`
 # explicitly (new commit + `cargo update -p storehouse`) to pick up fork
 # changes, same discipline as the Gemfile's `ref:` bump. Was `path =
-# "../../../rust"` (hecks's own vendored copy) before i768 slice 2.2 ;
+# "../../../rust"` (hecks_playground's own vendored copy) before i768 slice 2.2 ;
 # verified building + serving real traffic against this git dependency
 # (workerd via `wrangler dev --local`) as part of that cutover.
-# hecks/rust/ itself (and hecks/summer/, which used to path-dep on it)
-# are deleted as of i768 slice 2.2c -- every consumer left in hecks now
+# hecks_playground/rust/ itself (and hecks_playground/summer/, which used to path-dep on it)
+# are deleted as of i768 slice 2.2c -- every consumer left in hecks_playground now
 # resolves storehouse from this fork, not a local path.
 #
 # hecks-hecksagain is a PRIVATE repo -- see worker/.cargo/config.toml

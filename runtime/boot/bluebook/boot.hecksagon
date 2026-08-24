@@ -1,4 +1,4 @@
-Hecks.hecksagon "Boot" do
+HecksPlayground.hecksagon "Boot" do
   # Minimal restore (2026-08-15, i772 follow-up) : establish() only merges
   # BootRun's aggregate/policy IR into the corpus and dispatches
   # BootRun.CompleteBoot -- it never walks daemons or any other adapter

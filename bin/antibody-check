@@ -148,7 +148,7 @@ end
 # don't need exemption markers — the dispatch declaration IS the
 # justification.
 STOREHOUSE_BIN = [
-  ENV["HECKS_BIN"],
+  ENV["HECKS_PLAYGROUND_BIN"],
   File.expand_path("../rust/target/release/storehouse", __dir__),
   File.expand_path("../rust/target/debug/storehouse",   __dir__),
 ].compact.find { |p| File.executable?(p) }
@@ -244,7 +244,7 @@ def kernel_load_violations(paths)
       # the old Kernel.load path to prove the NEW loader matches it.
       next if p.start_with?("spec/parity/")
       # Whitelist the Loader itself — it owns the one allowed caller.
-      next if p.end_with?("lib/hecksagon/loader.rb")
+      next if p.end_with?("ruby/hecksagon/loader.rb")
       violations << "#{p}:#{ln}: #{line.strip}"
     end
   end
@@ -351,7 +351,7 @@ puts ""
 puts "⚠ antibody: #{code.size} non-bluebook file(s) touched"
 code.each { |p| puts "    #{p}" }
 puts ""
-puts "  Hecks source vocabulary: .bluebook .hecksagon .fixtures"
+puts "  HecksPlayground source vocabulary: .bluebook .hecksagon .fixtures"
 puts "  .behaviors .world. Everything else is a gap."
 puts ""
 

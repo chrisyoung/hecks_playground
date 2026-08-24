@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # bin/nursery-parity-sweep
 #
-# Hecks::Tools::NurseryParitySweep
+# HecksPlayground::Tools::NurseryParitySweep
 #
 # Mechanical Gate A / Gate B transformations applied across .bluebook files
 # to close Ruby/Rust parser dialect drift. Idempotent — running a second time
@@ -23,7 +23,7 @@
 #                                 otherwise skipped)
 #
 # Usage:
-#   bin/nursery-parity-sweep                    # runs over hecks_conception/nursery
+#   bin/nursery-parity-sweep                    # runs over hecks_playground_conception/nursery
 #   bin/nursery-parity-sweep path/to/dir        # runs over a directory
 #   bin/nursery-parity-sweep --dry-run          # print what WOULD change
 #   bin/nursery-parity-sweep --dry-run path/... # dry-run a specific path
@@ -34,7 +34,7 @@
 require "pathname"
 
 module NurseryParitySweep
-  DEFAULT_TARGET = File.expand_path("../hecks_conception/nursery", __dir__)
+  DEFAULT_TARGET = File.expand_path("../hecks_playground_conception/nursery", __dir__)
 
   # Matches:  reference_to "SomeTypeName"
   # Captures: indent, string body

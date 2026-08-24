@@ -1,4 +1,4 @@
-Hecks.bluebook "DailyMusingCloudflare", version: "2026.05.23.1" do
+HecksPlayground.bluebook "DailyMusingCloudflare", version: "2026.05.23.1" do
   vision "The Cloudflare deploy config for the Daily Musing WASM Worker, expressed as a bluebook. The wrangler.toml beside this file is DERIVED from this declaration — the bluebook is the source of truth, the toml is the artifact (the way the Procfile derives from mindstream)."
   category "deploy"
 

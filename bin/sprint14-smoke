@@ -28,19 +28,19 @@
 #   8. Canned default + world swap — memory-only + canned ; .world makes real
 #
 # Conception-side artefacts wired by this PR :
-#   - hecks_conception/aggregates/framework/tools/hecksagons/shell_adapter.hecksagon
+#   - hecks_playground_conception/aggregates/framework/tools/hecksagons/shell_adapter.hecksagon
 #     (already on main — sprint 12 first-adapter slice)
-#   - hecks_conception/aggregates/framework/tools/hecksagons/sprint14_smoke_fanout.hecksagon
+#   - hecks_playground_conception/aggregates/framework/tools/hecksagons/sprint14_smoke_fanout.hecksagon
 #     (this PR — the second subscriber proving fan-out wiring)
-#   - hecks_conception/aggregates/framework/tools.world
+#   - hecks_playground_conception/aggregates/framework/tools.world
 #     (already on main — live .world entry for the MCP server family)
 #
 # Run :
 #   bin/sprint14-smoke
 #
 # Env :
-#   HECKS_CONCEPTION_DIR — overrides the conception root (defaults to
-#     the script's repo, $REPO/hecks_conception). Set this when running
+#   HECKS_PLAYGROUND_CONCEPTION_DIR — overrides the conception root (defaults to
+#     the script's repo, $REPO/hecks_playground_conception). Set this when running
 #     from a different checkout / worktree.
 #
 # Linked story : sprint14-smoke-acceptance (Plan::Story).
@@ -49,10 +49,10 @@ set -u  # NOT -e : the smoke wants to report ALL eight, not bail on first.
 
 # Resolve the repo root from this script's location so the smoke runs
 # correctly from a worktree or any checkout. The script lives at
-# <repo>/bin/sprint14-smoke ; the conception lives at <repo>/hecks_conception.
+# <repo>/bin/sprint14-smoke ; the conception lives at <repo>/hecks_playground_conception.
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 REPO_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
-CONCEPTION_DIR="${HECKS_CONCEPTION_DIR:-$REPO_ROOT/hecks_conception}"
+CONCEPTION_DIR="${HECKS_PLAYGROUND_CONCEPTION_DIR:-$REPO_ROOT/hecks_playground_conception}"
 AGG_DIR="$CONCEPTION_DIR/aggregates"
 HEC_DIR="$AGG_DIR/framework/tools/hecksagons"
 SHELL_ADAPTER="$HEC_DIR/shell_adapter.hecksagon"
@@ -83,12 +83,12 @@ echo "  storehouse : $($STOREHOUSE_BIN --help 2>&1 | head -1)"
 # ----------------------------------------------------------------------
 # DECISION 1 — DSL reuse : adapter uses the existing hecksagon DSL
 # ----------------------------------------------------------------------
-section 1 "DSL reuse — adapter lives in a Hecks.hecksagon block"
+section 1 "DSL reuse — adapter lives in a HecksPlayground.hecksagon block"
 
-if [[ -f "$SHELL_ADAPTER" ]] && grep -q '^Hecks\.hecksagon "ShellAdapter" do$' "$SHELL_ADAPTER" \
+if [[ -f "$SHELL_ADAPTER" ]] && grep -q '^HecksPlayground\.hecksagon "ShellAdapter" do$' "$SHELL_ADAPTER" \
    && grep -q '  adapter "ShellAdapter" do' "$SHELL_ADAPTER" \
    && grep -q '    driven on "Tools::ShellTool.BashRan"' "$SHELL_ADAPTER"; then
-  pass "shell_adapter.hecksagon parses as Hecks.hecksagon with adapter + driven-on"
+  pass "shell_adapter.hecksagon parses as HecksPlayground.hecksagon with adapter + driven-on"
 else
   fail "shell_adapter.hecksagon missing or wrong shape at $SHELL_ADAPTER"
 fi
@@ -173,7 +173,7 @@ fi
 # triggers each handler's follow-on Tools::TaskTool.Get with a distinct id.
 if [[ -f "$FANOUT_ADAPTER" ]]; then
   SMOKE_ID="sprint14-fan-$$"
-  FANOUT_DEBUG=$(HECKS_DEBUG_DRIVEN=1 STOREHOUSE_LOG=verbose \
+  FANOUT_DEBUG=$(HECKS_PLAYGROUND_DEBUG_DRIVEN=1 STOREHOUSE_LOG=verbose \
     $STOREHOUSE_BIN "$AGG_DIR" Tools::ShellTool.Bash \
       id="$SMOKE_ID" shell_command='echo fanout' description='fan-out smoke probe' 2>&1)
   SHELL_CASCADE=$(echo "$FANOUT_DEBUG" | grep -c 'cascaded into Tools::TaskTool.Get .* id=shell-adapter-smoke' || true)
@@ -183,7 +183,7 @@ if [[ -f "$FANOUT_ADAPTER" ]]; then
   elif [[ "$SHELL_CASCADE" -ge 1 ]]; then
     skip "only the shell adapter fired ; the sprint14 fanout fixture isn't yet visible to this checkout's load_all_hecksagons (re-run from $CONCEPTION_DIR)"
   else
-    skip "no driven-adapter cascade observed ; HECKS_DEBUG_DRIVEN debug output missing — driven-adapter-resolver may be gated"
+    skip "no driven-adapter cascade observed ; HECKS_PLAYGROUND_DEBUG_DRIVEN debug output missing — driven-adapter-resolver may be gated"
   fi
 fi
 
@@ -261,7 +261,7 @@ section 8 "Bluebook under the hood — memory-only + canned by default ; .world 
 # The .world heki-dir swap IS on main (rust/src/world/attach.rs ::
 # apply_per_domain_world_dirs). Probe : tools.world exists and the
 # attach walker would pick it up.
-if [[ -f "$TOOLS_WORLD" ]] && grep -q '^Hecks\.world "Tools" do$' "$TOOLS_WORLD"; then
+if [[ -f "$TOOLS_WORLD" ]] && grep -q '^HecksPlayground\.world "Tools" do$' "$TOOLS_WORLD"; then
   pass ".world file in place at $TOOLS_WORLD — attach.rs swap-to-real wiring active"
 else
   fail ".world file missing or wrong shape at $TOOLS_WORLD"

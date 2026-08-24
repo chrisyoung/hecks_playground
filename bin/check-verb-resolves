@@ -19,8 +19,8 @@
 #   - that bluebook parses through storehouse (`storehouse parse` exits 0).
 # Falsified targets ("x", "test/probe", made-up paths) fail loudly.
 set -u
-REPO_ROOT="${REPO_ROOT:-/Users/christopheryoung/Projects/hecks}"
-AGG_ROOT="${REPO_ROOT}/hecks_conception/aggregates"
+REPO_ROOT="${REPO_ROOT:-/Users/christopheryoung/Projects/hecks_playground}"
+AGG_ROOT="${REPO_ROOT}/hecks_playground_conception/aggregates"
 STORY_HEKI="${AGG_ROOT}/plan/.heki/plan/story.heki"
 STORY_ID=$(cat | jq -r '.id // empty')
 

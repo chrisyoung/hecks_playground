@@ -1,7 +1,7 @@
 # [antibody-exempt: ruby/hecksagon/dsl/framework_declaration_builder.rb —
 #  kernel-surface Ruby DSL builder. Phase 1 of adapter-family activation :
 #  the Ruby half of the parser-level recognition for the new top-level
-#  forms (Hecks.adapter_family / Hecks.provider / Hecks.behavior_kind).
+#  forms (HecksPlayground.adapter_family / HecksPlayground.provider / HecksPlayground.behavior_kind).
 #  Tolerant method_missing intentionally accepts any inner DSL so the
 #  framework/* hecksagons load without error before Phase 2 wires the
 #  runtime registry. Mirrors the Rust hecksagon_parser's recognition of
@@ -12,7 +12,7 @@ module Hecksagon
     # Hecksagon::DSL::FrameworkDeclarationBuilder
     #
     # DSL builder for the Phase 1 surface of the adapter-family meta-layer
-    # (`Hecks.adapter_family`, `Hecks.provider`, `Hecks.behavior_kind`).
+    # (`HecksPlayground.adapter_family`, `HecksPlayground.provider`, `HecksPlayground.behavior_kind`).
     #
     #   builder = FrameworkDeclarationBuilder.new("sms", framework_kind: "adapter_family")
     #   builder.instance_eval(&block)

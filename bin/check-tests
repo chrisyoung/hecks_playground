@@ -16,7 +16,7 @@
 # so a story's tests can be checked locally without disturbing other
 # in-flight work ; fall back to the main repo's rust/ tree.
 set -u
-REPO_ROOT="${REPO_ROOT:-/Users/christopheryoung/Projects/hecks}"
+REPO_ROOT="${REPO_ROOT:-/Users/christopheryoung/Projects/hecks_playground}"
 STORY_ID=$(cat | jq -r '.id // empty')
 
 branch="sq/${STORY_ID}"

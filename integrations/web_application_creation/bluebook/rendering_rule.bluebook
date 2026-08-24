@@ -1,4 +1,4 @@
-Hecks.bluebook "RenderingRule", version: "2026.05.12.1" do
+HecksPlayground.bluebook "RenderingRule", version: "2026.05.12.1" do
   vision "Deterministic checks the generator must pass — not guidance, gates"
   category "infrastructure"
 

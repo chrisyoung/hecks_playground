@@ -32,14 +32,14 @@ module Hecksagon
     # (annotation chains like `Chat.prompt.ai_responder`) are allowed
     # too — see `allowed_line?`.
     HECKSAGON_ALLOWED = %w[
-      Hecks.hecksagon adapter annotate aggregate allow capabilities concerns
+      HecksPlayground.hecksagon adapter annotate aggregate allow capabilities concerns
       context_map domain driven driving end extension gate listens_to owned_by
       persistence port subscribe tenancy upstream downstream shared_kernel
     ].freeze
 
     # DSL surface allowed at the top level of a `.world` file.
     WORLD_ALLOWED = %w[
-      Hecks.world audience concern description end purpose vision
+      HecksPlayground.world audience concern description end purpose vision
     ].freeze
 
     # Load a `.hecksagon` file after checking every non-blank line

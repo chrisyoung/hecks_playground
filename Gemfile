@@ -24,13 +24,13 @@ gem "websocket"
 # The wave the earlier comment said `vendor/hecksagain` was waiting on
 # ("stays in place as a fallback until the rest of the wave verifies")
 # HAS now verified: the 64-root `HecksagainRuntime.validate` sweep over
-# hecks_conception reproduces the git-pin baseline exactly (59 valid /
+# hecks_playground_conception reproduces the git-pin baseline exactly (59 valid /
 # 4 invalid / 63 swept), and the for_each fan-out + verb-prefix fixes
 # (i787, f5557d80b) prove out live against the vendored gem.
 #
 # ---- history of the `git:`-pinned era this replaces ----
 # hecksagain-cutover PRD, slice 2.1 replaced the hand-maintained
-# hecks/vendor/hecksagain file-copy vendoring with a `ref:`-pinned git
+# hecks_playground/vendor/hecksagain file-copy vendoring with a `ref:`-pinned git
 # source (no real Bundler entry existed before that --
 # hecksagain_runtime/bin/hecksagain-cli hardcoded
 # `$LOAD_PATH.unshift ".../vendor/hecksagain/lib"` instead).
@@ -65,7 +65,7 @@ gem "websocket"
 # 2026-08-17) -- feat/spawn-effect-port is deleted, this is the real pin
 # now, not provisional.
 # ---- end history ----
-gem "hecksagain", path: "vendor/hecksagain"
+gem "hecks", path: "vendor/hecks"
 
 group :development, :test do
   gem "rake"

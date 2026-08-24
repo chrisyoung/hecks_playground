@@ -21,4 +21,4 @@ What actually happened. Include error messages or stack traces.
 **Environment**
 - Ruby version:
 - OS:
-- Hecks version:
+- HecksPlayground version:

@@ -20,9 +20,9 @@
 - Memory adapters for tests — fast and isolated
 - CalVer versioning (YYYY.MM.DD.N)
 - Aggregates are pure domain objects — no persistence logic
-- CLI commands are each their own file under `lib/hecks/cli/commands/`
+- CLI commands are each their own file under `lib/hecks_playground/cli/commands/`
 - Module grouping: parent file with `.bind`, children in subdirectory
-- `Hecks.boot(__dir__)` for apps, `Hecks.configure` for Rails
+- `HecksPlayground.boot(__dir__)` for apps, `HecksPlayground.configure` for Rails
 - Generators show a diff when a target file already exists (never silently overwrite)
 
 ## Tonight's locked conventions (2026-05-12)
@@ -68,7 +68,7 @@ The door tool is often DEFERRED. If it is not already loaded, load it first:
 `ToolSearch` with query `select:mcp__storehouse__storehouse__dispatch`.
 
 Each dispatch takes:
-- `aggregates_dir` — the repo root, normally `/Users/christopheryoung/Projects/hecks/hecks_conception`
+- `aggregates_dir` — the repo root, normally `/Users/christopheryoung/Projects/hecks_playground/hecks_playground_conception`
 - `command` — the fully-qualified verb (PascalCase command or snake_case query)
 - `args` — the command's attributes (an object)
 - `summary` — a required one-line description of what the dispatch does

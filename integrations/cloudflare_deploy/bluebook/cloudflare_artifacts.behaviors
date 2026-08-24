@@ -1,4 +1,4 @@
-Hecks.behaviors "CloudflareArtifacts" do
+HecksPlayground.behaviors "CloudflareArtifacts" do
   vision "Behavioral tests for the CloudflareArtifacts domain — codegen pipeline in memory (Compile → Worker/Pages/Migration/WranglerConfig)"
 
   # ── Compilation aggregate ──────────────────────────────────────────

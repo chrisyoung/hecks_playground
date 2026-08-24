@@ -26,16 +26,16 @@ module Hecksagon
                   :framework_kind,
                   # Sprint 14 — typed IR for the `adapter "X" do ; driven on ... ; end`
                   # form, mirroring rust/src/hecksagon_ir.rs. Empty for plain
-                  # `Hecks.hecksagon do ... end` files that don't declare any.
+                  # `HecksPlayground.hecksagon do ... end` files that don't declare any.
                   :driven_adapters, :driving_adapters,
                   # FQN port-verb binds (persisted_by / charged_by / imaged_by / ...),
                   # mirroring rust/src/hecksagon_ir.rs::Hecksagon.bindings.
                   :bindings
 
       # `framework_kind` carries the meta-layer kind for files declared with
-      # `Hecks.adapter_family`, `Hecks.provider`, or `Hecks.behavior_kind` — one
+      # `HecksPlayground.adapter_family`, `HecksPlayground.provider`, or `HecksPlayground.behavior_kind` — one
       # of `"adapter_family"`, `"provider"`, `"behavior_kind"`. Plain
-      # `Hecks.hecksagon` files leave it `nil`. The kernel registry walks
+      # `HecksPlayground.hecksagon` files leave it `nil`. The kernel registry walks
       # framework/* and indexes by this field. Pure-data Phase 1 surface ;
       # the inner DSL (fields, providers, request_body, etc.) is captured
       # into +framework_payload+ verbatim and parsed by the Phase 2 runtime.

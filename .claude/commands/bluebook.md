@@ -28,7 +28,7 @@ end
 5. After modifying a `.bluebook` file, verify it parses:
 
 ```bash
-ruby -Ilib -e "require 'hecks'; Hecks.boot('path/to/project')"
+ruby -Ilib -e "require 'hecks_playground'; HecksPlayground.boot('path/to/project')"
 ```
 
 6. Update `docs/usage/dsl_reference.md` if you add new DSL keywords.

@@ -20,7 +20,7 @@
 # unparseable reply as "no door found"), but returning cleanly is the more
 # honest contract for a library method.
 
-require "hecksagain"
+require "hecks"
 
 module HecksagainRuntime
   module GovernedDoor
@@ -35,7 +35,7 @@ module HecksagainRuntime
             return {
               ok: true,
               door: true,
-              door_equivalent: "#{bluebook.name}::#{agg.name}.#{cmd.hecks_name}",
+              door_equivalent: "#{bluebook.name}::#{agg.name}.#{cmd.hecks_playground_name}",
               door_args: cmd.attributes.map(&:name),
             }
           end

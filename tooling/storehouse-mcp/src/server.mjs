@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // server.mjs
 //
-// storehouse-mcp — the MCP server that exposes Hecks bluebook dispatches
+// storehouse-mcp — the MCP server that exposes HecksPlayground bluebook dispatches
 // as MCP tools. Run by claude-code (via .mcp.json or `claude mcp add`).
 //
 // Talks stdio MCP transport. Each tool call shells to `storehouse` and
@@ -16,7 +16,7 @@
 //
 // Env vars :
 //   STOREHOUSE_BIN              — path to the storehouse binary (default: "storehouse" on PATH)
-//   STOREHOUSE_ROOT             — bluebook root dir (default: "hecks_conception")
+//   STOREHOUSE_ROOT             — bluebook root dir (default: "hecks_playground_conception")
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -37,7 +37,7 @@ const server = new McpServer(
       resources: { subscribe: true, listChanged: false },
     },
     instructions:
-      "The Hecks bluebook bus. storehouse__dispatch is the universal door — call any bluebook command (Domain::Aggregate.Command) or query (Domain::Aggregate.snake_case) on any aggregates root. Use storehouse__catalog or storehouse__describe_aggregate first to discover what's callable. storehouse__validate, storehouse__macrophage_check, storehouse__behaviors, and storehouse__conceive_behaviors cover the developer workflow. The storehouse://events resource is a live tail of the runtime's emit_to_agent stream (i17) — subscribe to be notified of policy events as they fire.",
+      "The HecksPlayground bluebook bus. storehouse__dispatch is the universal door — call any bluebook command (Domain::Aggregate.Command) or query (Domain::Aggregate.snake_case) on any aggregates root. Use storehouse__catalog or storehouse__describe_aggregate first to discover what's callable. storehouse__validate, storehouse__macrophage_check, storehouse__behaviors, and storehouse__conceive_behaviors cover the developer workflow. The storehouse://events resource is a live tail of the runtime's emit_to_agent stream (i17) — subscribe to be notified of policy events as they fire.",
   },
 );
 

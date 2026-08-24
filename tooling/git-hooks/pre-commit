@@ -23,7 +23,7 @@
 #   7. LoC ratchet — non-bluebook LoC may not increase vs origin/main
 #   8. cargo check --tests — all integration test targets compile, in
 #      hecks-hecksagain's storehouse/ (i768 slice 2.2c: rust/ retired
-#      from hecks ; gate now runs against the fork's checkout)
+#      from hecks_playground ; gate now runs against the fork's checkout)
 #   9. Specializer byte-identity — codegen output equals storehouse/src/<name>.rs
 #      for all tracked shapes (same fork checkout as Gate 8)
 #   10. wasm32 build guard — the storehouse lib still compiles for
@@ -33,8 +33,8 @@
 #
 # Gates 3/8/9/10 run against hecks-hecksagain's storehouse/ crate, not a
 # path inside this repo (i768 slice 2.2c blocker C) — rust/ retired from
-# hecks in full ; the engine these gates test now lives in the fork,
-# checked out as a sibling of this repo (HECKS_HECKSAGAIN_REPO overrides
+# hecks_playground in full ; the engine these gates test now lives in the fork,
+# checked out as a sibling of this repo (HECKS_PLAYGROUND_HECKSAGAIN_REPO overrides
 # the sibling-repo guess). Each gate SKIPS with a loud stderr line (not a
 # silent no-op) when no such checkout is found, same discipline as
 # pre-push's integrity gate.
@@ -64,18 +64,18 @@ REPO="$(git rev-parse --show-toplevel 2>/dev/null)"
 [ -n "$REPO" ] || REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 
 # hecksagain cutover (i768 slice 2.2c blocker C): rust/ retired from
-# hecks — the engine's own crate, and the binary Gate 4 shells out to,
+# hecks_playground — the engine's own crate, and the binary Gate 4 shells out to,
 # now live in hecks-hecksagain's storehouse/ instead. Same sibling-repo
 # convention blocker B wired into pre-push (env override first, then a
-# conventional on-disk path), so one HECKS_HECKSAGAIN_REPO controls
+# conventional on-disk path), so one HECKS_PLAYGROUND_HECKSAGAIN_REPO controls
 # both hooks' lookup. HECKSAGAIN_STOREHOUSE is the crate's SOURCE tree
 # (Gates 3/8/9/10 `cd` into it and run cargo directly against fork
 # sources, not a path-dep) ; STOREHOUSE below is a built BINARY (Gate 4
 # shells out to it, same as pre-push's integrity gate) — different
 # artifacts, same repo.
-HECKSAGAIN_REPO="${HECKS_HECKSAGAIN_REPO:-$(dirname "$REPO")/hecks-hecksagain}"
+HECKSAGAIN_REPO="${HECKS_PLAYGROUND_HECKSAGAIN_REPO:-$(dirname "$REPO")/hecks-hecksagain}"
 HECKSAGAIN_STOREHOUSE="$HECKSAGAIN_REPO/storehouse"
-STOREHOUSE="${HECKS_HECKSAGAIN_BIN:-}"
+STOREHOUSE="${HECKS_PLAYGROUND_HECKSAGAIN_BIN:-}"
 if [ -z "$STOREHOUSE" ]; then
     for candidate in \
         "$HECKSAGAIN_STOREHOUSE/target/release/storehouse" \
@@ -86,7 +86,7 @@ if [ -z "$STOREHOUSE" ]; then
         fi
     done
 fi
-CONCEPTION_DIR="$REPO/hecks_conception"
+CONCEPTION_DIR="$REPO/hecks_playground_conception"
 PARITY_TEST="$REPO/parity/parity_test.rb"
 HECKSAGON_PARITY_TEST="$REPO/parity/hecksagon_parity_test.rb"
 WORLD_PARITY_TEST="$REPO/parity/world_parity_test.rb"
@@ -121,7 +121,7 @@ WORLD_PARITY_TEST="$REPO/parity/world_parity_test.rb"
 # `storehouse check-lifecycle` is the retired Rust binary against
 # hecksagain-shaped content it can't parse — same reasoning as Gates
 # 1/1b. hecksagain's own DSL builders + Registry#verify! already catch
-# lifecycle-shape errors inline at boot (a clean `Hecks.boot` IS
+# lifecycle-shape errors inline at boot (a clean `HecksPlayground.boot` IS
 # validity, per this migration's own Part 1 validator finding) — Gate
 # 2b just below is being upgraded to a real hecksagain-cli check
 # covering this ground with the new runtime instead.
@@ -131,7 +131,7 @@ WORLD_PARITY_TEST="$REPO/parity/world_parity_test.rb"
 # WHICH runtime validates (hecksagain-cli, not the retired Rust binary),
 # but `hecksagain-cli validate <root>` still flattened the WHOLE corpus
 # into ONE combined boot and reported ONE verdict — i745 found it saying
-# valid:true while 36 of hecks_conception's own 58 sub-roots were
+# valid:true while 36 of hecks_playground_conception's own 58 sub-roots were
 # individually invalid (a crash anywhere makes the whole thing false with
 # no "which root", and a name collision between two roots can make a
 # broken root silently PASS). `HecksagainRuntime.validate` now sweeps
@@ -170,7 +170,7 @@ fi
 # shape: same files, same Conceiver trait, same surface. Guard fixed
 # on re-home -- the pre-extraction guard had decayed to `[ -d "/rust" ]`
 # (literal root, always skipped) ; now anchored at hecks-hecksagain's
-# storehouse/ (i768 slice 2.2c blocker C -- rust/ retired from hecks,
+# storehouse/ (i768 slice 2.2c blocker C -- rust/ retired from hecks_playground,
 # would otherwise have silently decayed to a no-op again the same way).
 if [ -d "$HECKSAGAIN_STOREHOUSE" ]; then
 if ! (cd "$HECKSAGAIN_STOREHOUSE" \
@@ -184,7 +184,7 @@ if ! (cd "$HECKSAGAIN_STOREHOUSE" \
     exit 1
 fi
 else
-    echo "pre-commit: Gate 3 (conceiver parity) skipped — no hecks-hecksagain/storehouse checkout found at $HECKSAGAIN_STOREHOUSE (set HECKS_HECKSAGAIN_REPO?)."
+    echo "pre-commit: Gate 3 (conceiver parity) skipped — no hecks-hecksagain/storehouse checkout found at $HECKSAGAIN_STOREHOUSE (set HECKS_PLAYGROUND_HECKSAGAIN_REPO?)."
 fi
 
 # ── Gate 4: Miette enforce ─────────────────────────────────────────
@@ -315,7 +315,7 @@ fi
 
 # ── Gate 6: Smoke tests — RETIRED (hecksagain cutover, 2026-08-11) ──
 # Chris's explicit sign-off, same reasoning as Gates 1/1b/2: every
-# `hecks_conception/tests/*.sh` shells the retired Rust `storehouse`
+# `hecks_playground_conception/tests/*.sh` shells the retired Rust `storehouse`
 # binary against content now rewritten for hecksagain — confirmed
 # directly this pass (5 of them failed on a commit touching a SINGLE
 # unrelated Ruby file, because they test the whole corpus's CURRENT
@@ -362,7 +362,7 @@ fi
 #
 # Set CARGO_CHECK_SKIP=1 to bypass (an antibody failure for emergencies).
 # Repointed at hecks-hecksagain's storehouse/ (i768 slice 2.2c blocker C) --
-# rust/ retired from hecks ; see HECKSAGAIN_STOREHOUSE's definition above.
+# rust/ retired from hecks_playground ; see HECKSAGAIN_STOREHOUSE's definition above.
 if [ -z "$CARGO_CHECK_SKIP" ] && [ -f "$HECKSAGAIN_STOREHOUSE/Cargo.toml" ]; then
 if ! ( cd "$HECKSAGAIN_STOREHOUSE" && cargo check --tests --quiet --workspace ) >/tmp/cargo_check_tests.out 2>&1; then
     cat /tmp/cargo_check_tests.out
@@ -374,7 +374,7 @@ if ! ( cd "$HECKSAGAIN_STOREHOUSE" && cargo check --tests --quiet --workspace ) 
 fi
 else
     if [ -z "$CARGO_CHECK_SKIP" ]; then
-        echo "pre-commit: Gate 8 (cargo check --tests) skipped — no hecks-hecksagain/storehouse checkout found at $HECKSAGAIN_STOREHOUSE (set HECKS_HECKSAGAIN_REPO?)."
+        echo "pre-commit: Gate 8 (cargo check --tests) skipped — no hecks-hecksagain/storehouse checkout found at $HECKSAGAIN_STOREHOUSE (set HECKS_PLAYGROUND_HECKSAGAIN_REPO?)."
     fi
 fi
 
@@ -388,7 +388,7 @@ fi
 #
 # Set SPECIALIZER_SKIP=1 to bypass (an antibody failure for emergencies).
 # Repointed at hecks-hecksagain's storehouse/ (i768 slice 2.2c blocker C) --
-# rust/ retired from hecks ; see HECKSAGAIN_STOREHOUSE's definition above.
+# rust/ retired from hecks_playground ; see HECKSAGAIN_STOREHOUSE's definition above.
 if [ -z "$SPECIALIZER_SKIP" ] && [ -f "$HECKSAGAIN_STOREHOUSE/tests/specializer_golden_test.rs" ]; then
 if ! ( cd "$HECKSAGAIN_STOREHOUSE" && cargo test --release --test specializer_golden_test --quiet ) >/tmp/specializer_goldens.out 2>&1; then
     cat /tmp/specializer_goldens.out
@@ -405,7 +405,7 @@ if ! ( cd "$HECKSAGAIN_STOREHOUSE" && cargo test --release --test specializer_go
 fi
 else
     if [ -z "$SPECIALIZER_SKIP" ]; then
-        echo "pre-commit: Gate 9 (specializer byte-identity) skipped — no hecks-hecksagain/storehouse checkout found at $HECKSAGAIN_STOREHOUSE (set HECKS_HECKSAGAIN_REPO?)."
+        echo "pre-commit: Gate 9 (specializer byte-identity) skipped — no hecks-hecksagain/storehouse checkout found at $HECKSAGAIN_STOREHOUSE (set HECKS_PLAYGROUND_HECKSAGAIN_REPO?)."
     fi
 fi
 
@@ -420,7 +420,7 @@ fi
 #
 # Set WASM_SKIP=1 to bypass (an antibody failure for emergencies).
 # Repointed at hecks-hecksagain's storehouse/ (i768 slice 2.2c blocker C) --
-# rust/ retired from hecks ; see HECKSAGAIN_STOREHOUSE's definition above.
+# rust/ retired from hecks_playground ; see HECKSAGAIN_STOREHOUSE's definition above.
 if [ -z "$WASM_SKIP" ] && [ -f "$HECKSAGAIN_STOREHOUSE/Cargo.toml" ] && command -v rustup >/dev/null 2>&1 \
 && rustup target list --installed 2>/dev/null | grep -q '^wasm32-unknown-unknown$'; then
 if ! ( cd "$HECKSAGAIN_STOREHOUSE" && rustup run stable cargo check --target wasm32-unknown-unknown -p storehouse --no-default-features --quiet ) >/tmp/wasm_check.out 2>&1; then
@@ -434,7 +434,7 @@ if ! ( cd "$HECKSAGAIN_STOREHOUSE" && rustup run stable cargo check --target was
 fi
 else
     if [ -z "$WASM_SKIP" ] && [ ! -f "$HECKSAGAIN_STOREHOUSE/Cargo.toml" ]; then
-        echo "pre-commit: Gate 10 (wasm32 build guard) skipped — no hecks-hecksagain/storehouse checkout found at $HECKSAGAIN_STOREHOUSE (set HECKS_HECKSAGAIN_REPO?)."
+        echo "pre-commit: Gate 10 (wasm32 build guard) skipped — no hecks-hecksagain/storehouse checkout found at $HECKSAGAIN_STOREHOUSE (set HECKS_PLAYGROUND_HECKSAGAIN_REPO?)."
     fi
 fi
 

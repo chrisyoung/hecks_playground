@@ -19,7 +19,7 @@
 # convention. If no matching worktree exists, fall back to the main
 # repo root — lying becomes "the main repo is dirty".
 set -u
-REPO_ROOT="${REPO_ROOT:-/Users/christopheryoung/Projects/hecks}"
+REPO_ROOT="${REPO_ROOT:-/Users/christopheryoung/Projects/hecks_playground}"
 STORY_ID=$(cat | jq -r '.id // empty')
 
 if [ -z "$STORY_ID" ]; then

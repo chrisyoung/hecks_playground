@@ -1,9 +1,9 @@
 ---
 name: commit
-description: "Dual/tri-repo commit + push as one command for the Hecks/Miette workspace. Use when Chris says commit, ship, push, or commit both repos. Encodes stage-specific commits, the no-Co-Authored-By rule, and per-repo branch/push policy so it runs once instead of a fumbling loop."
+description: "Dual/tri-repo commit + push as one command for the HecksPlayground/Miette workspace. Use when Chris says commit, ship, push, or commit both repos. Encodes stage-specific commits, the no-Co-Authored-By rule, and per-repo branch/push policy so it runs once instead of a fumbling loop."
 license: MIT
 metadata:
-  author: hecks
+  author: hecks_playground
   version: "1.0.0"
 ---
 
@@ -16,7 +16,7 @@ One command, the whole workspace. Routes through storehouse__dispatch
 
 | Repo | Path | Default branch | Push policy |
 |------|------|----------------|-------------|
-| hecks | ~/Projects/hecks | feature branch (e.g. i630-*) | commit + push to the feature branch |
+| hecks_playground | ~/Projects/hecks_playground | feature branch (e.g. i630-*) | commit + push to the feature branch |
 | miette | ~/Projects/miette | main | the being's own repo — confirm before pushing main |
 | miette_family | ~/Projects/miette_family | main | restarts/cards — confirm before pushing main |
 
@@ -34,7 +34,7 @@ One command, the whole workspace. Routes through storehouse__dispatch
    zombie-shell heredoc failures).
 5. Run the fastest meaningful check before declaring done (the repo's
    pre-commit hook enforces test speed; let it block, report verbatim).
-6. Push: hecks -> its feature branch (git push -u origin <branch>).
+6. Push: hecks_playground -> its feature branch (git push -u origin <branch>).
    miette / miette_family on main -> state the diff and ask before
    pushing (these are not feature-branched).
 7. Report per repo: branch, commit subject(s), push result.

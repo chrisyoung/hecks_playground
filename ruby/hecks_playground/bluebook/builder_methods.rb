@@ -1,0 +1,318 @@
+module HecksPlayground
+  # HecksPlayground::BluebookBuilderMethods
+  #
+  # DSL entry points for defining, validating, and previewing domains.
+  # This module is extended onto the top-level HecksPlayground module to provide
+  # the primary API for domain construction. It wraps the DSL builders,
+  # validator, and code generators behind simple top-level methods.
+  #
+  # These methods are the main interface for creating and inspecting
+  # domain models before they are compiled or loaded.
+  #
+  #   HecksPlayground.bluebook("Pizzas") { ... }
+  #   HecksPlayground.validate(domain)
+  #   HecksPlayground.preview(domain, "Pizza")
+  #   HecksPlayground.workshop("Pizzas")
+  #
+  module BluebookBuilderMethods
+    include HecksTemplating::NamingHelpers
+    # Define a new domain using the HecksPlayground DSL. Evaluates the given block
+    # inside a BluebookBuilder, which collects aggregate definitions, policies,
+    # workflows, views, and services. The resulting Domain object is stored
+    # as +HecksPlayground.last_domain+ for snapshot tooling.
+    #
+    # @param name [String] the human-readable domain name (e.g., "Pizzas")
+    # @param block [Proc] DSL block evaluated inside DSL::BluebookBuilder
+    # @return [HecksPlayground::BluebookModel::Domain] the fully built domain IR object
+    def bluebook(name = nil, version: nil, &block)
+      name ||= HecksPlayground.instance_variable_get(:@_inferred_bluebook_name) || "Unnamed"
+      model(name, version: version, grammar: :bluebook, &block)
+    end
+
+    # `HecksPlayground.domain "Todo" do` — the older spelling of the same opener,
+    # still carried by three deployment bluebooks. Rust never noticed the
+    # difference (it line-scans for the aggregates and ignores the opener
+    # entirely, so those files parse fine there) ; Ruby EVALUATES the file,
+    # so the word was a NoMethodError and the domain was unreadable on this
+    # side. Same entry point, same IR — the name of the door is not the
+    # domain.
+    def domain(name = nil, version: nil, &block)
+      bluebook(name, version: version, &block)
+    end
+
+    # Define a behavioral test suite for a domain. The companion-file
+    # convention is `<source>_behavioral_tests.bluebook`. Tests are
+    # in-memory by definition: the runner instantiates the source
+    # domain's aggregates, replays setup, dispatches input, asserts
+    # against final state.
+    #
+    #   HecksPlayground.behaviors "Pizzas" do
+    #     vision "Behavioral tests for the Pizzas domain"
+    #     test "CreatePizza sets name" do
+    #       tests "CreatePizza", on: "Pizza"
+    #       input  name: "Margherita"
+    #       expect name: "Margherita"
+    #     end
+    #   end
+    #
+    # @param name [String] the source domain name (NOT the suite name)
+    # @return [HecksPlayground::BluebookModel::Structure::TestSuite]
+    def behaviors(name = nil, &block)
+      require "hecks_playground/dsl/test_suite_builder"
+      builder = DSL::TestSuiteBuilder.new(name)
+      builder.instance_eval(&block) if block
+      result = builder.build
+      HecksPlayground.last_test_suite = result
+      result
+    end
+
+    # Entry point for .fixtures files (`HecksPlayground.fixtures "X" do ... end`).
+    # Sibling to `bluebook` and `behaviors`: its own DSL, its own file
+    # extension, its own parity contract with the Rust parser. See
+    # HecksPlayground::DSL::FixturesBuilder for the surface.
+    def fixtures(name = nil, version: nil, &block)
+      require "hecks_playground/dsl/fixtures_builder"
+      builder = DSL::FixturesBuilder.new(name)
+      builder.instance_eval(&block) if block
+      result = builder.build
+      HecksPlayground.last_fixtures_file = result
+      result
+    end
+
+    # Generic entry point — delegates to whichever grammar's builder.
+    #   HecksPlayground.model "SpaceGame", grammar: :game_book do ... end
+    #   HecksPlayground.model "Pizzas" do ... end  # defaults to :bluebook
+    def model(name, grammar: :bluebook, version: nil, &block)
+      grammar_desc = HecksPlayground.grammar(grammar)
+      builder_class = grammar_desc&.builder || DSL::BluebookBuilder
+      builder = builder_class.new(name, version: version)
+      builder.instance_eval(&block)
+      result = builder.build
+      result.source_path = caller_locations(1, 1).first.absolute_path
+      HecksPlayground.last_domain = result
+      result
+    end
+
+    # Define hexagonal architecture wiring for a domain. Evaluates the given
+    # block inside a HecksagonBuilder, which collects gates, adapter config,
+    # extensions, and cross-domain subscriptions.
+    #
+    # @param block [Proc] DSL block evaluated inside Hecksagon::DSL::HecksagonBuilder
+    # @return [Hecksagon::Structure::Hecksagon] the fully built Hecksagon IR object
+    def hecksagon(name = nil, &block)
+      # Merge into existing hecksagon if same name (app overrides default)
+      existing = HecksPlayground.last_hecksagon
+      builder = Hecksagon::DSL::HecksagonBuilder.new(name)
+      if existing && existing.name == name
+        # Seed builder with existing capabilities, annotations, etc.
+        existing.capabilities.each { |c| builder.instance_eval { capabilities c } }
+        existing.annotations.each { |a| builder.instance_variable_get(:@annotations) << a }
+        existing.subscriptions.each { |s| builder.instance_eval { subscribe s } }
+        if existing.persistence
+          pt = existing.persistence[:type]
+          po = existing.persistence.reject { |k, _| k == :type }
+          builder.instance_eval { adapter pt, **po }
+        end
+        if existing.respond_to?(:shell_adapters)
+          existing.shell_adapters.each { |sa| builder._seed_shell_adapter(sa) }
+        end
+      end
+      with_annotation_constants(builder) { builder.instance_eval(&block) }
+      result = builder.build
+      HecksPlayground.last_hecksagon = result
+      result
+    end
+
+    # Phase 1 of the adapter-family meta-layer activation. Three sibling
+    # entry points for the framework's pure-data declarations :
+    #
+    #   HecksPlayground.adapter_family "sms"            do ... end
+    #   HecksPlayground.provider       "twilio"         do ... end
+    #   HecksPlayground.behavior_kind  "call_sms_api"   do ... end
+    #
+    # Each declares one row in the kernel's adapter-family registry —
+    # what an adapter family IS, what concrete provider implements it,
+    # what runtime behavior it satisfies. Adding a new family / provider
+    # / behavior is appending one file under
+    # `hecks_playground_conception/aggregates/framework/` ; no kernel edits.
+    #
+    # Phase 1 surface : the parsers recognise the forms, the IR carries
+    # the declared name + framework_kind discriminator, both halves emit
+    # byte-equal canonical IR (see parity/canonical_ir.rb +
+    # rust/src/main.rs :: dump_hecksagon_json). Phase 2 captures the
+    # inner DSL (fields, providers, request_body, ...) into a richer
+    # payload so the runtime registry can drive dispatch.
+    def adapter_family(name = nil, &block)
+      _build_framework_declaration(name, "adapter_family", &block)
+    end
+
+    def provider(name = nil, &block)
+      _build_framework_declaration(name, "provider", &block)
+    end
+
+    def behavior_kind(name = nil, &block)
+      _build_framework_declaration(name, "behavior_kind", &block)
+    end
+
+    # Internal — shared shape across the three entry points.
+    def _build_framework_declaration(name, framework_kind, &block)
+      builder = Hecksagon::DSL::FrameworkDeclarationBuilder.new(
+        name, framework_kind: framework_kind
+      )
+      builder.instance_eval(&block) if block
+      result = builder.build
+      HecksPlayground.last_hecksagon = result
+      result
+    end
+
+    # Phase 1 of the adapter-family meta-layer activation. Three sibling
+    # entry points for the framework's pure-data declarations :
+    #
+    #   HecksPlayground.adapter_family "sms"            do ... end
+    #   HecksPlayground.provider       "twilio"         do ... end
+    #   HecksPlayground.behavior_kind  "call_sms_api"   do ... end
+    #
+    # Each declares one row in the kernel's adapter-family registry —
+    # what an adapter family IS, what concrete provider implements it,
+    # what runtime behavior it satisfies. Adding a new family / provider
+    # / behavior is appending one file under
+    # `hecks_playground_conception/aggregates/framework/` ; no kernel edits.
+    #
+    # Phase 1 surface : the parsers recognise the forms, the IR carries
+    # the declared name + framework_kind discriminator, both halves emit
+    # byte-equal canonical IR (see parity/canonical_ir.rb +
+    # rust/src/main.rs :: dump_hecksagon_json). Phase 2 captures the
+    # inner DSL (fields, providers, request_body, ...) into a richer
+    # payload so the runtime registry can drive dispatch.
+    def adapter_family(name = nil, &block)
+      _build_framework_declaration(name, "adapter_family", &block)
+    end
+
+    def provider(name = nil, &block)
+      _build_framework_declaration(name, "provider", &block)
+    end
+
+    def behavior_kind(name = nil, &block)
+      _build_framework_declaration(name, "behavior_kind", &block)
+    end
+
+    # Internal — shared shape across the three entry points.
+    def _build_framework_declaration(name, framework_kind, &block)
+      builder = Hecksagon::DSL::FrameworkDeclarationBuilder.new(
+        name, framework_kind: framework_kind
+      )
+      builder.instance_eval(&block) if block
+      result = builder.build
+      HecksPlayground.last_hecksagon = result
+      result
+    end
+
+    # Define runtime configuration for extensions and adapters. Evaluates the
+    # given block inside a WorldBuilder, which collects per-extension config
+    # hashes. The World file sits alongside the Bluebook and Hecksagon files.
+    #
+    # @param name [String, nil] the domain name
+    # @param block [Proc] DSL block evaluated inside Hecksagon::DSL::WorldBuilder
+    # @return [Hecksagon::Structure::World] the fully built World IR object
+    def world(name = nil, &block)
+      # Merge into existing world if same name (app overrides default)
+      existing = HecksPlayground.respond_to?(:last_world) ? HecksPlayground.last_world : nil
+      builder = Hecksagon::DSL::WorldBuilder.new(name)
+      if existing && existing.name == name
+        existing.configs.each do |ext_name, config|
+          builder.instance_eval { send(ext_name) { config.each { |k, v| send(k, v) } } }
+        end
+      end
+      with_world_constants(builder) { builder.instance_eval(&block) }
+      result = builder.build
+      HecksPlayground.last_world = result
+      result
+    end
+
+    # Create a new interactive session for the named domain. Sessions provide
+    # a REPL-like environment for exploring aggregates, running commands, and
+    # querying domain state.
+    #
+    # @param name [String] the domain name to load into the session
+    # @return [HecksPlayground::Workshop] a new session instance bound to the domain
+    def workshop(name)
+      Workshop.new(name)
+    end
+
+    # Validate a domain model against all registered validation rules.
+    # Returns a tuple of validity and any error messages. Does not raise
+    # on invalid domains -- callers decide how to handle errors.
+    #
+    # @param domain [HecksPlayground::BluebookModel::Domain] the domain to validate
+    # @return [Array(Boolean, Array<String>)] [valid?, error_messages]
+    def validate(domain)
+      validator = Validator.new(domain)
+      [validator.valid?, validator.errors]
+    end
+
+    # Generate Ruby source code for a single aggregate without writing to disk.
+    # Useful for previewing what +build+ would produce for a specific aggregate.
+    #
+    # @param domain [HecksPlayground::BluebookModel::Domain] the domain containing the aggregate
+    # @param aggregate_name [String] the name of the aggregate to preview (e.g., "Pizza")
+    # @return [String] generated Ruby source code for the aggregate class
+    # @raise [RuntimeError] if the named aggregate does not exist in the domain
+    def preview(domain, aggregate_name)
+      mod = bluebook_module_name(domain.name)
+      agg = domain.aggregates.find { |a| a.name == aggregate_name }
+      raise "Unknown aggregate: #{aggregate_name}" unless agg
+      Generators::Domain::AggregateGenerator.new(agg, domain_module: mod).generate
+    end
+
+    private
+
+    # Temporarily intercept constant resolution so PascalCase names in
+    # hecksagon blocks (e.g. Collaboration.Agent.content) resolve as
+    # annotation selectors instead of raising NameError.
+    def with_annotation_constants(builder)
+      annotations = builder.instance_variable_get(:@annotations)
+      bindings    = builder.instance_variable_get(:@bindings)
+      saved = Object.method(:const_missing) rescue nil
+      Object.define_singleton_method(:const_missing) do |name|
+        if Thread.current[:_hecksagon_eval]
+          # Module proxy : `::` chains into FQN port-verb binds, dots delegate
+          # to the annotation grammar. (Was a bare AnnotationSelector, which
+          # could not be `::`-chained — the parity drift this retires.)
+          Hecksagon::DSL::FqnBindingProxy.head(name.to_s, annotations, bindings)
+        elsif saved
+          saved.call(name)
+        else
+          super(name)
+        end
+      end
+      Thread.current[:_hecksagon_eval] = true
+      yield
+    ensure
+      Thread.current[:_hecksagon_eval] = false
+    end
+
+    # Temporarily intercept constant resolution so PascalCase FQN heads in
+    # .world blocks (e.g. WebDebug::Screenshot.buffered_by("DiskBuffer")) resolve
+    # to an adapter-keyed config proxy instead of raising NameError. Mirrors
+    # with_annotation_constants ; routes the first const to WorldFqnProxy.node so
+    # the legacy Ruby WorldBuilder parses the FQN-verb world form byte-equal to
+    # rust/src/world/parser.rs.
+    def with_world_constants(builder)
+      configs = builder.instance_variable_get(:@configs)
+      saved = Object.method(:const_missing) rescue nil
+      Object.define_singleton_method(:const_missing) do |name|
+        if Thread.current[:_world_eval]
+          Hecksagon::DSL::WorldFqnProxy.node(name.to_s, configs)
+        elsif saved
+          saved.call(name)
+        else
+          super(name)
+        end
+      end
+      Thread.current[:_world_eval] = true
+      yield
+    ensure
+      Thread.current[:_world_eval] = false
+    end
+  end
+end

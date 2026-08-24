@@ -1,4 +1,4 @@
-Hecks.hecksagon "PageCompliance" do
+HecksPlayground.hecksagon "PageCompliance" do
   PageCompliance::DomainCompliance.persisted_by("Heki")
   PageCompliance::Page.persisted_by("Heki")
 end

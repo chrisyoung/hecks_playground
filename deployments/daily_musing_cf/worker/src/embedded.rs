@@ -11,7 +11,7 @@ pub const PRIMARY_BASENAME: &str = "daily_musing.bluebook";
 pub const BLUEBOOK_COUNT:   usize = 3;
 
 pub static EMBEDDED_BLUEBOOKS: &[(&str, &str)] = &[
-    ("daily_musing.bluebook", r#####"Hecks.bluebook "DailyMusing", version: "2026.05.23.2" do
+    ("daily_musing.bluebook", r#####"HecksPlayground.bluebook "DailyMusing", version: "2026.05.23.2" do
   vision "An author posts blog entries to the Daily Musing so readers can read them."
   category "blog"
 
@@ -76,7 +76,7 @@ pub static EMBEDDED_BLUEBOOKS: &[(&str, &str)] = &[
     on "BootCompleted"
     trigger "BlogEntry.Post"
     with "title", "Welcome to the Daily Musing"
-    with "body", "This blog runs on a single Hecks bluebook compiled to WebAssembly and served from a Cloudflare Worker — no container, no server. The domain IS the contract."
+    with "body", "This blog runs on a single HecksPlayground bluebook compiled to WebAssembly and served from a Cloudflare Worker — no container, no server. The domain IS the contract."
     with "author", "Miette"
     with "published_at", "2026-05-23T08:00:00Z"
   end
@@ -91,7 +91,7 @@ pub static EMBEDDED_BLUEBOOKS: &[(&str, &str)] = &[
   end
 end
 "#####),
-    ("boot.bluebook", r#####"Hecks.bluebook "Boot" do
+    ("boot.bluebook", r#####"HecksPlayground.bluebook "Boot" do
   vision "The Worker's per-request boot IS a boot — it completes like one. CompleteBoot emits BootCompleted so every `on \"BootCompleted\"` establishment policy self-seeds (fixtures→policies, 2026-07-26 : the demo musings ride this, not fixture seeding)."
   category "boot"
 
@@ -111,7 +111,7 @@ end
   end
 end
 "#####),
-    ("daily_musing.hecksagon", r#####"Hecks.hecksagon "DailyMusing" do
+    ("daily_musing.hecksagon", r#####"HecksPlayground.hecksagon "DailyMusing" do
   adapter :memory
 end
 "#####),

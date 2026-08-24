@@ -1,6 +1,6 @@
 ---
 name: Feature Request
-about: Suggest an idea for Hecks
+about: Suggest an idea for HecksPlayground
 labels: enhancement
 ---
 

@@ -2,7 +2,7 @@
 
 ## What
 
-A Node-based MCP server that exposes the Hecks bluebook bus to Claude
+A Node-based MCP server that exposes the HecksPlayground bluebook bus to Claude
 Code. The surface is intentionally tiny : one universal dispatcher
 plus discovery and developer-workflow tools. The LLM constructs verb
 strings dynamically from the IR catalog ; nothing is hand-registered
@@ -34,7 +34,7 @@ per bluebook command.
 
 ### Resources surface
 
-- `storehouse://events` — live tail of `$HECKS_AGENT_EVENT_STREAM`
+- `storehouse://events` — live tail of `$HECKS_PLAYGROUND_AGENT_EVENT_STREAM`
   (default `/tmp/miette_agent_events.jsonl`). Subscribe to receive
   `notifications/resources/updated` whenever the file grows ; then
   call `resources/read` to fetch the new content.
@@ -51,7 +51,7 @@ Then the LLM constructs the verb string and calls `storehouse__dispatch` (or `st
 
 ## Activating in Claude Code
 
-The server is registered in `/Users/christopheryoung/Projects/hecks/.mcp.json`
+The server is registered in `/Users/christopheryoung/Projects/hecks_playground/.mcp.json`
 (project-scoped). Claude Code reads this on startup.
 
 **Restart Claude Code** to load the server.
@@ -65,7 +65,7 @@ automatically once the agent subscribes to `storehouse://events`.
 ```bash
 # Boots the server, lists tools/resources, exercises every tool,
 # subscribes to events, asserts the resources/updated frame fires.
-cd /Users/christopheryoung/Projects/hecks/tooling/storehouse-mcp
+cd /Users/christopheryoung/Projects/hecks_playground/tooling/storehouse-mcp
 node test/cli_smoke.mjs
 
 # Sanity-boot only (no MCP frames sent) :
@@ -80,9 +80,9 @@ node src/server.mjs < /dev/null
   `[storehouse-mcp] connected, …` should appear in its logs.
 - **`storehouse: command not found`** — set `STOREHOUSE_BIN` to the
   absolute path. The `.mcp.json` already points at
-  `/Users/christopheryoung/Projects/hecks/rust/target/release/storehouse`.
+  `/Users/christopheryoung/Projects/hecks_playground/rust/target/release/storehouse`.
 - **No events arriving** — confirm the JSONL file path matches what
-  the runtime writes to. The runtime side honors `HECKS_AGENT_EVENT_STREAM` ;
+  the runtime writes to. The runtime side honors `HECKS_PLAYGROUND_AGENT_EVENT_STREAM` ;
   the MCP server side honors the same var. They must agree.
 - **`dispatch` returns "short-form address" error** — the runtime
   requires `Domain::Aggregate.Command` (commands, PascalCase) or

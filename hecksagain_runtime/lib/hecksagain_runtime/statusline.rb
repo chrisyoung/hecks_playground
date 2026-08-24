@@ -2,15 +2,15 @@
 # Ruby port of rust/src/run_statusline/{mod,state,time,sleep,inbox}.rs,
 # for hecksagain-cli's `statusline` subcommand (replaces the retired
 # `storehouse statusline` binary as the thing statusline-command.sh
-# execs — the old binary can no longer safely parse hecks_conception,
+# execs — the old binary can no longer safely parse hecks_playground_conception,
 # now hecksagain-shaped content).
 #
 # Reads the SAME raw .heki files the Rust runner read, at the same
 # resolved location (info dir = the OS app-support data root, derived
-# from hecks_conception/miette.world's `heki { dir :default }` chain —
+# from hecks_playground_conception/miette.world's `heki { dir :default }` chain —
 # NOT core/studio's HekiView::DEFAULT_ROOT, confirmed stale, last
 # written months ago). Reads the raw snapshot+journal format directly
-# (Hecksagain::Adapters::Heki::Snapshot/Journal's own codec) rather than
+# (Hecks::Adapters::Heki::Snapshot/Journal's own codec) rather than
 # going through the full aggregate-oriented Heki adapter, which needs a
 # real aggregate object this CLI-level read has no use for.
 #
@@ -82,6 +82,17 @@ module HecksagainRuntime
       File.expand_path("~/Library/Application Support/Hecks/hecks")
     end
 
+    # i784/i785 — the live pulse. `tick.heki` under info_dir was the
+    # OLD mindstream 1Hz pulse ; it stopped being written on 2026-06-27
+    # and the statusline had been silently showing that frozen number
+    # ever since (2 more decimal digits of a fossil is still a fossil).
+    # The `storehouse loop ... Heart::Heart.Beat --every 500ms` Procfile
+    # member is the actual live heartbeat, and it persists under the
+    # miette repo's own heki store, not the shared OS app-support dir.
+    def heart_dir
+      File.expand_path("~/Projects/miette/.heki")
+    end
+
     def read_state(dir)
       s = State.new(
         consciousness: "", sleep_summary: "", sleep_stage: "", sleep_cycle: 0,
@@ -103,7 +114,11 @@ module HecksagainRuntime
         s.dream_pulses_needed  = 5 if s.dream_pulses_needed.zero?
       end
 
-      if (rec = latest_record(dir, "tick"))
+      if (rec = latest_record(heart_dir, "heart"))
+        s.beats_raw = int_field(rec, "beat_count")
+      elsif (rec = latest_record(dir, "tick"))
+        # Fallback only — the dead mindstream pulse, kept so a
+        # not-yet-booted body still shows SOMETHING rather than 0.
         s.beats_raw = int_field(rec, "cycle")
       end
 
@@ -203,9 +218,9 @@ module HecksagainRuntime
 
     def format_beats(b)
       if b >= 1_000_000
-        format("%.2fm", b / 1_000_000.0)
+        format("%.6fm", b / 1_000_000.0)
       elsif b >= 1_000
-        format("%.2fk", b / 1_000.0)
+        format("%.4fk", b / 1_000.0)
       else
         b.to_s
       end

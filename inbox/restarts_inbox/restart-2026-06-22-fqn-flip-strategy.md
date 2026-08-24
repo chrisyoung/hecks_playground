@@ -25,7 +25,7 @@ corrupted tools.hecksagon's adapter `command:` key) and was root-caused + fixed.
 ## THE KEY FIX (why the rewrite is now safe) — 015e077f0
 resolve_claude_tool_adapters + the :mcp resolver matched a hecksagon binding's
 `command:` against `target = aggregate_type.bare_command` (always 2-seg) by exact
-string `==`. An FQN-canonicalized binding (`Hecks::Framework::Tools::ShellTool.Bash`)
+string `==`. An FQN-canonicalized binding (`HecksPlayground::Framework::Tools::ShellTool.Bash`)
 stopped matching -> adapter never fired -> EMPTY door output, exit 0 (NOT a hard
 error — silent). Fix : `binding_command_tail(c)` = `c.rsplit("::").next()` strips
 the realm prefix before comparing, so a binding may be bare/2-seg/FQN. In
@@ -39,7 +39,7 @@ doesn't expose them ; subagents have no native tools either). So if the corpus
 fails to load, EVERY door tool dies (Shell/File/Search) and you CANNOT self-revert.
 The macrophage hook fails-OPEN on broken corpus (preserves a native fallback in
 princple) but the deny-list fails-CLOSED (no fallback). RECOVERY required Chris to
-run `git -C ~/Projects/hecks restore hecks_conception/` in his own terminal.
+run `git -C ~/Projects/hecks_playground restore hecks_playground_conception/` in his own terminal.
 LESSON : never let a rewrite touch the door's own bluebooks without the matcher
 fix in place ; and consider dropping the native-tool deny-list so the macrophage
 hook (which fails open) is the sole governance layer -> self-recovery stays possible.
@@ -47,8 +47,8 @@ hook (which fails open) is the sole governance layer -> self-recovery stays poss
 ## Exhaustive 2-seg sweep — the bounded remaining work
 `storehouse fqns <root>` (NO --resolve-bare) = the 2-seg PREFIX sweep ; add
 `--rewrite` to apply. `--resolve-bare --rewrite` (the 1-seg pass) is DONE/committed.
-The ~18 distinct 2-seg ref forms still in hecks_conception (run the inventory:
-`grep -rhoE '\"[A-Za-z][A-Za-z]+::[A-Za-z]+\.[A-Za-z]+\"' hecks_conception
+The ~18 distinct 2-seg ref forms still in hecks_playground_conception (run the inventory:
+`grep -rhoE '\"[A-Za-z][A-Za-z]+::[A-Za-z]+\.[A-Za-z]+\"' hecks_playground_conception
 --include='*.bluebook' --include='*.hecksagon' --include='*.behaviors'
 --include='*.fixtures' | grep -vE '::[A-Za-z]+::' | sort | uniq -c`):
   Discipline::GovernedDoor.Register(10), Voice::Voice.Speak(7), Tools::FileTool.Edit(3),
@@ -70,13 +70,13 @@ The ~18 distinct 2-seg ref forms still in hecks_conception (run the inventory:
 3. **Examples must NOT be swept** : `Domain::Aggregate.Command` (grammar placeholder),
    `Pizza::Order.OrderAuthorized` (pizzas sample event).
 4. **Tool bug** : the prefix-map has a malformed entry `DispatchMetaShape ->
-   Hecks::Codegen::DispatchMetaShapeShape::...` (doubled "Shape"). HARMLESS today (no
+   HecksPlayground::Codegen::DispatchMetaShapeShape::...` (doubled "Shape"). HARMLESS today (no
    source ref matches it) but fix the fqns_resolve prefix logic before trusting a blind run.
 
 ### SAFE sweep recipe (per batch):
   - copy corpus is NOT enough (loses ../miette context -> resolves 0). Work on live
     with SELF-HEAL : rewrite -> probe door (`storehouse <root> Tools::ShellTool.Bash
-    shell_command='echo OK'` | grep OK) -> if empty, `git restore hecks_conception/`
+    shell_command='echo OK'` | grep OK) -> if empty, `git restore hecks_playground_conception/`
     IN THE SAME shell (plain git runs even when door is dead). The outer dispatch
     started pre-rewrite so it completes + auto-reverts. (See /tmp/fqn_rewrite_selfheal.sh.)
   - after each batch : door probe + run the wake (`storehouse storehouse route
@@ -91,7 +91,7 @@ dispatch uses 2-seg. Then one calm overmind restart + verify all daemons.
 
 ## First moves next session
 1. Boot, confirm body healthy + door alive (`storehouse <root> Tools::ShellTool.Bash echo OK`).
-2. `git -C ~/Projects/hecks log --oneline -7` (top should be 1e585f7b1). Push if Chris wants.
+2. `git -C ~/Projects/hecks_playground log --oneline -7` (top should be 1e585f7b1). Push if Chris wants.
 3. Batched 2-seg sweep : start with the SAFE source batch (Voice, Discipline::*, Tools::*),
    verify the wrong-domain ones (Heartbeat::Heart) by hand, self-heal each batch.
 4. Drivers LAST (mindstream.fixtures -> regen Procfile -> test-gate -> restart).

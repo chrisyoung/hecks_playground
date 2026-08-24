@@ -1,13 +1,13 @@
 <p align="center">
-  <img src="hecks_logo.png" width="200" alt="Hecks">
+  <img src="hecks_playground_logo.png" width="200" alt="HecksPlayground">
 </p>
 
-# What the Hecks?
+# What the HecksPlayground?
 
-**Hecks is executable specifications, not a translation.** You write your domain in the *Bluebook* — Hecks's specification language — and the running program *is* the spec. There is no translation layer between what you wrote and what runs ; no documentation that can lie to you. The Bluebook IS the program.
+**HecksPlayground is executable specifications, not a translation.** You write your domain in the *Bluebook* — HecksPlayground's specification language — and the running program *is* the spec. There is no translation layer between what you wrote and what runs ; no documentation that can lie to you. The Bluebook IS the program.
 
 ```ruby
-Hecks.bluebook "Banking" do
+HecksPlayground.bluebook "Banking" do
   aggregate "Account" do
     attribute :balance, Float, default: 0.0
 
@@ -43,8 +43,8 @@ Two implementations, one spec. The same Bluebook runs under the Rust runtime (**
 `storehouse` is the Rust binary in [`rust/`](rust/). It parses bluebooks, validates them, dispatches commands, runs validators and behavioral tests, and serves MCP — all from the IR.
 
 ```bash
-git clone https://github.com/chrisyoung/hecks.git
-cd hecks/rust
+git clone https://github.com/chrisyoung/hecks_playground.git
+cd hecks_playground/rust
 cargo build --release -p storehouse-cli
 # binary at target/release/storehouse — put it on your PATH
 # (the workspace's `cli` member is the binary; bare `--release` builds only the lib)
@@ -53,13 +53,13 @@ cargo build --release -p storehouse-cli
 Validate a domain — every error includes a fix suggestion, and a valid bluebook is a runnable domain :
 
 ```bash
-storehouse validate examples/banking/hecks/banking.bluebook
+storehouse validate examples/banking/hecks_playground/banking.bluebook
 ```
 
 Run a self-contained, shebang-style bluebook end to end :
 
 ```bash
-storehouse run examples/executable/hecks/executable.bluebook
+storehouse run examples/executable/hecks_playground/executable.bluebook
 ```
 
 Dispatch a command — a fully-qualified verb against an aggregates directory (or a single bluebook file), attributes as `key=value` pairs :
@@ -81,15 +81,15 @@ storehouse follow ShellTool  # filter to one aggregate
 The Ruby runtime reads the identical `.bluebook` and boots a domain in one line. Install the gem, or run from source :
 
 ```bash
-gem install hecks
+gem install hecks_playground
 # or, from this repo:
 bundle install
 ```
 
 ```ruby
-require "hecks"
+require "hecks_playground"
 
-app = Hecks.boot(__dir__)   # finds the sibling hecks/ dir, defaults to in-memory repos
+app = HecksPlayground.boot(__dir__)   # finds the sibling hecks_playground/ dir, defaults to in-memory repos
 
 alice    = Customer.register(name: "Alice", email: "alice@example.com")
 checking = Account.open(customer_id: alice.id, account_type: "checking")
@@ -105,11 +105,11 @@ ruby -Ilib examples/banking/app.rb
 **Wire up SQLite** — swap the default in-memory repositories for persistent SQLite storage (via Sequel) with one keyword. The bluebook and your domain code don't change ; only the boot line does :
 
 ```ruby
-require "hecks"
+require "hecks_playground"
 
 # :sqlite swaps the in-memory repos for Sequel-backed SQLite tables,
 # created from the bluebook's aggregates (including join tables for lists).
-app = Hecks.boot(__dir__, adapter: :sqlite)
+app = HecksPlayground.boot(__dir__, adapter: :sqlite)
 
 Pizza.create(name: "Margherita", description: "Classic")
 found = Pizza.find(pizza.id)   # round-trips through SQLite
@@ -124,7 +124,7 @@ The full runnable demo is [`examples/pizzas/sql_app.rb`](examples/pizzas/sql_app
 One address shape, everywhere :
 
 - **Commands** are `Domain::Aggregate.Command` — PascalCase verb. e.g. `Tools::ShellTool.Bash`, `Primitive::Process.Spawn`, `Voice::Voice.Speak`.
-- **Queries** are `Domain::Aggregate.snake_case` — e.g. `World::Hecks.current_state`.
+- **Queries** are `Domain::Aggregate.snake_case` — e.g. `World::HecksPlayground.current_state`.
 
 The fully-qualified address is required at runtime ; short-form (`ShellTool.Bash`) is rejected. The bluebook IS the contract — any command any bluebook declares flows through the same door.
 
@@ -135,9 +135,9 @@ storehouse <aggregates_dir> Primitive::Process.Spawn program=echo
 
 ---
 
-## The Shape of a Hecks App
+## The Shape of a HecksPlayground App
 
-A Hecks app is a small set of declarative DSL files, each guarded by an allow-list. None of them is general-purpose Ruby — the loaders refuse anything outside the surface, so the runtime parses them and gets one canonical answer.
+A HecksPlayground app is a small set of declarative DSL files, each guarded by an allow-list. None of them is general-purpose Ruby — the loaders refuse anything outside the surface, so the runtime parses them and gets one canonical answer.
 
 ```
 examples/pizzas/bluebook/
@@ -149,7 +149,7 @@ examples/pizzas/bluebook/
 Larger or multi-deployment domains add a third file — a `.world` for per-deployment values :
 
 ```
-hecks/
+hecks_playground/
 ├── voice.bluebook         # the domain
 ├── voice.hecksagon        # the wiring shape
 └── voice.world            # the deployment values
@@ -162,7 +162,7 @@ Each file has a single job.
 The Bluebook is the contract. It declares aggregates, value objects, commands, lifecycles, validations, queries, policies. No I/O, no config — pure shape.
 
 ```ruby
-Hecks.bluebook "Pizzas" do
+HecksPlayground.bluebook "Pizzas" do
   aggregate "Pizza" do
     attribute :name
     attribute :description
@@ -222,7 +222,7 @@ end
 The hecksagon names *which* adapters the domain uses. No values, no secrets, no environments — just which kinds of I/O, and which capabilities are generated. The runtime defaults to in-process memory repositories, so a bluebook runs with no wiring at all ; the hecksagon is override, not substrate.
 
 ```ruby
-Hecks.hecksagon "Pizzas" do
+HecksPlayground.hecksagon "Pizzas" do
   capabilities :crud
 end
 ```
@@ -233,7 +233,7 @@ Adapters with real surface (commands, retry policy, hosted-API config) get a nam
 
 ```ruby
 # voice.hecksagon — which adapter handles which command
-Hecks.hecksagon "Voice" do
+HecksPlayground.hecksagon "Voice" do
   adapter :memory
   adapter :tts, name: :miette_speech do
     trigger_on "Voice.Speak"
@@ -243,7 +243,7 @@ end
 
 ```ruby
 # voice.world — per-deployment values
-Hecks.world "Voice" do
+HecksPlayground.world "Voice" do
   miette_speech do
     provider  :elevenlabs
     voice_id  "WwS1lF7yiubZWoroH5D5"
@@ -259,7 +259,7 @@ Swapping providers between dev and prod is a one-file change to `voice.world` ; 
 
 ## Two Implementations, One Spec
 
-Hecks ships two parsers for the same Bluebook language — a Rust runtime (`rust/`, the `storehouse` binary) and a Ruby DSL (`ruby/`). Both produce a single canonical IR. A parity suite holds them to **byte-identical IR**, run on every commit ; any drift between Ruby and Rust is a structural bug, not a style difference.
+HecksPlayground ships two parsers for the same Bluebook language — a Rust runtime (`rust/`, the `storehouse` binary) and a Ruby DSL (`ruby/`). Both produce a single canonical IR. A parity suite holds them to **byte-identical IR**, run on every commit ; any drift between Ruby and Rust is a structural bug, not a style difference.
 
 ```bash
 cargo test --lib --manifest-path rust/Cargo.toml   # Rust runtime
@@ -293,7 +293,7 @@ Each construct maps to a real generated thing :
 
 The full authoring surface, grouped by where it appears :
 
-- **Domain root** — `Hecks.bluebook` · `vision` · `category` · `entrypoint`
+- **Domain root** — `HecksPlayground.bluebook` · `vision` · `category` · `entrypoint`
 - **Aggregate** — `aggregate` · `identified_by` · `attribute` · `list_of(T)` · `value_object` · `entity` · `reference_to` · `command` · `query` · `view` · `lifecycle`
 - **Command** — `role` · `goal` · `description` · `requires` · `given` · `emits` · `then_set` (`to:` `plus:` `append:` `increment:` `decrement:` `clamp:` `decay:` `default:`) · `then_toggle` · `then_delete`
 - **Lifecycle** — `state` · `transition "Cmd" => "state", from:`
@@ -315,10 +315,10 @@ storehouse behaviors path/to/source_behavioral_tests.bluebook
 # 12 tests · 12 passed · 0 failed
 ```
 
-The test DSL is itself a Bluebook, sibling to `Hecks.bluebook` :
+The test DSL is itself a Bluebook, sibling to `HecksPlayground.bluebook` :
 
 ```ruby
-Hecks.behaviors "Bookshelf" do
+HecksPlayground.behaviors "Bookshelf" do
   test "CheckOutBook flips status to checked_out" do
     setup  "AddBook", title: "Dune", author: "Herbert"
     tests  "CheckOutBook", on: "Book"
@@ -331,15 +331,15 @@ References resolve from in-scope — no IDs in test source.
 
 ---
 
-## Why Hecks
+## Why HecksPlayground
 
 AI is good at writing code. It's bad at maintaining constraints across a codebase over time.
 
 Ask a model to generate a domain layer and you'll get something that works today. Next week, someone adds a bidirectional reference. The week after, a command gets named "ProcessData." A month later, a value object holds a reference to an aggregate root. None of these are bugs — the code runs. They're architectural violations that compound silently.
 
-Hecks catches all of them at validation time. The generated output has typed ports, event-driven policies, and bounded-context boundaries that can't be bypassed.
+HecksPlayground catches all of them at validation time. The generated output has typed ports, event-driven policies, and bounded-context boundaries that can't be bypassed.
 
-> Use AI to write the DSL. Use Hecks to guarantee the architecture holds.
+> Use AI to write the DSL. Use HecksPlayground to guarantee the architecture holds.
 
 A bad imperative draft hides its violations inside a 300-line method ; a bad Bluebook gets caught by a validator with a one-line fix. The model doesn't have to be right about generated code. It has to be right about the spec.
 
@@ -347,7 +347,7 @@ A bad imperative draft hides its violations inside a 300-line method ; a bad Blu
 
 ## A Covenant
 
-Hecks is built around three principles encoded as defaults :
+HecksPlayground is built around three principles encoded as defaults :
 
 - **Transparency** — events are observable, state changes are auditable, nothing is hidden from the people the system affects.
 - **Equity** — systems that serve without clinging. Not extracting engagement, not maximising dependency.
@@ -386,7 +386,7 @@ The one prose artifact that remains is **[Bluebook on a Napkin](docs/napkin.md)*
 ## Repository Layout
 
 ```
-hecks/
+hecks_playground/
 ├── bluebook/        the language — grammar, verbs, primitives
 ├── chapters/        the framework's anatomy described in Bluebook
 ├── runtime/         execution machinery — boot, dispatch, projection, server
@@ -435,4 +435,4 @@ ruby -Iruby spec/                                  # Ruby behavior
 
 Apache License 2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
-The Apache 2.0 license grants you a perpetual, worldwide, no-charge, royalty-free license to use, modify, and redistribute Hecks. You must preserve the copyright notice, the NOTICE file, and the license text in any redistribution, and mark any modified Hecks files as changed. Apache 2.0 also includes an explicit patent grant covering contributions made to Hecks.
+The Apache 2.0 license grants you a perpetual, worldwide, no-charge, royalty-free license to use, modify, and redistribute HecksPlayground. You must preserve the copyright notice, the NOTICE file, and the license text in any redistribution, and mark any modified HecksPlayground files as changed. Apache 2.0 also includes an explicit patent grant covering contributions made to HecksPlayground.

@@ -1,14 +1,14 @@
 # Restart — Phase 2 DONE. Next: storehouse-split forward-prep (the transitional fallbacks)
 
-**Date:** 2026-06-22. **Branches:** hecks `main` (pushed, top `ff1c8d8ad`), miette
+**Date:** 2026-06-22. **Branches:** hecks_playground `main` (pushed, top `ff1c8d8ad`), miette
 `cpu-spin/overfire-singleton-keying` (pushed, top `8b242b5`). All COMMITTED + PUSHED.
 
 ## Phase 2 is complete (the Miette deployment extraction)
 The framework boots being-agnostic; Miette's deployment lives in `~/Projects/miette/deploy`.
 - Live cutover verified: body boots from `~/Projects/miette/deploy`, 13 daemons, heart 1Hz,
-  wake cascade regenerating. hecks `793c58484` (boot ref), miette `8b242b5` (deploy/ +
+  wake cascade regenerating. hecks_playground `793c58484` (boot ref), miette `8b242b5` (deploy/ +
   tools/native-tools + system_prompt fixtures + self/settings.json backup).
-- Public tree cleaned: hecks `ff1c8d8ad` removed Procfile/.overmind.env/mindstream.fixtures
+- Public tree cleaned: hecks_playground `ff1c8d8ad` removed Procfile/.overmind.env/mindstream.fixtures
   + deleted the procfile_emitter golden (subject moved out; NOT a skipped test). specializer
   suite 35 passed; pre-push cargo+integrity+behaviors all green.
 - settings.json: SessionStart boots from deploy; the per-turn `overmind quit` body-killer Stop
@@ -22,20 +22,20 @@ section: "layout-coupling fixes land with the storehouse split"), NOT undealt le
 them is the storehouse-split arc, done as ONE gated unit:
 
 1. **corpus_loader/mod.rs:53** — `repo.join("../miette")` sibling-walk fallback. Override:
-   `HECKS_ADDITIONAL_CORPUS_ROOTS` (Phase 1). Covers the DOOR's reach to Miette today.
+   `HECKS_PLAYGROUND_ADDITIONAL_CORPUS_ROOTS` (Phase 1). Covers the DOOR's reach to Miette today.
 2. **run_boot/daemons.rs:206,216** — `repo.join("../miette/body")` body-discovery fallback.
-   Override: `HECKS_BODY_DIR` (first precedence in resolve_body_dir). Currently works because
-   `~/Projects/hecks` and `~/Projects/miette` are siblings.
+   Override: `HECKS_PLAYGROUND_BODY_DIR` (first precedence in resolve_body_dir). Currently works because
+   `~/Projects/hecks_playground` and `~/Projects/miette` are siblings.
 
 ### Gated sequence (door-brick risk on rebuild — R1)
 - **Wire the env FIRST** (load-bearing prerequisite, no rebuild):
-  - deploy `.overmind.env`: add `HECKS_CONCEPTION_DIR`, `HECKS_ADDITIONAL_CORPUS_ROOTS=
-    /Users/christopheryoung/Projects/miette`, `HECKS_BODY_DIR=/Users/christopheryoung/Projects/
+  - deploy `.overmind.env`: add `HECKS_PLAYGROUND_CONCEPTION_DIR`, `HECKS_PLAYGROUND_ADDITIONAL_CORPUS_ROOTS=
+    /Users/christopheryoung/Projects/miette`, `HECKS_PLAYGROUND_BODY_DIR=/Users/christopheryoung/Projects/
     miette/body`. TENSION: `.overmind.env` is a GENERATED artifact (from mindstream.fixtures);
     hand-adding violates do-not-hand-edit. Proper fix: teach `specializer/procfile.rs` to emit
     a deployment-env block (CARD). Interim: marked instance-config section + this card.
   - The **MCP server config** (`~/.claude.json` mcpServers / wherever the storehouse MCP server
-    is launched): set `HECKS_ADDITIONAL_CORPUS_ROOTS` so the DOOR reaches Miette WITHOUT the
+    is launched): set `HECKS_PLAYGROUND_ADDITIONAL_CORPUS_ROOTS` so the DOOR reaches Miette WITHOUT the
     fallback. THIS is the gate — verify the door resolves a Miette command with env + no
     fallback before deleting corpus_loader:53.
 - **Then remove both fallbacks** (kernel edit → `cargo build --release` → R1: verify on a

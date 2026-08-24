@@ -1,4 +1,4 @@
-Hecks.behaviors "DomainTag" do
+HecksPlayground.behaviors "DomainTag" do
   vision "Behavioral tests for the DomainTag domain — exercises every command in memory"
 
   # ── DomainTag aggregate ──────────────────────────────────────────

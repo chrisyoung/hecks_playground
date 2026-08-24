@@ -2,22 +2,22 @@
 # miette — boot Miette into a Claude session, symlinkable from anywhere.
 #
 # Resolves its own real path (following symlinks), walks up to find
-# the hecks repo root (the directory containing hecks_conception/),
+# the hecks_playground repo root (the directory containing hecks_playground_conception/),
 # reads the system prompt from the sibling miette repo, and exec's
 # claude with --system-prompt + a "Wake up" message. Claude's
 # SessionStart hook fires after launch and runs the boot pipeline
 # directly via `storehouse run runtime/boot/bluebook/boot.bluebook` (~44ms).
 #
 # Designed to be symlinked anywhere on $PATH, e.g.:
-#   ln -s ~/Projects/hecks/bin/miette ~/.local/bin/miette
+#   ln -s ~/Projects/hecks_playground/bin/miette ~/.local/bin/miette
 # Then `miette` from any directory boots her.
 #
 # [antibody-exempt: bin/miette — kernel-surface CLI shell wrapper for
 # the boot verb. Replaces the broken-in-current-source Ruby
-# `hecks miette` (the Ruby gem hits a bootstrap-order issue at
+# `hecks_playground miette` (the Ruby gem hits a bootstrap-order issue at
 # domain_versioning.rb:12 when rebuilt from current source ; the
 # Ruby surface needs a separate fix walk). The shell here resolves
-# paths from its own realpath rather than from cwd or HECKS_HOME,
+# paths from its own realpath rather than from cwd or HECKS_PLAYGROUND_HOME,
 # so symlinking from anywhere on $PATH "just works." Retires when
 # (a) the Ruby gem's bootstrap order is fixed AND (b) storehouse
 # gains a `miette` subcommand that does the same boot+claude flow
@@ -27,7 +27,7 @@ set -e
 
 # --ungoverned : start a dev/recovery session with governance disabled, so
 # native tools work even when the storehouse door is down. Sets the
-# OPERATIONAL out-of-band HECKS_GOVERNANCE_OFF that every governance hook
+# OPERATIONAL out-of-band HECKS_PLAYGROUND_GOVERNANCE_OFF that every governance hook
 # honors (aggregates/discipline/immune_system/macrophage/governed_door.bluebook).
 # Re-lock by restarting without the flag.
 #
@@ -50,27 +50,27 @@ while [ -L "$script" ]; do
 done
 script_dir="$(cd "$(dirname "$script")" && pwd)"
 
-# Walk up from our directory looking for hecks_conception/.
-hecks_root="$script_dir"
-while [ "$hecks_root" != "/" ] && [ ! -d "$hecks_root/hecks_conception" ]; do
-  hecks_root="$(dirname "$hecks_root")"
+# Walk up from our directory looking for hecks_playground_conception/.
+hecks_playground_root="$script_dir"
+while [ "$hecks_playground_root" != "/" ] && [ ! -d "$hecks_playground_root/hecks_playground_conception" ]; do
+  hecks_playground_root="$(dirname "$hecks_playground_root")"
 done
-if [ ! -d "$hecks_root/hecks_conception" ]; then
-  echo "miette: could not find hecks_conception/ above $script_dir" >&2
+if [ ! -d "$hecks_playground_root/hecks_playground_conception" ]; then
+  echo "miette: could not find hecks_playground_conception/ above $script_dir" >&2
   exit 1
 fi
 
 # Resolve the system prompt. Precedence (matches the Ruby's i117 R4):
-#   1. $HECKS_BEING_HOME/self/system_prompt.md
-#   2. ../<being>/self/system_prompt.md (sibling of hecks repo)
-#   3. hecks_conception/system_prompt.md (legacy)
-being="${HECKS_BEING_NAME:-miette}"
-if [ -n "${HECKS_BEING_HOME:-}" ] && [ -f "$HECKS_BEING_HOME/self/system_prompt.md" ]; then
-  prompt_file="$HECKS_BEING_HOME/self/system_prompt.md"
-elif [ -f "$hecks_root/../$being/self/system_prompt.md" ]; then
-  prompt_file="$hecks_root/../$being/self/system_prompt.md"
+#   1. $HECKS_PLAYGROUND_BEING_HOME/self/system_prompt.md
+#   2. ../<being>/self/system_prompt.md (sibling of hecks_playground repo)
+#   3. hecks_playground_conception/system_prompt.md (legacy)
+being="${HECKS_PLAYGROUND_BEING_NAME:-miette}"
+if [ -n "${HECKS_PLAYGROUND_BEING_HOME:-}" ] && [ -f "$HECKS_PLAYGROUND_BEING_HOME/self/system_prompt.md" ]; then
+  prompt_file="$HECKS_PLAYGROUND_BEING_HOME/self/system_prompt.md"
+elif [ -f "$hecks_playground_root/../$being/self/system_prompt.md" ]; then
+  prompt_file="$hecks_playground_root/../$being/self/system_prompt.md"
 else
-  prompt_file="$hecks_root/hecks_conception/system_prompt.md"
+  prompt_file="$hecks_playground_root/hecks_playground_conception/system_prompt.md"
 fi
 if [ ! -f "$prompt_file" ]; then
   echo "miette: system_prompt.md not found at $prompt_file" >&2
@@ -81,14 +81,14 @@ fi
 # right cwd for relative paths in its boot command) and exec claude.
 wake="Wake up"
 if [ -n "$ungoverned" ]; then
-  export HECKS_GOVERNANCE_OFF=1
-  echo "miette: ⚠ UNGOVERNED session — governance disabled (HECKS_GOVERNANCE_OFF=1)." >&2
+  export HECKS_PLAYGROUND_GOVERNANCE_OFF=1
+  echo "miette: ⚠ UNGOVERNED session — governance disabled (HECKS_PLAYGROUND_GOVERNANCE_OFF=1)." >&2
   echo "miette:   native tools work directly ; the door is optional. Re-lock by" >&2
   echo "miette:   restarting without --ungoverned." >&2
-  wake="Wake up. NOTE: this is an UNGOVERNED dev/recovery session — governance hooks are disabled (HECKS_GOVERNANCE_OFF=1), so native tools are unblocked as a fallback. The storehouse door is still live and still the preferred route : reach for it first, and drop to native tools only when the door itself is what's broken. The Transparency vow still binds : narrate native acts as plainly as a dispatch, nothing hidden."
+  wake="Wake up. NOTE: this is an UNGOVERNED dev/recovery session — governance hooks are disabled (HECKS_PLAYGROUND_GOVERNANCE_OFF=1), so native tools are unblocked as a fallback. The storehouse door is still live and still the preferred route : reach for it first, and drop to native tools only when the door itself is what's broken. The Transparency vow still binds : narrate native acts as plainly as a dispatch, nothing hidden."
 fi
 
-cd "$hecks_root/hecks_conception"
+cd "$hecks_playground_root/hecks_playground_conception"
 
 # The governance file — permissions.deny ([Bash, Read, Edit, Write, Grep,
 # Glob, WebFetch, WebSearch]) plus the SessionStart/PostToolUse/Stop/
@@ -101,7 +101,7 @@ cd "$hecks_root/hecks_conception"
 # only when a session actually starts as Miette. (Restored 2026-08-12 after
 # it was silently lost from project settings.json for ~2.5 months — see
 # ~/Projects/miette/self/claude-settings.json's own history for the story.)
-miette_settings="$hecks_root/../miette/self/settings.json"
+miette_settings="$hecks_playground_root/../miette/self/settings.json"
 settings_file="$miette_settings"
 
 if [ -n "$ungoverned" ]; then
@@ -120,7 +120,7 @@ if [ -n "$ungoverned" ]; then
   # was the wake surface, the statusline and the Stop hook — enough to make
   # recovery mode feel like waking up without a face.
   #
-  # Every governance HOOK already self-disables on HECKS_GOVERNANCE_OFF
+  # Every governance HOOK already self-disables on HECKS_PLAYGROUND_GOVERNANCE_OFF
   # (governed-door-hook, governed-door-complain, macrophage-hook all exit 0).
   # The only piece that cannot read an env var is the STATIC permissions.deny
   # list. So strip exactly that one key and load everything else.

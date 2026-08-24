@@ -1,7 +1,7 @@
 # HecksUL
 #
 # HecksUL (Ubiquitous Language) is a domain modeling language.
-# Every Hecks domain is its own executable business language —
+# Every HecksPlayground domain is its own executable business language —
 # the Bluebook defines the grammar, aggregates are types,
 # commands are operations, and generated specs are the type checker.
 #
@@ -11,7 +11,7 @@
 #   HecksUL.compiler      # => { frontend: "DSL", ir: "BluebookModel", ... }
 #   HecksUL.self_hosting  # => { chapters: 15, aggregates: 670, commands: 836 }
 #
-require "hecks"
+require "hecks_playground"
 
 module HecksUL
   HECKSTIES_ROOT = File.expand_path("..", __dir__)
@@ -42,14 +42,14 @@ module HecksUL
   def self.compiler
     {
       frontend:   "Bluebook DSL",
-      ir:         "Hecks::BluebookModel",
+      ir:         "HecksPlayground::BluebookModel",
       backends:   backends,
-      loader:     "Hecks::InMemoryLoader"
+      loader:     "HecksPlayground::InMemoryLoader"
     }
   end
 
   def self.backends
-    targets = Hecks.registered_targets.keys rescue []
+    targets = HecksPlayground.registered_targets.keys rescue []
     targets.empty? ? %i[ruby go node rails] : targets
   end
 
@@ -57,8 +57,8 @@ module HecksUL
 
   def self.runtime
     {
-      command_bus: "Hecks::Commands::CommandBus",
-      event_bus:   "Hecks::EventBus",
+      command_bus: "HecksPlayground::Commands::CommandBus",
+      event_bus:   "HecksPlayground::EventBus",
       repository:  "Generated per-aggregate (memory, PStore, SQL)",
       middleware:  "CommandBus#use — before/after/around hooks",
       adapters:    "Runtime#adapt — wire behavior to command ports"
@@ -107,18 +107,18 @@ module HecksUL
   # -- Self-Hosting --
 
   def self.load_all_chapters
-    Dir.glob(File.join(HECKSTIES_ROOT, "..", "**/lib/hecks/chapters/*.rb"))
+    Dir.glob(File.join(HECKSTIES_ROOT, "..", "**/lib/hecks_playground/chapters/*.rb"))
       .reject { |f| f.include?("/.claude/") }
       .each { |f| require f }
   end
 
   def self.self_hosting
-    bluebook_dir = File.join(HECKSTIES_ROOT, "..", "hecks")
+    bluebook_dir = File.join(HECKSTIES_ROOT, "..", "hecks_playground")
     bluebook_files = Dir.glob(File.join(bluebook_dir, "*.bluebook"))
 
     totals = bluebook_files.each_with_object({ aggregates: 0, commands: 0 }) do |path, acc|
       slug = File.basename(path, ".bluebook")
-      domain = Hecks::Chapters.definition_from_bluebook(slug)
+      domain = HecksPlayground::Chapters.definition_from_bluebook(slug)
       next unless domain
       domain.aggregates.each do |agg|
         acc[:aggregates] += 1
@@ -130,7 +130,7 @@ module HecksUL
       chapters:   bluebook_files.size,
       aggregates: totals[:aggregates],
       commands:   totals[:commands],
-      proof:      "Every chapter boots as a running Hecks app via InMemoryLoader + Runtime"
+      proof:      "Every chapter boots as a running HecksPlayground app via InMemoryLoader + Runtime"
     }
   end
 

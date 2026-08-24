@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
 set -e
 
-HECKS_HOME="${HECKS_HOME:-$HOME/.hecks}"
-REPO="https://github.com/chrisyoung/hecks.git"
+HECKS_PLAYGROUND_HOME="${HECKS_PLAYGROUND_HOME:-$HOME/.hecks_playground}"
+REPO="https://github.com/chrisyoung/hecks_playground.git"
 
-echo "Installing Hecks..."
+echo "Installing HecksPlayground..."
 
 # Clone or update
-if [ -d "$HECKS_HOME" ]; then
-  echo "  Updating $HECKS_HOME..."
-  git -C "$HECKS_HOME" pull --ff-only 2>/dev/null || git -C "$HECKS_HOME" fetch && git -C "$HECKS_HOME" reset --hard origin/main
+if [ -d "$HECKS_PLAYGROUND_HOME" ]; then
+  echo "  Updating $HECKS_PLAYGROUND_HOME..."
+  git -C "$HECKS_PLAYGROUND_HOME" pull --ff-only 2>/dev/null || git -C "$HECKS_PLAYGROUND_HOME" fetch && git -C "$HECKS_PLAYGROUND_HOME" reset --hard origin/main
 else
-  echo "  Cloning to $HECKS_HOME..."
-  git clone "$REPO" "$HECKS_HOME"
+  echo "  Cloning to $HECKS_PLAYGROUND_HOME..."
+  git clone "$REPO" "$HECKS_PLAYGROUND_HOME"
 fi
 
 # Bundle
 echo "  Installing dependencies..."
-cd "$HECKS_HOME"
+cd "$HECKS_PLAYGROUND_HOME"
 bundle install --quiet 2>/dev/null || echo "  (bundle install skipped — run manually if needed)"
 
 # Symlink
@@ -27,16 +27,16 @@ if [ ! -w "$BIN_DIR" ]; then
   mkdir -p "$BIN_DIR"
 fi
 
-ln -sf "$HECKS_HOME/bin/hecks" "$BIN_DIR/hecks"
-chmod +x "$HECKS_HOME/bin/hecks"
+ln -sf "$HECKS_PLAYGROUND_HOME/bin/hecks_playground" "$BIN_DIR/hecks_playground"
+chmod +x "$HECKS_PLAYGROUND_HOME/bin/hecks_playground"
 
-# Make sure bin/hecks always resolves back to HECKS_HOME
-export HECKS_HOME
+# Make sure bin/hecks_playground always resolves back to HECKS_PLAYGROUND_HOME
+export HECKS_PLAYGROUND_HOME
 
 echo ""
-echo "Hecks installed!"
-echo "  Location: $HECKS_HOME"
-echo "  Binary:   $BIN_DIR/hecks"
+echo "HecksPlayground installed!"
+echo "  Location: $HECKS_PLAYGROUND_HOME"
+echo "  Binary:   $BIN_DIR/hecks_playground"
 echo ""
 
 # Check PATH

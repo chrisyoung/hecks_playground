@@ -1,6 +1,6 @@
 #!/bin/bash
 # Honest tests-passing check. Exit 0 if cargo test passes.
-cd /Users/christopheryoung/Projects/hecks/rust || exit 1
+cd /Users/christopheryoung/Projects/hecks_playground/rust || exit 1
 if cargo test --release --quiet >/dev/null 2>&1; then
   echo '{"check": "tests", "ok": true, "status": "passed"}'
   exit 0

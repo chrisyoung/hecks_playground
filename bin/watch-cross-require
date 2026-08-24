@@ -2,9 +2,9 @@
 # Fails if any staged file has a require_relative that escapes its component.
 # Cross-component loading must use bare `require`, not `require_relative`.
 
-$LOAD_PATH.unshift File.expand_path("../hecks_watchers/lib", __dir__)
+$LOAD_PATH.unshift File.expand_path("../hecks_playground_watchers/lib", __dir__)
 $LOAD_PATH.unshift(File.expand_path("../hecksties/watchers/lib", __dir__))
-require "hecks_watchers"
+require "hecks_playground_watchers"
 
 project_root = File.expand_path("..", __dir__)
 results = HecksWatchers::CrossRequire.new(project_root: project_root).call

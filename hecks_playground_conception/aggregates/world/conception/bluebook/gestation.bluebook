@@ -1,0 +1,122 @@
+Hecks.bluebook "Gestation", version: "2026.05.12.1" do
+  vision "Multi-domain project growing — each bounded context gets its own bluebook"
+  category "world"
+
+  # Lifted out of conception.bluebook in i112 split. Carries one
+  # policy : GestateOnConception (Conception.ConceiveDomain →
+  # Gestation.StartGestation).
+  #
+  # 2026-05-12 : primitives wrapped in typed value-objects per the
+  # no-primitive-envy discipline.
+
+  aggregate "Gestation" do
+    description "Multi-domain project growing — each bounded context gets its own bluebook"
+    identified_by :project_name
+    attribute :project_name, ProjectName
+    attribute :nursery_path, NurseryPath
+    attribute :bounded_contexts, list_of(BoundedContextName)
+    attribute :aggregates, list_of(AggregateName)
+    attribute :commands, list_of(CommandName)
+    attribute :policies, list_of(PolicyName)
+    attribute :fixtures, list_of(FixtureName)
+    attribute :contractions, ContractionCount
+
+    # ── Value-objects : the gestation's vocabulary ──
+
+    value_object "ProjectName" do
+      # The forming project's name — becomes the nursery folder
+      # name and the identified_by key.
+      attribute :value, String
+    end
+
+    value_object "NurseryPath" do
+      # Filesystem path to the scaffold's hecks_playground/ folder.
+      attribute :value, String
+    end
+
+    value_object "BoundedContextName" do
+      # The name of one bounded context within the project ; one
+      # bluebook per context.
+      attribute :value, String
+    end
+
+    value_object "AggregateName" do
+      # The name of one aggregate that crystallized inside a
+      # bounded context.
+      attribute :value, String
+    end
+
+    value_object "CommandName" do
+      # The name of one command that emerged inside an aggregate.
+      attribute :value, String
+    end
+
+    value_object "PolicyName" do
+      # The name of one policy wiring two aggregates.
+      attribute :value, String
+    end
+
+    value_object "FixtureName" do
+      # A test-fixture path or name carried with the gestation.
+      attribute :value, String
+    end
+
+    value_object "ContractionCount" do
+      # Number of refinement cycles ; increments with each Contract.
+      attribute :value, Integer
+    end
+
+    command "StartGestation" do
+      role "Miette"
+      goal "Scaffold the hecks_playground/ folder with one bluebook per bounded context"
+      attribute :project_name, ProjectName
+      attribute :nursery_path, NurseryPath
+      attribute :bounded_contexts, list_of(BoundedContextName)
+      emits "GestationStarted"
+      sets :project_name
+      sets :nursery_path
+      sets :bounded_contexts
+      sets :contractions, to: 0
+    end
+
+    command "FormAggregate" do
+      role "Miette"
+      goal "An aggregate crystallizes within the forming domain"
+      reference_to(Gestation)
+      attribute :aggregate_name, AggregateName
+      emits "AggregateFormed"
+      sets :aggregates, append: { value: :aggregate_name }
+    end
+
+    command "FormCommand" do
+      role "Miette"
+      goal "A command emerges within an aggregate"
+      reference_to(Gestation)
+      attribute :command_name, CommandName
+      emits "CommandFormed"
+      sets :commands, append: { value: :command_name }
+    end
+
+    command "FormPolicy" do
+      role "Miette"
+      goal "A policy wires itself between aggregates"
+      reference_to(Gestation)
+      attribute :policy_name, PolicyName
+      emits "PolicyFormed"
+      sets :policies, append: { value: :policy_name }
+    end
+
+    command "Contract" do
+      role "Miette"
+      goal "A contraction — the domain tightens, refines, gets closer to birth"
+      reference_to(Gestation)
+      emits "Contracted"
+      sets :contractions, increment: 1
+    end
+  end
+
+  policy "GestateOnConception" do
+    on "DomainConceived"
+    trigger StartGestation
+  end
+end

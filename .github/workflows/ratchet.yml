@@ -6,7 +6,7 @@ name: LoC Ratchet
 #  when GitHub Actions itself becomes bluebook-driven.]
 #
 # Fails when a PR increases the count of non-bluebook LoC (*.rs under
-# rust/src/, *.sh under hecks_conception/) without a signed
+# rust/src/, *.sh under hecks_playground_conception/) without a signed
 # [loc-ratchet-override: ...] commit marker. The discipline matches
 # the antibody-exemption signing rule — only the operator authorises
 # increases. See bin/loc-ratchet and inbox i62 / i65 / i66.
@@ -25,7 +25,7 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
 
-      # hecks/rust/ is retired (i768 slice 2.2b) — the `storehouse` binary
+      # hecks_playground/rust/ is retired (i768 slice 2.2b) — the `storehouse` binary
       # loc-ratchet's is-dispatched query needs now lives in the private
       # hecks-hecksagain fork instead. Checked out as a sibling, PINNED to
       # the same rev summer/Cargo.toml and the worker's Cargo.toml resolve
@@ -77,5 +77,5 @@ jobs:
 
       - name: Run loc-ratchet
         env:
-          HECKS_BIN: ${{ github.workspace }}/hecks-hecksagain/storehouse/target/release/storehouse
+          HECKS_PLAYGROUND_BIN: ${{ github.workspace }}/hecks-hecksagain/storehouse/target/release/storehouse
         run: bin/loc-ratchet --base "origin/${{ github.base_ref }}" --verbose

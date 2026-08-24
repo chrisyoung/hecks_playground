@@ -1,0 +1,73 @@
+#!/usr/bin/env ruby
+
+# DEPRECATED — the Ruby `hecks_playground` CLI is on the retirement path. The HecksPlayground
+# runtime has moved to Rust (see `storehouse`). This shim short-circuits
+# unless HECKS_PLAYGROUND_RUBY_OK=1 is set, so users see a clear migration message
+# instead of a load-order NameError from the published gem (i499).
+unless ENV["HECKS_PLAYGROUND_RUBY_OK"] == "1"
+  warn <<~MSG
+    [hecks_playground] The Ruby `hecks_playground` CLI is deprecated.
+
+    The HecksPlayground runtime is now Rust-only — use `storehouse` for bluebook
+    parsing, .heki storage, and daemons.
+
+      https://github.com/chrisyoung/hecks_playground  (see storehouse/)
+
+    To run the legacy Ruby CLI anyway (e.g. for local dev), set:
+
+      HECKS_PLAYGROUND_RUBY_OK=1 hecks_playground <command>
+  MSG
+  exit 1
+end
+
+# Resolve HECKS_PLAYGROUND_HOME from this script's real location (not symlink)
+hecks_playground_home = File.dirname(File.dirname(File.realpath(__FILE__)))
+ENV["HECKS_PLAYGROUND_HOME"] = hecks_playground_home
+$LOAD_PATH.unshift(File.join(hecks_playground_home, "lib"))
+
+ENV["BUNDLE_GEMFILE"] ||= File.join(hecks_playground_home, "Gemfile")
+require "bundler/setup" if File.exist?(ENV["BUNDLE_GEMFILE"])
+
+require "hecks_playground"
+require "set"
+require "hecks_playground_cli/argv"
+
+argv = HecksPlayground::CLI::Argv.new
+
+# Register commands from chapter Bluebooks — the source of truth
+chapters = {
+  "cli"        => "Commands",
+  "ai"         => "Commands",
+  "persist"    => "Commands",
+  "extensions" => "Commands",
+  "workshop"   => "Commands",
+  "targets"    => "Commands",
+}
+
+chapters.each do |chapter, group_name|
+  begin
+    require "hecks_playground/chapters/#{chapter}"
+    mod_name = chapter == "ai" ? "AI" : chapter.split("_").map(&:capitalize).join
+    mod = HecksPlayground::Chapters.const_get(mod_name)
+    domain = mod.definition
+    argv.register_from_domain(domain, group: group_name, commands_only: true)
+  rescue => e
+    $stderr.puts "  [argv] skip chapter #{chapter}: #{e.message}" if ENV["HECKS_PLAYGROUND_DEBUG"]
+  end
+end
+
+# Also load bluebooks from current project's hecks_playground/ dir (user domains)
+hecks_playground_dir = File.join(Dir.pwd, "hecks_playground")
+if File.directory?(hecks_playground_dir)
+  Dir[File.join(hecks_playground_dir, "*.bluebook")].sort.each do |path|
+    argv.register_from_bluebook(path)
+  end
+end
+
+# Load CLI command handlers (just handler blocks, no registration)
+lib_root = File.join(hecks_playground_home, "lib")
+Dir[File.join(lib_root, "**/commands/*.rb")].sort.each do |path|
+  argv.load_handler_file(path)
+end
+
+argv.run(ARGV)

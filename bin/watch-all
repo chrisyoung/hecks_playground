@@ -2,9 +2,9 @@
 # Polls every second for .rb file changes and runs all watchers.
 # Started automatically when Claude Code opens the project.
 
-$LOAD_PATH.unshift File.expand_path("../hecks_watchers/lib", __dir__)
+$LOAD_PATH.unshift File.expand_path("../hecks_playground_watchers/lib", __dir__)
 $LOAD_PATH.unshift(File.expand_path("../hecksties/watchers/lib", __dir__))
-require "hecks_watchers"
+require "hecks_playground_watchers"
 
 project_root = File.expand_path("..", __dir__)
 $stdout.sync = true

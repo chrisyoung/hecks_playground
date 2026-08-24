@@ -1,4 +1,4 @@
-Hecks.hecksagon "Antibody" do
+HecksPlayground.hecksagon "Antibody" do
   # Antibody has no persistence — every verdict is a fresh, one-shot
   # evaluation. The memory adapter holds the CommitCheck / BranchScan /
   # StagedCheck aggregates for the lifetime of a single CLI invocation
@@ -70,7 +70,7 @@ Hecks.hecksagon "Antibody" do
 
   # ---- Gates ------------------------------------------------------
   #
-  # :ci     — the branch-wide checks driven by `hecks antibody check`
+  # :ci     — the branch-wide checks driven by `hecks_playground antibody check`
   #           and the CI workflow. These never write to the repo; they
   #           only evaluate and emit a verdict.
   # :hook   — the pre-commit path. Narrower: it only touches the

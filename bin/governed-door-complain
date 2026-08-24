@@ -17,8 +17,8 @@
 import json, sys, subprocess, datetime, os
 
 # Ungoverned dev/recovery session (miette --ungoverned) — honor the
-# out-of-band HECKS_GOVERNANCE_OFF escape ; no complaint fires either.
-if os.environ.get('HECKS_GOVERNANCE_OFF'):
+# out-of-band HECKS_PLAYGROUND_GOVERNANCE_OFF escape ; no complaint fires either.
+if os.environ.get('HECKS_PLAYGROUND_GOVERNANCE_OFF'):
     sys.exit(0)
 
 # REPOINTED (hecksagain cutover, 2026-08-11, Chris's explicit sign-off):
@@ -30,8 +30,8 @@ if os.environ.get('HECKS_GOVERNANCE_OFF'):
 # pre-formatted string, so it's joined here for the same rendered
 # message shape. The Record dispatch needs the explicit `dispatch`
 # keyword hecksagain-cli requires (the old binary defaulted to it).
-BIN = '/Users/christopheryoung/Projects/hecks/hecksagain_runtime/bin/hecksagain-cli'
-ROOT = '/Users/christopheryoung/Projects/hecks/hecks_conception'
+BIN = '/Users/christopheryoung/Projects/hecks_playground/hecksagain_runtime/bin/hecksagain-cli'
+ROOT = '/Users/christopheryoung/Projects/hecks_playground/hecks_playground_conception'
 
 try:
     d = json.load(sys.stdin)

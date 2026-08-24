@@ -2,7 +2,7 @@
 # loc-ratchet — gate each counted tree (CONCERN) by its DIRECTION.
 #
 # The concerns are no longer hard-coded here. They live in a
-# bluebook — hecks_conception/aggregates/discipline/loc_ratchet/
+# bluebook — hecks_playground_conception/aggregates/discipline/loc_ratchet/
 # loc_ratchet.bluebook (the Concern aggregate) seeded by its sibling
 # loc_ratchet.fixtures. The gate that enforces bluebook-first is now
 # itself bluebook-configured : "split it by concern" done bluebook-
@@ -45,7 +45,7 @@
 # FALLS BACK to the historical hard-coded concerns so the gate never
 # silently no-ops on a fresh clone. Fallback is announced on stderr.
 #
-# In a worktree without a built binary, point HECKS_BIN at the main
+# In a worktree without a built binary, point HECKS_PLAYGROUND_BIN at the main
 # checkout's storehouse (rust/target/release/storehouse) — that is the
 # worktree-development read path.
 #
@@ -82,10 +82,10 @@ IGNORED_SEGMENTS = %w[
 
 # The historical hard-coded concerns — the fallback set used when the
 # bluebook-seeded concerns can't be read. Preserves pre-bluebook
-# behavior exactly : rust/src .rs and hecks_conception .sh, both shrink.
+# behavior exactly : rust/src .rs and hecks_playground_conception .sh, both shrink.
 FALLBACK_CONCERNS = [
   { "name" => "core_runtime", "path" => "rust/src",         "extensions" => "rs", "direction" => "shrink", "baseline" => "" },
-  { "name" => "shell",        "path" => "hecks_conception", "extensions" => "sh", "direction" => "shrink", "baseline" => "" },
+  { "name" => "shell",        "path" => "hecks_playground_conception", "extensions" => "sh", "direction" => "shrink", "baseline" => "" },
 ].freeze
 
 # The DOMAIN whose Concern fixtures configure this gate, and the corpus root
@@ -107,7 +107,7 @@ REPO_ROOT      = File.expand_path("..", __dir__)
 # Without it we fall back to counting every file under the hard-coded
 # concerns (preserves pre-i122 behavior on a fresh clone).
 STOREHOUSE_BIN = [
-  ENV["HECKS_BIN"],
+  ENV["HECKS_PLAYGROUND_BIN"],
   File.expand_path("../rust/target/release/storehouse", __dir__),
   File.expand_path("../rust/target/debug/storehouse",   __dir__),
 ].compact.find { |p| File.executable?(p) }
@@ -130,7 +130,7 @@ end
 # Returns the FALLBACK_CONCERNS (announced on stderr) on any failure so
 # the gate never silently no-ops. Normalises baseline to "" when absent.
 def load_concerns
-  return fallback("no storehouse binary (set HECKS_BIN?)") if STOREHOUSE_BIN.nil?
+  return fallback("no storehouse binary (set HECKS_PLAYGROUND_BIN?)") if STOREHOUSE_BIN.nil?
 
   out, ok = run(
     [STOREHOUSE_BIN, "dump-fixtures", "--domain", CONCERN_DOMAIN, "--corpus", REPO_ROOT]

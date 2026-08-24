@@ -1,13 +1,13 @@
 # HecksagainRuntime::ValidateSweep
 #
-# i745's own finding: `hecksagain-cli validate hecks_conception` flattens
+# i745's own finding: `hecksagain-cli validate hecks_playground_conception` flattens
 # the WHOLE corpus into one combined boot and reports ONE verdict --
 # `{ok:true,"valid":true}` even while 36 of the corpus's own 58 sub-roots
 # were individually invalid (mostly the family/port gap, since fixed --
 # Phase 1a). A single combined boot hides per-root defects two ways: a
 # crash anywhere makes the WHOLE thing false with no "which root", and a
 # name collision between two roots' declarations can make a broken root
-# silently PASS (confirmed live this session: hecks_conception's own
+# silently PASS (confirmed live this session: hecks_playground_conception's own
 # heki.adapter was missing `field :dir` and only ever "worked" because a
 # DIFFERENT bug crashed it before it could load and shadow the vendored
 # library's more complete copy -- the combined boot never caught it).

@@ -44,7 +44,7 @@ module HecksagainRuntime
     SINGLETON_NAME = "the-macrophage"
 
     def self.call(root, payload)
-      return { ok: true, skipped: "HECKS_GOVERNANCE_OFF" } if ENV["HECKS_GOVERNANCE_OFF"]
+      return { ok: true, skipped: "HECKS_PLAYGROUND_GOVERNANCE_OFF" } if ENV["HECKS_PLAYGROUND_GOVERNANCE_OFF"]
 
       tool_name  = payload["tool_name"].to_s
       file_path  = payload.dig("tool_input", "file_path").to_s

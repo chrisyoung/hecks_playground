@@ -4,7 +4,7 @@ Run the project watchers and fix every issue they report.
 
 1. Run the watchers:
 ```bash
-ruby -I hecks_watchers/lib -r hecks_watchers -e 'HecksWatchers::PreCommit.new(project_root: Dir.pwd).call'
+ruby -I hecks_playground_watchers/lib -r hecks_playground_watchers -e 'HecksWatchers::PreCommit.new(project_root: Dir.pwd).call'
 ```
 
 2. Read the output carefully. For each issue reported:
@@ -19,7 +19,7 @@ ruby -I hecks_watchers/lib -r hecks_watchers -e 'HecksWatchers::PreCommit.new(pr
 
    - **New files without specs** — Create a spec file for the new class with meaningful tests.
 
-   - **New files missing from autoloads.rb** — Add the autoload entry to `hecksties/lib/hecks/autoloads.rb`.
+   - **New files missing from autoloads.rb** — Add the autoload entry to `hecksties/lib/hecks_playground/autoloads.rb`.
 
 3. After fixing all issues, run the watchers again to confirm everything is clean.
 

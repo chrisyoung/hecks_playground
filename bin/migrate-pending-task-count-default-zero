@@ -33,7 +33,7 @@
 #         bin/migrate-pending-task-count-default-zero --dry-run
 import json, subprocess, sys
 
-ROOT = "/Users/christopheryoung/Projects/hecks/hecks_conception"
+ROOT = "/Users/christopheryoung/Projects/hecks_playground/hecks_playground_conception"
 STORY_HEKI = f"{ROOT}/aggregates/plan/.heki/plan/story.heki"
 STOREHOUSE = "storehouse"
 SKIP_STATES = {"ready_for_review", "done"}

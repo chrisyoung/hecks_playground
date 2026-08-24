@@ -14,6 +14,6 @@ by hand — that recovery should be structural :
   session on SessionStart — this morning it still pointed at yesterday's
   transcript, so this session's voice is idle.
 
-Script : hecks_conception/bin/speech_stream_advance (the SpeechStream
+Script : hecks_playground_conception/bin/speech_stream_advance (the SpeechStream
 bluebook's exec arm — guard belongs in the bluebook's vocabulary too :
 a CatchUp/SkipBacklog event, not just python).

@@ -1,4 +1,4 @@
-Hecks.behaviors "WebComponents" do
+HecksPlayground.behaviors "WebComponents" do
   vision "Behavioral tests for the collapsed WebComponents domain — one root aggregate, one RenderComponent command exercised across every supported component kind"
 
   # ── WebComponents — RenderComponent dispatched per kind ──────

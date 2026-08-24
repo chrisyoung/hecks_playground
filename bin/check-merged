@@ -16,7 +16,7 @@
 # exists the story has nothing to merge and we report not-merged
 # (the operator hasn't even started a branch yet).
 set -u
-REPO_ROOT="${REPO_ROOT:-/Users/christopheryoung/Projects/hecks}"
+REPO_ROOT="${REPO_ROOT:-/Users/christopheryoung/Projects/hecks_playground}"
 STORY_ID=$(cat | jq -r '.id // empty')
 
 if [ -z "$STORY_ID" ]; then

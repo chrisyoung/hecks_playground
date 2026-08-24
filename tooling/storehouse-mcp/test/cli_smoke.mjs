@@ -19,10 +19,10 @@ import { tmpdir } from "node:os";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SERVER = path.join(__dirname, "..", "src", "server.mjs");
 // Task 6 (atomic cutover, 2026-08-11): the migration branch merged into
-// main, so the rewritten hecks_conception + hecksagain_runtime now live
+// main, so the rewritten hecks_playground_conception + hecksagain_runtime now live
 // natively at the main repo root -- the migration worktree this constant
 // pointed at during pre-cutover verification is redundant now.
-const HECKS_ROOT = "/Users/christopheryoung/Projects/hecks";
+const HECKS_PLAYGROUND_ROOT = "/Users/christopheryoung/Projects/hecks_playground";
 // Migration plan Part 5 "correction" pass: hecksagain-cli's validate /
 // catalog / describe / list / macrophage subcommands only ever accept a
 // CORPUS ROOT directory, never a single .bluebook file (confirmed against
@@ -30,10 +30,10 @@ const HECKS_ROOT = "/Users/christopheryoung/Projects/hecks";
 // replaces the old SMOKE_BLUEBOOK single-file target for those probes.
 // RestartPrompt (a small single-aggregate bluebook under this root) is
 // still the known-good aggregate the discovery probes look for.
-const SMOKE_ROOT = path.join(HECKS_ROOT, "hecks_conception");
+const SMOKE_ROOT = path.join(HECKS_PLAYGROUND_ROOT, "hecks_playground_conception");
 const SMOKE_BEHAVIORS = path.join(
-  HECKS_ROOT,
-  "hecks_conception/aggregates/framework/restart_prompt/bluebook/restart_prompt.behaviors",
+  HECKS_PLAYGROUND_ROOT,
+  "hecks_playground_conception/aggregates/framework/restart_prompt/bluebook/restart_prompt.behaviors",
 );
 // Found live this pass (migration plan Part 5 "correction" pass, running
 // the ACTUAL MCP tool surface for the first time rather than
@@ -80,8 +80,8 @@ async function main() {
     args: [SERVER],
     env: {
       ...process.env,
-      HECKS_AGENT_EVENT_STREAM: eventsPath,
-      STOREHOUSE_BIN: path.join(HECKS_ROOT, "rust/target/release/storehouse"),
+      HECKS_PLAYGROUND_AGENT_EVENT_STREAM: eventsPath,
+      STOREHOUSE_BIN: path.join(HECKS_PLAYGROUND_ROOT, "rust/target/release/storehouse"),
     },
   });
 
@@ -132,7 +132,7 @@ async function main() {
 
   // -- storehouse__validate on the corpus root
   // Per-root sweep (parser-removal plan, Phase 1b) -- a multi-domain root
-  // like hecks_conception now returns {roots_swept, valid, invalid, results}
+  // like hecks_playground_conception now returns {roots_swept, valid, invalid, results}
   // instead of one combined {valid:true/false}, so a broken root can't hide
   // behind a name collision another root's boot happens to survive. This
   // smoke test verifies the TOOL works (a well-formed sweep came back with

@@ -16,8 +16,8 @@ jobs:
     runs-on: ubuntu-latest
 
     # Multi-repo layout — same shape as test.yml, now THREE siblings under
-    # $GITHUB_WORKSPACE : hecks/, hecks-hecksagain/ (the storehouse fork,
-    # i768 slice 2.2b — hecks/rust/ retired), miette/ (optional). The Rust
+    # $GITHUB_WORKSPACE : hecks_playground/, hecks-hecksagain/ (the storehouse fork,
+    # i768 slice 2.2b — hecks_playground/rust/ retired), miette/ (optional). The Rust
     # specializer/establishment tests that read a miette-sibling bluebook
     # (system_prompt_establishment_test.rs, mindstream_establishment_test.rs)
     # resolve it via `env!("CARGO_MANIFEST_DIR")/../../miette/...` from
@@ -28,10 +28,10 @@ jobs:
     # their own "skipped — miette sibling repo absent" guard — so
     # miette's checkout can stay optional here same as before.
     steps:
-      - name: Checkout hecks
+      - name: Checkout hecks_playground
         uses: actions/checkout@v4
         with:
-          path: hecks
+          path: hecks_playground
 
       - name: Checkout hecks-hecksagain (storehouse fork)
         # PRIVATE — needs a real token, not the default GITHUB_TOKEN (which
@@ -49,7 +49,7 @@ jobs:
 
       - name: Checkout miette (sibling, optional)
         # chrisyoung/miette is PRIVATE ; the default workflow GITHUB_TOKEN
-        # is scoped to this (public) hecks repo and gets "Not Found" on it,
+        # is scoped to this (public) hecks_playground repo and gets "Not Found" on it,
         # which would otherwise fail the whole job at the checkout step.
         # The only parity steps that read ../../miette from the storehouse
         # crate are the system_prompt / mindstream establishment tests,
@@ -64,7 +64,7 @@ jobs:
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.3"
-          working-directory: hecks
+          working-directory: hecks_playground
           bundler-cache: true
 
       - uses: dtolnay/rust-toolchain@stable
@@ -111,9 +111,9 @@ jobs:
         # invalid, not just a combined pass/fail -- a single combined boot
         # can silently hide a broken root behind a name collision another
         # root's boot happens to survive (confirmed live this session).
-        working-directory: hecks
+        working-directory: hecks_playground
         run: |
-          out=$(ruby -Ivendor/hecksagain/lib -Ihecksagain_runtime/lib -r hecksagain_runtime -e 'require "json"; puts JSON.generate(HecksagainRuntime.validate("hecks_conception"))')
+          out=$(ruby -Ivendor/hecksagain/lib -Ihecksagain_runtime/lib -r hecksagain_runtime -e 'require "json"; puts JSON.generate(HecksagainRuntime.validate("hecks_playground_conception"))')
           echo "$out"
           ok=$(printf '%s' "$out" | ruby -rjson -e 'puts (JSON.parse(STDIN.read)["ok"] == true) rescue puts "false"')
           invalid=$(printf '%s' "$out" | ruby -rjson -e 'j=JSON.parse(STDIN.read); puts j["invalid"] || 1')

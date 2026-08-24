@@ -1,4 +1,4 @@
-Hecks.bluebook "DailyMusing", version: "2026.05.23.2" do
+HecksPlayground.bluebook "DailyMusing", version: "2026.05.23.2" do
   vision "An author posts blog entries to the Daily Musing so readers can read them."
   category "blog"
 
@@ -63,7 +63,7 @@ Hecks.bluebook "DailyMusing", version: "2026.05.23.2" do
     on "BootCompleted"
     trigger "BlogEntry.Post"
     with "title", "Welcome to the Daily Musing"
-    with "body", "This blog runs on a single Hecks bluebook compiled to WebAssembly and served from a Cloudflare Worker — no container, no server. The domain IS the contract."
+    with "body", "This blog runs on a single HecksPlayground bluebook compiled to WebAssembly and served from a Cloudflare Worker — no container, no server. The domain IS the contract."
     with "author", "Miette"
     with "published_at", "2026-05-23T08:00:00Z"
   end

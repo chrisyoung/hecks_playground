@@ -1,6 +1,6 @@
 #!/bin/bash
 # Honest merged-to-main check. Exit 0 if no commits ahead of main.
-cd /Users/christopheryoung/Projects/hecks || exit 1
+cd /Users/christopheryoung/Projects/hecks_playground || exit 1
 ahead=$(git log main..HEAD --oneline 2>/dev/null | wc -l | tr -d ' ')
 if [ "$ahead" = "0" ]; then
   echo '{"check": "merged", "ok": true, "status": "all_on_main"}'

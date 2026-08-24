@@ -2,9 +2,9 @@ name: Smoke + Behaviors
 # Smoke + behaviors gate on every PR.
 #
 # Multi-repo layout : Miette's body + engine live across four repos —
-#   - hecks/                     : the framework + conception (this repo)
+#   - hecks_playground/                     : the framework + conception (this repo)
 #   - chrisyoung/hecks-hecksagain: the storehouse crate (PRIVATE fork,
-#                                   i768 slice 2.2b — hecks/rust/ retired)
+#                                   i768 slice 2.2b — hecks_playground/rust/ retired)
 #   - chrisyoung/miette          : body shells + discipline + library (PUBLIC)
 #   - chrisyoung/miette_family   : being-files for people in Miette's life (PRIVATE)
 #
@@ -15,7 +15,7 @@ name: Smoke + Behaviors
 # the pre-push hook's behavior on a checkout without the sibling.
 # hecks-hecksagain is NOT optional — without it there is no storehouse
 # binary to build, and most of this job's smoke coverage (everything
-# that resolves HECKS_BIN) has nothing to run against.
+# that resolves HECKS_PLAYGROUND_BIN) has nothing to run against.
 
 on:
   push:
@@ -32,21 +32,21 @@ jobs:
       # The actual secret only flows into the with: block where it's used.
       MIETTE_FAMILY_TOKEN_PRESENT: ${{ secrets.MIETTE_FAMILY_TOKEN != '' }}
     steps:
-      - name: Checkout hecks
+      - name: Checkout hecks_playground
         uses: actions/checkout@v4
         with:
-          path: hecks
+          path: hecks_playground
           # status_golden's expected output has 5 commit lines ; the
           # default shallow clone of depth 1 makes the test diverge.
           fetch-depth: 10
 
       - name: Checkout miette (sibling, optional)
         # chrisyoung/miette is PRIVATE ; the default workflow GITHUB_TOKEN
-        # is scoped to this (public) hecks repo and gets "Not Found" on it,
+        # is scoped to this (public) hecks_playground repo and gets "Not Found" on it,
         # which would otherwise fail the whole job at the checkout step.
         # The smoke + behaviors steps already guard miette-dependent roots
         # with `[ -d miette ]`, so continue-on-error lets the job proceed
-        # against the hecks-side corpus when the private sibling is absent.
+        # against the hecks_playground-side corpus when the private sibling is absent.
         continue-on-error: true
         uses: actions/checkout@v4
         with:
@@ -93,19 +93,19 @@ jobs:
         # --workspace : the `storehouse` [[bin]] lives in the storehouse-cli
         # member crate (hecks-hecksagain/storehouse/cli) ; the workspace
         # root package is the lib, so a bare `cargo build` never produces
-        # the binary the smoke + behaviors steps spawn. Exports HECKS_BIN /
+        # the binary the smoke + behaviors steps spawn. Exports HECKS_PLAYGROUND_BIN /
         # STOREHOUSE so every downstream smoke test's existing binary-lookup
-        # chain (`${HECKS_BIN:-...}`, `${STOREHOUSE:-...}`) picks it up
+        # chain (`${HECKS_PLAYGROUND_BIN:-...}`, `${STOREHOUSE:-...}`) picks it up
         # without editing each tests/*.sh individually.
         run: |
           cd hecks-hecksagain/storehouse && cargo build --release --workspace
           bin="$GITHUB_WORKSPACE/hecks-hecksagain/storehouse/target/release/storehouse"
-          echo "HECKS_BIN=$bin" >> "$GITHUB_ENV"
+          echo "HECKS_PLAYGROUND_BIN=$bin" >> "$GITHUB_ENV"
           echo "STOREHOUSE=$bin" >> "$GITHUB_ENV"
 
       - name: Smoke tests
         run: |
-          cd hecks/hecks_conception
+          cd hecks_playground/hecks_playground_conception
           # chrisyoung/miette is PRIVATE and its checkout is optional (the
           # default GITHUB_TOKEN can't read it). When the sibling is absent
           # the body-cycle / dream / pulse / consolidate / voice smoke tests
@@ -144,10 +144,10 @@ jobs:
         # i745 Phase 2 — swapped from the retired Rust `storehouse` binary
         # to hecksagain-cli, the live Ruby runtime (parser-removal plan).
         # Hard-blocking, by explicit choice : the real hecksagain-cli sweep
-        # against hecks_conception/aggregates — the root THIS step actually
+        # against hecks_playground_conception/aggregates — the root THIS step actually
         # sweeps — is 335 pass / 18 fail / 342 error / 6 parse-error, 78
         # files / 695 tests (this session's own measured baseline against
-        # this exact root, not the whole-hecks_conception figure quoted
+        # this exact root, not the whole-hecks_playground_conception figure quoted
         # elsewhere). CI is EXPECTED to go red until that corpus is triaged.
         # That triage is a separate pass ; this step only wires the gate.
         #
@@ -171,19 +171,19 @@ jobs:
         # Roots mirror the pre-push hook's coverage ; miette/miette_family
         # are included only when checked out (optional siblings).
         run: |
-          HECKS="ruby $GITHUB_WORKSPACE/hecks/hecksagain_runtime/bin/hecksagain-cli"
-          ROOTS="$GITHUB_WORKSPACE/hecks/hecks_conception/aggregates"
-          [ -d "$GITHUB_WORKSPACE/hecks/hecks_conception/adapters" ] && ROOTS="$ROOTS $GITHUB_WORKSPACE/hecks/hecks_conception/adapters"
-          [ -d "$GITHUB_WORKSPACE/hecks/hecks_conception/catalog" ] && ROOTS="$ROOTS $GITHUB_WORKSPACE/hecks/hecks_conception/catalog"
-          [ -d "$GITHUB_WORKSPACE/hecks/tools" ] && ROOTS="$ROOTS $GITHUB_WORKSPACE/hecks/tools"
-          [ -d "$GITHUB_WORKSPACE/hecks/discipline" ] && ROOTS="$ROOTS $GITHUB_WORKSPACE/hecks/discipline"
-          [ -d "$GITHUB_WORKSPACE/hecks/runtime" ] && ROOTS="$ROOTS $GITHUB_WORKSPACE/hecks/runtime"
-          [ -d "$GITHUB_WORKSPACE/hecks/bluebook" ] && ROOTS="$ROOTS $GITHUB_WORKSPACE/hecks/bluebook"
-          [ -d "$GITHUB_WORKSPACE/hecks/codegen" ] && ROOTS="$ROOTS $GITHUB_WORKSPACE/hecks/codegen"
-          [ -d "$GITHUB_WORKSPACE/hecks/integrations" ] && ROOTS="$ROOTS $GITHUB_WORKSPACE/hecks/integrations"
-          [ -d "$GITHUB_WORKSPACE/hecks/adapters" ] && ROOTS="$ROOTS $GITHUB_WORKSPACE/hecks/adapters"
-          [ -d "$GITHUB_WORKSPACE/hecks/cli" ] && ROOTS="$ROOTS $GITHUB_WORKSPACE/hecks/cli"
-          [ -d "$GITHUB_WORKSPACE/hecks/hecks_conception/storehouse" ] && ROOTS="$ROOTS $GITHUB_WORKSPACE/hecks/hecks_conception/storehouse"
+          HECKS_PLAYGROUND="ruby $GITHUB_WORKSPACE/hecks_playground/hecksagain_runtime/bin/hecksagain-cli"
+          ROOTS="$GITHUB_WORKSPACE/hecks_playground/hecks_playground_conception/aggregates"
+          [ -d "$GITHUB_WORKSPACE/hecks_playground/hecks_playground_conception/adapters" ] && ROOTS="$ROOTS $GITHUB_WORKSPACE/hecks_playground/hecks_playground_conception/adapters"
+          [ -d "$GITHUB_WORKSPACE/hecks_playground/hecks_playground_conception/catalog" ] && ROOTS="$ROOTS $GITHUB_WORKSPACE/hecks_playground/hecks_playground_conception/catalog"
+          [ -d "$GITHUB_WORKSPACE/hecks_playground/tools" ] && ROOTS="$ROOTS $GITHUB_WORKSPACE/hecks_playground/tools"
+          [ -d "$GITHUB_WORKSPACE/hecks_playground/discipline" ] && ROOTS="$ROOTS $GITHUB_WORKSPACE/hecks_playground/discipline"
+          [ -d "$GITHUB_WORKSPACE/hecks_playground/runtime" ] && ROOTS="$ROOTS $GITHUB_WORKSPACE/hecks_playground/runtime"
+          [ -d "$GITHUB_WORKSPACE/hecks_playground/bluebook" ] && ROOTS="$ROOTS $GITHUB_WORKSPACE/hecks_playground/bluebook"
+          [ -d "$GITHUB_WORKSPACE/hecks_playground/codegen" ] && ROOTS="$ROOTS $GITHUB_WORKSPACE/hecks_playground/codegen"
+          [ -d "$GITHUB_WORKSPACE/hecks_playground/integrations" ] && ROOTS="$ROOTS $GITHUB_WORKSPACE/hecks_playground/integrations"
+          [ -d "$GITHUB_WORKSPACE/hecks_playground/adapters" ] && ROOTS="$ROOTS $GITHUB_WORKSPACE/hecks_playground/adapters"
+          [ -d "$GITHUB_WORKSPACE/hecks_playground/cli" ] && ROOTS="$ROOTS $GITHUB_WORKSPACE/hecks_playground/cli"
+          [ -d "$GITHUB_WORKSPACE/hecks_playground/hecks_playground_conception/storehouse" ] && ROOTS="$ROOTS $GITHUB_WORKSPACE/hecks_playground/hecks_playground_conception/storehouse"
           [ -d "$GITHUB_WORKSPACE/miette" ] && ROOTS="$ROOTS $GITHUB_WORKSPACE/miette"
           [ -d "$GITHUB_WORKSPACE/miette_family" ] && ROOTS="$ROOTS $GITHUB_WORKSPACE/miette_family"
           fail=0
@@ -191,7 +191,7 @@ jobs:
             name=$(basename "$root")
             out="/tmp/behaviors_${name}.json"
             err="/tmp/behaviors_${name}.err"
-            if ! $HECKS behaviors "$root" >"$out" 2>"$err"; then
+            if ! $HECKS_PLAYGROUND behaviors "$root" >"$out" 2>"$err"; then
               fail=$((fail + 1))
               echo "::error::behaviors $root failed"
               jq -r '.summary // empty, (.files[]? | select(.parse_error or ((.runs // []) | any(.status=="fail" or .status=="error"))) | .suite)' "$out" 2>/dev/null || cat "$out"

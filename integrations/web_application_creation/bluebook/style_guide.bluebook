@@ -1,4 +1,4 @@
-Hecks.bluebook "StyleGuide", version: "2026.05.12.1" do
+HecksPlayground.bluebook "StyleGuide", version: "2026.05.12.1" do
   vision "Design system — colors, typography, spacing. Distinctly yours, not AI-generic."
   category "infrastructure"
 

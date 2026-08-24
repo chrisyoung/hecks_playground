@@ -1,4 +1,4 @@
-Hecks.behaviors "StyleGuide" do
+HecksPlayground.behaviors "StyleGuide" do
   vision "Behavioral tests for the StyleGuide domain — exercises every command in memory"
 
   # ── StyleGuide aggregate ──────────────────────────────────────────

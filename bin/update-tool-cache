@@ -60,7 +60,7 @@ end
 def storehouse_bin
   candidates = [
     ENV['STOREHOUSE_BIN'],
-    File.expand_path('~/Projects/hecks/rust/target/release/storehouse'),
+    File.expand_path('~/Projects/hecks_playground/rust/target/release/storehouse'),
     '/usr/local/bin/storehouse'
   ].compact
   candidates.find { |p| File.executable?(p) }
@@ -99,7 +99,7 @@ def write_json_projection(path, stats)
 end
 
 def mint_snapshot_id
-  # ULID-ish : timestamp + random hex. The Hecks runtime mints proper
+  # ULID-ish : timestamp + random hex. The HecksPlayground runtime mints proper
   # ULIDs ; the cache-writer just needs unique-per-dispatch.
   t = (Time.now.utc.to_f * 1000).to_i.to_s(16).upcase.rjust(12, '0')
   r = SecureRandom.hex(7).upcase
@@ -131,7 +131,7 @@ def main(argv)
     exit 0
   end
 
-  root = File.expand_path('~/Projects/hecks/hecks_conception')
+  root = File.expand_path('~/Projects/hecks_playground/hecks_playground_conception')
   now  = Time.now.utc.iso8601
 
   stats.first(opts[:top_n]).each do |name, v|

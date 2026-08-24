@@ -1,0 +1,4 @@
+HecksPlayground.hecksagon "HecksAppeal" do
+  concerns :webapp
+  concerns :dev_tools, env: :development
+end

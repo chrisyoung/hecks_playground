@@ -30,8 +30,8 @@ module Hecksagon
       # Declare which aggregate attribute identifies the record owner.
       #
       # When set, find/all/delete operations will be scoped to the current
-      # user (from +Hecks.current_user+). find and delete raise
-      # +Hecks::GateAccessDenied+ if the record is owned by someone else.
+      # user (from +HecksPlayground.current_user+). find and delete raise
+      # +HecksPlayground::GateAccessDenied+ if the record is owned by someone else.
       # +all+ filters to only owned records.
       #
       # @param field [Symbol] the attribute name holding the owner identity

@@ -44,7 +44,7 @@ module Hecksagon
     #   end
     def published_event(name, version: 1, &block)
       init_strategic
-      builder = Hecks::DSL::EventBuilder.new(name)
+      builder = HecksPlayground::DSL::EventBuilder.new(name)
       builder.instance_eval(&block) if block
       @published_events << { name: name, version: version, event: builder.build }
     end

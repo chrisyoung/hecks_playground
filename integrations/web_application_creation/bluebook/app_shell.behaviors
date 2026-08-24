@@ -1,4 +1,4 @@
-Hecks.behaviors "AppShell" do
+HecksPlayground.behaviors "AppShell" do
   vision "Behavioral tests for the AppShell domain — exercises every command in memory"
 
   # ── AppShell aggregate ──────────────────────────────────────────

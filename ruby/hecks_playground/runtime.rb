@@ -1,0 +1,180 @@
+# Load runtime implementation files from the Runtime chapter definition.
+# The chapter's aggregate list drives which files are required — no
+# hand-written require tree needed.
+require "hecks_playground/chapters/runtime"
+HecksPlayground::Chapters.load_chapter(
+  HecksPlayground::Runtime,
+  base_dir: __dir__
+)
+
+  # HecksPlayground::Runtime
+  #
+  # The runtime container that wires a domain to adapters, dispatches
+  # commands, publishes events, and executes policies. Created via
+  # HecksPlayground.boot or HecksPlayground.load.
+  #
+  #   app = HecksPlayground.boot(__dir__)
+  #   app["Pizza"].all
+  #   Pizza.create(name: "Margherita")
+  #
+
+require "hecks_playground/runtime/projection_setup"
+require "hecks_playground/runtime/projection"
+require "hecks_playground/runtime/shell_dispatcher"
+require "hecks_playground/runtime/llm_dispatcher"
+require "hecks_playground/runtime/llm_providers/base"
+require "hecks_playground/runtime/llm_providers/claude_provider"
+require "hecks_playground/runtime/llm_providers/ollama_provider"
+require "hecks_playground/runtime/prompt_scaffolder"
+require "hecks_playground/runtime/process_manager_setup"
+
+module HecksPlayground
+  # HecksPlayground::Runtime
+  #
+  # The runtime container that wires a domain to adapters, dispatches commands, publishes events, and runs policies.
+  #
+  class Runtime
+    include HecksTemplating::NamingHelpers
+    include PortSetup
+    include RepositorySetup
+    include PolicySetup
+    include SubscriberSetup
+    include ViewSetup
+    include WorkflowSetup
+    include ConstantHoisting
+    include ConnectionSetup
+    include AuthCoverageCheck
+    include ReferenceCoverageCheck
+    include SagaSetup
+    include ProcessManagerSetup
+    include ExtensionDispatch
+    include ConfigurationDSL
+    include CommandDispatch
+    include AdapterWiring
+    include ProjectionSetup
+
+    attr_reader :domain, :event_bus, :command_bus, :actor_system, :process_managers
+
+    # @param domain [HecksPlayground::BluebookModel::Structure::Domain] the domain IR
+    # @param gate [Symbol, nil] optional gate name
+    # @param event_bus [HecksPlayground::EventBus, nil] optional shared event bus
+    # @param hecksagon [Hecksagon::Structure::Hecksagon, nil] optional hecksagon IR
+    # @yield optional configuration block
+    # @return [HecksPlayground::Runtime]
+    def initialize(domain, gate: nil, event_bus: nil, hecksagon: nil, skip_capabilities: false, &config)
+      @domain = domain
+      @gate_name = gate
+      @hecksagon = hecksagon || HecksPlayground.last_hecksagon
+      @mod_name = bluebook_module_name(domain.name)
+      @mod = Object.const_get(@mod_name)
+      @mod.extend(HecksPlayground::BluebookConnections) unless @mod.respond_to?(:connections)
+      @event_bus = event_bus || EventBus.new
+      @repositories = {}
+      @adapter_overrides = {}
+      @runtime_options = {}
+      @async_handler = nil
+      @shell_adapters = {}
+      @llm_adapters = {}
+
+      instance_eval(&config) if config
+
+      setup_repositories
+      setup_command_bus
+      setup_projections
+      setup_policies
+      setup_subscribers
+      setup_views
+      setup_connections
+      wire_ports!
+      ServiceSetup.bind(@domain, @mod, @command_bus)
+      setup_workflows
+      setup_sagas
+      setup_process_managers
+      hoist_constants
+      setup_actor_system
+      apply_hecksagon_capabilities unless skip_capabilities
+    end
+
+    def inspect
+      "#<HecksPlayground::Runtime \"#{@domain.name}\" (#{@repositories.size} repositories)>"
+    end
+
+    # Register a hecksagon shell adapter so `#shell(name, **attrs)`
+    # can dispatch it. Called from HecksPlayground::Boot#wire_shell_adapters
+    # after hecksagons are loaded.
+    #
+    # @param adapter [Hecksagon::Structure::ShellAdapter]
+    # @return [Hecksagon::Structure::ShellAdapter]
+    def register_shell_adapter(adapter)
+      @shell_adapters[adapter.name] = adapter
+    end
+
+    # Dispatch a named shell adapter with runtime attrs substituted
+    # into its {{placeholder}} tokens.
+    #
+    #   runtime.shell(:git_log, range: "HEAD~5..HEAD")
+    #   # => ShellDispatcher::Result
+    #
+    # @param name [Symbol, String] adapter name
+    # @param attrs [Hash] placeholder values
+    # @return [HecksPlayground::Runtime::ShellDispatcher::Result]
+    # @raise [HecksPlayground::ConfigurationError] if no adapter with that name is registered
+    def shell(name, **attrs)
+      adapter = @shell_adapters[name.to_sym]
+      unless adapter
+        raise HecksPlayground::ConfigurationError,
+              "no shell adapter :#{name} registered on runtime :#{@domain.name}"
+      end
+      ShellDispatcher.call(adapter, attrs)
+    end
+
+    # Register a hecksagon LLM adapter so `#llm(name, **attrs)` can
+    # dispatch it. Called from HecksPlayground::Boot#wire_llm_adapters after
+    # hecksagons are loaded.
+    #
+    # @param adapter [Hecksagon::Structure::LlmAdapter]
+    # @return [Hecksagon::Structure::LlmAdapter]
+    def register_llm_adapter(adapter)
+      @llm_adapters[adapter.name] = adapter
+    end
+
+    # Dispatch a named LLM adapter with runtime attrs substituted into
+    # its prompt_template's {{placeholder}} tokens.
+    #
+    #   runtime.llm(:dream_image, seed_image: "blue")
+    #   # => LlmDispatcher::Result
+    #
+    # @param name [Symbol, String] adapter name
+    # @param attrs [Hash] placeholder values
+    # @return [HecksPlayground::Runtime::LlmDispatcher::Result]
+    # @raise [HecksPlayground::ConfigurationError] if no adapter with that name is registered
+    def llm(name, **attrs)
+      adapter = @llm_adapters[name.to_sym]
+      unless adapter
+        raise HecksPlayground::ConfigurationError,
+              "no llm adapter :#{name} registered on runtime :#{@domain.name}"
+      end
+      LlmDispatcher.call(adapter, attrs)
+    end
+
+    private
+
+    def runtime_option?(aggregate_name, option)
+      (@runtime_options || {}).dig(aggregate_name.to_s, option) || false
+    end
+
+    def setup_actor_system
+      require "hecks_playground/runtime/actor/actor_system"
+      @actor_system = Actor::ActorSystem.new(self)
+    end
+
+    def setup_command_bus
+      @command_bus = Commands::CommandBus.new(
+        domain: @domain,
+        event_bus: @event_bus
+      )
+    end
+  end
+
+  Application = Runtime
+end

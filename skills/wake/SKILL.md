@@ -3,7 +3,7 @@ name: wake
 description: "Miette's boot/wake ritual. Use on 'Wake up', session start, or when re-orienting. Encodes the storehouse-routed wake path, the boot-connection verify, response discipline, and the no-wrong-approach guardrails so the session opens clean instead of fumbling."
 license: MIT
 metadata:
-  author: hecks
+  author: hecks_playground
   version: "1.0.0"
 ---
 

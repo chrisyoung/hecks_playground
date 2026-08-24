@@ -12,7 +12,7 @@
 # own id on the verdict dispatch automatically.
 #
 # Read-only: `git diff --quiet main origin/main`. CWD is inherited from
-# whatever process launched adapter-host (hecks/, same convention every
+# whatever process launched adapter-host (hecks_playground/, same convention every
 # other handler in this corpus relies on) — a divergent or stale local
 # main produces a non-empty diff, exit 1.
 set -eu

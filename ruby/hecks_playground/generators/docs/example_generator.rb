@@ -1,0 +1,54 @@
+# HecksPlayground::Generators::ExampleGenerator
+#
+# Generates a runnable app, Bluebook, and Hecksagon from domain
+# IR. Delegates to ExampleAppWriter for the app script and
+# ExampleBluebookWriter for the DSL files.
+#
+#   gen = HecksPlayground::Generators::ExampleGenerator.new(domain, aggregates: ["Pizza", "Order"])
+#   gen.generate  # => { "pizzas.rb" => "...", "pizzas.bluebook" => "...", "pizzas.hecksagon" => "..." }
+#
+HecksPlayground::Chapters.load_aggregates(
+  HecksPlayground::Bluebook::GeneratorsParagraph,
+  base_dir: __dir__
+)
+
+module HecksPlayground
+  module Generators
+    class ExampleGenerator < HecksPlayground::Generator
+      # @param domain [Domain] the domain IR
+      # @param aggregates [Array<String>, nil] aggregate names to include (nil = all)
+      # @param name [String, nil] override domain name in output
+      def initialize(domain, aggregates: nil, name: nil)
+        @domain = domain
+        @filter = aggregates&.map(&:to_s)
+        @name = name || domain.name
+      end
+
+      # Load domain IR directly from a Bluebook file (no CRUD expansion)
+      def self.from_bluebook(path, **opts)
+        domain = eval(File.read(path)) # rubocop:disable Security/Eval
+        new(domain, **opts)
+      end
+
+      def generate
+        aggs = included_aggregates
+        app = ExampleAppWriter.new(@domain, aggs, name: @name)
+        dsl = ExampleBluebookWriter.new(@domain, aggs, name: @name)
+        stem = bluebook_snake_name(@name)
+        {
+          "#{stem}.rb" => app.generate,
+          "#{stem}.bluebook" => dsl.generate_bluebook,
+          "#{stem}.hecksagon" => dsl.generate_hecksagon
+        }
+      end
+
+      private
+
+      def included_aggregates
+        aggs = @domain.aggregates.select { |a| a.commands.any? }
+        aggs = aggs.select { |a| @filter.include?(a.name) } if @filter
+        aggs
+      end
+    end
+  end
+end

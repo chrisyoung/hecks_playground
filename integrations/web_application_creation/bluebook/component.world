@@ -1,4 +1,4 @@
-Hecks.world "Component" do
+HecksPlayground.world "Component" do
   persisted_by("Heki") do
     dir :default
   end

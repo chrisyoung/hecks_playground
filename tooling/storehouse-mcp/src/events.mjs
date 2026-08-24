@@ -2,7 +2,7 @@
 //
 // AgentEventStreamResource — exposes the i17 emit_to_agent JSONL feed
 // (default /tmp/miette_agent_events.jsonl, overridable via the env var
-// HECKS_AGENT_EVENT_STREAM) as the MCP resource `storehouse://events`.
+// HECKS_PLAYGROUND_AGENT_EVENT_STREAM) as the MCP resource `storehouse://events`.
 //
 // Wiring :
 //   - resources/list   → returns one entry, the events resource
@@ -26,7 +26,7 @@ import {
 export const EVENTS_URI = "storehouse://events";
 
 function streamPath() {
-  return process.env.HECKS_AGENT_EVENT_STREAM || "/tmp/miette_agent_events.jsonl";
+  return process.env.HECKS_PLAYGROUND_AGENT_EVENT_STREAM || "/tmp/miette_agent_events.jsonl";
 }
 
 // Read trailing bytes from the file starting at lastOffset. Returns

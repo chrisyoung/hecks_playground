@@ -8,7 +8,7 @@ module Hecksagon
     # output parsing format, optional timeout, working dir, and
     # environment overrides.
     #
-    # Shell adapters are invoked through Hecks::Runtime#shell(name, **attrs)
+    # Shell adapters are invoked through HecksPlayground::Runtime#shell(name, **attrs)
     # which substitutes placeholders into the arg vector and executes via
     # Open3.capture3 (no shell).
     #

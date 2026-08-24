@@ -1,4 +1,4 @@
-Hecks.behaviors "RenderingRule" do
+HecksPlayground.behaviors "RenderingRule" do
   vision "Behavioral tests for the RenderingRule domain — exercises every command in memory"
 
   # ── RenderingRule aggregate ──────────────────────────────────────────

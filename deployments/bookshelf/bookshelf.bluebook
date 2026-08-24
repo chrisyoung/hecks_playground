@@ -1,4 +1,4 @@
-Hecks.domain "Bookshelf" do
+HecksPlayground.domain "Bookshelf" do
   description "Track what you're reading, want to read, and have finished"
 
   aggregate "Book" do

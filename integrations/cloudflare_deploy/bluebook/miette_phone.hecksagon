@@ -1,4 +1,4 @@
-Hecks.hecksagon "MiettePhone" do
+HecksPlayground.hecksagon "MiettePhone" do
   MiettePhone::Gate.persisted_by("Heki")
   MiettePhone::Conversation.persisted_by("Heki")
   MiettePhone::InferenceProxy.persisted_by("Heki")

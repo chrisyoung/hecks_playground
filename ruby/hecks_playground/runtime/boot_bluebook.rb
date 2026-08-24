@@ -1,0 +1,27 @@
+module HecksPlayground
+
+  # HecksPlayground::BootBluebook
+  #
+  # Opens a BluebookStructure IR — compiles each chapter, wires shared
+  # event bus with cross-chapter filtering, and returns runtimes.
+  # Delegates to boot_domains for the heavy lifting.
+  #
+  #   book = HecksPlayground.bluebook("PizzaShop") do
+  #     chapter "Pizzas" do ... end
+  #     chapter "Billing" do ... end
+  #   end
+  #   runtimes = HecksPlayground.open(book)
+  #
+  module BootBluebook
+    # Boot a BluebookStructure into running runtimes.
+    #
+    # @param bluebook [BluebookModel::Structure::BluebookStructure]
+    # @return [Array<Runtime>]
+    def open(bluebook)
+      require "hecks_playground/runtime/load_extensions"
+      LoadExtensions.require_auto
+
+      boot_domains(bluebook.chapters)
+    end
+  end
+end

@@ -2,7 +2,7 @@
   "name": "storehouse-mcp",
   "version": "0.1.0",
   "private": true,
-  "description": "MCP server that exposes the Hecks bluebook bus — universal dispatcher + discovery tools — so Claude can call any bluebook command through MCP.",
+  "description": "MCP server that exposes the HecksPlayground bluebook bus — universal dispatcher + discovery tools — so Claude can call any bluebook command through MCP.",
   "type": "module",
   "main": "src/server.mjs",
   "bin": {

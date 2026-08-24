@@ -54,10 +54,10 @@ REPO="$(git rev-parse --show-toplevel)"
 MAIN_REPO="$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd)"
 
 # hecksagain cutover (i768 slice 2.2c blocker B): the referential-
-# integrity gate below used to run hecks/rust's OWN storehouse binary.
+# integrity gate below used to run hecks_playground/rust's OWN storehouse binary.
 # rust/ is retired ; the binary now comes from hecks-hecksagain's
 # storehouse/ crate instead. Same "find a built binary outside this
-# repo" problem bin/loc-ratchet already solves for HECKS_BIN — same
+# repo" problem bin/loc-ratchet already solves for HECKS_PLAYGROUND_BIN — same
 # shape here : an env override first, then a conventional on-disk path,
 # with NO auto-build (a hook that might trigger a multi-minute cargo
 # build on every push is a broken hook) and NO silent no-op (the old
@@ -66,14 +66,14 @@ MAIN_REPO="$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd)"
 # which the `if !` below would have reported as a false "dangling
 # reference" push-block, not the true "binary missing" cause).
 #
-# hecks-hecksagain is checked out as a SIBLING of hecks on this
+# hecks-hecksagain is checked out as a SIBLING of hecks_playground on this
 # machine (same convention every slice of this cutover has assumed —
 # Gemfile's git: source, the CF worker's git dep, this session's own
-# worktrees), so the default guess is "hecks"'s sibling with the repo
-# name swapped in. HECKS_HECKSAGAIN_BIN overrides directly for anyone
+# worktrees), so the default guess is "hecks_playground"'s sibling with the repo
+# name swapped in. HECKS_PLAYGROUND_HECKSAGAIN_BIN overrides directly for anyone
 # whose layout differs.
-HECKSAGAIN_REPO="${HECKS_HECKSAGAIN_REPO:-$(dirname "$MAIN_REPO")/hecks-hecksagain}"
-STOREHOUSE="${HECKS_HECKSAGAIN_BIN:-}"
+HECKSAGAIN_REPO="${HECKS_PLAYGROUND_HECKSAGAIN_REPO:-$(dirname "$MAIN_REPO")/hecks-hecksagain}"
+STOREHOUSE="${HECKS_PLAYGROUND_HECKSAGAIN_BIN:-}"
 if [ -z "$STOREHOUSE" ]; then
     for candidate in \
         "$HECKSAGAIN_REPO/storehouse/target/release/storehouse" \
@@ -92,7 +92,7 @@ fi
 # Root cause: storehouse behaviors uses load_combined_domain, which walks
 # the aggregates/ root with depth=0 and the integrations/ bucket with
 # depth=1. When the behaviors file lives in a worktree path (e.g.
-# /private/tmp/sq-foo/hecks_conception/aggregates/…), the aggregates
+# /private/tmp/sq-foo/hecks_playground_conception/aggregates/…), the aggregates
 # root resolves to that worktree path. Bluebooks within it get their
 # relative depth from that path. But the integrations/ bucket is always
 # loaded relative to MAIN_REPO (via heki::repo_root() which walks up
@@ -167,20 +167,20 @@ fi
 # error. `storehouse integrity` resolves every declared belongs_to / reference
 # against the live store ; a dangler blocks the push HERE, not hours later in
 # forensics. Main-repo only (worktrees deferred to CI above, like behaviors).
-if [ -d "$MAIN_REPO/hecks_conception/aggregates" ]; then
+if [ -d "$MAIN_REPO/hecks_playground_conception/aggregates" ]; then
     if [ -z "$STOREHOUSE" ] || [ ! -x "$STOREHOUSE" ]; then
         echo "pre-push: storehouse binary not found — integrity gate deferred."
-        echo "  Looked for HECKS_HECKSAGAIN_BIN, then a built binary under"
+        echo "  Looked for HECKS_PLAYGROUND_HECKSAGAIN_BIN, then a built binary under"
         echo "  $HECKSAGAIN_REPO/storehouse/target/{release,debug}/storehouse."
         echo "  Build it (cd $HECKSAGAIN_REPO/storehouse && cargo build --release)"
-        echo "  or set HECKS_HECKSAGAIN_BIN to run this gate locally ; CI is"
+        echo "  or set HECKS_PLAYGROUND_HECKSAGAIN_BIN to run this gate locally ; CI is"
         echo "  authoritative either way."
     else
         echo "pre-push: running storehouse integrity (referential-integrity gate)…"
-        if ! "$STOREHOUSE" integrity "$MAIN_REPO/hecks_conception/aggregates" >/tmp/prepush_integrity.log 2>&1; then
+        if ! "$STOREHOUSE" integrity "$MAIN_REPO/hecks_playground_conception/aggregates" >/tmp/prepush_integrity.log 2>&1; then
             cat /tmp/prepush_integrity.log
             echo "PUSH BLOCKED: dangling cross-aggregate reference(s)."
-            echo "  Run : $STOREHOUSE integrity hecks_conception/aggregates"
+            echo "  Run : $STOREHOUSE integrity hecks_playground_conception/aggregates"
             exit 1
         fi
         echo "pre-push: integrity green — no dangling references."

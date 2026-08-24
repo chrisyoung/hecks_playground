@@ -17,19 +17,19 @@
 # Bite : rust/tests/subcommand_registry_establishment_test.rs.
 #
 # Usage:
-#   bin/seed-subcommand-registry            # uses HECKS_HOME or ~/Projects/hecks
-#   HECKS_HOME=/path/to/hecks bin/seed-subcommand-registry
+#   bin/seed-subcommand-registry            # uses HECKS_PLAYGROUND_HOME or ~/Projects/hecks_playground
+#   HECKS_PLAYGROUND_HOME=/path/to/hecks_playground bin/seed-subcommand-registry
 
 set -euo pipefail
 
-REPO="${HECKS_HOME:-$HOME/Projects/hecks}"
-HECKS="${STOREHOUSE:-$(command -v storehouse || echo "$REPO/rust/target/release/storehouse")}"
+REPO="${HECKS_PLAYGROUND_HOME:-$HOME/Projects/hecks_playground}"
+HECKS_PLAYGROUND="${STOREHOUSE:-$(command -v storehouse || echo "$REPO/rust/target/release/storehouse")}"
 
-if [ ! -x "$HECKS" ]; then
-  echo "[seed-subcommand-registry] storehouse not executable at $HECKS" >&2
+if [ ! -x "$HECKS_PLAYGROUND" ]; then
+  echo "[seed-subcommand-registry] storehouse not executable at $HECKS_PLAYGROUND" >&2
   exit 2
 fi
 
 # The bluebook/ dir is the establish root — subcommand.world (dir :default)
 # lives there, and resolve_world_store_dir only probes the root + its parent.
-exec "$HECKS" establish "$REPO/cli/subcommand/bluebook"
+exec "$HECKS_PLAYGROUND" establish "$REPO/cli/subcommand/bluebook"

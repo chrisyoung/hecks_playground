@@ -1,4 +1,4 @@
-Hecks.bluebook "CloudflareArtifacts", version: "2026.05.12.1" do
+HecksPlayground.bluebook "CloudflareArtifacts", version: "2026.05.12.1" do
   vision "Compile a bluebook into Cloudflare-shaped artifacts — worker.js, Pages site, D1 migrations, wrangler.toml"
   category "capability"
 
@@ -39,7 +39,7 @@ Hecks.bluebook "CloudflareArtifacts", version: "2026.05.12.1" do
 
     value_object "DomainName" do
       # The bluebook's domain name as declared at the top of the
-      # source file (`Hecks.bluebook "X"`).
+      # source file (`HecksPlayground.bluebook "X"`).
       attribute :value, String
     end
 
