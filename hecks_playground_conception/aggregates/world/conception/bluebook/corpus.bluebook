@@ -1,6 +1,5 @@
 Hecks.bluebook "NurseryCorpus", version: "2026.04.16.1" do
   vision "The nursery vector space — every domain's shape, indexed for similarity search"
-  category "world"
 
   # Lifted out of conception.bluebook in i112 split. The aggregate
   # name stays "Corpus" (preserves corpus.heki path); the bluebook

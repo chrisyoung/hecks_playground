@@ -1,6 +1,5 @@
 Hecks.bluebook "AgentDiscipline", version: "2026.05.31.1" do
   vision "The AgentDiscipline rule of the immune system — the macrophage sibling that enforces the two structural ways a sub-agent dodges discipline : (a) reaching for SKIP env vars to bypass pre-commit / CI / LoC-ratchet gates without an explicit red-gate justification, (b) ignoring isolation:\"worktree\" and editing in the main checkout instead of the .claude/worktrees/<agent-id>/ that was created for it. Both bypasses are silent in git history ; both pollute the merge geometry the sprint depended on. This aggregate is the registry of the two violation kinds and the running audit trail of each detection — the PostToolUse / agent-launch hook bin/agent-discipline-check records into it."
-  category "discipline"
 
   # ============================================================
   # AgentDiscipline — one aggregate, two violation kinds

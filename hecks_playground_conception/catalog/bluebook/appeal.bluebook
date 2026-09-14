@@ -1,6 +1,5 @@
 Hecks.bluebook "Appeal", version: "2026.05.12.1" do
   vision "Browser-based IDE for domain modeling"
-  category "framework"
 
   aggregate "Project" do
     identified_by :path

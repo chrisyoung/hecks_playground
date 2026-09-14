@@ -1,6 +1,5 @@
 Hecks.bluebook "TrainingExtraction", version: "2026.05.12.1" do
   vision "Turn a bluebook into a training pair — vision is the prompt, structure is the completion. The extractor audits its own coverage so traits it forgot are surfaced, not silently dropped"
-  category "meta"
 
   # ============================================================
   # COVERAGE AUDIT — dream-surfaced gap (2026-04-24)

@@ -1,6 +1,5 @@
 Hecks.bluebook "Conductor", version: "2026.06.02.2" do
   vision "The Conductor domain : workforce orchestration. The Sweeper is the liveness heartbeat OF THE FLEET ITSELF — a singleton whose periodic Tick is the cadence that drives stale-worker reclamation. for_each fan-out is driven-adapter-only, so the sweep needs a REAL command event to react to : Tick emits Ticked, and the LivenessSweep driven adapter fans Worker.MarkDead out over Worker.Stale on that event. Decision A : crashed/silent workers are caught here ; their lease + claim are reclaimed by the existing worker_died_reclaim cascade downstream of MarkDead."
-  category "framework"
 
   aggregate "Sweeper" do
     description "The fleet liveness clock. A singleton (identified by a fixed sweeper_id) whose Tick command emits Ticked — the real command event the LivenessSweep driven adapter consumes to sweep stale workers. Holds no liveness state itself ; it is the honest carrier of a cadence beat into the driven-adapter fan-out path."

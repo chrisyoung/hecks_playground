@@ -1,6 +1,5 @@
 Hecks.bluebook "CascadeRun", version: "2026.05.25.1" do
   vision "An explicit, first-class cascade run — an ordered pipeline of steps that the runtime (or an agent) declares and then executes. Addresses f6: 'Cascade aggregate with failure, retry, ordering.' The implicit policy-engine cascade fires-and-forgets with no record, no failure capture, no retry surface. CascadeRun makes each chain a queryable domain object: a run has ordered steps, per-step status, a retry policy, and an overall lifecycle (running → completed | failed). The existing Cascade.RecordResult aggregate (tool-outcome capture for :claude_tool / :web_tool adapters) remains a sibling concern — CascadeRun is the orchestration layer above it."
-  category "framework"
 
   # ── CascadeRun ─────────────────────────────────────────────────────
   #

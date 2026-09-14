@@ -1,6 +1,5 @@
 Hecks.bluebook "Plan", version: "2026.06.12.1" do
   vision "The Planning bounded context. All planning aggregates in one bluebook : Sprint (time-box), Story (work unit), Task (one unit of work under a Story), Board (singleton roster), Backlog (intake pool), UseCase (acceptance scenarios), Project (registry), Demo (the act of showing). Same-bluebook cross-aggregate references resolve natively — no namespace prefix. Task was promoted to a first-class aggregate sprint 14 (task-completion-state) ; Story carries pending_task_count maintained by cascade policy on Task lifecycle events."
-  category "plan"
 
   # The Plan singleton aggregate is RETIRED (2026-06-12, locked 2026-06-11
   # with Chris — see inbox/remove-reference-to-keyword.md § Plan-is-a-Module).

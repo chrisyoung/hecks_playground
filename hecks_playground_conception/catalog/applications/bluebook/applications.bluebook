@@ -1,6 +1,5 @@
 Hecks.bluebook "Applications", version: "2026.04.11.1" do
   vision "Viable domains — born domains that have a running app and live in the world"
-  category "meta"
 
   aggregate "Application" do
     description "A domain that became viable — it has an app, it runs, it serves"

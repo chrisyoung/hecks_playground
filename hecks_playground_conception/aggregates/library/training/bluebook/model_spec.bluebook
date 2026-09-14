@@ -1,6 +1,5 @@
 Hecks.bluebook "ModelSpec", version: "2026.04.28.1" do
   vision "What the trained model should be able to do"
-  category "meta"
 
   # Lifted out of training_corpus.bluebook in i112 split.
 

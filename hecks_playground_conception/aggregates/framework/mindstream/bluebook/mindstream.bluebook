@@ -1,6 +1,5 @@
 Hecks.bluebook "Mindstream", version: "2026.05.12.1" do
   vision "The framework mindstream — the stream of supervised processes that keeps Miette's body running. Sibling to the self/voice/mind_stream consciousness stream : both are streams flowing through her, at different levels (thoughts there, processes here). One Mindstream = one Procfile + one .overmind.env ; the :overmind capability emits both into the mindstream's directory. The verb 'boot Miette' becomes 'overmind start' in that directory."
-  category "framework"
 
   # ============================================================
   # MINDSTREAM — overmind-supervised process group

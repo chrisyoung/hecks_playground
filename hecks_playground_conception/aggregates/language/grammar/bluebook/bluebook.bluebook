@@ -6,7 +6,6 @@ Hecks.bluebook "BluebookGrammar", version: "2026.05.12.1" do
   # requires globally-unique domain names when composed together; the old
   # Rust runtime never caught this. See migration plan Part 4/Part 5.
   vision "Bluebook describing itself — the IR shape every parser must produce"
-  category "meta"
 
   # ============================================================
   # The IR contract.

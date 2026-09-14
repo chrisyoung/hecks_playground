@@ -1,6 +1,5 @@
 Hecks.bluebook "Postpartum", version: "2026.04.16.1" do
   vision "After birth — the domain's first days in the nursery"
-  category "world"
 
   # Lifted out of conception.bluebook in i112 split. Carries one
   # policy : CheckOnBirth (Delivery.RegisterBirth →

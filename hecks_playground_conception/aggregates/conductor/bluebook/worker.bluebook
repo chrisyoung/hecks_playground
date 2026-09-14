@@ -1,6 +1,5 @@
 Hecks.bluebook "Conductor", version: "2026.06.02.2" do
   vision "The Conductor domain : workforce orchestration. Workers are fleet members that claim stories, hold worktrees, and push work through the merge queue. This file defines the Worker aggregate — the named, living unit of execution that registers, sends heartbeats, and eventually dies."
-  category "framework"
 
   aggregate "Worker" do
     description "A named, living execution unit. Registers to the fleet, sends periodic heartbeats, is declared dead on liveness timeout. Its current claim and active worktree are DERIVED via queries on Claim and Lease — not stored back-refs."

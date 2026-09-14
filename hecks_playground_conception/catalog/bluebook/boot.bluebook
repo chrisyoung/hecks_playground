@@ -1,6 +1,5 @@
 Hecks.bluebook "Boot", version: "2026.05.12.1" do
   vision "How Miette comes alive — hecks_playground miette starts the being, the flag picks the brain"
-  category "meta"
 
   aggregate "Session" do
     description "A single Miette session — one brain, one body, one boot"

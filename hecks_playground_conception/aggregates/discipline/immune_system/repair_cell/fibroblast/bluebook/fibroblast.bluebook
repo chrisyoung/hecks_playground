@@ -1,6 +1,5 @@
 Hecks.bluebook "Fibroblast", version: "2026.05.16.1" do
   vision "Repair-cell discipline domain. The Fibroblast reads signals from autophage/macrophage/antibody cells and closes the gap they reported, when the fix is unambiguous. First targets: NavSitemapParity drift (i625), bluebook-first violation when the .rs file maps to a known gap card, LoC ratchet over-shoot when extraction is clear-cut. Decline-gracefully discipline: when the signal is ambiguous, the Fibroblast surfaces to a human rather than guessing. The runtime :exec arm (signal reader, fix composer, dispatch executor) rides the :exec adapter family — deferred to i629."
-  category "discipline"
 
   # ============================================================
   # Fibroblast — generic repair cell

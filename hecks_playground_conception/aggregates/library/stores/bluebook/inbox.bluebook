@@ -7,7 +7,6 @@ Hecks.bluebook "IssueLog", version: "2026.05.14.1" do
   # TODO: audit cross-file references to "IssueLog::" meaning THIS domain
   # specifically (the TODO/iN-ref log) and update them to "IssueLog::".
   vision "The TODO log Chris writes against the codebase — short refs (iN) humans type, monotonic and stable for the lifetime of a record, status walking queued → modeled → designed → signed_off → locked → (superseded) with optional legacy close/reopen/drop"
-  category "memory"
 
   # ── Inbox aggregate ────────────────────────────────────────────
   #

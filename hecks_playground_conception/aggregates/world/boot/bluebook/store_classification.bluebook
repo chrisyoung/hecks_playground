@@ -1,6 +1,5 @@
 Hecks.bluebook "StoreClassification", version: "2026.05.12.1" do
   vision "Classify .heki stores as linked or private — the psychic-link surface of the body. Fifth step of the boot sequence."
-  category "body"
 
   # Lifted from boot.bluebook in i112 Round 2. Carries
   # ClassifyAfterHydration (Hydration emits StoresHydrated → triggers

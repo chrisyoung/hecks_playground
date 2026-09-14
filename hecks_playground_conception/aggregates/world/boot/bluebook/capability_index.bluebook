@@ -1,6 +1,5 @@
 Hecks.bluebook "CapabilityIndex", version: "2026.05.12.1" do
   vision "Scan capabilities/ and index what this being can do. The fourth step of the boot sequence."
-  category "body"
 
   # Lifted from boot.bluebook in i112 Round 2. No policies of its own ;
   # the workflow in boot.bluebook (umbrella) sequences this step after

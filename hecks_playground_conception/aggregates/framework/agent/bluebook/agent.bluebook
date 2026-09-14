@@ -1,6 +1,5 @@
 Hecks.bluebook "Agent", version: "2026.07.02.1" do
   vision "A being that dispatches. Humans, systems, daemons, bots, AIs — the named, typed actors whose intent flows through every command. Today every command carries a role string ('Chris', 'System', 'Caller') ; this bluebook lifts the string into a first-class typed reference so provenance and audit are computable instead of suggested."
-  category "framework"
 
   # ============================================================
   # AGENT — the being that dispatches

@@ -1,6 +1,5 @@
 Hecks.bluebook "BaseModel", version: "2026.04.28.1" do
   vision "The foundation model to fine-tune — provides language, we provide domain thinking"
-  category "world"
 
   # Lifted out of training_pipeline.bluebook in i112 split. Sibling
   # aggregates moved to world/ : data_prep, instruction_pair,

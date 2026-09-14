@@ -1,6 +1,5 @@
 Hecks.bluebook "Catalog", version: "2026.05.12.1" do
   vision "Born domains with version history — every development leaves a trail"
-  category "meta"
 
   aggregate "Entry" do
     description "A domain in the catalog — current version plus full history"

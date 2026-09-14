@@ -1,6 +1,5 @@
 Hecks.bluebook "ProcessHealth", version: "2026.05.20.2" do
   vision "Process-health immune cell. Watches the process managers (overmind) and individual daemons (heart, breath, voice, restart_prompt, ...) and detects hangs / deaths the moment they happen — rather than letting work continue past silent corpses. Sister to the discipline-layer Macrophage (which watches bluebook drift) ; this is the runtime-layer macrophage (which watches actual process liveness). Conceived 2026-05-20 after a voice-daemon never came up + overmind died silently overnight, and the work kept going forward past both. First concrete shape of i646 (macrophages become Protectors) for runtime processes : Sweep is the Inspect verb ; Heal is the CallForHelp verb. v2 (2026-05-20) gives Heal teeth — the :exec adapter binds Heal to `node bin/process_health_heal.mjs` which actually runs `overmind restart <process_name>` (or `overmind start -D` when the supervisor itself is dead) and dispatches MarkAlive back on the sentinel so the policy loop doesn't re-fire. Bluebook is the contract ; the runtime cadence loop (a MindstreamMember calling ProcessMacrophage.Sweep every 30s) is the secondary concern."
-  category "framework"
 
   # ============================================================
   # PROCESS HEALTH — process-liveness immune cell

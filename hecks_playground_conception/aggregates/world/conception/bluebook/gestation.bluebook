@@ -1,6 +1,5 @@
 Hecks.bluebook "Gestation", version: "2026.05.12.1" do
   vision "Multi-domain project growing — each bounded context gets its own bluebook"
-  category "world"
 
   # Lifted out of conception.bluebook in i112 split. Carries one
   # policy : GestateOnConception (Conception.ConceiveDomain →

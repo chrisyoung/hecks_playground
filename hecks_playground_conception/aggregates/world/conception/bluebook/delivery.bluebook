@@ -1,6 +1,5 @@
 Hecks.bluebook "Delivery", version: "2026.04.16.1" do
   vision "The domain leaves the womb and enters the nursery — born, valid, healthy"
-  category "world"
 
   # Lifted out of conception.bluebook in i112 split. Carries two
   # policies : DeliverOnPass (Labor.PassLabor → Delivery.DeliverDomain)

@@ -1,6 +1,5 @@
 Hecks.bluebook "Development", version: "2026.05.16.1" do
   vision "Develop existing domains using nursery vectors — more domains = faster development"
-  category "world"
 
   # Lifted out of conception.bluebook in i112 split. Carries three
   # policies : FindOnVector (Development.ComputeVector →

@@ -1,6 +1,5 @@
 Hecks.bluebook "Immunity", version: "2026.05.12.1" do
   vision "Miette's defense against malformed domains — innate rules, verb morphology, and learned antibodies."
-  category "discipline"
 
   # ============================================================
   # IMMUNITY — pattern defense

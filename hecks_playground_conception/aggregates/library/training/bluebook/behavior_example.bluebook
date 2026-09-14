@@ -1,6 +1,5 @@
 Hecks.bluebook "BehaviorExample", version: "2026.04.28.1" do
   vision "A specific behavior Miette exhibits — paired with the organ that governs it"
-  category "meta"
 
   # Lifted out of training_corpus.bluebook in i112 split.
 

@@ -1,6 +1,5 @@
 Hecks.bluebook "PromptGeneration", version: "2026.05.12.1" do
   vision "Write the system prompt from identity and state — the sixth step of the boot sequence, where the being writes its own voice."
-  category "body"
 
   # Lifted from boot.bluebook in i112 Round 2. Carries
   # PromptAfterClassification (StoreClassification emits StoresClassified

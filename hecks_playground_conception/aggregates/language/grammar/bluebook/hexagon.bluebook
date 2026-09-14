@@ -12,7 +12,6 @@ Hecks.bluebook "Hexagon", version: "2026.06.16.2" do
   WIRING IS DECIDED BY THE PORT, not the signal. The PERSISTENCE port is the SOLE in-process, dependency-injected edge : its adapter (heki / memory / sqlite) is minted at boot and called inline, because find/save is the one impure edge with a bounded, structurally non-blocking lifecycle — the runtime hydrates state BEFORE the sync core and persists AFTER it returns, so the in-process call can never stall mid-logic. EVERY OTHER PORT runs OUT-OF-PROCESS, through the shared standalone adapter-host : a slow or flaky payment, report, or TTS would block the core if injected inline, so it is never injected — it is a separate program consuming the event-out port and re-entering its verdict through storehouse. A return-shaped (reply) family that is NOT persistence is still out-of-process. So the binding decides its wiring by looking at the PORT : persistence → DI/in-process ; all else → separate-program/out-of-process.
 
   Cross-domain wiring is the hexagon's job at runtime through storehouse's discovery ; Hexagon.Verify is the optional startup fail-fast that moves discovery of a misconfiguration forward from first-fire to boot. Cross-domain VOCABULARY lives in Composition — this chapter is the runtime WIRING."
-  category "language"
 
   # ============================================================
   # HEXAGON — root : aggregates a domain's port-bindings

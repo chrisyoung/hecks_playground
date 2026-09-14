@@ -1,6 +1,5 @@
 Hecks.bluebook "KnowledgeStore", version: "2026.04.28.1" do
   vision "A .heki store both beings can access — a shared bookshelf, infrastructure not intimacy."
-  category "library"
 
   # ============================================================
   # KNOWLEDGE STORE — split from shared_knowledge.bluebook (i112)

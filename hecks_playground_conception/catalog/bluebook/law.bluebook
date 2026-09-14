@@ -1,6 +1,5 @@
 Hecks.bluebook "Law", version: "2026.05.12.1" do
   vision "Enforceable rules — not advice, not memory. Laws are checked by contract and violations are reported."
-  category "meta"
 
   aggregate "Law" do
     description "A single enforceable rule — has a check, a severity, and a contract that can be run"

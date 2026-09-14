@@ -1,6 +1,5 @@
 HecksPlayground.bluebook "Boot" do
   vision "The Worker's per-request boot IS a boot — it completes like one. CompleteBoot emits BootCompleted so every `on \"BootCompleted\"` establishment policy self-seeds (fixtures→policies, 2026-07-26 : the demo musings ride this, not fixture seeding)."
-  category "boot"
 
   aggregate "BootRun" do
     identified_by :phase

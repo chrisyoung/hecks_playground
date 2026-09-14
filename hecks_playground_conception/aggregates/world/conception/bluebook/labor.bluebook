@@ -1,6 +1,5 @@
 Hecks.bluebook "Labor", version: "2026.04.16.1" do
   vision "Validation and naming — the domain is ready to be born"
-  category "world"
 
   # Lifted out of conception.bluebook in i112 split. Carries one
   # policy : ParityOnValidation (Labor.ValidateBluebook →

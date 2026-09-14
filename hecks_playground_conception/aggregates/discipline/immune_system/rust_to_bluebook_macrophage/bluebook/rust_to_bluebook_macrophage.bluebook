@@ -1,6 +1,5 @@
 Hecks.bluebook "RustToBluebookMacrophage", version: "2026.05.21.1" do
   vision "Imperative-creep immune cell. Watches *.rs file edits and, on every detected touch, queues a background sidequest that drafts the equivalent bluebook for the touched file. The discipline becomes structural : any Rust file Miette (or any other agent) writes is structurally a confession that the domain wasn't reached for first — the macrophage's job is to surface that gap mechanically. Over time the Rust files shrink as their domain concepts migrate into bluebook ; eventually each Rust file becomes pure projection arm. Sister to ProcessMacrophage (runtime liveness) and the bluebook-first Macrophage family (write-time complaint) — same macrophage pattern, different debris. Phase 1 ships the contract : the aggregate + behaviors + memory hecksagon. Phase 2 wires the PostToolUse hook ; Phase 3 launches the actual conversion sidequest via the :exec / :claude_tool adapter (separate cards)."
-  category "discipline"
 
   # ============================================================
   # RUST-TO-BLUEBOOK MACROPHAGE — imperative-creep immune cell

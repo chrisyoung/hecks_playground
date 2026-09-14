@@ -1,6 +1,5 @@
 Hecks.bluebook "WebDebug" do
   vision "Visual debugging — a running UI streams frames back to the runtime so an agent (or a human) can SEE the live page without driving a browser by hand. The browser POSTs a base64 JPEG frame ; Screenshot.Capture records it and the screenshot_buffer adapter writes the bytes to a CIRCULAR on-disk buffer (capacity 100) at /tmp/ha_screenshots/, pruning the oldest — so /tmp/ha_screenshots/latest.jpg is always the newest frame. Ported from the Ruby :web_debug capability (ruby/hecks_playground/capabilities/web_debug.rb + screenshot_buffer.rb) : the WebSocket transport becomes a `storehouse serve` POST that dispatches Screenshot.Capture, and the ScreenshotBuffer Ruby class becomes a screenshot_buffer ADAPTER bound in web_debug.hecksagon. The frame bytes are event-only — they ride FrameCaptured to the adapter, never the heki, so persistence stays tiny."
-  category "framework"
 
   aggregate "Screenshot" do
     description "One captured frame of a running UI. State records only WHAT was captured + WHEN + WHERE it landed (frame_id, captured_at, path) ; the base64 JPEG bytes are an event-only payload that rides FrameCaptured to the screenshot_buffer adapter. The buffer is circular (capacity 100) : the adapter writes frame_NNNN.jpg + refreshes latest.jpg + prunes the oldest, so the heki never grows with image bytes."

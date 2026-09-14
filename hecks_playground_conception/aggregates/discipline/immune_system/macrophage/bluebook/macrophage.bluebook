@@ -1,6 +1,5 @@
 Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
   vision "The Macrophage domain — umbrella for the singleton Macrophage aggregate and the i595 family of per-rule sibling aggregates. The singleton (Macrophage) is the hook's current dispatch target and the historical root; the per-rule siblings (BluebookFirst, FixturesRuntime, AntibodyExemption, Warnings, LinearReference, LineCount, TestSpeed, CardLock, BidirectionalAssociation, IdentityDiscipline, WritingDiscipline, CorrespondenceDiscipline, AdapterLocation, SuccessFailurePairing, InvocationPrinciple, IdempotentByConstruction) each enforce exactly one discipline rule with their own counters, entity collections, and complaint history. The last four are the sprint-14 adapter-discipline family : they enforce that adapters live under <bluebook>/hecksagons/<service>.hecksagon, dispatch both success and failure events, never synchronously query the bus from adapter bodies, and never opt in to idempotency at user-space (the runtime handles dedup universally by event-id). FQN dispatch reads Macrophage::BluebookFirst.Command etc. — the domain prefix already says 'macrophage', no suffix needed."
-  category "discipline"
 
   # ============================================================
   # MACROPHAGE — innate write-time gate of the immune system

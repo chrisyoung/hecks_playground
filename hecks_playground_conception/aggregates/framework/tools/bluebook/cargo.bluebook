@@ -1,6 +1,5 @@
 Hecks.bluebook "Cargo", version: "2026.05.29.1" do
   vision "Cargo tool invocations as typed Door commands — cargo build / test / check / clippy become first-class dispatched commands so the done-is-done tests_passing gate can self-verify by dispatch. Each command records its output on state via a RenderResult VO, mirroring the BoardMarkdownProjector pattern. The :cargo_tool adapter family (adapter_families/cargo_tool.hecksagon) wires these commands to the cargo binary at dispatch time. Conceived 2026-05-29 to close the self-verification gap in the i528 StoreHouse arc."
-  category "framework"
 
   # ============================================================
   # CARGO — cargo CLI invocations as first-class dispatches

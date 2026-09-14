@@ -1,6 +1,5 @@
 Hecks.bluebook "CommandBus", version: "2026.05.10.1" do
   vision "An app-scoped slice of the universal bus. CommandBus filters StoreHouse to the phrases whose app segment matches self.app, exposes them via HTTP routes (POST /route, GET /lexicon, GET /query, GET /health), and rejects any phrase outside its scope. The bus's UL is infrastructure : its model declares storage backends, hosts, and auth schemes as first-class domain concepts ; its commands include Configure (read world-file values at boot) alongside Scope, Route, and Expose. The I/O for each named backend / host / scheme lives in command_bus.hecksagon ; the per-deployment choice + credentials live in the world file. See i528 for the full storehouse arc."
-  category "storehouse"
 
   # ============================================================
   # COMMAND_BUS — the app-scoped bus

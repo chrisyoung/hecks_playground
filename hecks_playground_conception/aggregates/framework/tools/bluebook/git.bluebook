@@ -1,6 +1,5 @@
 Hecks.bluebook "Git", version: "2026.05.29.1" do
   vision "Git tool invocations as typed Door commands — each verb a first-class dispatch. The caller computes and attaches results (branch name, log output, diff text, worktree list) as value objects; the command records them on state and emits a typed event. Mirrors the board_markdown.bluebook pattern: caller computes, command records. The :git_tool adapter family (framework/adapter_families/git_tool.hecksagon) binds each command to the matching kernel-floor shell-out; the result chains back via Cascade.RecordResult. Sprint 7 done-is-done gates lean on this aggregate — WorktreeList lets a gate confirm worktree clean; CurrentBranch confirms merged-to-main."
-  category "framework"
 
   aggregate "Git" do
     description "Git command invocations as first-class dispatches. Each command records its captured output on state and emits a typed event. The :git_tool adapter family shells out and cascades the result back; this bluebook is the pure contract, not the execution."

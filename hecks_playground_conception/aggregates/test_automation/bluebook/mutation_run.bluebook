@@ -1,6 +1,5 @@
 Hecks.bluebook "TestAutomation" do
   vision "Fuzzing campaigns, as a domain record. A MutationRun is a bounded campaign against one target -- mutate inputs, run them, keep what crashes. Distinct lifecycle and identity from Locator (a mutation run explores toward the unknown ; a locator heals back to a known target) -- same 'fan out, perturb, converge' instinct, but a sibling aggregate under the shared TestAutomation domain, never merged into Locator."
-  category "test_automation"
 
   aggregate "MutationRun" do
     description "A bounded fuzzing campaign against one target -- what was run, and what it found."

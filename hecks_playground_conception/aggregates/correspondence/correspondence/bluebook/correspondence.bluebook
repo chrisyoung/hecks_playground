@@ -1,6 +1,5 @@
 Hecks.bluebook "Correspondence", version: "2026.05.24.1" do
   vision "Durable ledger of drafted and sent correspondence, keyed per correspondent. The inbox poll feeds ReceiveInbound to record that someone wrote in — this sets awaiting_reply on the Correspondent. Drafting is operator-initiated: the operator calls NeedingResponse to see who awaits a reply, then triggers ComposeDraft for each. This is the autodraft-retire design (i633 follow-up): the poll no longer auto-drafts; it only records inbound. AlreadyDrafted still guards against duplicate drafts. The CorrespondenceDiscipline macrophage (i624) will read this ledger when it enforces the full compose-then-send flow."
-  category "correspondence"
 
   # ============================================================
   # CORRESPONDENCE — per-correspondent inbound + draft + sent ledger

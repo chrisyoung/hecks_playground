@@ -1,6 +1,5 @@
 Hecks.bluebook "Story", version: "2026.05.23.1" do
   vision "A Story is a first-class storehouse command that maps an inbox card to an ordered sequence of bluebook commands. It references the card (card_ref, e.g. 'i724') — the card stays as markdown in hecks_playground_conception/inbox/, the Story links to it, it does not replace it. Conceive mints a Story from a card_ref + title ; ComposeStep appends one ordered Step (a fully-qualified bluebook command phrase + its k=v args carried as one JSON string) ; Run records the act of executing the whole sequence. The actual execution — looping each Step's phrase through the same Dispatch.Route resolution the rest of the bus uses — is the runtime's projection of Run, exactly as Inbox.Check's Gmail poll is a projection of InboxChecked. The Story IS executable composition : the dispatch of one Story is the dispatch of its mapped commands, in order. See i528 for the storehouse arc and i724 for the entity-within-aggregate reasoning this mirrors."
-  category "storehouse"
 
   # ============================================================
   # STORY — executable composition over the bus

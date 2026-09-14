@@ -1,6 +1,5 @@
 HecksPlayground.bluebook "CloudflareArtifacts", version: "2026.05.12.1" do
   vision "Compile a bluebook into Cloudflare-shaped artifacts — worker.js, Pages site, D1 migrations, wrangler.toml"
-  category "capability"
 
   # ============================================================
   # CLOUDFLARE ARTIFACTS

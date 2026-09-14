@@ -1,6 +1,5 @@
 Hecks.bluebook "Court", version: "2026.05.12.1" do
   vision "Judge specific actions against the Law book — every tool use, commit, conception, and deployment is a case that receives a ruling"
-  category "meta"
 
   aggregate "Case" do
     description "A specific action submitted for judgment — what happened, who did it, what evidence exists"

@@ -1,6 +1,5 @@
 Hecks.bluebook "Conductor", version: "2026.06.02.2" do
   vision "The Conductor domain : workforce orchestration. The Claim aggregate is the atomic hold — the mutex that serialises story assignment. One Claim per story, identified by the story identity. Belongs to a Worker."
-  category "framework"
 
   aggregate "Claim" do
     description "The atomic hold on a story — the structural mutex. Identified by the story it guards. At most one Claim may be in state=held per story (invariant). Belongs to the Worker that holds it."

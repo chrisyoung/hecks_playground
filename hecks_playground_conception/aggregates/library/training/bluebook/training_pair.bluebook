@@ -1,6 +1,5 @@
 Hecks.bluebook "TrainingPairCorpus", version: "2026.04.28.1" do
   vision "A single training example — bluebook source + parsed IR + validation result"
-  category "meta"
 
   # Lifted out of training_corpus.bluebook in i112 split. The
   # bluebook namespace is "TrainingPairCorpus" to distinguish from

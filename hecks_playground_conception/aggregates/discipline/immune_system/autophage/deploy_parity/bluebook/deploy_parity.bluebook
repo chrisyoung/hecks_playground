@@ -1,6 +1,5 @@
 Hecks.bluebook "DeployParity", version: "2026.05.16.1" do
   vision "Autophage discipline cell that watches the contract between a site repo's main HEAD and its live Cloudflare Pages deployment. Failure mode: merged-to-main but never-deployed — the incident that surfaced this was opt-website frozen 4-5 days (PR #2 merged, deploy step never run, Joey reviewed stale work for days). git_connected=false is itself a finding: a CLI-only Pages project is one forgotten command away from this incident on every merge. This autophage watches deployed state and signals drift as additional-context. Fibroblast (i626) is the unambiguous closing path for static-site repos: the signal data (repo + project name + HEAD) uniquely determines the fix. The runtime :exec arm (wrangler CLI probe + git log) rides the :exec adapter family — deferred to i629."
-  category "discipline"
 
   # ============================================================
   # DeployParity — autophage for deploy/main contract

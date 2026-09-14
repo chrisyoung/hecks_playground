@@ -1,6 +1,5 @@
 Hecks.bluebook "Prompt", version: "2026.04.28.1" do
   vision "A single inference request — user input + context → bluebook output"
-  category "language"
 
   # ============================================================
   # PROMPT — one inference round-trip
