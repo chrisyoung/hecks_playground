@@ -1,3 +1,0 @@
-Hecks.adapter "ClaudeCode" do
-  port "agent"
-end

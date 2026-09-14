@@ -1,4 +1,0 @@
-Hecks.port "persistence" do
-  verb   "persisted_by"   
-  signal :reply           
-end

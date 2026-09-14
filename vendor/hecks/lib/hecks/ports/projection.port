@@ -1,4 +1,0 @@
-Hecks.port "projection" do
-  verb   "projected_by"
-  signal :effect
-end

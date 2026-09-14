@@ -113,7 +113,7 @@ jobs:
         # root's boot happens to survive (confirmed live this session).
         working-directory: hecks_playground
         run: |
-          out=$(ruby -Ivendor/hecksagain/lib -Ihecksagain_runtime/lib -r hecksagain_runtime -e 'require "json"; puts JSON.generate(HecksagainRuntime.validate("hecks_playground_conception"))')
+          out=$(bundle exec ruby -Ihecksagain_runtime/lib -r hecksagain_runtime -e 'require "json"; puts JSON.generate(HecksagainRuntime.validate("hecks_playground_conception"))')
           echo "$out"
           ok=$(printf '%s' "$out" | ruby -rjson -e 'puts (JSON.parse(STDIN.read)["ok"] == true) rescue puts "false"')
           invalid=$(printf '%s' "$out" | ruby -rjson -e 'j=JSON.parse(STDIN.read); puts j["invalid"] || 1')

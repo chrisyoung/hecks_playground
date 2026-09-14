@@ -1,4 +1,0 @@
-Hecks.port "authorization" do
-  verb   "authorized_by"
-  signal :reply
-end

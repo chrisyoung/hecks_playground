@@ -6,10 +6,8 @@
 # contract. See Part 5 of
 # /Users/christopheryoung/.claude/plans/okay-so-could-we-elegant-goose.md.
 #
-# hecksagain-cutover PRD, slice 2.1: `hecksagain` now resolves through the
-# Bundler `git:` dependency pinned in the top-level Gemfile (hecks-hecksagain,
-# ref-pinned), not `vendor/hecksagain/lib` — that copy stays on disk as a
-# fallback for the rest of the wave but is no longer on any live load path.
+# `hecks` resolves through the published gem pinned in the top-level
+# Gemfile (`gem "hecks", "~> 1.3"`); there is no vendored copy any more.
 #
 # Usage (one boot per process, cold-spawn correctness-first per the plan --
 # the warm daemon is a follow-up once this is proven, not a prerequisite):
