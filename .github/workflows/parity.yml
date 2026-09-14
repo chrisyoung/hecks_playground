@@ -1,8 +1,13 @@
 name: Parity
 # [antibody-exempt: .github/workflows/parity.yml — CI workflow config, not
 #  bluebook vocabulary ; no .hecksagon-driven CI generator exists yet, so the
-#  Ruby↔Rust parity + lifecycle gates are hardcoded YAML. Same basis as
-#  fuzz_nightly.yml / ratchet.yml.]
+#  validate gate is hardcoded YAML. Same basis as ratchet.yml.]
+#
+# What is left of the old Ruby DSL ↔ Rust storehouse parity job: the
+# per-root validate sweep, run on the Ruby runtime over the published
+# `hecks` gem. The Rust storehouse build, its cargo test sweep, and the
+# private hecks-hecksagain fork checkout they needed are gone. The playground
+# no longer depends on that fork.
 
 on:
   push:
@@ -12,54 +17,13 @@ on:
 
 jobs:
   parity:
-    name: Ruby DSL ↔ Rust storehouse
+    name: hecksagain-cli validate (per-root)
     runs-on: ubuntu-latest
-
-    # Multi-repo layout — same shape as test.yml, now THREE siblings under
-    # $GITHUB_WORKSPACE : hecks_playground/, hecks-hecksagain/ (the storehouse fork,
-    # i768 slice 2.2b — hecks_playground/rust/ retired), miette/ (optional). The Rust
-    # specializer/establishment tests that read a miette-sibling bluebook
-    # (system_prompt_establishment_test.rs, mindstream_establishment_test.rs)
-    # resolve it via `env!("CARGO_MANIFEST_DIR")/../../miette/...` from
-    # inside the storehouse crate — CARGO_MANIFEST_DIR is
-    # hecks-hecksagain/storehouse, so two levels up lands back at
-    # $GITHUB_WORKSPACE, where miette/ is checked out below. Both of those
-    # tests skip loudly (not fail) when the miette sibling is absent — see
-    # their own "skipped — miette sibling repo absent" guard — so
-    # miette's checkout can stay optional here same as before.
     steps:
       - name: Checkout hecks_playground
         uses: actions/checkout@v4
         with:
           path: hecks_playground
-
-      - name: Checkout hecks-hecksagain (storehouse fork)
-        # PRIVATE — needs a real token, not the default GITHUB_TOKEN (which
-        # is scoped to this repo only). No continue-on-error : this IS the
-        # crate the rest of the job builds/tests, not optional corpus like
-        # miette below. PINNED to the same rev summer/Cargo.toml and the
-        # daily-musing worker's Cargo.toml resolve (i768 slice 2.2b) —
-        # bump all three together.
-        uses: actions/checkout@v4
-        with:
-          repository: chrisyoung/hecks-hecksagain
-          ref: 77fdc103f8d1ded56cc6e69369fd688e0ce4be1a
-          token: ${{ secrets.HECKSAGAIN_TOKEN }}
-          path: hecks-hecksagain
-
-      - name: Checkout miette (sibling, optional)
-        # chrisyoung/miette is PRIVATE ; the default workflow GITHUB_TOKEN
-        # is scoped to this (public) hecks_playground repo and gets "Not Found" on it,
-        # which would otherwise fail the whole job at the checkout step.
-        # The only parity steps that read ../../miette from the storehouse
-        # crate are the system_prompt / mindstream establishment tests,
-        # which skip gracefully when the sibling is absent. continue-on-error
-        # keeps the job alive so the cargo tests + validate step still run.
-        continue-on-error: true
-        uses: actions/checkout@v4
-        with:
-          repository: chrisyoung/miette
-          path: miette
 
       - uses: ruby/setup-ruby@v1
         with:
@@ -67,50 +31,12 @@ jobs:
           working-directory: hecks_playground
           bundler-cache: true
 
-      - uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache cargo build
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            hecks-hecksagain/storehouse/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('hecks-hecksagain/storehouse/Cargo.lock', 'hecks-hecksagain/storehouse/Cargo.toml') }}
-
-      - name: Build storehouse (release)
-        # --workspace : the `storehouse` [[bin]] lives in the storehouse-cli
-        # member crate (hecks-hecksagain/storehouse/cli) ; the workspace
-        # root package is the lib, so a bare `cargo build` never produces
-        # the binary the cargo tests and the lifecycle step spawn.
-        working-directory: hecks-hecksagain/storehouse
-        run: cargo build --release --workspace --quiet
-
-      - name: Cargo tests (incl. conceiver_parity_test)
-        # --workspace : without it only the root (lib) crate's tests run —
-        # the storehouse-cli and storehouse-sqlite member crates' own
-        # integration tests (CARGO_BIN_EXE-based CLI pins among them)
-        # would run nowhere in CI.
-        working-directory: hecks-hecksagain/storehouse
-        run: cargo test --release --workspace --quiet
-
-      # ── Ruby-DSL ↔ Rust IR parity suites — RETIRED (parser-removal plan,
-      # Phase 2, mirroring the local hook retirement f73a34567 already did
-      # for pre-commit/pre-push). Never updated when the local hooks were:
-      # ran here on every push against a corpus hecksagain now authors, not
-      # the retired Rust parser. Same reasoning as the local retirement --
-      # the corpus no longer matches the old parser's expectations BY
-      # DESIGN, not drift. parity/ itself has been deleted (see i745) --
-      # its last two callers (fuzz_nightly.yml, Rakefile's parity:fuzz)
-      # were retired in the same pass.
-
       - name: hecksagain-cli validate (per-root)
-        # Replaces the hand-rolled check-lifecycle loop over the retired
-        # Rust binary. HecksagainRuntime::ValidateSweep (i745, Phase 1b)
-        # sweeps every domain root individually and reports which ones are
-        # invalid, not just a combined pass/fail -- a single combined boot
-        # can silently hide a broken root behind a name collision another
-        # root's boot happens to survive (confirmed live this session).
+        # HecksagainRuntime::ValidateSweep (i745, Phase 1b) sweeps every
+        # domain root individually and reports which ones are invalid, not
+        # just a combined pass/fail -- a single combined boot can silently
+        # hide a broken root behind a name collision another root's boot
+        # happens to survive.
         working-directory: hecks_playground
         run: |
           out=$(bundle exec ruby -Ihecksagain_runtime/lib -r hecksagain_runtime -e 'require "json"; puts JSON.generate(HecksagainRuntime.validate("hecks_playground_conception"))')

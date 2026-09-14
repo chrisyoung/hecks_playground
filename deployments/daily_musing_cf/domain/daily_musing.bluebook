@@ -53,11 +53,12 @@ HecksPlayground.bluebook "DailyMusing", version: "2026.05.23.2" do
 
   # The demo musings as ESTABLISHMENT (fixtures→policies, 2026-07-26) —
   # `on "BootCompleted"` seeds the two published entries the retired
-  # daily_musing.fixtures carried. The Worker's generated lib.rs dispatches
+  # daily_musing.fixtures carried. The Worker's generated lib.rs dispatched
   # CompleteBoot on every per-request boot (its boot IS a boot), so a fresh
-  # memory-only runtime always has a readable Daily Musing ; R2 state still
-  # layers on top afterwards and wins by id. Bite :
-  # rust/tests/daily_musing_establishment_test.rs.
+  # memory-only runtime always had a readable Daily Musing ; R2 state
+  # layered on top afterwards and won by id. That Worker
+  # (deployments/daily_musing_cf/worker/) was retired 2026-09-14 — see
+  # ../cloudflare.bluebook.
   policy "EstablishWelcomeMusing" do
     on "BootCompleted"
     trigger "BlogEntry.Post"

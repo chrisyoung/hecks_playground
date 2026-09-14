@@ -1,3 +1,6 @@
+# The Worker described below (deployments/daily_musing_cf/worker/) was
+# retired 2026-09-14 — see ../cloudflare.bluebook. Kept as the record of
+# the per-request boot it dispatched.
 HecksPlayground.bluebook "Boot" do
   vision "The Worker's per-request boot IS a boot — it completes like one. CompleteBoot emits BootCompleted so every `on \"BootCompleted\"` establishment policy self-seeds (fixtures→policies, 2026-07-26 : the demo musings ride this, not fixture seeding)."
 

@@ -1,21 +1,22 @@
-name: Smoke + Behaviors
-# Smoke + behaviors gate on every PR.
+name: Behaviors
+# Behaviors gate on every PR.
 #
-# Multi-repo layout : Miette's body + engine live across four repos —
+# Multi-repo layout : Miette's body + engine live across three repos —
 #   - hecks_playground/                     : the framework + conception (this repo)
-#   - chrisyoung/hecks-hecksagain: the storehouse crate (PRIVATE fork,
-#                                   i768 slice 2.2b — hecks_playground/rust/ retired)
-#   - chrisyoung/miette          : body shells + discipline + library (PUBLIC)
+#   - chrisyoung/miette          : body shells + discipline + library (PRIVATE)
 #   - chrisyoung/miette_family   : being-files for people in Miette's life (PRIVATE)
 #
-# CI checks out all four as siblings under $GITHUB_WORKSPACE so the
-# smoke tests' BODY_DIR resolution ($REPO_ROOT/../miette/body) lands
-# correctly. miette_family/ is optional — if MIETTE_FAMILY_TOKEN isn't
-# configured the family-side .behaviors corpus is skipped, matching
-# the pre-push hook's behavior on a checkout without the sibling.
-# hecks-hecksagain is NOT optional — without it there is no storehouse
-# binary to build, and most of this job's smoke coverage (everything
-# that resolves HECKS_PLAYGROUND_BIN) has nothing to run against.
+# CI checks out the optional siblings under $GITHUB_WORKSPACE when it can.
+# miette_family/ is optional — if MIETTE_FAMILY_TOKEN isn't configured the
+# family-side .behaviors corpus is skipped, matching a local checkout
+# without the sibling.
+#
+# This workflow used to be "Smoke + Behaviors". The smoke step ran
+# hecks_playground_conception/tests/*.sh, and every one of those scripts
+# shells the Rust `storehouse` binary, which CI built from the private
+# hecks-hecksagain fork. The playground no longer depends on that fork, so
+# the fork checkout, the storehouse build, and the smoke step are gone. The
+# scripts themselves stay in the tree; nothing in CI runs them.
 
 on:
   push:
@@ -25,8 +26,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  smoke:
-    runs-on: macos-latest  # the test corpus assumes BSD date / mktemp -d shape
+  behaviors:
+    runs-on: macos-latest
     env:
       # Surfacing secrets-presence via env so step-level if: can read it.
       # The actual secret only flows into the with: block where it's used.
@@ -36,38 +37,24 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: hecks_playground
-          # status_golden's expected output has 5 commit lines ; the
-          # default shallow clone of depth 1 makes the test diverge.
-          fetch-depth: 10
 
       - name: Checkout miette (sibling, optional)
         # chrisyoung/miette is PRIVATE ; the default workflow GITHUB_TOKEN
         # is scoped to this (public) hecks_playground repo and gets "Not Found" on it,
         # which would otherwise fail the whole job at the checkout step.
-        # The smoke + behaviors steps already guard miette-dependent roots
-        # with `[ -d miette ]`, so continue-on-error lets the job proceed
-        # against the hecks_playground-side corpus when the private sibling is absent.
+        # The behaviors step guards the miette root with `[ -d miette ]`,
+        # so continue-on-error lets the job proceed against the
+        # hecks_playground-side corpus when the private sibling is absent.
         continue-on-error: true
         uses: actions/checkout@v4
         with:
           repository: chrisyoung/miette
           path: miette
 
-      - name: Install GNU coreutils (shuf, etc.)
-        # daydream.sh + rem_branch.sh + mint_musing.sh use GNU `shuf`,
-        # which macOS doesn't ship by default. Brew installs it under
-        # gnubin/ ; prepend that to PATH so the bare `shuf` command
-        # resolves to the GNU one. This is a CI-only adapter ; the
-        # body shells are transitional and retire under i144.
-        run: |
-          brew install coreutils
-          echo "$(brew --prefix coreutils)/libexec/gnubin" >> "$GITHUB_PATH"
-
       - name: Checkout miette_family (sibling, optional)
         # secrets context is only available at job level for if: ; check
         # via a job-env indirection. When MIETTE_FAMILY_TOKEN isn't set,
-        # the family-side .behaviors corpus is skipped, matching the
-        # pre-push hook's behavior on a checkout without the sibling.
+        # the family-side .behaviors corpus is skipped.
         if: env.MIETTE_FAMILY_TOKEN_PRESENT == 'true'
         uses: actions/checkout@v4
         with:
@@ -75,74 +62,18 @@ jobs:
           token: ${{ secrets.MIETTE_FAMILY_TOKEN }}
           path: miette_family
 
-      - name: Checkout hecks-hecksagain (storehouse fork)
-        # PRIVATE — needs a real token, not the default GITHUB_TOKEN (which
-        # is scoped to this repo only). No continue-on-error : unlike
-        # miette/miette_family this sibling isn't optional corpus, it's the
-        # engine the smoke tests dispatch against. PINNED to the same rev
-        # summer/Cargo.toml and the daily-musing worker's Cargo.toml resolve
-        # (i768 slice 2.2b) — bump all three together.
-        uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        # hecksagain-cli does `require "bundler/setup"` against
+        # hecks_playground's Gemfile (the published `hecks` gem), so the
+        # bundle has to be installed before the behaviors sweep can boot.
         with:
-          repository: chrisyoung/hecks-hecksagain
-          ref: 77fdc103f8d1ded56cc6e69369fd688e0ce4be1a
-          token: ${{ secrets.HECKSAGAIN_TOKEN }}
-          path: hecks-hecksagain
-
-      - name: Build storehouse
-        # --workspace : the `storehouse` [[bin]] lives in the storehouse-cli
-        # member crate (hecks-hecksagain/storehouse/cli) ; the workspace
-        # root package is the lib, so a bare `cargo build` never produces
-        # the binary the smoke + behaviors steps spawn. Exports HECKS_PLAYGROUND_BIN /
-        # STOREHOUSE so every downstream smoke test's existing binary-lookup
-        # chain (`${HECKS_PLAYGROUND_BIN:-...}`, `${STOREHOUSE:-...}`) picks it up
-        # without editing each tests/*.sh individually.
-        run: |
-          cd hecks-hecksagain/storehouse && cargo build --release --workspace
-          bin="$GITHUB_WORKSPACE/hecks-hecksagain/storehouse/target/release/storehouse"
-          echo "HECKS_PLAYGROUND_BIN=$bin" >> "$GITHUB_ENV"
-          echo "STOREHOUSE=$bin" >> "$GITHUB_ENV"
-
-      - name: Smoke tests
-        run: |
-          cd hecks_playground/hecks_playground_conception
-          # chrisyoung/miette is PRIVATE and its checkout is optional (the
-          # default GITHUB_TOKEN can't read it). When the sibling is absent
-          # the body-cycle / dream / pulse / consolidate / voice smoke tests
-          # have no Ultradian / SleepCycle / organ bluebooks to dispatch
-          # against, so they're skipped here (they gate locally + in any run
-          # where the miette sibling is checked out with a token).
-          MIETTE_PRESENT=0
-          [ -d "$GITHUB_WORKSPACE/miette/body" ] && MIETTE_PRESENT=1
-          fail=0
-          for t in tests/*.sh; do
-            [ -f "$t" ] || continue
-            name=$(basename "$t" .sh)
-            # Skip integration smoke (heavyweight, race-prone in CI)
-            case "$name" in
-              round4_integration_smoke) continue ;;
-            esac
-            # Miette-body-dependent smoke tests : skip when the private
-            # miette sibling isn't checked out.
-            if [ "$MIETTE_PRESENT" -eq 0 ]; then
-              case "$name" in
-                body_cycles_smoke|consolidate_smoke|dream_content_smoke|interpret_dream_smoke|pulse_fanout_smoke|pulse_organs_smoke|voice_and_sleep_lockdown)
-                  echo "smoke: skipping ${name} (miette sibling absent)"
-                  continue ;;
-              esac
-            fi
-            if ! bash "$t" >"/tmp/smoke_${name}.out" 2>&1; then
-              fail=$((fail + 1))
-              echo "::error::${name}.sh failed"
-              cat "/tmp/smoke_${name}.out"
-            fi
-          done
-          [ "$fail" -gt 0 ] && exit 1
-          echo "smoke: all pass"
+          ruby-version: "3.3"
+          working-directory: hecks_playground
+          bundler-cache: true
 
       - name: Behaviors corpus
-        # i745 Phase 2 — swapped from the retired Rust `storehouse` binary
-        # to hecksagain-cli, the live Ruby runtime (parser-removal plan).
+        # i745 Phase 2 — runs hecksagain-cli, the live Ruby runtime, not the
+        # retired Rust `storehouse` binary (parser-removal plan).
         # Hard-blocking, by explicit choice : the real hecksagain-cli sweep
         # against hecks_playground_conception/aggregates — the root THIS step actually
         # sweeps — is 335 pass / 18 fail / 342 error / 6 parse-error, 78
@@ -154,11 +85,8 @@ jobs:
         # `hecksagain-cli behaviors <root>` already recurses a directory
         # (Dir.glob root/**/*.behaviors) and already carries a correct
         # exit code (05e64d9b7 : nonzero on failed+errored+parse_errors>0),
-        # so this replaces BOTH the old per-file `find | while read` walker
-        # AND the old "Behaviors corpus (storehouse test)" step below it
-        # (there is no `test` subcommand in hecksagain-cli — a directory
-        # sweep already covers what that second step did). One call per
-        # root instead of one call per file.
+        # so one call per root covers what the old per-file walker and the
+        # old "Behaviors corpus (storehouse test)" step did.
         #
         # The old per-file orphan-.bluebook pre-filter and the hardcoded
         # framework/projection/terraform.behaviors skip have no equivalent
@@ -168,8 +96,8 @@ jobs:
         # known pre-existing failure now surfaces as part of the accepted
         # red-until-triaged tradeoff instead of being skipped.
         #
-        # Roots mirror the pre-push hook's coverage ; miette/miette_family
-        # are included only when checked out (optional siblings).
+        # miette/miette_family are included only when checked out
+        # (optional siblings).
         run: |
           HECKS_PLAYGROUND="ruby $GITHUB_WORKSPACE/hecks_playground/hecksagain_runtime/bin/hecksagain-cli"
           ROOTS="$GITHUB_WORKSPACE/hecks_playground/hecks_playground_conception/aggregates"

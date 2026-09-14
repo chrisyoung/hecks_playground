@@ -49,9 +49,9 @@ Hecks.hecksagon "Tools" do
   # declaration, because it makes the missing edge invisible.
   #
   # The replacement says the same thing in hecksagain's own idiom — an
-  # `execution` port (verb `executed_by`, signal :reply, declared at
-  # lib/hecks/ports/execution.port in the chrisyoung/hecks-hecksagain fork --
-  # NOT present in the published hecks gem 1.3.0) with one adapter
+  # `execution` port (verb `executed_by`, signal :reply, declared in this
+  # corpus at aggregates/framework/ports/execution.port -- NOT present in
+  # the published hecks gem 1.3.0) with one adapter
   # per tool category. These are ordinary binds, so Registry::Verification
   # type-checks them at boot exactly as it does `persisted_by` : an adapter
   # that does not implement `executed_by` now fails LOUDLY at wiring instead

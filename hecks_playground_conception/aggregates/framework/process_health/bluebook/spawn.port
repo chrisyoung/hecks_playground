@@ -7,7 +7,8 @@
 # Signal is :effect (async, matches charged_by's shape) — the domain composes
 # the call (`Aggregate.spawned_by("AdapterName", on: "TriggeringEvent") do
 # success "..." ; failure "..." end`) and the runtime's record_effect_outbound
-# (hecks-hecksagain, runtime/dispatcher.rb) durably hands it to the
+# (a runtime capability, not in the published hecks gem as of 1.3.0 --
+# see the sibling .drivers files) durably hands it to the
 # OutboundEvent outbox — ONE Record per subscribing adapter, delivered
 # out-of-process by bin/adapter-host, never the core itself.
 #

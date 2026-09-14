@@ -6,8 +6,8 @@ gem "websocket"
 
 # hecks, the DSL/runtime this repo is built on, comes from the published
 # gem (rubygems.org, source: github.com/heckslabs/hecks). It used to be
-# vendored under vendor/hecks from the private chrisyoung/hecks-hecksagain
-# fork; that copy and its VENDORED_FROM.md history are gone. The gem ships
+# vendored under vendor/hecks from a private fork that is no longer used;
+# that copy and its VENDORED_FROM.md history are gone. The gem ships
 # lib/ only -- anything needing hecks's Rust crate or bin/ scripts uses a
 # source checkout of heckslabs/hecks instead.
 gem "hecks", "~> 1.3"
