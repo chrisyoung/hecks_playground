@@ -1,6 +1,5 @@
 Hecks.bluebook "Call", version: "2026.04.28.1" do
   vision "One invocation of an LLM — the recorded-event half of LLM spend tracking."
-  category "world"
 
   # ============================================================
   # CALL — split from spend.bluebook (i112)

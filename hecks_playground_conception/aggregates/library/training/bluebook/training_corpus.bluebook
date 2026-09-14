@@ -1,6 +1,5 @@
 Hecks.bluebook "TrainingCorpus", version: "2026.04.28.1" do
   vision "The full training dataset — bluebooks plus parsed IR"
-  category "meta"
 
   # Lifted out of training_corpus.bluebook in i112 split. The
   # training corpus is what is *kept* — the accumulated training

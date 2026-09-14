@@ -1,6 +1,5 @@
 Hecks.bluebook "SessionLog", version: "2026.05.21.1" do
   vision "The session's storehouse activity, modelled as domain. Every dispatch through the bus becomes a StorehouseEntry — the command, its args, its result, and the elapsed wall-clock. Synchronous dispatches are one self-contained block (command + result together). Asynchronous outcomes (an adapter that fires later, a cascade that lands after return) reference the calling command by its parent invocation id, so the timeline reconstructs cause→effect. This is the bluebook backing the dispatch-detail display Chris loves : the PostToolUse hook (i692) renders it for the eye ; this domain is the contract those renders honour. Sibling of the Session aggregate (session.bluebook) which owns the session boundary ; SessionLog owns what happened inside it."
-  category "framework"
 
   # ============================================================
   # STOREHOUSE LOG — every dispatch as a domain record

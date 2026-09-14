@@ -4,9 +4,4 @@ Hecks.hecksagon "Plan" do
   # adapter reacts to that REAL command event and dispatches Sprint.Activate so the
   # Sprint flips its OWN state. No aggregate reads a sibling synchronously — the
   # Project decides, the Sprint reacts. {sprint_ref} resolves from event.data.
-  adapter "ActivateSprintOnProjectActivation" do
-    driven on "Plan::Project.SprintActivatedByProject" do |event|
-      dispatch "Plan::Sprint.Activate", with: { sprint: "{sprint_ref}" }
-    end
-  end
 end

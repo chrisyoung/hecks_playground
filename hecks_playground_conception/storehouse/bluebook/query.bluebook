@@ -1,6 +1,5 @@
 Hecks.bluebook "Query", version: "2026.05.10.1" do
   vision "The read side of the bus. Two primitives : Read projects a single attribute from storage by canonical four-segment path ; Run invokes a named query (declared inside an aggregate's bluebook as a `query \"Name\" do … end` block) by four-segment phrase. Closes the gap where the runtime could dispatch but couldn't query — read access becomes a bluebook command like everything else."
-  category "storehouse"
 
   # ============================================================
   # QUERY — the read side of the bus

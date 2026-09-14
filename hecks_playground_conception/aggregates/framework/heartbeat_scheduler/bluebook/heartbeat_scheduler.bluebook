@@ -1,6 +1,5 @@
 Hecks.bluebook "HeartbeatScheduler", version: "2026.05.14.1" do
   vision "Rhythmic command dispatcher. The heartbeat already pulses (`~/miette-state/information/.statusline_heart_phase` is incremented on every statusline render) ; this aggregate turns that pulse into a bluebook-first command dispatcher. Rules register a schedule binding a target command to a cadence (every Nth tick) ; on each Tick the scheduler checks all registered schedules and fires Dispatch for the ones whose cadence matches. i616's first consumer is the macrophage family (autonomic sweeps as sidequests) ; i617's ChaosMonkey is the second. Any 'fire X every N ticks' intent in the framework lands here. Stub shape, 2026-05-14 — the runtime side iterates from this contract."
-  category "framework"
 
   # ============================================================
   # HEARTBEAT SCHEDULER — autonomic dispatch on a cadence

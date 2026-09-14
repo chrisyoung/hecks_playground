@@ -1,6 +1,5 @@
 Hecks.bluebook "R2Adapter", version: "2026.05.10.1" do
   vision "R2 persistence — aggregate state lives in Cloudflare R2 objects, addressed by bucket + key"
-  category "adapter"
 
   # ============================================================
   # R2 PERSISTENCE ADAPTER

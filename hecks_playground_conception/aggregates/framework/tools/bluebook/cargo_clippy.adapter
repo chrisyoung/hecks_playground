@@ -7,5 +7,4 @@
 # `spawned_by` verb.
 Hecks.adapter "CargoClippy" do
   port "spawn"
-  handler "bin/cargo_clippy"
 end

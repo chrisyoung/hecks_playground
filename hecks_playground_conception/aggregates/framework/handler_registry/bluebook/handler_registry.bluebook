@@ -1,6 +1,5 @@
 Hecks.bluebook "HandlerRegistry", version: "2026.05.14.1" do
   vision "Runtime substrate for i619 handlers. Owns the named registration of (command_fqn → handler_kind + handler_args) tuples. Five commands : RegisterHandler / UnregisterHandler at boot, ResolveHandler before dispatch, InvokeHandler at dispatch, RecordInvocation as audit trail. Five handler kinds : :rust (a runtime function), :mcp (a Model-Context-Protocol tool call), :shell (a shell command template), :dispatch (a sub-bluebook command — what i604 calls a forwarder), and the existing adapter families (:claude_tool, :web_tool) which the registry treats as further handler kinds. The registry IS the bluebook the runtime walks at boot to know what runs when a command dispatches. Today this knowledge is embedded in adapter-family Rust code and kernel hook tables ; HandlerRegistry makes it bluebook-native and inspectable. Singleton-shaped — there is one handler registry per HecksPlayground runtime. Sister to IdentifierService (i614) ; same shape, different concern. i613 names the dispatch pipeline (StoreHouse wraps every command) ; i619 names the substrate the pipeline invokes."
-  category "framework"
 
   # ============================================================
   # HANDLER REGISTRY — the runtime side of i619 handlers

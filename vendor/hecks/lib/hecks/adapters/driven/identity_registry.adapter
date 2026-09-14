@@ -1,3 +1,0 @@
-Hecks.adapter "IdentityRegistry" do
-  port "identity_resolution"
-end

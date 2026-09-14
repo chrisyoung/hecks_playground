@@ -1,6 +1,5 @@
 Hecks.bluebook "RenameDrift", version: "2026.05.12.1" do
   vision "Catch stale references left behind after capability or aggregate renames — close the loop the enforcer→macrophage rename opened. Bluebook-driven dispatch through Tools.* — no kernel-surface Rust."
-  category "discipline"
 
   # ============================================================
   # RENAME DRIFT — the gate that closes the rename loop

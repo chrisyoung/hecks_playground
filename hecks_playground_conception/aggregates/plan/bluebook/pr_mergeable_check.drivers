@@ -1,0 +1,10 @@
+# Driving/driven adapter declarations moved out of pr_mergeable_check.hecksagon:
+# hecks 1.3.0's hecksagon grammar has no `adapter` word and no success/failure
+# routing on spawned_by binds. Kept verbatim as the spec for an upstream hecks
+# feature. Nothing loads this file.
+
+# spawned_by success/failure routing (the bare bind stays in the .hecksagon):
+  Plan::Story.spawned_by("PrMergeableCheck", on: "StoryChecksRequested") do
+    success "Plan::Story.RecordPrMergeableCheckResult"
+    failure "Plan::Story.RecordPrMergeableCheckResult"
+  end

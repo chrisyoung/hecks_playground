@@ -1,6 +1,5 @@
 Hecks.bluebook "DataPrep", version: "2026.04.28.1" do
   vision "Transform Bluebooks and transcripts into training format"
-  category "world"
 
   # Lifted out of training_pipeline.bluebook in i112 split. Carries
   # the SplitOnPrep policy — DataPrepared → SplitDataset — both

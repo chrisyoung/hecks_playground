@@ -1,6 +1,5 @@
 Hecks.bluebook "AiTurn", version: "2026.05.25.1" do
   vision "A single AI turn — the bounded exchange within a being-session that opens when the user submits a prompt and closes when Miette finishes responding. AiTurn is the first-class domain for the turn boundary : Start / Finish emit TurnStarted / TurnFinished, and policies (and inject adapters) fan out from the edge without touching the hook surface. The Stop hook dispatches AiTurn.Finish through the universal door (storehouse__dispatch) ; anything that wants to react to the turn ending — the planning pulse, a closing journal stamp — hooks into TurnFinished instead of re-implementing the hook. Parallels Session (begin/end of the whole conversation) at the finer grain of one turn. This is the wire the turn-pulse story needed : the pulse becomes an inject adapter triggered on TurnFinished, not a hand-written Node hook."
-  category "framework"
 
   aggregate "AiTurn" do
     description "A single conversational turn within a session. Identified by id (the turn's stable key, minted by the hook). Start opens the turn (user prompt submitted) ; Finish closes it (Miette's response complete). The TurnStarted / TurnFinished events let policies and inject adapters fan out from the turn edge — the bus boundary where session-to-Miette adapters attach."

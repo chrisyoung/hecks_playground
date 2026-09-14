@@ -6,12 +6,6 @@ Hecks.hecksagon "ArtifactClaim" do
   # Impure edges, hecksagon-first : the no-promises sweep's scan + verify leaves.
   # Re-expressed (i780, 2026-08-17) from the retired `adapter :exec` kwargs
   # form onto the spawn effect port.
-  ArtifactClaim::NoPromisesSweep.spawned_by("ArtifactClaimScan", on: "ScanRequested") do
-    success "Cascade::Cascade.RecordResult"
-    failure "Cascade::Cascade.RecordResult"
-  end
-  ArtifactClaim::NoPromisesSweep.spawned_by("ArtifactClaimVerify", on: "VerifyRequested") do
-    success "Cascade::Cascade.RecordResult"
-    failure "Cascade::Cascade.RecordResult"
-  end
+  ArtifactClaim::NoPromisesSweep.spawned_by("ArtifactClaimScan", on: "ScanRequested")
+  ArtifactClaim::NoPromisesSweep.spawned_by("ArtifactClaimVerify", on: "VerifyRequested")
 end

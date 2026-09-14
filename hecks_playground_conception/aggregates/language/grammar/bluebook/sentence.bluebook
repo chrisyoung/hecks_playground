@@ -1,6 +1,5 @@
 Hecks.bluebook "Sentence", version: "2026.05.12.1" do
   vision "One thing a being can say that maps to a command — a single executable utterance, addressed Realm[::Subrealm…]::Domain::Aggregate.command (the folder tree IS the namespace IS the storage key)"
-  category "language"
 
   # ============================================================
   # SENTENCE — a single executable utterance

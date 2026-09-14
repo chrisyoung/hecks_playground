@@ -1,6 +1,5 @@
 HecksPlayground.bluebook "CloudflareDeploy", version: "2026.05.12.1" do
   vision "One bluebook, one deploy — push the artifacts (worker.js, Pages site, D1 migrations, wrangler.toml) to the edge"
-  category "capability"
 
   # ============================================================
   # CLOUDFLARE DEPLOY
@@ -184,13 +183,14 @@ HecksPlayground.bluebook "CloudflareDeploy", version: "2026.05.12.1" do
   # GLOSSARY
   # ============================================================
 
-  glossary do
-    define "deploy", as: "One command, full stack — API + UI + database on the edge"
-    define "worker", as: "Cloudflare Worker — the API, commands and queries over HTTP"
-    define "pages", as: "Cloudflare Pages — the website, generated from the domain"
-    define "D1", as: "Cloudflare's edge SQLite — one table per aggregate"
-    prefer "deploy", not: ["publish", "ship", "release"]
-    prefer "worker", not: ["function", "lambda", "handler"]
-    prefer "pages", not: ["site", "frontend", "client"]
-  end
+  # Glossary (kept as a comment: hecks 1.3.0 has no `glossary` word).
+  # glossary do
+  #   define "deploy", as: "One command, full stack — API + UI + database on the edge"
+  #   define "worker", as: "Cloudflare Worker — the API, commands and queries over HTTP"
+  #   define "pages", as: "Cloudflare Pages — the website, generated from the domain"
+  #   define "D1", as: "Cloudflare's edge SQLite — one table per aggregate"
+  #   prefer "deploy", not: ["publish", "ship", "release"]
+  #   prefer "worker", not: ["function", "lambda", "handler"]
+  #   prefer "pages", not: ["site", "frontend", "client"]
+  # end
 end

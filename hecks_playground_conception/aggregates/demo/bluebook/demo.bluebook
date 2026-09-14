@@ -1,6 +1,5 @@
 Hecks.bluebook "Demo", version: "2026.05.28.1" do
   vision "The agile activity of SHOWING shipped work. A Demo is tied to a specific Story (the work being demoed) and walks through it slide by slide. Each slide is a template : title + optional body, optional source_path + diagram_surface for projected diagrams/sentences. Sits BESIDE the Plan domain — references Story without being inside Plan."
-  category "demo"
 
   aggregate "Demo" do
     description "The act of showing shipped work. Tied to a Story ; slides walk through what landed. Each slide carries title + optional body ; slides MAY also name a source bluebook + diagram surface, in which case the runtime renders the diagram + validating sentences fresh on display. Navigation via Next / Back / GoTo."

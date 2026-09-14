@@ -1,6 +1,5 @@
 Hecks.bluebook "Compilation", version: "2026.04.28.1" do
   vision "Compile the nursery into a compressed corpus — single-file output of all domains"
-  category "library"
 
   # ============================================================
   # COMPILATION — nursery → corpus file

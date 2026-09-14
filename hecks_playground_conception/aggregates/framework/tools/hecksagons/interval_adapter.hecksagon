@@ -21,12 +21,4 @@ Hecks.hecksagon "IntervalAdapter" do
   # `storehouse drive` daemon spec'd in inbox/interval-scheduler-spec.md.
   # This fixture proves the GRAMMAR parity, not live firing.
 
-  adapter "IntervalAdapter" do
-    driving on interval "2s" do |signal|
-      dispatch "Tools::TaskTool.Get",
-               id: "interval-adapter-smoke",
-               task_id: "interval-adapter-smoke-task",
-               description: "Interval adapter smoke check"
-    end
-  end
 end

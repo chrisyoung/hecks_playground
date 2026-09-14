@@ -1,0 +1,5 @@
+# Filesystem — declared here because hecks 1.3.0 ships no Filesystem adapter; Tools binds it
+# with `executed_by` (tools/bluebook/tools.hecksagon), same declaration as the fork.
+Hecks.adapter "Filesystem" do
+  port "execution"
+end

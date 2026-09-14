@@ -1,6 +1,5 @@
 Hecks.bluebook "Storehouse", version: "2026.06.27.1" do
   vision "The runtime self-knows its own machinery — and declares it as bluebook records the runtime walks at boot. TWO registries live here. Storehouse::Primitive promotes every hand-coded kernel-floor dispatcher (process spawn, claude tool, mcp tool, web tool, compute, llm, sms, tts) from an opaque Rust function into a first-class, declared, named, queryable citizen ; the PrimitiveRegistry walks these at boot and the macrophage enforces that every imperative Rust primitive has a matching declaration. Storehouse::Gate is the inbound complement : every gate that wraps the dispatch door — authenticate, the canonical authorize PDP, or any bluebook query — declared through Gate.Declare with no DSL, and the runtime hydrates its synchronous before/after MiddlewareStack from the active Gates EXACTLY as the PrimitiveRegistry hydrates from the active Primitives (and as the Procfile is the projection of declared Drivers). One registry is the imperative leaves the runtime calls OUT through ; the other the wrappers it gates dispatches IN with ; both are the runtime reflecting its own machinery as domain, which is why a Gate belongs HERE — beside Primitive in the door's self-knowledge domain — and not among the language/grammar chapters (a Gate is a storehouse service, not a grammar). Conceive / Amend / Retire mint, re-describe, and soft-delete a Primitive ; Declare / Retire attach and detach a Gate. Per the locked 2026-05-12 conventions, every value object is declared INSIDE the aggregate that uses it."
-  category "framework"
 
   # ============================================================
   # STOREHOUSE — runtime machinery as first-class bluebook citizens
@@ -121,7 +120,6 @@ Hecks.bluebook "Storehouse", version: "2026.06.27.1" do
       sets :kind
       sets :signature
       sets :implementation
-      sets :status,         to: "active"
       emits "PrimitiveConceived"
     end
 
@@ -143,7 +141,6 @@ Hecks.bluebook "Storehouse", version: "2026.06.27.1" do
       goal "Soft-delete a Primitive — the underlying Rust handler has been removed. Moves status to retired ; the audit row survives. The PrimitiveRegistry skips retired primitives at boot ; the macrophage stops expecting a matching source file."
       reference_to(Primitive)
       given("primitive must currently be active") { status == "active" }
-      sets :status, to: "retired"
       emits "PrimitiveRetired"
     end
 
@@ -306,7 +303,6 @@ Hecks.bluebook "Storehouse", version: "2026.06.27.1" do
       sets :check
       sets :pattern
       sets :order
-      sets :status,  to: "active"
       emits "Declared"
     end
 
@@ -315,7 +311,6 @@ Hecks.bluebook "Storehouse", version: "2026.06.27.1" do
       goal "Detach a Gate — soft-delete. Moves status to retired ; the audit row survives so the history of which gates were attached when is preserved. The Active query excludes it, so the next boot (or in-session re-hydrate) drops it from the runtime stack. Retired is terminal — re-attach by Declare-ing a fresh record."
       reference_to(Gate)
       given("gate must currently be active") { status == "active" }
-      sets :status, to: "retired"
       emits "Retired"
     end
 

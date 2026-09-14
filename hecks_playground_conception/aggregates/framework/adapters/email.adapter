@@ -1,0 +1,5 @@
+# Email — declared here because hecks 1.3.0 ships no Email adapter; Tools binds it
+# with `executed_by` (tools/bluebook/tools.hecksagon), same declaration as the fork.
+Hecks.adapter "Email" do
+  port "execution"
+end

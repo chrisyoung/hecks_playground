@@ -7,5 +7,4 @@
 # `spawned_by` verb.
 Hecks.adapter "ProcessHealthSweep" do
   port "spawn"
-  handler "bin/process_health_sweep"
 end

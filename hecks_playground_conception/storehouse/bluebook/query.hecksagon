@@ -23,12 +23,10 @@ Hecks.hecksagon "Query" do
   # :fs — root anchors the heki read. Read resolves the heki path
   # under <root>/<snake_case(aggregate)>.heki and projects the named
   # attribute from the latest record.
-  adapter :fs, root: "information"
 
   # :memory — emits ValueRead through the in-process event bus so any
   # subscriber (Spring REPL, Glass palette) can read values via the
   # same surface other consumers do.
-  adapter :memory
 
   # Explicit persisted_by, restored (i788/i789/i790) -- see
   # command_bus.hecksagon's own comment on why the bare `adapter :memory`

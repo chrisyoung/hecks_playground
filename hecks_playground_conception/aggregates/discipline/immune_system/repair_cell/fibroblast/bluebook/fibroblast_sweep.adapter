@@ -11,5 +11,4 @@
 # the `spawned_by` verb.
 Hecks.adapter "FibroblastSweep" do
   port "spawn"
-  handler "bash bin/fibroblast_sweep.sh"
 end

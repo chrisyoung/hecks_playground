@@ -1,6 +1,5 @@
 Hecks.bluebook "Vocabulary", version: "2026.06.14.1" do
   vision "The compiled vocabulary — all sentences, compositions, and ACLs indexed for matching"
-  category "language"
 
   # ============================================================
   # VOCABULARY — the grammar's compiled phrase book

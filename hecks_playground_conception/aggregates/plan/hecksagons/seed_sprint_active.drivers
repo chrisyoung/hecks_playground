@@ -1,0 +1,16 @@
+# Driving/driven adapter declarations moved out of seed_sprint_active.hecksagon:
+# hecks 1.3.0's hecksagon grammar has no `adapter` word (no interval/cron
+# drivers, no `driven on` reactions). Kept verbatim as the spec for an
+# upstream hecks feature. Nothing loads this file.
+
+  adapter "SeedSprintActiveOnActivation" do
+    driven on "Plan::Sprint.SprintActivated" do |event|
+      dispatch "Plan::Story.MarkSprintActive", for_each: { from: "Plan::Story.BySprint", where: { sprint: "{id}" } }, with: { story: "{ref}" }
+    end
+  end
+
+  adapter "ClearSprintActiveOnClosure" do
+    driven on "Plan::Sprint.SprintApproved" do |event|
+      dispatch "Plan::Story.ClearSprintActive", for_each: { from: "Plan::Story.BySprint", where: { sprint: "{id}" } }, with: { story: "{ref}" }
+    end
+  end

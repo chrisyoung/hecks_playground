@@ -1,6 +1,5 @@
 Hecks.bluebook "Lexicon", version: "2026.05.10.1" do
   vision "Singleton index of every callable phrase across every bluebook in the conception. Source of truth for what's dispatchable. Compile rebuilds the index from a SourceSet (filesystem, embedded blob, fixture set — the adapter binds the source) ; Lookup resolves a Phrase to its target aggregate + command + attributes ; List browses with optional filter. Every entry carries `app` as a first-class field so a CommandBus can filter to its own slice."
-  category "storehouse"
 
   # ============================================================
   # LEXICON — what the bus knows it can dispatch
@@ -91,7 +90,7 @@ Hecks.bluebook "Lexicon", version: "2026.05.10.1" do
     value_object "CompiledAt" do
       attribute :value, String
       invariant "must be ISO 8601 UTC" do
-        value.match?(/\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)
+        value.match?(/\A[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}/)
       end
     end
 

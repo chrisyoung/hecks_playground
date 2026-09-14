@@ -4,15 +4,5 @@ Hecks.hecksagon "Plan" do
   # out over the aggregate-LOCAL Story.BySprint query. No aggregate reads a sibling
   # synchronously — Sprint emits, the Story flag follows. {id} is the activated/closed
   # sprint number ; {ref} is each matched Story.
-  adapter "SeedSprintActiveOnActivation" do
-    driven on "Plan::Sprint.SprintActivated" do |event|
-      dispatch "Plan::Story.MarkSprintActive", for_each: { from: "Plan::Story.BySprint", where: { sprint: "{id}" } }, with: { story: "{ref}" }
-    end
-  end
 
-  adapter "ClearSprintActiveOnClosure" do
-    driven on "Plan::Sprint.SprintApproved" do |event|
-      dispatch "Plan::Story.ClearSprintActive", for_each: { from: "Plan::Story.BySprint", where: { sprint: "{id}" } }, with: { story: "{ref}" }
-    end
-  end
 end

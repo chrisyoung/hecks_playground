@@ -1,4 +1,0 @@
-Hecks.port "agent" do
-  verb   "asked_by"
-  signal :reply
-end

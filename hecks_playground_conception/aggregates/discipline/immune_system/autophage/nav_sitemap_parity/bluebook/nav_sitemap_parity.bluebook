@@ -1,6 +1,5 @@
 Hecks.bluebook "NavSitemapParity", version: "2026.05.16.1" do
   vision "Autophage discipline cell that watches the contract between site-nav modules and sitemap.xml. Whenever a nav module changes, this cell checks whether the sitemap entries still match the live nav surface. Failure mode forward: page added to nav, missing from sitemap (crawl gap, silent SEO regression). Failure mode inverse: page removed from nav, still in sitemap (dead URL poisoning). This is an autophage, not a macrophage: it does not block writes. It watches deployed state and signals drift as additional-context. The runtime :exec arm (heartbeat dispatch + nav-module walker + sitemap parser) rides the :exec adapter family — deferred to i629."
-  category "discipline"
 
   # ============================================================
   # NavSitemapParity — autophage for nav/sitemap contract

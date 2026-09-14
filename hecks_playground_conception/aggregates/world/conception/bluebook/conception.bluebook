@@ -1,6 +1,5 @@
 Hecks.bluebook "Conception", version: "2026.04.16.1" do
   vision "The spark — domain conception, always multi-domain"
-  category "world"
 
   # Lifted out of conception.bluebook in i112 split. The spark itself —
   # one aggregate per bluebook. Carries no policies; the conception
@@ -69,7 +68,6 @@ Hecks.bluebook "Conception", version: "2026.04.16.1" do
       sets :source
       sets :category
       sets :bounded_contexts
-      sets :status,           to: "conceived"
     end
 
     lifecycle :status, default: "spark" do

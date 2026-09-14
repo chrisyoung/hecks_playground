@@ -1,6 +1,5 @@
 Hecks.bluebook "InstructionPair", version: "2026.04.28.1" do
   vision "A single training example — instruction + expected response"
-  category "world"
 
   # Lifted out of training_pipeline.bluebook in i112 split.
 

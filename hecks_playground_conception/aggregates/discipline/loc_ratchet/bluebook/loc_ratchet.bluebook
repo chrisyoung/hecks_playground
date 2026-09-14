@@ -1,6 +1,5 @@
 Hecks.bluebook "LocRatchet", version: "2026.05.23.1" do
   vision "The loc-ratchet's concerns as data — each a Concern record with its own DIRECTION. The gate that enforces bluebook-first becomes bluebook-configured itself. bin/loc-ratchet reads these records via the storehouse IR and gates each tree by its direction instead of summing every counted tree into one shrink-only total."
-  category "discipline"
 
   # ============================================================
   # LOC RATCHET — concerns as a bluebook (split it by concern)

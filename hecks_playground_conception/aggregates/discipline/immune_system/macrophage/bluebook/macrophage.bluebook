@@ -1,6 +1,5 @@
-Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
+Hecks.bluebook "Macrophage", version: "2026.06.26.2" do
   vision "The Macrophage domain — umbrella for the singleton Macrophage aggregate and the i595 family of per-rule sibling aggregates. The singleton (Macrophage) is the hook's current dispatch target and the historical root; the per-rule siblings (BluebookFirst, FixturesRuntime, AntibodyExemption, Warnings, LinearReference, LineCount, TestSpeed, CardLock, BidirectionalAssociation, IdentityDiscipline, WritingDiscipline, CorrespondenceDiscipline, AdapterLocation, SuccessFailurePairing, InvocationPrinciple, IdempotentByConstruction) each enforce exactly one discipline rule with their own counters, entity collections, and complaint history. The last four are the sprint-14 adapter-discipline family : they enforce that adapters live under <bluebook>/hecksagons/<service>.hecksagon, dispatch both success and failure events, never synchronously query the bus from adapter bodies, and never opt in to idempotency at user-space (the runtime handles dedup universally by event-id). FQN dispatch reads Macrophage::BluebookFirst.Command etc. — the domain prefix already says 'macrophage', no suffix needed."
-  category "discipline"
 
   # ============================================================
   # MACROPHAGE — innate write-time gate of the immune system
@@ -225,7 +224,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       attribute :last_complaint_at, Timestamp
       sets :last_complaint,    to: :complaint
       sets :last_complaint_at
-      emits "ComplaintIssued"
+      emits "MacrophageComplaintIssued"
     end
 
     command "ComplainFixturesAsRuntime" do
@@ -264,7 +263,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       goal "Attach a specific offending file to a check's activation log — appends a Violation entity. Called after TriggerCheck when the kernel has resolved the exact file path. The check record carries the rule ; the violation collection carries concrete evidence."
       attribute :id,        CheckId
       attribute :file_path, FilePath
-      emits "ViolationRecorded"
+      emits "MacrophageViolationRecorded"
     end
   end
 
@@ -416,7 +415,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       attribute :last_complaint_at, Timestamp
       sets :last_complaint,    to: :complaint
       sets :last_complaint_at
-      emits "ComplaintIssued"
+      emits "BluebookFirstComplaintIssued"
     end
   end
 
@@ -549,7 +548,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       sets :last_violation,           to: :violation
       sets :last_violation_at,        to: :violated_at
       sets :last_violation_file_path, to: :file_path
-      emits "ComplaintIssued"
+      emits "FixturesRuntimeComplaintIssued"
     end
   end
 
@@ -713,7 +712,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       sets :last_complaint,             to: :complaint
       sets :last_complaint_at
       sets :last_offending_marker_text, to: :marker_text
-      emits "ComplaintIssued"
+      emits "AntibodyExemptionComplaintIssued"
     end
   end
 
@@ -895,7 +894,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       sets :last_complaint,      to: :complaint
       sets :last_complaint_at
       sets :last_offending_file, to: :file_path
-      emits "ComplaintIssued"
+      emits "WarningsComplaintIssued"
     end
   end
 
@@ -1071,7 +1070,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       attribute :last_complaint_at, Timestamp
       sets :last_complaint,    to: :complaint
       sets :last_complaint_at
-      emits "ComplaintIssued"
+      emits "LinearReferenceComplaintIssued"
     end
   end
 
@@ -1214,7 +1213,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       sets :session_started_at
       sets :limit_lines
       sets :warning_threshold_lines
-      emits "SessionStarted"
+      emits "LineCountSessionStarted"
     end
 
     # ── Primary recording command ──
@@ -1273,7 +1272,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       sets :last_complaint,      to: :complaint
       sets :last_complaint_at
       sets :last_offending_file, to: :file_path
-      emits "ComplaintIssued"
+      emits "LineCountComplaintIssued"
     end
   end
 
@@ -1482,7 +1481,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       sets :last_complaint,        to: :complaint
       sets :last_complaint_at
       sets :last_offending_suite,  to: :suite_name
-      emits "ComplaintIssued"
+      emits "TestSpeedComplaintIssued"
     end
   end
 
@@ -1647,7 +1646,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       attribute :last_complaint_at, Timestamp
       sets :last_complaint,    to: :complaint
       sets :last_complaint_at
-      emits "ComplaintIssued"
+      emits "CardLockComplaintIssued"
     end
   end
 
@@ -1808,7 +1807,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       role "Hook"
       goal "Run the bidirectionality check against a single .bluebook file or a pair of bluebooks. The hook resolves all aggregate-typed attributes in the target(s), builds the full reference graph, and for each pair (A, B) where A references B AND B references A : chains into RecordViolation + Complain. Self-references (A → A) and value-object-to-aggregate references are excluded before the pair graph is built. Pairs listed in the Exemption collection are skipped silently."
       attribute :bluebook_path,  BluebookPath
-      emits "CheckRun"
+      emits "BidirectionalAssociationCheckRun"
     end
 
     command "RecordViolation" do
@@ -1820,7 +1819,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       attribute :bluebook_b,    BluebookPath
       attribute :recorded_at,   Timestamp
       sets :last_offending_pair, to: :aggregate_a
-      emits "ViolationRecorded"
+      emits "BidirectionalAssociationViolationRecorded"
     end
 
     command "Complain" do
@@ -1832,7 +1831,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       attribute :last_complaint_at, Timestamp
       sets :last_complaint,    to: :complaint
       sets :last_complaint_at
-      emits "ComplaintIssued"
+      emits "BidirectionalAssociationComplaintIssued"
     end
 
     # ── Exemption surface ──
@@ -1844,7 +1843,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       attribute :aggregate_b, AggregateName
       attribute :reason,      ExemptionReason
       attribute :exempted_at, Timestamp
-      emits "ExemptionGranted"
+      emits "BidirectionalAssociationExemptionGranted"
     end
   end
 
@@ -2099,7 +2098,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       attribute :recorded_at,    Timestamp
       sets :last_offending_file, to: :file_path
       sets :last_offending_kind, to: :kind
-      emits "ViolationRecorded"
+      emits "IdentityDisciplineViolationRecorded"
     end
 
     # ── Exemption management ──
@@ -2120,7 +2119,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       attribute :aggregate_name, AggregateName
       attribute :kind,           ViolationKind
       attribute :revoked_at,     Timestamp
-      emits "ExemptionRevoked"
+      emits "IdentityDisciplineExemptionRevoked"
     end
 
     # ── Complaint surface ──
@@ -2137,7 +2136,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       sets :last_complaint_at
       sets :last_offending_file, to: :file_path
       sets :last_offending_kind, to: :kind
-      emits "ComplaintIssued"
+      emits "IdentityDisciplineComplaintIssued"
     end
   end
 
@@ -2379,7 +2378,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       sets :last_offending_draft,   to: :draft_id
       sets :last_offending_kind,    to: :kind
       sets :last_offending_excerpt, to: :excerpt
-      emits "ViolationRecorded"
+      emits "WritingDisciplineViolationRecorded"
     end
 
     # ── Exemption management ──
@@ -2400,7 +2399,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       attribute :draft_id,    DraftId
       attribute :kind,        ViolationKind
       attribute :revoked_at,  Timestamp
-      emits "ExemptionRevoked"
+      emits "WritingDisciplineExemptionRevoked"
     end
 
     command "SetThreshold" do
@@ -2426,7 +2425,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       sets :last_offending_draft,   to: :draft_id
       sets :last_offending_kind,    to: :kind
       sets :last_offending_excerpt, to: :excerpt
-      emits "ComplaintIssued"
+      emits "WritingDisciplineComplaintIssued"
     end
   end
 
@@ -2723,7 +2722,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       attribute :window_minutes, ComposeWindowMinutes
       sets :last_offending_surface,    to: :surface
       sets :last_offending_invocation, to: :invocation_id
-      emits "ViolationRecorded"
+      emits "CorrespondenceDisciplineViolationRecorded"
     end
 
     # ── Exemption management ──
@@ -2742,7 +2741,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       goal "Remove an existing exemption - typically after the surface evolves to carry real prose and should flow through Writing.Compose again. Matches by surface. The ExemptedSurface entity is marked revoked rather than deleted so the audit trail of who exempted what when stays intact."
       attribute :surface,    WatchedSurface
       attribute :revoked_at, Timestamp
-      emits "ExemptionRevoked"
+      emits "CorrespondenceDisciplineExemptionRevoked"
     end
 
     # ── Complaint surface ──
@@ -2759,7 +2758,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       sets :last_complaint_at
       sets :last_offending_surface,     to: :surface
       sets :last_offending_invocation,  to: :invocation_id
-      emits "ComplaintIssued"
+      emits "CorrespondenceDisciplineComplaintIssued"
     end
   end
 
@@ -2920,7 +2919,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       attribute :recorded_at,   Timestamp
       sets :last_offending_file, to: :file_path
       sets :last_expected_path,  to: :expected_path
-      emits "ViolationRecorded"
+      emits "AdapterLocationViolationRecorded"
     end
 
     command "Complain" do
@@ -2933,7 +2932,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       attribute :last_complaint_at, Timestamp
       sets :last_complaint,    to: :complaint
       sets :last_complaint_at
-      emits "ComplaintIssued"
+      emits "AdapterLocationComplaintIssued"
     end
 
     # ── Exemption surface ──
@@ -2944,7 +2943,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       attribute :file_path,   FilePath
       attribute :reason,      ExemptionReason
       attribute :exempted_at, Timestamp
-      emits "ExemptionGranted"
+      emits "AdapterLocationExemptionGranted"
     end
   end
 
@@ -3127,7 +3126,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       attribute :recorded_at,  Timestamp
       sets :last_offending_adapter, to: :adapter_name
       sets :last_offending_file,    to: :file_path
-      emits "ViolationRecorded"
+      emits "SuccessFailurePairingViolationRecorded"
     end
 
     command "Complain" do
@@ -3140,7 +3139,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       attribute :last_complaint_at, Timestamp
       sets :last_complaint,    to: :complaint
       sets :last_complaint_at
-      emits "ComplaintIssued"
+      emits "SuccessFailurePairingComplaintIssued"
     end
 
     # ── Exemption surface ──
@@ -3152,7 +3151,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       attribute :adapter_name, AdapterName
       attribute :reason,       ExemptionReason
       attribute :exempted_at,  Timestamp
-      emits "ExemptionGranted"
+      emits "SuccessFailurePairingExemptionGranted"
     end
   end
 
@@ -3334,7 +3333,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       sets :last_offending_adapter, to: :adapter_name
       sets :last_offending_file,    to: :file_path
       sets :last_forbidden_call,    to: :forbidden_call
-      emits "ViolationRecorded"
+      emits "InvocationPrincipleViolationRecorded"
     end
 
     command "Complain" do
@@ -3348,7 +3347,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       attribute :last_complaint_at, Timestamp
       sets :last_complaint,    to: :complaint
       sets :last_complaint_at
-      emits "ComplaintIssued"
+      emits "InvocationPrincipleComplaintIssued"
     end
 
     # ── Exemption surface ──
@@ -3360,7 +3359,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       attribute :adapter_name, AdapterName
       attribute :reason,       ExemptionReason
       attribute :exempted_at,  Timestamp
-      emits "ExemptionGranted"
+      emits "InvocationPrincipleExemptionGranted"
     end
   end
 
@@ -3533,7 +3532,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       attribute :recorded_at,       Timestamp
       sets :last_offending_file,    to: :file_path
       sets :last_forbidden_pattern, to: :forbidden_pattern
-      emits "ViolationRecorded"
+      emits "IdempotentByConstructionViolationRecorded"
     end
 
     command "Complain" do
@@ -3546,7 +3545,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       attribute :last_complaint_at, Timestamp
       sets :last_complaint,    to: :complaint
       sets :last_complaint_at
-      emits "ComplaintIssued"
+      emits "IdempotentByConstructionComplaintIssued"
     end
 
     # ── Exemption surface ──
@@ -3557,7 +3556,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       attribute :file_path,   FilePath
       attribute :reason,      ExemptionReason
       attribute :exempted_at, Timestamp
-      emits "ExemptionGranted"
+      emits "IdempotentByConstructionExemptionGranted"
     end
   end
 
@@ -3745,7 +3744,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       role "Hook"
       goal "Scan one .bluebook / .hecksagon file for relationship-discipline violations. Increments files_checked. Walks each relationship declaration (list_of / reference_to / has_one / has_many / belongs_to) ; for codey_double_colon (a `::` in a cross-reference target) dispatches RecordViolation. cross_verb_at_value_object is left to the validator's unknown_aggregate_errors ; inside_verb_at_root needs a corpus pass. The hook calls this once per .bluebook / .hecksagon write ; the macrophage decides what fired. No complaint is issued here — Complain is the surface command. CONCEPTION ONLY until the upsert-on-identity merge (see the block comment above)."
       attribute :file_path, FilePath
-      emits "CheckRun"
+      emits "RelationshipDisciplineCheckRun"
     end
 
     command "RecordViolation" do
@@ -3759,7 +3758,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       attribute :recorded_at,    Timestamp
       sets :last_offending_file, to: :file_path
       sets :last_offending_kind, to: :kind
-      emits "ViolationRecorded"
+      emits "RelationshipDisciplineViolationRecorded"
     end
 
     command "Complain" do
@@ -3770,7 +3769,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       attribute :last_complaint_at, Timestamp
       sets :last_complaint,    to: :complaint
       sets :last_complaint_at
-      emits "ComplaintIssued"
+      emits "RelationshipDisciplineComplaintIssued"
     end
 
     # ── Exemption surface ──
@@ -3783,7 +3782,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       attribute :kind,           ViolationKind
       attribute :reason,         ReasonText
       attribute :registered_at,  Timestamp
-      emits "ExemptionGranted"
+      emits "RelationshipDisciplineExemptionGranted"
     end
 
     command "RevokeExemption" do
@@ -3793,7 +3792,7 @@ Hecks.bluebook "Macrophage", version: "2026.05.14.1" do
       attribute :reference_line, ReferenceLine
       attribute :kind,           ViolationKind
       attribute :revoked_at,     Timestamp
-      emits "ExemptionRevoked"
+      emits "RelationshipDisciplineExemptionRevoked"
     end
   end
 end

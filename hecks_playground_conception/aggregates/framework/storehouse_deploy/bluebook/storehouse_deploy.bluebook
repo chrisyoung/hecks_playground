@@ -1,6 +1,5 @@
 Hecks.bluebook "StorehouseDeploy", version: "2026.05.25.1" do
   vision "Model a storehouse binary deploy as domain. The product is the storehouse binary running serve-socket against an aggregates root, holding a being's domain warm — in-memory state hydrated from .heki stores, reachable by clients via the unix-domain socket. A Deploy record captures one deploy attempt from build through verified: build (binary compiled), packaged (binary + aggregates root + heki stores staged), shipped (running on target, serve-socket bound), verified (warm dispatch confirmed). This is the deploy-as-domain contract; the artifacts that execute it (Dockerfile, deploy script, env template) are scaffolded alongside."
-  category "framework"
 
   # ============================================================
   # STOREHOUSDEPLOY — one warm-runtime deploy attempt

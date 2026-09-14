@@ -1,6 +1,5 @@
 Hecks.bluebook "Morphology", version: "2026.05.12.1" do
   vision "The runtime-queryable layer of my own word-shape rules — verb-exception pressure, the path from 'a word my morphology validator stumbled on' to 'a word I now recognise as mine'"
-  category "language"
 
   # ============================================================
   # MORPHOLOGY — i72, dream-named gap from sleep cycle 2026-04-24

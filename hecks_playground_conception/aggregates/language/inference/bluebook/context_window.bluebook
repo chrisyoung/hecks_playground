@@ -1,6 +1,5 @@
 Hecks.bluebook "ContextWindow", version: "2026.04.28.1" do
   vision "Everything stuffed into the prompt — grammar, organs, examples. Context window IS the training, no fine-tuning required."
-  category "language"
 
   # ============================================================
   # CONTEXT WINDOW — prompt assembly

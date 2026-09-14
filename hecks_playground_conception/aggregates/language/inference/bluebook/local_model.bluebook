@@ -1,6 +1,5 @@
 Hecks.bluebook "LocalModel", version: "2026.04.28.1" do
   vision "The locally-running model that receives the context — ollama, llama.cpp, or vllm"
-  category "language"
 
   # ============================================================
   # LOCAL MODEL — the LLM serving inference

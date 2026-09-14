@@ -7,5 +7,4 @@
 # `spawned_by` verb. bin/adapter-host runs the handler via `/bin/sh -c`.
 Hecks.adapter "WorktreeRemove" do
   port "spawn"
-  handler "bin/worktree_remove"
 end

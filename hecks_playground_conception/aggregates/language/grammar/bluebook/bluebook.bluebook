@@ -6,7 +6,6 @@ Hecks.bluebook "BluebookGrammar", version: "2026.05.12.1" do
   # requires globally-unique domain names when composed together; the old
   # Rust runtime never caught this. See migration plan Part 4/Part 5.
   vision "Bluebook describing itself — the IR shape every parser must produce"
-  category "meta"
 
   # ============================================================
   # The IR contract.
@@ -74,112 +73,207 @@ Hecks.bluebook "BluebookGrammar", version: "2026.05.12.1" do
       attribute :value, String
     end
 
+    # Single-field value objects for entity attributes: hecks 1.3.0 allows
+    # primitives only inside value objects.
+    value_object "AggregateNameText" do
+      attribute :value, String
+    end
+
+    value_object "AttributesText" do
+      attribute :value, String
+    end
+
+    value_object "CommandText" do
+      attribute :value, String
+    end
+
+    value_object "DefaultText" do
+      attribute :value, String
+    end
+
+    value_object "DescriptionText" do
+      attribute :value, String
+    end
+
+    value_object "DomainText" do
+      attribute :value, String
+    end
+
+    value_object "EmitsText" do
+      attribute :value, String
+    end
+
+    value_object "ExpressionText" do
+      attribute :value, String
+    end
+
+    value_object "FieldText" do
+      attribute :value, String
+    end
+
+    value_object "FromStateText" do
+      attribute :value, String
+    end
+
+    value_object "ListText" do
+      attribute :value, String
+    end
+
+    value_object "MessageText" do
+      attribute :value, String
+    end
+
+    value_object "OnEventText" do
+      attribute :value, String
+    end
+
+    value_object "OpText" do
+      attribute :value, String
+    end
+
+    value_object "ProducesText" do
+      attribute :value, String
+    end
+
+    value_object "RefText" do
+      attribute :value, String
+    end
+
+    value_object "RoleText" do
+      attribute :value, String
+    end
+
+    value_object "TargetDomainText" do
+      attribute :value, String
+    end
+
+    value_object "TargetText" do
+      attribute :value, String
+    end
+
+    value_object "ToStateText" do
+      attribute :value, String
+    end
+
+    value_object "TriggerCommandText" do
+      attribute :value, String
+    end
+
+    value_object "TypeText" do
+      attribute :value, String
+    end
+
+    value_object "ValueText" do
+      attribute :value, String
+    end
+
+
     entity "Aggregate" do
       identified_by :name
       description "A DDD aggregate root — attributes, value objects, commands, queries, lifecycle"
-      attribute :name, String
-      attribute :description, String
+      attribute :name, Name
+      attribute :description, DescriptionText
     end
 
     entity "Attribute" do
       identified_by :name
       description "A typed field on an aggregate, value object, or command"
-      attribute :name, String
-      attribute :type, String
-      attribute :list, String
-      attribute :default, String
+      attribute :name, Name
+      attribute :type, TypeText
+      attribute :list, ListText
+      attribute :default, DefaultText
     end
 
     entity "ValueObject" do
       identified_by :name
       description "An immutable embedded structure within an aggregate"
-      attribute :name, String
-      attribute :description, String
+      attribute :name, Name
+      attribute :description, DescriptionText
     end
 
     entity "Reference" do
       identified_by :name
       description "A typed pointer from one aggregate or command to another aggregate"
-      attribute :name, String
-      attribute :target, String
-      attribute :domain, String
+      attribute :name, Name
+      attribute :target, TargetText
+      attribute :domain, DomainText
     end
 
     entity "Command" do
       identified_by :name
       description "A transition on an EXISTING aggregate instance — load by universal id, operate, emit. Births belong to Factory, the sibling entity ; a Command never mints."
-      attribute :name, String
-      attribute :description, String
-      attribute :role, String
-      attribute :emits, String
+      attribute :name, Name
+      attribute :description, DescriptionText
+      attribute :role, RoleText
+      attribute :emits, EmitsText
     end
 
     entity "Factory" do
       identified_by :name
       description "A birth — mints a NEW aggregate instance, error if the id already exists. Declared with the `factory` keyword inside the aggregate that OWNS creation (Evans : creation lives where the knowledge lives, not necessarily on the created thing). Carries its own attributes and creation givens ; supersedes the Command.creates bool and the is_create name-heuristic (2026-06-12 locked design : docs/designs/first-class-factories.md)."
-      attribute :name, String
-      attribute :description, String
-      attribute :role, String
+      attribute :name, Name
+      attribute :description, DescriptionText
+      attribute :role, RoleText
       # produces : the aggregate this factory births. Defaults to the
       # ENCLOSING aggregate ; `produces:` names another (Backlog drafts
       # Story) — the cross-aggregate case the creates-bool could not say.
-      attribute :produces, String
-      attribute :emits, String
+      attribute :produces, ProducesText
+      attribute :emits, EmitsText
     end
 
     entity "Query" do
       identified_by :name
       description "A read-side projection on an aggregate — pure, no side effects"
-      attribute :name, String
-      attribute :description, String
+      attribute :name, Name
+      attribute :description, DescriptionText
     end
 
     entity "Given" do
       identified_by :ref
       description "A precondition checked before a command executes — pure UL expression"
-      attribute :ref, String
-      attribute :expression, String
-      attribute :message, String
+      attribute :ref, RefText
+      attribute :expression, ExpressionText
+      attribute :message, MessageText
     end
 
     entity "Mutation" do
       identified_by :ref
       description "A declared state change — set, append, increment, decrement, toggle"
-      attribute :ref, String
-      attribute :field, String
-      attribute :op, String
-      attribute :value, String
+      attribute :ref, RefText
+      attribute :field, FieldText
+      attribute :op, OpText
+      attribute :value, ValueText
     end
 
     entity "Lifecycle" do
       identified_by :field
       description "The state machine of an aggregate — field, default state, transitions"
-      attribute :field, String
-      attribute :default, String
+      attribute :field, FieldText
+      attribute :default, DefaultText
     end
 
     entity "Transition" do
       identified_by :command
       description "One arrow in a lifecycle — command, source state(s), target state"
-      attribute :command, String
-      attribute :to_state, String
-      attribute :from_state, String
+      attribute :command, CommandText
+      attribute :to_state, ToStateText
+      attribute :from_state, FromStateText
     end
 
     entity "Policy" do
       identified_by :name
       description "A reactive wire — when EVENT fires on aggregate A, trigger COMMAND on aggregate B"
-      attribute :name, String
-      attribute :on_event, String
-      attribute :trigger_command, String
-      attribute :target_domain, String
+      attribute :name, Name
+      attribute :on_event, OnEventText
+      attribute :trigger_command, TriggerCommandText
+      attribute :target_domain, TargetDomainText
     end
 
     entity "Fixture" do
       identified_by :aggregate_name
       description "A canonical instance of an aggregate seeded with the bluebook"
-      attribute :aggregate_name, String
-      attribute :attributes, String
+      attribute :aggregate_name, AggregateNameText
+      attribute :attributes, AttributesText
     end
   end
 

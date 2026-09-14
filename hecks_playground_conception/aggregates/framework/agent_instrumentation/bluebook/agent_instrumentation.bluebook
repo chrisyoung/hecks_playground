@@ -1,6 +1,5 @@
 Hecks.bluebook "AgentInstrumentation", version: "2026.06.21.1" do
   vision "The single source of subagent instrumentation. Every subagent (built-in Explore / Plan / general-purpose, and custom sidequest / security-reviewer) must route every tool call through the storehouse door, because the governance macrophage denies native Read/Edit/Write/Grep/Glob/Bash. That door convention used to live ONLY in Miette's system prompt, which subagents do not inherit — so spawned agents tried native tools, were denied, and gave up. This domain makes the convention a single shared fragment (door.md) that the boot runner (rust/src/run_boot/agent_defs.rs) injects into BOTH the CLAUDE.md files (inherited by every subagent) AND the generated .claude/agents/*.md defs. Generated every boot, so the instrumentation can never drift from the governance reality and there is nothing to remember. The long prose — the door fragment and each agent's role body — lives as sibling .md fragments (door.md, roles/<name>.md) read verbatim ; only the short per-agent metadata is modelled here."
-  category "framework"
 
   # ── AgentDefinition : one custom agent's metadata ──
   # name + description + model become the YAML frontmatter of the generated

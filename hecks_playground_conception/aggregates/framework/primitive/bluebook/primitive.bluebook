@@ -1,6 +1,5 @@
 Hecks.bluebook "Primitive", version: "2026.05.22.1" do
   vision "The irreducible primitive standard library — the small closed set of bluebook commands bound to real side-effects, the ONLY hand-written imperative leaves in the runtime (later specializer-generated). This bluebook starts the floor with Process.Spawn : run a literal program to completion, capture (ok, output, exit_code), and chain the outcome into a result_into target (typically Cascade.RecordResult). It proves the bluebook path matches :exec semantics : instead of a hand-written resolve_exec_adapters arm, an ordinary bluebook policy fires Process.Spawn on a command's emitted event and the runtime's one generic primitive hook performs the spawn. The fibroblast repair sweep is migrated to this path (parity verified). resolve_exec_adapters STAYS for the un-migrated :exec bindings (Inbox.Check, ProcessMacrophage.Sweep, ProcessMacrophage.Heal) until trigger-on-command (gap #1b) lands — those commands emit events whose names collide across aggregates (Swept), so a name-matched policy can't disambiguate them yet. Per the locked 2026-05-12 conventions, every value object is declared INSIDE the aggregate that uses it."
-  category "framework"
 
   # ============================================================
   # PRIMITIVE — the irreducible side-effect floor

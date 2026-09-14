@@ -1,6 +1,5 @@
 Hecks.bluebook "Violation", version: "2026.04.28.1" do
   vision "A detected rule violation — the breach half of the immune system as a bluebook."
-  category "discipline"
 
   # ============================================================
   # VIOLATION — split from validator.bluebook (i112)

@@ -1,6 +1,5 @@
 Hecks.bluebook "FewShot", version: "2026.04.28.1" do
   vision "Real bluebooks included as examples in the context — few-shot training without fine-tuning"
-  category "language"
 
   # ============================================================
   # FEW SHOT — bluebooks as in-context examples

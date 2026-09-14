@@ -105,8 +105,8 @@ process_one() {
 
   if [ "$code" -eq 0 ]; then ok=true; verdict="$success"; else ok=false; verdict="$failure"; fi
 
-  # SILENCE MUST NOT RENDER AS SUCCESS — mirrors the execution port's Shell
-  # adapter (hecks-hecksagain/lib/hecksagain/adapters/driven/shell.rb#body):
+  # SILENCE MUST NOT RENDER AS SUCCESS — the same rule the execution port's
+  # Shell adapter followed in the retired hecks-hecksagain fork:
   # exit 0 with real stdout -> stdout alone ; otherwise stdout+stderr joined ;
   # empty of both -> an explicit placeholder, never a blank string standing
   # in for "nothing happened here".

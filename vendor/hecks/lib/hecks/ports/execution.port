@@ -1,4 +1,0 @@
-Hecks.port "execution" do
-  verb   "executed_by"
-  signal :reply
-end

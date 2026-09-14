@@ -19,5 +19,4 @@
 # `buffered_by` verb — the typed attach checkpoint.
 Hecks.adapter "DiskBuffer" do
   port    "screenshot_buffer"
-  handler "tools/web_debug/disk-buffer-handler"
 end

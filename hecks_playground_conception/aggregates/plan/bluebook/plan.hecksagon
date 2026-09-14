@@ -14,20 +14,8 @@ Hecks.hecksagon "Plan" do
   # subscribe to the SAME event, fanning out via OutboundEvent's documented
   # "one Record per subscribing adapter". Re-expressed (i780, 2026-08-17)
   # from the retired `adapter :exec` kwargs form onto the spawn effect port.
-  Plan::Story.spawned_by("CheckWorktree", on: "StoryChecksRequested") do
-    success "Cascade::Cascade.RecordResult"
-    failure "Cascade::Cascade.RecordResult"
-  end
-  Plan::Story.spawned_by("CheckMerged", on: "StoryChecksRequested") do
-    success "Cascade::Cascade.RecordResult"
-    failure "Cascade::Cascade.RecordResult"
-  end
-  Plan::Story.spawned_by("CheckTests", on: "StoryChecksRequested") do
-    success "Cascade::Cascade.RecordResult"
-    failure "Cascade::Cascade.RecordResult"
-  end
-  Plan::Story.spawned_by("CheckVerbResolves", on: "StoryChecksRequested") do
-    success "Cascade::Cascade.RecordResult"
-    failure "Cascade::Cascade.RecordResult"
-  end
+  Plan::Story.spawned_by("CheckWorktree", on: "StoryChecksRequested")
+  Plan::Story.spawned_by("CheckMerged", on: "StoryChecksRequested")
+  Plan::Story.spawned_by("CheckTests", on: "StoryChecksRequested")
+  Plan::Story.spawned_by("CheckVerbResolves", on: "StoryChecksRequested")
 end

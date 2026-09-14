@@ -32,12 +32,10 @@ Hecks.hecksagon "Lexicon" do
   # bucket list) for *.bluebook files. Today's shim hand-calls this
   # walk ; once a :walk adapter primitive lands, this :fs declaration
   # carries the root and the runtime drives the walk.
-  adapter :fs, root: "."
 
   # :memory — Compile writes the lexicon.heki rows via the in-process
   # heki upsert path. Lookup reads via heki::read. List filters in
   # memory.
-  adapter :memory
 
   # Explicit persisted_by, restored (i788/i789/i790) -- see
   # command_bus.hecksagon's own comment on why the bare `adapter :memory`

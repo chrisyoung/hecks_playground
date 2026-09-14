@@ -1,6 +1,5 @@
 Hecks.bluebook "HecksagonIr", version: "2026.05.21.1" do
   vision "The .hecksagon DSL describes its own shape. Phase 1 of i695 : lift the Rust kernel IR (rust/src/hecksagon_ir.rs) into a bluebook so the contract that today lives only in Rust struct definitions becomes a first-class domain that the runtime can parse, the validators can check, and the macrophages can keep honest. Phase 2 (separate card) regenerates the Rust IR from this bluebook ; this Phase ONLY conceives the bluebook contract — the existing Rust file is untouched."
-  category "framework"
 
   # ============================================================
   # HECKSAGON IR — the .hecksagon DSL as a bluebook

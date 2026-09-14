@@ -1,6 +1,5 @@
 HecksPlayground.bluebook "RenderingRule", version: "2026.05.12.1" do
   vision "Deterministic checks the generator must pass — not guidance, gates"
-  category "infrastructure"
 
   # === Rendering Rules ===
   # Each rule is checkable: scope says WHAT to check, check says HOW, violation says WHAT FAILED.

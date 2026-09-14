@@ -14,13 +14,4 @@ Hecks.hecksagon "WorktreeRemovedCheck" do
   # (sprint-14 memory+canned floor) ; world.bluebook wires the real
   # `git worktree list` probe once adapter-invocation-with-result lands
   # (hex-invocation-principle / hex-runtime-port-eval-hook).
-  adapter "WorktreeRemovedCheck" do
-    driven on "Plan::Story.WorktreeUnlocked" do |event|
-      dispatch "Plan::Story.RecordWorktreeRemovedCheckResult",
-               with: {
-                 story: "{id}",
-                 ok: true
-               }
-    end
-  end
 end

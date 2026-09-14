@@ -38,7 +38,6 @@ Hecks.bluebook "ForwarderPoc", version: "2026.05.22.1" do
   # FQNs (ForwarderPoc::NewHome.* and ForwarderPoc::OldHome.*) which
   # is the same shape the real rename would take.
 
-  category "discipline"
 
   # ── NEW HOME : the real command (rename target) ──
   aggregate "NewHome" do

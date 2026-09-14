@@ -15,10 +15,4 @@ Hecks.hecksagon "Conductor" do
   #   - Claim.HeldByWorker -> Claim.Expire, keyed by each claim's story
   #     ({story} resolves record-first ; reference_to(Claim) via the id= fallback).
   # Driven adapters only fire on REAL command events, never on synthetic ones.
-  adapter "ReclaimOnWorkerDied" do
-    driven on "Conductor::Worker.WorkerDied" do |event|
-      dispatch "Conductor::Lease.Reclaim", for_each: { from: "Conductor::Lease.HeldByWorker", where: { worker: "{id}" } }, with: { id: "{worktree_path}" }
-      dispatch "Conductor::Claim.Expire", for_each: { from: "Conductor::Claim.HeldByWorker", where: { worker: "{id}" } }, with: { id: "{story}" }
-    end
-  end
 end

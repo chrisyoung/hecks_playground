@@ -1,10 +1,18 @@
 HecksPlayground.bluebook "DailyMusingCloudflare", version: "2026.05.23.1" do
-  vision "The Cloudflare deploy config for the Daily Musing WASM Worker, expressed as a bluebook. The wrangler.toml beside this file is DERIVED from this declaration — the bluebook is the source of truth, the toml is the artifact (the way the Procfile derives from mindstream)."
-  category "deploy"
+  vision "The Cloudflare deploy config for the Daily Musing WASM Worker, expressed as a bluebook. The worker's wrangler.toml was DERIVED from this declaration — the bluebook is the source of truth, the toml is the artifact (the way the Procfile derives from mindstream)."
 
   # ============================================================
   # CLOUDFLARE WORKER CONFIG — config-as-bluebook
   # ============================================================
+  #
+  # RETIRED WORKER (2026-09-14) : the Rust Worker this config described
+  # (deployments/daily_musing_cf/worker/ — Cargo crate, generated lib.rs,
+  # embedded.rs, and the derived wrangler.toml) was deleted from this repo.
+  # It git-depended on the private hecks-hecksagain fork's `storehouse`
+  # crate, which the playground no longer uses. This bluebook and domain/
+  # are kept as the record of what it declared ; nothing in this repo
+  # builds or deploys from them now, and deleting the worker's source did
+  # not touch anything already deployed on Cloudflare.
   #
   # This is NOT the deploy lifecycle (that lives in
   # integrations/cloudflare_deploy/cloudflare_deploy.bluebook). This
@@ -12,12 +20,11 @@ HecksPlayground.bluebook "DailyMusingCloudflare", version: "2026.05.23.1" do
   # name, compatibility date, account, build command, and the
   # R2 persistence binding (heki -> R2).
   #
-  # Derivation is the SEAM (fixtures→policies, 2026-07-26) :
-  # `storehouse project wrangler deployments/daily_musing_cf` routes
+  # Derivation was the SEAM (fixtures→policies, 2026-07-26) :
+  # `storehouse project wrangler deployments/daily_musing_cf` routed
   # BootCompleted through this corpus, the EstablishDailyMusingWorker
-  # policy asserts the WorkerConfig record, and projection::wrangler
-  # renders worker/wrangler.toml from the ESTABLISHED record. Byte-identity
-  # is enforced by rust/tests/worker_config_establishment_test.rs.
+  # policy asserted the WorkerConfig record, and projection::wrangler
+  # rendered worker/wrangler.toml from the ESTABLISHED record.
 
   aggregate "WorkerConfig", "One Cloudflare Worker's deploy configuration" do
     identified_by :name
@@ -32,7 +39,7 @@ HecksPlayground.bluebook "DailyMusingCloudflare", version: "2026.05.23.1" do
     # unconditionally, which fails with "externref table required for
     # catch wrappers" against every wasm-bindgen version tried (0.2.121,
     # 0.2.126, 0.2.127) in this environment. Discovered + fixed during
-    # i768 slice 2.2 (hecks-hecksagain storehouse cutover verification).
+    # i768 slice 2.2 (storehouse cutover verification).
     attribute :build_command, BuildCommand, default: "cargo install -q worker-build --version 0.8.3 && worker-build --release"
     # Persisted (heki -> R2). r2_binding is the env binding name lib.rs
     # reads (env.bucket("DAILY_MUSING_R2_BUCKET")) ; r2_bucket is the
@@ -96,10 +103,11 @@ HecksPlayground.bluebook "DailyMusingCloudflare", version: "2026.05.23.1" do
 
   # The worker config as ESTABLISHMENT (fixtures→policies, 2026-07-26) —
   # `on "BootCompleted"` (the boot-establishment keystone) upserts the
-  # WorkerConfig on :name ; `storehouse establish <root>` re-asserts on
-  # demand. The derived wrangler.toml projects from the ESTABLISHED record
-  # through the seam (`storehouse project wrangler <root>` →
-  # projection::wrangler) — never by re-parsing this file, never by hand.
+  # WorkerConfig on :name ; `storehouse establish <root>` re-asserted on
+  # demand. The retired worker's wrangler.toml projected from the
+  # ESTABLISHED record through the seam (`storehouse project wrangler
+  # <root>` → projection::wrangler) — never by re-parsing this file,
+  # never by hand.
   policy "EstablishDailyMusingWorker" do
     on "BootCompleted"
     trigger "WorkerConfig.Declare"
@@ -113,10 +121,11 @@ HecksPlayground.bluebook "DailyMusingCloudflare", version: "2026.05.23.1" do
     with "observability", "enabled"
   end
 
-  glossary do
-    define "worker", as: "Cloudflare Worker — the WASM dispatch surface, the bluebook command bus over HTTP"
-    define "compatibility date", as: "The Workers runtime API version the deploy pins to"
-    define "memory-first", as: "No persistence binding ; each request boots a fresh in-memory runtime seeded from embedded fixtures"
-    prefer "worker", not: ["function", "lambda"]
-  end
+  # Glossary (kept as a comment: hecks 1.3.0 has no `glossary` word).
+  # glossary do
+  #   define "worker", as: "Cloudflare Worker — the WASM dispatch surface, the bluebook command bus over HTTP"
+  #   define "compatibility date", as: "The Workers runtime API version the deploy pins to"
+  #   define "memory-first", as: "No persistence binding ; each request boots a fresh in-memory runtime seeded from embedded fixtures"
+  #   prefer "worker", not: ["function", "lambda"]
+  # end
 end

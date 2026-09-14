@@ -1,6 +1,5 @@
 Hecks.bluebook "Capabilities", version: "2026.05.12.1" do
   vision "The typed registry of what a being can do. Every capability — tools, voice, websocket, chat_agent, crud, … — registers here with its kind, source bluebook path, providers, and state. Hecksagons declare which capabilities apply to a being ; the boot sequence walks this registry and applies each one. The registry is the source of truth that retires the partial CapabilityDeclaration aggregate in catalog/hecksagon.bluebook and the directory-scanning CapabilityIndex in world/boot/. Today the capabilities concept is split across five surfaces (Ruby DSL, capability_index scanner, miette.hecksagon symbol lists, the stranded catalog aggregate, the aspirational companion-bluebook pattern) — this bluebook is the single typed home for all five."
-  category "framework"
 
   # ============================================================
   # CAPABILITIES — the registry of what a being can do

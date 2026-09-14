@@ -1,6 +1,5 @@
 Hecks.bluebook "Composition", version: "2026.05.12.1" do
   vision "Two sentences joined across domains — the output of one feeds the input of the next"
-  category "language"
 
   # ============================================================
   # COMPOSITION — two sentences joined across domains

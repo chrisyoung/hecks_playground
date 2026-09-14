@@ -1,6 +1,5 @@
 Hecks.bluebook "IdentifierService", version: "2026.05.14.1" do
   vision "Runtime substrate for i611 identity. Owns four operations : (1) UUID-default minting when an aggregate has no identified_by ; (2) natural-key derivation by concatenating identified_by field values, with optional ULID suffix on aggregate roots and parent-prefix scoping on nested entities ; (3) autonomic identity migration — when an identified_by rule changes the IdentifierService rewrites each affected IdentityString in place, prepending the new form with a slash separator so the key itself carries the full history (new/old/oldest). Lookup by any segment resolves the record ; no repository column. (4) an identity-petition workflow giving identity-rule changes a submit / review / apply state machine plus an audit trail. Natural keys via identified_by remain addable at any time — UUID default is the start, not the end. The bluebook is the contract for identity ; IdentifierService is where the contract becomes operational. i611 names the rules (and IdentityDiscipline macrophage polices them) ; i614 is the bluebook that implements them at runtime."
-  category "framework"
 
   # ============================================================
   # IDENTIFIER SERVICE — the runtime side of i611 identity

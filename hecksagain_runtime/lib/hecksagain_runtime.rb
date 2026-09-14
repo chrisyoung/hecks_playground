@@ -6,10 +6,8 @@
 # contract. See Part 5 of
 # /Users/christopheryoung/.claude/plans/okay-so-could-we-elegant-goose.md.
 #
-# hecksagain-cutover PRD, slice 2.1: `hecksagain` now resolves through the
-# Bundler `git:` dependency pinned in the top-level Gemfile (hecks-hecksagain,
-# ref-pinned), not `vendor/hecksagain/lib` — that copy stays on disk as a
-# fallback for the rest of the wave but is no longer on any live load path.
+# `hecks` resolves through the published gem pinned in the top-level
+# Gemfile (`gem "hecks", "~> 1.3"`); there is no vendored copy any more.
 #
 # Usage (one boot per process, cold-spawn correctness-first per the plan --
 # the warm daemon is a follow-up once this is proven, not a prerequisite):
@@ -18,6 +16,7 @@
 
 require "hecks"
 require "json"
+require "yaml"
 require "fileutils"
 require "digest"
 require_relative "behaviors_runner"
@@ -593,15 +592,20 @@ module HecksagainRuntime
 
   # i746 step 7 -- replaces bin/adapter-host's old shell-out to a
   # nonexistent "storehouse dump-hecksagon" subcommand. Boots root, finds
-  # the named adapter, returns its declared `handler` path (or nil if the
-  # .adapter file never declared one -- bin/adapter-host's own "fail loud"
-  # check handles that, not this method).
+  # the named adapter, returns its `handler` path from
+  # adapter_handlers.yml (or nil if none is listed -- bin/adapter-host's
+  # own "fail loud" check handles that, not this method). The path lives
+  # in that file, not the .adapter: hecks 1.3.0's adapter DSL has no
+  # `handler` word.
+  ADAPTER_HANDLERS_PATH = File.expand_path("../adapter_handlers.yml", __dir__)
+
   def self.adapter_handler(root, adapter_name)
     runtime = Hecks.boot(stage_flat_corpus(root), install_facade: false)
     adapter = runtime.registry.adapters[adapter_name]
     return { ok: false, error: "no such adapter #{adapter_name.inspect}", available: runtime.registry.adapters.keys } unless adapter
 
-    { ok: true, adapter: adapter_name, handler: adapter.handler }
+    handler = YAML.safe_load_file(ADAPTER_HANDLERS_PATH).dig(adapter_name, "handler")
+    { ok: true, adapter: adapter_name, handler: handler }
   rescue StandardError => e
     { ok: false, error: e.message, error_class: e.class.name }
   end
