@@ -7,5 +7,4 @@
 # `spawned_by` verb.
 Hecks.adapter "GitWorktreeList" do
   port "spawn"
-  handler "bin/git_worktree_list"
 end

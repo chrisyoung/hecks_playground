@@ -1,0 +1,9 @@
+# screenshot_buffer — the effect port DiskBuffer (adapters/disk_buffer.adapter)
+# declares. hecks 1.3.0 ships no such port, so the playground declares it
+# here: ports/ under the shared root loads before project adapters, so the
+# adapter's `port "screenshot_buffer"` resolves.
+Hecks.port "screenshot_buffer" do
+  verb     "buffered_by"
+  signal   :effect
+  # produces :path  — the fork declared this; hecks 1.3.0 ports admit only verb/signal/answers
+end

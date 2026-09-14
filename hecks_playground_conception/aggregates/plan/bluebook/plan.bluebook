@@ -191,7 +191,6 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       sets :number
       sets :goal
       sets :project
-      sets :state,   to: "planned"
       emits "SprintPlanned"
     end
 
@@ -283,7 +282,6 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       reference_to(Sprint)
       given("must be planned") { state == "planned" }
       given("sprint contracts must be ratified") { contracts_ratified == true }
-      sets :state, to: "active"
       emits "SprintActivated"
     end
 
@@ -360,7 +358,6 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       role "Operator"
       goal "Un-close a sprint: move completed back to active and RESET all six closure criteria to false, so the Done-is-Done gate must be genuinely re-satisfied before it can close again. The missing lifecycle exit from completed — closes the gap where a sprint approved on incomplete criteria could not be corrected. Only Operator may Reopen."
       reference_to(Sprint)
-      sets :state, to: "active"
       sets :all_stories_done, to: false
       sets :merged_to_main, to: false
       sets :ci_passing, to: false
@@ -374,7 +371,6 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       role "Miette"
       goal "Soft-delete a sprint: move it to the terminal `cancelled` state. For removing phantom or erroneous sprints — e.g. the demo sprints flows leave behind when run against the live store. Cancelled sprints drop out of Board (which is active-only). Hard record removal is a separate runtime concern (no Delete primitive yet) ; Cancel is the bluebook-first way to take an unwanted sprint out of circulation."
       reference_to(Sprint)
-      sets :state, to: "cancelled"
       emits "SprintCancelled"
     end
 
@@ -382,7 +378,6 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       role "Miette"
       goal "Return an active sprint to planned — the legitimate way to step a sprint back out of active (e.g. it was activated before the current sprint was closed). The missing reverse of Activate ; enables the one-active-sprint rule (close-before-activate) to be honoured without cancelling real work."
       reference_to(Sprint)
-      sets :state, to: "planned"
       emits "SprintDeactivated"
     end
 
@@ -896,7 +891,6 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       sets :summary
       sets :target
       sets :project
-      sets :state,    to: "untasked"
       emits "StoryCaptured"
     end
 
@@ -991,7 +985,6 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       goal "Pull a story back out of its sprint — clears the sprint ref and returns lifecycle state to untasked. Valid from tasked or started. Closes the gap where a committed story could be assigned but never un-assigned. Since lifecycle-tasked-state (sprint 14) the unsprinted state is untasked, not backlog."
       reference_to(Story)
       sets :sprint, to: ""
-      sets :state,  to: "untasked"
       emits "StoryRemovedFromSprint"
     end
 
@@ -1039,7 +1032,6 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       goal "Operator-flippable signal that the story has been tasked enough — enough atomic tasks added, conversation done, ready for Start. No threshold, no auto-transition, no tasks-count given. Pure operator judgment. Transitions untasked → tasked. Start's only gate becomes `state == tasked`. Completes lifecycle-tasked-state (sprint 14) : `untasked` is now the Capture default and Tasked is its single exit toward Start."
       reference_to(Story)
       given("can only flip to tasked from untasked") { state == "untasked" }
-      sets :state, to: "tasked"
       emits "StoryTasked"
     end
 
@@ -1065,7 +1057,6 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       goal "Stakeholder reset — moving or removing a story IN PLAY reverts it. The team discipline : a started story taken off its sprint goes back to the start of the lifecycle. LOCAL : state started -> tasked, sprint_active -> false. Emits StoryReset ; the reset_story_tasks driven adapter reopens this story tasks (Task.Reopen over Task.ForStory) so pending_task_count rebuilds via IncrementOnTaskReopened — tasks are REOPENED, not deleted. The repository revert is MANUAL (by hand), not a domain effect. Only a Stakeholder may reset."
       reference_to(Story)
       given("only an in-play story resets") { state == "started" }
-      sets :state, to: "tasked"
       sets :sprint_active, to: false
       emits "StoryReset"
     end
@@ -1278,7 +1269,6 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       role "Operator"
       goal "Reject a ready_for_review story back to started — the reviewer found it not actually done, work resumes. The reverse of MarkReady; valid only from ready_for_review."
       reference_to(Story)
-      sets :state, to: "started"
       emits "StoryReopened"
     end
 
@@ -1307,7 +1297,6 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       role "Miette"
       goal "Soft-delete a story: move it to the terminal `cancelled` state. For removing phantom or erroneous stories — e.g. demo stories flows leave behind when run against the live store. Mirrors Sprint.Cancel ; valid from any state. Hard record removal is a separate runtime concern (no Delete primitive yet)."
       reference_to(Story)
-      sets :state, to: "cancelled"
       emits "StoryCancelled"
     end
 
@@ -1338,6 +1327,7 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       transition "RemoveFromSprint" => "untasked",         from: "tasked"
       transition "RemoveFromSprint" => "untasked",         from: "started"
       transition "Cancel"           => "cancelled"
+      transition "Reset"            => "tasked",           from: "started"
     end
 
     # ── Done-is-done : MIGRATING from stored flags to live checks ─────
@@ -1563,7 +1553,6 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       sets :story
       sets :order
       sets :description
-      sets :status,      to: "pending"
       emits "TaskAdded"
     end
 
@@ -1572,7 +1561,6 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       goal "Resolve a pending Task by marking it done. The cascade DecrementOnTaskCompleted policy bumps the owning Story's pending_task_count down so the ready_means_all_tasks_resolved gate can clear."
       reference_to(Task)
       given("task must not already be resolved") { status != "done" && status != "cancelled" }
-      sets :status, to: "done"
       emits "TaskCompleted"
     end
 
@@ -1581,7 +1569,6 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       goal "Drop a pending Task as no-longer-needed. Operator-only ; like Story.Cancel this is the soft-delete path. The cascade DecrementOnTaskCancelled policy decrements the owning Story's pending_task_count."
       reference_to(Task)
       given("task must not already be resolved") { status != "done" && status != "cancelled" }
-      sets :status, to: "cancelled"
       emits "TaskCancelled"
     end
 
@@ -1590,7 +1577,6 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       goal "Return a done or cancelled Task to pending — the work was prematurely resolved and is needed again. The cascade IncrementOnTaskReopened policy bumps the owning Story's pending_task_count back up."
       reference_to(Task)
       given("task must currently be resolved") { status == "done" || status == "cancelled" }
-      sets :status, to: "pending"
       emits "TaskReopened"
     end
 
@@ -2073,7 +2059,6 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       sets :name
       sets :title
       sets :description
-      sets :status,       to: "active"
       emits "EpicFramed"
     end
 
@@ -2111,7 +2096,6 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       goal "Mark an epic as done - its initiative is finished. Done is terminal. Only Operator may complete an epic."
       reference_to(Epic)
       given("must be active") { status == "active" }
-      sets :status, to: "done"
       emits "EpicCompleted"
     end
 
@@ -2119,7 +2103,6 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       role "Miette"
       goal "Soft-delete an epic : set status to cancelled. For removing erroneous or abandoned epics. Valid from any status."
       reference_to(Epic)
-      sets :status, to: "cancelled"
       emits "EpicCancelled"
     end
 
@@ -2210,7 +2193,6 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       attribute :description, Description
       sets :name
       sets :description
-      sets :status,       to: "active"
       emits "ProjectRegistered"
     end
 
@@ -2228,7 +2210,6 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       goal "Return a paused project to active. Work resumes on this project."
       reference_to(Project)
       given("must be paused") { status == "paused" }
-      sets :status, to: "active"
       emits "ProjectActivated"
     end
 
@@ -2237,7 +2218,6 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       goal "Park an active project — work is not currently in progress but the project is not finished. The project is not deleted."
       reference_to(Project)
       given("must be active") { status == "active" }
-      sets :status, to: "paused"
       emits "ProjectPaused"
     end
 
@@ -2245,7 +2225,6 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
           role "Miette"
           goal "Soft-delete a project: set status to cancelled. For removing phantom or erroneous projects (e.g. demo projects flows leave behind). Mirrors Sprint.Cancel / Story.Cancel ; valid from any status."
           reference_to(Project)
-          sets :status, to: "cancelled"
           emits "ProjectCancelled"
         end
 
@@ -2254,7 +2233,6 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       goal "Mark a project as done. Only Operator may complete a project. Done is a terminal state."
       reference_to(Project)
       given("must be active or paused") { status == "active" || status == "paused" }
-      sets :status, to: "done"
       emits "ProjectCompleted"
     end
 

@@ -63,7 +63,6 @@ Hecks.bluebook "Labor", version: "2026.04.16.1" do
       goal "Domain passes all checks — ready for delivery"
       reference_to(Labor)
       emits "LaborPassed"
-      sets :valid, to: "yes"
     end
 
     command "FailLabor" do
@@ -72,7 +71,6 @@ Hecks.bluebook "Labor", version: "2026.04.16.1" do
       reference_to(Labor)
       attribute :errors, list_of(ErrorMessage)
       emits "LaborFailed"
-      sets :valid, to: "no"
       sets :errors
     end
 

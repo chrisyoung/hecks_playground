@@ -7,5 +7,4 @@
 # `spawned_by` verb.
 Hecks.adapter "ArtifactClaimVerify" do
   port "spawn"
-  handler "node bin/artifact_claim_verify.mjs"
 end

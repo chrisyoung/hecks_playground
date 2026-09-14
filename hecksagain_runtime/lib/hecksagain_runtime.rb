@@ -16,6 +16,7 @@
 
 require "hecks"
 require "json"
+require "yaml"
 require "fileutils"
 require "digest"
 require_relative "behaviors_runner"
@@ -591,15 +592,20 @@ module HecksagainRuntime
 
   # i746 step 7 -- replaces bin/adapter-host's old shell-out to a
   # nonexistent "storehouse dump-hecksagon" subcommand. Boots root, finds
-  # the named adapter, returns its declared `handler` path (or nil if the
-  # .adapter file never declared one -- bin/adapter-host's own "fail loud"
-  # check handles that, not this method).
+  # the named adapter, returns its `handler` path from
+  # adapter_handlers.yml (or nil if none is listed -- bin/adapter-host's
+  # own "fail loud" check handles that, not this method). The path lives
+  # in that file, not the .adapter: hecks 1.3.0's adapter DSL has no
+  # `handler` word.
+  ADAPTER_HANDLERS_PATH = File.expand_path("../adapter_handlers.yml", __dir__)
+
   def self.adapter_handler(root, adapter_name)
     runtime = Hecks.boot(stage_flat_corpus(root), install_facade: false)
     adapter = runtime.registry.adapters[adapter_name]
     return { ok: false, error: "no such adapter #{adapter_name.inspect}", available: runtime.registry.adapters.keys } unless adapter
 
-    { ok: true, adapter: adapter_name, handler: adapter.handler }
+    handler = YAML.safe_load_file(ADAPTER_HANDLERS_PATH).dig(adapter_name, "handler")
+    { ok: true, adapter: adapter_name, handler: handler }
   rescue StandardError => e
     { ok: false, error: e.message, error_class: e.class.name }
   end

@@ -7,5 +7,4 @@
 # `spawned_by` verb.
 Hecks.adapter "FsFileMove" do
   port "spawn"
-  handler "bin/filesystem_file_move"
 end

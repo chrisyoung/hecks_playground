@@ -109,7 +109,6 @@ Hecks.bluebook "AuthIdentity", version: "2026.06.26.1" do
       sets :id
       sets :label
       sets :credential
-      sets :status,     to: "pending"
       emits "Established"
     end
 

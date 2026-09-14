@@ -138,7 +138,7 @@ Hecks.bluebook "IssueLog", version: "2026.05.14.1" do
     value_object "CardRef" do
       # Reference to another inbox card in "iN" form (superseded_by).
       attribute :value, String
-      invariant "valid ref format" do value.match?(/\Ai\d+\z/) end
+      invariant "valid ref format" do value.match?(/\Ai[0-9]+\z/) end
     end
 
     # ============================================================
@@ -158,7 +158,6 @@ Hecks.bluebook "IssueLog", version: "2026.05.14.1" do
       sets :body
       sets :posted_at
       sets :wish_id
-      sets :status,     to: "queued"
       emits "InboxAdded"
     end
 
@@ -169,7 +168,6 @@ Hecks.bluebook "IssueLog", version: "2026.05.14.1" do
       attribute :completed_at, Timestamp
       attribute :resolution,   Resolution
       given("must be queued") { status == "queued" }
-      sets :status,       to: "done"
       sets :completed_at
       sets :resolution
       emits "InboxClosed"
@@ -180,7 +178,6 @@ Hecks.bluebook "IssueLog", version: "2026.05.14.1" do
       goal "Move a done item back to queued — a closing was premature. Clears completed_at and resolution so the row reads cleanly as freshly queued. The ref is preserved."
       reference_to(Inbox)
       given("must be done") { status == "done" }
-      sets :status,       to: "queued"
       sets :completed_at, to: ""
       sets :resolution,   to: ""
       emits "InboxReopened"
@@ -190,7 +187,6 @@ Hecks.bluebook "IssueLog", version: "2026.05.14.1" do
       role "Chris"
       goal "Abandon a row genuinely — spam, mistakes, garbage. Marks the row as dropped so any subscribers see the transition before the row is hard-deleted. Use Archive instead for the normal completed-work case ; Drop is for rows that should never have been filed. The ref is not reassigned — historical mentions become dangling."
       reference_to(Inbox)
-      sets :status, to: "dropped"
       emits "InboxDropped"
     end
 
@@ -210,7 +206,6 @@ Hecks.bluebook "IssueLog", version: "2026.05.14.1" do
       attribute :modeled_commit, CommitSha
       attribute :modeled_at,     Timestamp
       given("must be queued") { status == "queued" }
-      sets :status,          to: "modeled"
       sets :modeled_commit
       sets :modeled_at
       emits "InboxModeled"
@@ -222,7 +217,6 @@ Hecks.bluebook "IssueLog", version: "2026.05.14.1" do
       attribute :designed_commit, CommitSha
       attribute :designed_at,     Timestamp
       given("must be modeled") { status == "modeled" }
-      sets :status,           to: "designed"
       sets :designed_commit
       sets :designed_at
       emits "InboxDesigned"
@@ -236,7 +230,6 @@ Hecks.bluebook "IssueLog", version: "2026.05.14.1" do
       attribute :signoff_scope,  list_of(PathPattern)
       attribute :signoff_at,     Timestamp
       given("must be designed") { status == "designed" }
-      sets :status,          to: "signed_off"
       sets :signoff_by
       sets :signoff_commit
       sets :signoff_scope
@@ -249,7 +242,6 @@ Hecks.bluebook "IssueLog", version: "2026.05.14.1" do
       reference_to(Inbox)
       attribute :locked_at, Timestamp
       given("must be signed_off") { status == "signed_off" }
-      sets :status,     to: "locked"
       sets :locked_at
       emits "InboxLocked"
     end
@@ -259,7 +251,6 @@ Hecks.bluebook "IssueLog", version: "2026.05.14.1" do
       reference_to(Inbox)
       attribute :superseded_by, CardRef
       given("must be locked") { status == "locked" }
-      sets :status,        to: "superseded"
       sets :superseded_by
       emits "InboxSuperseded"
     end

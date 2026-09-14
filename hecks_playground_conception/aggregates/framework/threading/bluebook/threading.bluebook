@@ -95,7 +95,6 @@ Hecks.bluebook "Threading", version: "2026.05.31.1" do
       sets :name
       sets :kind
       sets :runtime_handle
-      sets :state,          to: "idle"
       emits "SpawnRequested"
     end
 
@@ -103,7 +102,6 @@ Hecks.bluebook "Threading", version: "2026.05.31.1" do
       role "System"
       goal "Mark the thread as actively running its workload. Dispatched by the threading_adapter once the spawn syscall accepted the task and a handle was stashed. Pure state mutation : idle → running. No-op if already running."
       reference_to(Thread)
-      sets :state, to: "running"
       emits "ThreadDraining"
     end
 
@@ -112,7 +110,6 @@ Hecks.bluebook "Threading", version: "2026.05.31.1" do
       goal "Mark the thread as joined — the unit completed normally and its handle was awaited. Dispatched by the adapter / supervisor when the tokio task or std::thread returned without panic. Terminal for the happy path : the record stays around as audit, no further transitions except a fresh Spawn under a new name."
       reference_to(Thread)
       given("thread must have been running") { state == "running" }
-      sets :state, to: "joined"
       emits "ThreadJoined"
     end
 
@@ -120,7 +117,6 @@ Hecks.bluebook "Threading", version: "2026.05.31.1" do
       role "System"
       goal "Per-actor failure isolation : the supervisor caught a panic and stamped this thread poisoned. Terminal. Sister aggregate (Mailbox) carries the same poisoned token so the actor registry can answer 'is this aggregate's mailbox available' from pure bluebook state."
       reference_to(Thread)
-      sets :state, to: "poisoned"
       emits "ThreadPoisoned"
     end
 
@@ -204,7 +200,6 @@ Hecks.bluebook "Threading", version: "2026.05.31.1" do
       attribute :owner_aggregate, OwnerAggregate
       sets :name
       sets :owner_aggregate
-      sets :state,            to: "idle"
       emits "MailboxRegistered"
     end
 
@@ -220,7 +215,6 @@ Hecks.bluebook "Threading", version: "2026.05.31.1" do
       role "System"
       goal "Mark the mailbox as actively draining. Dispatched by drain_all_in_parallel / drain_all_blocking when the registry picks this mailbox up. State idle → draining ; pending decrements on the rust side as envelopes pop. Named StartDraining (rather than Drain) so it does not collide with Thread.Drain in the same bluebook — setup-by-command-name in the behaviors runner resolves the first match across aggregates."
       reference_to(Mailbox)
-      sets :state,   to: "draining"
       sets :pending, to: 0
       emits "MailboxDraining"
     end
@@ -230,7 +224,6 @@ Hecks.bluebook "Threading", version: "2026.05.31.1" do
       goal "The drain completed — every envelope handled, no panic. State draining → idle. Mailbox is ready to receive again."
       reference_to(Mailbox)
       given("must be draining") { state == "draining" }
-      sets :state, to: "idle"
       emits "MailboxIdled"
     end
 
@@ -238,7 +231,6 @@ Hecks.bluebook "Threading", version: "2026.05.31.1" do
       role "System"
       goal "A handler panicked mid-drain ; supervisor isolated this mailbox. Terminal — no further envelopes are processed until a fresh Register under a new name. Per-actor failure isolation made observable."
       reference_to(Mailbox)
-      sets :state, to: "poisoned"
       emits "MailboxPoisoned"
     end
 

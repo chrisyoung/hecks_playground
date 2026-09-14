@@ -1,0 +1,110 @@
+# Adapter name -> the executable bin/adapter-host runs for it.
+# Lives here, not in each .adapter file: hecks 1.3.0's adapter DSL has no
+# `handler` word (only port/field/secret), and this is playground runtime
+# config, not domain declaration. Read by HecksagainRuntime.adapter_handler.
+---
+ArtifactClaimScan:
+  handler: node bin/artifact_claim_scan.mjs
+  declared_in: hecks_playground_conception/aggregates/discipline/immune_system/macrophage/bluebook/artifact_claim_scan.adapter
+ArtifactClaimVerify:
+  handler: node bin/artifact_claim_verify.mjs
+  declared_in: hecks_playground_conception/aggregates/discipline/immune_system/macrophage/bluebook/artifact_claim_verify.adapter
+CargoBuild:
+  handler: bin/cargo_build
+  declared_in: hecks_playground_conception/aggregates/framework/tools/bluebook/cargo_build.adapter
+CargoCheck:
+  handler: bin/cargo_check
+  declared_in: hecks_playground_conception/aggregates/framework/tools/bluebook/cargo_check.adapter
+CargoClippy:
+  handler: bin/cargo_clippy
+  declared_in: hecks_playground_conception/aggregates/framework/tools/bluebook/cargo_clippy.adapter
+CargoTest:
+  handler: bin/cargo_test
+  declared_in: hecks_playground_conception/aggregates/framework/tools/bluebook/cargo_test.adapter
+CheckMerged:
+  handler: bin/check-merged
+  declared_in: hecks_playground_conception/aggregates/plan/bluebook/check_merged.adapter
+CheckTests:
+  handler: bin/check-tests
+  declared_in: hecks_playground_conception/aggregates/plan/bluebook/check_tests.adapter
+CheckVerbResolves:
+  handler: bin/check-verb-resolves
+  declared_in: hecks_playground_conception/aggregates/plan/bluebook/check_verb_resolves.adapter
+CheckWorktree:
+  handler: bin/check-worktree
+  declared_in: hecks_playground_conception/aggregates/plan/bluebook/check_worktree.adapter
+DiskBuffer:
+  handler: tools/web_debug/disk-buffer-handler
+  declared_in: hecks_playground_conception/aggregates/framework/adapters/disk_buffer.adapter
+FibroblastSweep:
+  handler: bash bin/fibroblast_sweep.sh
+  declared_in: hecks_playground_conception/aggregates/discipline/immune_system/repair_cell/fibroblast/bluebook/fibroblast_sweep.adapter
+FsDirCreate:
+  handler: bin/filesystem_directory_create
+  declared_in: hecks_playground_conception/aggregates/framework/tools/bluebook/fs_dir_create.adapter
+FsDirList:
+  handler: bin/filesystem_directory_list
+  declared_in: hecks_playground_conception/aggregates/framework/tools/bluebook/fs_dir_list.adapter
+FsDirRemove:
+  handler: bin/filesystem_directory_remove
+  declared_in: hecks_playground_conception/aggregates/framework/tools/bluebook/fs_dir_remove.adapter
+FsFileMove:
+  handler: bin/filesystem_file_move
+  declared_in: hecks_playground_conception/aggregates/framework/tools/bluebook/fs_file_move.adapter
+FsFileReadRange:
+  handler: bin/filesystem_file_read_range
+  declared_in: hecks_playground_conception/aggregates/framework/tools/bluebook/fs_file_read_range.adapter
+FsFileRemove:
+  handler: bin/filesystem_file_remove
+  declared_in: hecks_playground_conception/aggregates/framework/tools/bluebook/fs_file_remove.adapter
+GitCurrentBranch:
+  handler: bin/git_current_branch
+  declared_in: hecks_playground_conception/aggregates/framework/tools/bluebook/git_current_branch.adapter
+GitDiff:
+  handler: bin/git_diff
+  declared_in: hecks_playground_conception/aggregates/framework/tools/bluebook/git_diff.adapter
+GitLog:
+  handler: bin/git_log
+  declared_in: hecks_playground_conception/aggregates/framework/tools/bluebook/git_log.adapter
+GitStatus:
+  handler: bin/git_status
+  declared_in: hecks_playground_conception/aggregates/framework/tools/bluebook/git_status.adapter
+GitWorktreeList:
+  handler: bin/git_worktree_list
+  declared_in: hecks_playground_conception/aggregates/framework/tools/bluebook/git_worktree_list.adapter
+InboxPoll:
+  handler: node bin/inbox_poll.mjs
+  declared_in: hecks_playground_conception/aggregates/framework/inbox/bluebook/inbox_poll.adapter
+MainUpToDateCheck:
+  handler: bin/main_uptodate_check
+  declared_in: hecks_playground_conception/aggregates/plan/bluebook/main_uptodate_check.adapter
+PrDeliveryMerge:
+  handler: bin/pr_delivery_merge
+  declared_in: hecks_playground_conception/aggregates/conductor/bluebook/pr_delivery_merge.adapter
+PrMergeableCheck:
+  handler: bin/pr_mergeable_check
+  declared_in: hecks_playground_conception/aggregates/plan/bluebook/pr_mergeable_check.adapter
+ProcessHealthHeal:
+  handler: node bin/process_health_heal.mjs
+  declared_in: hecks_playground_conception/aggregates/framework/process_health/bluebook/process_health_heal.adapter
+ProcessHealthReap:
+  handler: bin/process_health_reap
+  declared_in: hecks_playground_conception/aggregates/framework/process_health/bluebook/process_health_reap.adapter
+ProcessHealthSweep:
+  handler: bin/process_health_sweep
+  declared_in: hecks_playground_conception/aggregates/framework/process_health/bluebook/process_health_sweep.adapter
+SessionRecall:
+  handler: "/Users/christopheryoung/Projects/hecks_playground/bin/session-recall"
+  declared_in: hecks_playground_conception/aggregates/framework/session/bluebook/session_recall.adapter
+SidequestRun:
+  handler: node bin/sidequest_run.mjs
+  declared_in: hecks_playground_conception/aggregates/framework/tools/bluebook/sidequest_run.adapter
+Stripe:
+  handler: examples/adapter_host_demo/stripe-handler
+  declared_in: hecks_playground_conception/aggregates/framework/adapters/stripe.adapter
+WorktreeCreate:
+  handler: bin/worktree_create
+  declared_in: hecks_playground_conception/aggregates/conductor/bluebook/worktree_create.adapter
+WorktreeRemove:
+  handler: bin/worktree_remove
+  declared_in: hecks_playground_conception/aggregates/conductor/bluebook/worktree_remove.adapter

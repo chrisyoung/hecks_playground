@@ -67,7 +67,6 @@ Hecks.bluebook "Law", version: "2026.05.12.1" do
       sets :domain_scope
       sets :check_expression
       sets :severity
-      sets :status, to: "active"
       sets :violation_count, to: 0
     end
 
@@ -87,7 +86,6 @@ Hecks.bluebook "Law", version: "2026.05.12.1" do
       goal "Temporarily disable a law — it still exists but is not enforced"
       reference_to(Law)
       emits "LawSuspended"
-      sets :status, to: "suspended"
     end
 
     command "Reinstate" do
@@ -95,7 +93,6 @@ Hecks.bluebook "Law", version: "2026.05.12.1" do
       goal "Re-enable a suspended law"
       reference_to(Law)
       emits "LawReinstated"
-      sets :status, to: "active"
     end
 
     command "RecordViolation" do
@@ -175,7 +172,6 @@ Hecks.bluebook "Law", version: "2026.05.12.1" do
       sets :location
       sets :detail
       sets :detected_at
-      sets :resolution, to: "open"
     end
 
     command "Resolve" do
@@ -261,7 +257,6 @@ Hecks.bluebook "Law", version: "2026.05.12.1" do
       sets :laws_checked, to: 0
       sets :laws_passed, to: 0
       sets :laws_violated, to: 0
-      sets :verdict, to: "running"
     end
 
     command "RecordCheck" do
@@ -287,7 +282,6 @@ Hecks.bluebook "Law", version: "2026.05.12.1" do
       reference_to(Enforcement)
       emits "ScopeLawful"
       given("no violations") { laws_violated == 0 }
-      sets :verdict, to: "lawful"
     end
 
     command "FailSome" do
@@ -295,7 +289,6 @@ Hecks.bluebook "Law", version: "2026.05.12.1" do
       goal "One or more laws were violated — scope is unlawful"
       reference_to(Enforcement)
       emits "ScopeUnlawful"
-      sets :verdict, to: "unlawful"
     end
 
     lifecycle :verdict, default: "unchecked" do

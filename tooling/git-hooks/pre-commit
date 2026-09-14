@@ -144,7 +144,7 @@ HECKSAGAIN_CLI="$REPO/hecksagain_runtime/bin/hecksagain-cli"
 if [ -z "$VALIDATE_SKIP" ] && [ -x "$HECKSAGAIN_CLI" ]; then
     staged_bluebooks=$(git diff --cached --name-only --diff-filter=ACM | grep '\.bluebook$' || true)
     if [ -n "$staged_bluebooks" ]; then
-        out=$("$HECKSAGAIN_CLI" validate "$CONCEPTION_DIR" 2>&1)
+        out=$("$HECKSAGAIN_CLI" validate "$CONCEPTION_DIR" 2>/dev/null)  # stdout only: hecks prints [hecks] warnings on stderr, which would break the JSON parse
         ok=$(printf '%s' "$out" | ruby -rjson -e 'puts (JSON.parse(STDIN.read)["ok"] == true) rescue puts "false"' 2>/dev/null || echo 'false')
         swept=$(printf '%s' "$out" | ruby -rjson -e 'puts JSON.parse(STDIN.read)["roots_swept"]' 2>/dev/null || echo '?')
         invalid=$(printf '%s' "$out" | ruby -rjson -e 'j=JSON.parse(STDIN.read); puts j["invalid"] || (j["valid"] == false ? 1 : 0)' 2>/dev/null || echo '?')

@@ -18,8 +18,5 @@ Hecks.hecksagon "Plan" do
   # payload (clean, VO-unwrapped JSON on stdin) and runs the exact gh
   # probe this file used to run inline : exits 0 IFF state == OPEN,
   # mergeable == MERGEABLE, and no check has a non-SUCCESS conclusion.
-  Plan::Story.spawned_by("PrMergeableCheck", on: "StoryChecksRequested") do
-    success "Plan::Story.RecordPrMergeableCheckResult"
-    failure "Plan::Story.RecordPrMergeableCheckResult"
-  end
+  Plan::Story.spawned_by("PrMergeableCheck", on: "StoryChecksRequested")
 end

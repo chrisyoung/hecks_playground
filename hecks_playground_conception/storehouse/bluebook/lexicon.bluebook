@@ -90,7 +90,7 @@ Hecks.bluebook "Lexicon", version: "2026.05.10.1" do
     value_object "CompiledAt" do
       attribute :value, String
       invariant "must be ISO 8601 UTC" do
-        value.match?(/\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)
+        value.match?(/\A[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}/)
       end
     end
 

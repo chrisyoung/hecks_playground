@@ -7,5 +7,4 @@
 # `spawned_by` verb.
 Hecks.adapter "FsFileRemove" do
   port "spawn"
-  handler "bin/filesystem_file_remove"
 end

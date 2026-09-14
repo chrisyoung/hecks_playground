@@ -9,5 +9,4 @@
 # budget live in .world.
 Hecks.adapter "Stripe" do
   port "payment"
-  handler "examples/adapter_host_demo/stripe-handler"
 end

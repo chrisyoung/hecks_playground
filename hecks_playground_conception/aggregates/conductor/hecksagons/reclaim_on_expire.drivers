@@ -1,0 +1,10 @@
+# Driving/driven adapter declarations moved out of reclaim_on_expire.hecksagon:
+# hecks 1.3.0's hecksagon grammar has no `adapter` word (no interval/cron
+# drivers, no `driven on` reactions). Kept verbatim as the spec for an
+# upstream hecks feature. Nothing loads this file.
+
+  adapter "ReclaimOnExpire" do
+    driven on "Conductor::Lease.LeaseExpired" do |event|
+      dispatch "Conductor::Lease.Reclaim"
+    end
+  end

@@ -43,8 +43,5 @@ Hecks.hecksagon "Conductor" do
   # wedge the queue in `state: merging` forever the first time `gh pr
   # merge` genuinely failed. That delivery asymmetry is the exact reason
   # i782 stopped short of converting this binding.
-  Conductor::MergeQueue.spawned_by("PrDeliveryMerge", on: "MergeStarted") do
-    success "Conductor::MergeQueue.CompleteMerge"
-    failure "Conductor::MergeQueue.FailMerge"
-  end
+  Conductor::MergeQueue.spawned_by("PrDeliveryMerge", on: "MergeStarted")
 end

@@ -68,7 +68,6 @@ Hecks.bluebook "Conception", version: "2026.04.16.1" do
       sets :source
       sets :category
       sets :bounded_contexts
-      sets :status,           to: "conceived"
     end
 
     lifecycle :status, default: "spark" do

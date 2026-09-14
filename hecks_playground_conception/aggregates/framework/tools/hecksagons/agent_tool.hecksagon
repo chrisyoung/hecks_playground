@@ -29,25 +29,4 @@ Hecks.hecksagon "AgentToolAdapter" do
   # The bluebook contract does not change when the relay lands ; only the
   # substrate behind this stub does.
 
-  adapter "AgentToolAdapter" do
-    driven on "Tools::AgentTool.AgentMessageSent" do |event|
-      # TODO: when `driven on` grammar fires — replace this canned stub with:
-      #   dispatch "AgentInbox::AgentMessage.Send",
-      #            with: { id: "{id}", agent_id: "{to}", body: "{message}", mid: "{id}" }
-      # The send-message binary provides the synchronous face in the meantime.
-      #
-      # i787: migrated off the block-arg `event.id` form — the runtime's
-      # DrivenCapture takes declarative `with:` kwargs and `{field}`
-      # interpolation, so `event.id` raised NoMethodError at LOAD time and
-      # made this whole file unloadable.
-      dispatch "Cascade::Cascade.RecordResult",
-               with: {
-                 id: "{id}",
-                 tool: "agent_resume",
-                 output: "agent resumed",
-                 exit_code: 0,
-                 ok: true
-               }
-    end
-  end
 end

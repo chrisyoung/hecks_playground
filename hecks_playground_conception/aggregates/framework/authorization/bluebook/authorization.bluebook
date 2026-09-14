@@ -61,7 +61,6 @@ Hecks.bluebook "Authorization", version: "2026.06.27.1" do
       sets :resource
       sets :condition
       sets :expires_at
-      sets :status,     to: "active"
       emits "Permitted"
     end
 
@@ -81,7 +80,6 @@ Hecks.bluebook "Authorization", version: "2026.06.27.1" do
       sets :resource
       sets :condition
       sets :expires_at
-      sets :status,     to: "active"
       emits "Forbidden"
     end
 
@@ -90,7 +88,6 @@ Hecks.bluebook "Authorization", version: "2026.06.27.1" do
       goal "Retire a rule — soft-delete. The active set (and so the gate) drops it on the next boot / re-hydrate. Time-bounded revocation : a rule also drops automatically once expires_at passes."
       reference_to(Policy)
       given("rule must currently be active") { status == "active" }
-      sets :status, to: "retired"
       emits "Retired"
     end
 
@@ -143,7 +140,6 @@ Hecks.bluebook "Authorization", version: "2026.06.27.1" do
       attribute :role_name,        RoleName
       sets :auth_identity_id
       sets :role_name
-      sets :status,           to: "active"
       emits "Assigned"
     end
 
@@ -152,7 +148,6 @@ Hecks.bluebook "Authorization", version: "2026.06.27.1" do
       goal "Retire an assignment — revoke the principal's role. Fail closed : a retired assignment resolves to NO role, so the principal is deny-by-default at the gate on the next re-hydrate."
       reference_to(RoleAssignment)
       given("assignment must currently be active") { status == "active" }
-      sets :status, to: "retired"
       emits "AssignmentRetired"
     end
 

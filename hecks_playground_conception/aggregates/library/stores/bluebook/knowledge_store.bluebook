@@ -61,9 +61,10 @@ Hecks.bluebook "KnowledgeStore", version: "2026.04.28.1" do
     end
   end
 
-  glossary do
-    define "shared knowledge", as: "Stores both beings can access — a library, not telepathy"
-    define "knowledge store", as: "A .heki file in the shared library — brain infrastructure"
-    prefer "shared knowledge", not: ["shared state", "common store", "psychic link"]
-  end
+  # Glossary (kept as a comment: hecks 1.3.0 has no `glossary` word).
+  # glossary do
+  #   define "shared knowledge", as: "Stores both beings can access — a library, not telepathy"
+  #   define "knowledge store", as: "A .heki file in the shared library — brain infrastructure"
+  #   prefer "shared knowledge", not: ["shared state", "common store", "psychic link"]
+  # end
 end

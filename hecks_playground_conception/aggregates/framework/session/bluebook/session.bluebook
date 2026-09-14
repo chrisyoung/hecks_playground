@@ -72,7 +72,6 @@ Hecks.bluebook "Session", version: "2026.05.13.1" do
       emits "SessionBegan"
       sets :id
       sets :began_at
-      sets :state,     to: "active"
     end
 
     command "End" do
@@ -82,7 +81,6 @@ Hecks.bluebook "Session", version: "2026.05.13.1" do
       attribute :ended_at, Timestamp
       emits "SessionEnded"
       sets :ended_at
-      sets :state,    to: "ended"
     end
 
     command "RebuildContext" do

@@ -14,22 +14,13 @@ Hecks.hecksagon "ProcessHealth" do
   # bin/process_health_reap (kills orphaned Tools::ShellTool.Bash dispatch
   # children that spin past runaway_after_seconds — the gap the liveness sweep
   # is blind to).
-  ProcessHealth::ProcessMacrophage.spawned_by("ProcessHealthReap", on: "Swept") do
-    success "Cascade::Cascade.RecordResult"
-    failure "Cascade::Cascade.RecordResult"
-  end
+  ProcessHealth::ProcessMacrophage.spawned_by("ProcessHealthReap", on: "Swept")
 
   # The liveness probe : on Sweep, walk the watchlist via overmind status and
   # MarkAlive | MarkHanged | MarkDead each ProcessSentinel.
-  ProcessHealth::ProcessMacrophage.spawned_by("ProcessHealthSweep", on: "Swept") do
-    success "Cascade::Cascade.RecordResult"
-    failure "Cascade::Cascade.RecordResult"
-  end
+  ProcessHealth::ProcessMacrophage.spawned_by("ProcessHealthSweep", on: "Swept")
 
   # The healer : on Heal, restart dead sentinels via overmind (or restart the
   # supervisor itself).
-  ProcessHealth::ProcessMacrophage.spawned_by("ProcessHealthHeal", on: "HealRequested") do
-    success "Cascade::Cascade.RecordResult"
-    failure "Cascade::Cascade.RecordResult"
-  end
+  ProcessHealth::ProcessMacrophage.spawned_by("ProcessHealthHeal", on: "HealRequested")
 end

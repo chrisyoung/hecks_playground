@@ -12,12 +12,4 @@ Hecks.hecksagon "CronAdapter" do
   # behaviors-test path still fires it on `kind: :driving_tick` so the
   # cascade stays deterministic without a wall clock.
 
-  adapter "CronAdapter" do
-    driving on cron "*/5 * * * *" do |signal|
-      dispatch "Tools::TaskTool.Get",
-               id: "cron-adapter-smoke",
-               task_id: "cron-adapter-smoke-task",
-               description: "Cron adapter smoke check"
-    end
-  end
 end

@@ -1,0 +1,16 @@
+# Driving/driven adapter declarations moved out of story_worktree_sync.hecksagon:
+# hecks 1.3.0's hecksagon grammar has no `adapter` word (no interval/cron
+# drivers, no `driven on` reactions). Kept verbatim as the spec for an
+# upstream hecks feature. Nothing loads this file.
+
+  adapter "LockAdapter" do
+    driven on "Conductor::Lease.LeaseGranted" do |event|
+      dispatch "Plan::Story.LockWorktree", with: { story: "{story}", worktree_path: "{worktree_path}" }
+    end
+  end
+
+  adapter "UnlockAdapter" do
+    driven on "Conductor::Lease.LeaseReclaimed" do |event|
+      dispatch "Plan::Story.UnlockWorktree", with: { story: "{story}" }
+    end
+  end

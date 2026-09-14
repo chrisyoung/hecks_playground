@@ -1,4 +1,4 @@
-Hecks.bluebook "Conductor", version: "2026.06.02.2" do
+Hecks.bluebook "Conductor", version: "2026.06.28.1" do
   vision "The Conductor domain : workforce orchestration. The Lease aggregate is the worktree allocation — one Lease per worktree path. A Worker holds a Lease on a path for the duration of a Story. Belongs to a Story and a Worker."
 
   aggregate "Lease" do

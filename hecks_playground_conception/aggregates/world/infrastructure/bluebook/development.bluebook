@@ -70,7 +70,6 @@ Hecks.bluebook "Development", version: "2026.05.16.1" do
       attribute :domain_name, DomainName
       emits "VectorComputed"
       sets :domain_name
-      sets :status, to: "vectorized"
     end
 
     command "FindArchetype" do
@@ -78,7 +77,6 @@ Hecks.bluebook "Development", version: "2026.05.16.1" do
       goal "Search the nursery corpus for the nearest domain by cosine similarity"
       reference_to(Development)
       emits "ArchetypeFound"
-      sets :status, to: "matched"
     end
 
     command "PlanDevelopment" do
@@ -88,7 +86,6 @@ Hecks.bluebook "Development", version: "2026.05.16.1" do
       attribute :target_vector, list_of(TargetVector)
       emits "DevelopmentPlanned"
       sets :target_vector
-      sets :status, to: "planned"
     end
 
     command "DevelopDomain" do
@@ -96,7 +93,6 @@ Hecks.bluebook "Development", version: "2026.05.16.1" do
       goal "Graft structure from archetype through anticorruption layer — no foreign vocabulary leaks"
       reference_to(Development)
       emits "DomainDeveloped"
-      sets :status, to: "developed"
     end
 
     command "RejectDevelopment" do
@@ -104,7 +100,6 @@ Hecks.bluebook "Development", version: "2026.05.16.1" do
       goal "Archetype doesn't fit — the domain stays as it is"
       reference_to(Development)
       emits "DevelopmentRejected"
-      sets :status, to: "rejected"
     end
 
     lifecycle :status, default: "pending" do

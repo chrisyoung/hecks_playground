@@ -16,8 +16,5 @@ Hecks.hecksagon "Conductor" do
   # ::Cascade.RecordResult, matching every other spawned_by conversion in
   # this corpus -- the audit trail, not a domain state change (Lease
   # itself records no worktree-creation flag).
-  Conductor::Lease.spawned_by("WorktreeCreate", on: "LeaseGranted") do
-    success "Cascade::Cascade.RecordResult"
-    failure "Cascade::Cascade.RecordResult"
-  end
+  Conductor::Lease.spawned_by("WorktreeCreate", on: "LeaseGranted")
 end

@@ -5,20 +5,8 @@ Hecks.hecksagon "Cargo" do
   # Impure edges, hecksagon-first : each Cargo command runs its cargo script and
   # cascades the output into RecordResult. Re-expressed (i780, 2026-08-17)
   # from the retired `adapter :exec` kwargs form onto the spawn effect port.
-  Cargo::Cargo.spawned_by("CargoBuild", on: "BuildCompleted") do
-    success "Cascade::Cascade.RecordResult"
-    failure "Cascade::Cascade.RecordResult"
-  end
-  Cargo::Cargo.spawned_by("CargoTest", on: "TestsRun") do
-    success "Cascade::Cascade.RecordResult"
-    failure "Cascade::Cascade.RecordResult"
-  end
-  Cargo::Cargo.spawned_by("CargoCheck", on: "CheckCompleted") do
-    success "Cascade::Cascade.RecordResult"
-    failure "Cascade::Cascade.RecordResult"
-  end
-  Cargo::Cargo.spawned_by("CargoClippy", on: "ClippyCompleted") do
-    success "Cascade::Cascade.RecordResult"
-    failure "Cascade::Cascade.RecordResult"
-  end
+  Cargo::Cargo.spawned_by("CargoBuild", on: "BuildCompleted")
+  Cargo::Cargo.spawned_by("CargoTest", on: "TestsRun")
+  Cargo::Cargo.spawned_by("CargoCheck", on: "CheckCompleted")
+  Cargo::Cargo.spawned_by("CargoClippy", on: "ClippyCompleted")
 end

@@ -7,5 +7,4 @@
 # `spawned_by` verb.
 Hecks.adapter "FsFileReadRange" do
   port "spawn"
-  handler "bin/filesystem_file_read_range"
 end

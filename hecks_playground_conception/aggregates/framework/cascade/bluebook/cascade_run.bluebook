@@ -130,7 +130,6 @@ Hecks.bluebook "CascadeRun", version: "2026.05.25.1" do
       sets :steps
       sets :retry_policy
       sets :causation
-      sets :status,        to: "running"
       emits "CascadeRunBegun"
     end
 
@@ -173,7 +172,6 @@ Hecks.bluebook "CascadeRun", version: "2026.05.25.1" do
       goal "Transition the run to completed. All steps must have reached completed status before the runtime calls this. Emits CascadeRunCompleted so downstream policies can react to a fully-resolved pipeline."
       attribute :run_id, RunId
       given("run must be running") { status == "running" }
-      sets :status, to: "completed"
       emits "CascadeRunCompleted"
     end
 
@@ -183,7 +181,6 @@ Hecks.bluebook "CascadeRun", version: "2026.05.25.1" do
       attribute :run_id,  RunId
       attribute :reason,  FailureReason
       given("run must be running") { status == "running" }
-      sets :status,         to: "failed"
       sets :failure_reason, to: :reason
       emits "CascadeRunFailed"
     end

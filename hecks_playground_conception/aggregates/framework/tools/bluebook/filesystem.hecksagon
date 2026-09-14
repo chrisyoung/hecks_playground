@@ -9,28 +9,10 @@ Hecks.hecksagon "Filesystem" do
   # commands are entity-scoped (File.Move / Directory.Remove) — events are
   # attributed to the owning aggregate, not the entity, same as every other
   # emitted event here.
-  Filesystem::Filesystem.spawned_by("FsFileMove", on: "FileMoved") do
-    success "Cascade::Cascade.RecordResult"
-    failure "Cascade::Cascade.RecordResult"
-  end
-  Filesystem::Filesystem.spawned_by("FsFileRemove", on: "FileRemoved") do
-    success "Cascade::Cascade.RecordResult"
-    failure "Cascade::Cascade.RecordResult"
-  end
-  Filesystem::Filesystem.spawned_by("FsFileReadRange", on: "FileRangeRead") do
-    success "Cascade::Cascade.RecordResult"
-    failure "Cascade::Cascade.RecordResult"
-  end
-  Filesystem::Filesystem.spawned_by("FsDirCreate", on: "DirectoryCreated") do
-    success "Cascade::Cascade.RecordResult"
-    failure "Cascade::Cascade.RecordResult"
-  end
-  Filesystem::Filesystem.spawned_by("FsDirRemove", on: "DirectoryRemoved") do
-    success "Cascade::Cascade.RecordResult"
-    failure "Cascade::Cascade.RecordResult"
-  end
-  Filesystem::Filesystem.spawned_by("FsDirList", on: "DirectoryListed") do
-    success "Cascade::Cascade.RecordResult"
-    failure "Cascade::Cascade.RecordResult"
-  end
+  Filesystem::Filesystem.spawned_by("FsFileMove", on: "FileMoved")
+  Filesystem::Filesystem.spawned_by("FsFileRemove", on: "FileRemoved")
+  Filesystem::Filesystem.spawned_by("FsFileReadRange", on: "FileRangeRead")
+  Filesystem::Filesystem.spawned_by("FsDirCreate", on: "DirectoryCreated")
+  Filesystem::Filesystem.spawned_by("FsDirRemove", on: "DirectoryRemoved")
+  Filesystem::Filesystem.spawned_by("FsDirList", on: "DirectoryListed")
 end

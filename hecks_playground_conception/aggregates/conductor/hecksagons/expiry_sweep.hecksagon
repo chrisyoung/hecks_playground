@@ -16,9 +16,4 @@ Hecks.hecksagon "ExpirySweep" do
   # Mirror of liveness_sweep.hecksagon exactly : Lease.Expire over Lease.PastTtl
   # keyed by the lease identity (worktree_path), the way LivenessSweep fires
   # Worker.MarkDead over Worker.Stale keyed by worker_id.
-  adapter "ExpirySweep" do
-    driven on "Conductor::Sweeper.Ticked" do |event|
-      dispatch "Conductor::Lease.Expire", for_each: { from: "Conductor::Lease.PastTtl", where: { now: "{now}" } }, with: { id: "{worktree_path}" }
-    end
-  end
 end

@@ -7,5 +7,4 @@
 # `spawned_by` verb.
 Hecks.adapter "GitDiff" do
   port "spawn"
-  handler "bin/git_diff"
 end

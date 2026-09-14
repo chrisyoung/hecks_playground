@@ -8,5 +8,4 @@
 # `spawned_by` verb. bin/adapter-host runs the handler via `/bin/sh -c`.
 Hecks.adapter "PrMergeableCheck" do
   port "spawn"
-  handler "bin/pr_mergeable_check"
 end

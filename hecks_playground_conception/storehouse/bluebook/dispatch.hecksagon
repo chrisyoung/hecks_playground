@@ -40,7 +40,6 @@ Hecks.hecksagon "Dispatch" do
   # binds the resulting PhraseLookedUp event payload as `target`,
   # making target.bluebook_path / target.aggregate / target.command
   # available to subsequent expects rules and adapter substitutions.
-  adapter :memory
 
   # :invoke — out-of-process re-invocation of the resolved bluebook.
   # Implemented as a templated :shell call (zero new adapter kind ;
@@ -52,11 +51,6 @@ Hecks.hecksagon "Dispatch" do
   # The {{target.bluebook_path}} placeholder resolves through dotted-key
   # template substitution — i493 piece 3 ; today the storehouse main.rs
   # shim hand-fills it before invoking run::run_script in-process.
-  adapter :shell, name: :invoke,
-    command: "storehouse",
-    args: ["run", "{{target.bluebook_path}}", "entrypoint={{phrase}}"],
-    output_format: :text,
-    timeout: 60
 
   # Explicit persisted_by, restored (i788/i789/i790) -- see
   # command_bus.hecksagon's own comment on why the bare `adapter :memory`
