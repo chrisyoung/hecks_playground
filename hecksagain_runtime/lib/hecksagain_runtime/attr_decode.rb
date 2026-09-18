@@ -37,7 +37,7 @@ module HecksagainRuntime
     # nothing specially," never as an error, so an unresolvable verb keeps
     # deciding downstream exactly as it always did.
     def resolve_attributes(runtime, verb, kind:)
-      domain_name, aggregate_name, member_name = Hecksagain::Naming.split_verb(verb)
+      domain_name, aggregate_name, member_name = Hecks::Naming.split_verb(verb)
       return [nil, nil] unless domain_name && aggregate_name && member_name
 
       bluebook  = runtime.registry.bluebook(domain_name)

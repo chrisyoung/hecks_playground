@@ -1,4 +1,4 @@
-HecksPlayground.hecksagon "Antibody" do
+Hecks.hecksagon "Antibody" do
   # Antibody has no persistence — every verdict is a fresh, one-shot
   # evaluation. The memory adapter holds the CommitCheck / BranchScan /
   # StagedCheck aggregates for the lifetime of a single CLI invocation

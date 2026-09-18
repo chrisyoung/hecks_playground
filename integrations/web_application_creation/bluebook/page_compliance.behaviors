@@ -1,4 +1,4 @@
-HecksPlayground.behaviors "PageCompliance" do
+Hecks.behaviors "PageCompliance" do
   vision "Behavioral tests for the PageCompliance domain — exercises every command in memory"
 
   # ── DomainCompliance aggregate ──────────────────────────────────────────

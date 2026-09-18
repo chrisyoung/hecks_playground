@@ -1,4 +1,4 @@
-HecksPlayground.bluebook "PageCompliance", version: "2026.05.12.1" do
+Hecks.bluebook "PageCompliance", version: "2026.05.12.1" do
   vision "Generate pages from aggregates and validate them against the bluebook — no orphan elements"
 
   # 2026-05-12 : primitives wrapped in typed value-objects per the

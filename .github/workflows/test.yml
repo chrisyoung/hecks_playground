@@ -74,13 +74,34 @@ jobs:
       - name: Behaviors corpus
         # i745 Phase 2 — runs hecksagain-cli, the live Ruby runtime, not the
         # retired Rust `storehouse` binary (parser-removal plan).
-        # Hard-blocking, by explicit choice : the real hecksagain-cli sweep
-        # against hecks_playground_conception/aggregates — the root THIS step actually
-        # sweeps — is 335 pass / 18 fail / 342 error / 6 parse-error, 78
-        # files / 695 tests (this session's own measured baseline against
-        # this exact root, not the whole-hecks_playground_conception figure quoted
-        # elsewhere). CI is EXPECTED to go red until that corpus is triaged.
-        # That triage is a separate pass ; this step only wires the gate.
+        # Hard-blocking, by explicit choice. CI is EXPECTED to go red until
+        # the corpus is triaged ; that triage is a separate pass, this step
+        # only wires the gate.
+        #
+        # MEASURED BASELINE, all roots this step sweeps in a checkout
+        # WITHOUT the optional miette/miette_family siblings (2026-09-18,
+        # hecks 1.3.0, after the behaviors-runner fix) :
+        #   102 files · 1050 tests · 280 pass / 13 fail / 756 error
+        #   / 1 pending / 6 parse-error
+        # The previous figure quoted here (335 pass / 18 fail / 342 error,
+        # 695 tests) was measured against the retired VENDORED hecksagain
+        # and no longer describes anything runnable — between then and now
+        # the runner called `Hecksagain.last_behaviors_suite`, a constant
+        # the published gem never defines, so every file reported a parse
+        # error and the real number of tests executed was ZERO.
+        #
+        # The three big remaining buckets, all corpus-side, none of them
+        # the runner :
+        #   • integrations/ (94) + discipline/ (21) — every test errors at
+        #     BOOT on `aggregate "Name", "description"`, the pre-1.3.0
+        #     two-positional-arg form. The gem-migration PR (#781) migrated
+        #     hecks_playground_conception only ; these roots were never done.
+        #   • 6 parse errors — `expect_event`, a `.behaviors` word no
+        #     runner here has ever implemented (the same 6 files were
+        #     parse errors under the vendored runtime too).
+        #   • the rest — stale `expect refused:` wording, tests that
+        #     assume state seeded by an earlier test, and cascades whose
+        #     `driven on` adapters PR #781 parked in .drivers files.
         #
         # `hecksagain-cli behaviors <root>` already recurses a directory
         # (Dir.glob root/**/*.behaviors) and already carries a correct

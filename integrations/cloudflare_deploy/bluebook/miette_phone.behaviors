@@ -1,4 +1,4 @@
-HecksPlayground.behaviors "MiettePhone" do
+Hecks.behaviors "MiettePhone" do
   vision "Behavioral tests for the MiettePhone domain — exercises every command and query in memory"
 
   # ── Gate aggregate ──────────────────────────────────────────

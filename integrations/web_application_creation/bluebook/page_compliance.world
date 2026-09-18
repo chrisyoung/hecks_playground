@@ -1,4 +1,4 @@
-HecksPlayground.world "PageCompliance" do
+Hecks.world "PageCompliance" do
   persisted_by("Heki") do
     dir :default
   end

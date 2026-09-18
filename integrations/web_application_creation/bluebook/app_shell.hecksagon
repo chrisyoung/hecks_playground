@@ -1,3 +1,3 @@
-HecksPlayground.hecksagon "AppShell" do
+Hecks.hecksagon "AppShell" do
   AppShell::AppShell.persisted_by("Heki")
 end

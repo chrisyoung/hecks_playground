@@ -1,4 +1,4 @@
-HecksPlayground.bluebook "AppShell", version: "2026.05.12.1" do
+Hecks.bluebook "AppShell", version: "2026.05.12.1" do
   vision "The overall application frame — navigation, layout, theme"
 
   # === Application Shell ===
