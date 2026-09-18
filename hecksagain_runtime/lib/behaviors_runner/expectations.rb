@@ -9,14 +9,12 @@
 # A `setup`'s aggregate is not declared by the grammar (rust/src/
 # behaviors_runner.rs passes `setup.command` straight to dispatch AS the
 # fqn -- it resolves only because Rust's Domain can disambiguate a
-# bareword command within one small file ; hecksagain's dispatcher
-# requires the full "Domain::Aggregate.Command" form). `qualify` below
-# guesses `on:` first (right almost always -- the corpus's own convention
-# is a same-aggregate lifecycle chain) and falls back to searching every
-# aggregate the domain declares for the one that actually owns the setup
-# command, so a genuine cross-aggregate cascade test (a Task setup seeding
-# the Story it belongs to, found live in plan.behaviors) still resolves
-# instead of failing on a wrong first guess.
+# bareword command within one small file ; hecks's dispatcher requires the
+# full "Domain::Aggregate.Command" form). `Dispatching.qualify`
+# (dispatching.rb) does that resolution, along with choosing the directory
+# a test boots against and wrapping a dispatch in #335's routing envelope.
+require_relative "dispatching"
+
 module HecksagainRuntime
   module BehaviorsRunner
     module Expectations
@@ -48,15 +46,15 @@ module HecksagainRuntime
           # (`expect emits: ["AgentMessageSent"]`, exact) would gain an
           # unwanted extra cascade if it loaded for them too.
           include_hecksagons = %i[cascade driving_tick].include?(test.kind)
-          dir = isolated_dir_for(source, include_hecksagons: include_hecksagons)
+          dir = Dispatching.isolated_dir_for(source, include_hecksagons: include_hecksagons)
         end
 
         runtime    = Hecks.boot(dir, install_facade: false)
         domain_name = runtime.registry.bluebooks.keys.first
         return error_result(test, "could not determine a domain name from #{source}") unless domain_name
 
-        bluebook = runtime.registry.bluebook(domain_name)
-        test.setups.each { |s| runtime.dispatch(qualify(s.command, test.on_aggregate, domain_name, bluebook), **s.args) }
+        failed_setup = replay_setups(test, runtime, domain_name)
+        return failed_setup if failed_setup
 
         return run_driving_tick(test, runtime) if test.driving_tick?
 
@@ -69,8 +67,30 @@ module HecksagainRuntime
         FileUtils.remove_entry(dir) if dir && !test.cross_cascade? && File.exist?(dir)
       end
 
+      # Setups get their OWN refusal scope, separate from the command
+      # under test. Sharing one `rescue *REFUSAL_CLASSES` (what this file
+      # used to do) lets a BROKEN SETUP spuriously satisfy `expect
+      # refused: "..."` whenever its own refusal text happens to contain
+      # the expected description -- a green check for a test that never
+      # reached the situation it claims to describe. A refusal during
+      # `setup` is therefore unconditionally an error. Lesson taken from
+      # the published gem's own Hecks::Behaviors::Expectations, which
+      # calls this deviation out explicitly in its header.
+      def replay_setups(test, runtime, domain_name)
+        bluebook = runtime.registry.bluebook(domain_name)
+        current  = nil
+        test.setups.each do |setup|
+          current = setup
+          verb = Dispatching.qualify(setup.command, test.on_aggregate, domain_name, bluebook)
+          Dispatching.dispatch_command(runtime, verb, setup.args)
+        end
+        nil
+      rescue *REFUSAL_CLASSES => e
+        error_result(test, "setup #{current&.command.inspect} refused: #{e.message}")
+      end
+
       def run_command(test, runtime, domain_name)
-        result = runtime.dispatch(test.fqn(domain_name), **test.input)
+        result = Dispatching.dispatch_command(runtime, test.fqn(domain_name), test.input)
 
         return fail_result(test, "expected refused: #{test.expect[:refused].inspect} but dispatch succeeded") if test.expect.key?(:refused)
 
@@ -92,23 +112,23 @@ module HecksagainRuntime
         pass_result(test)
       end
 
-      # `kind: :driving_tick` (slice 1.3) -- proves a `driving on
-      # cron/interval` handler dispatches, deterministically (no real
-      # clock wait). Fires every CRON handler exactly once via
-      # Hecks::Runtime::DrivingScheduler#fire_all! -- `kinds:
-      # ["cron"]` deliberately excludes `interval` handlers loaded from
-      # the same sibling `hecksagons/` folder (interval_adapter.hecksagon
-      # sits right beside cron_adapter.hecksagon), matching this test's
-      # own comment ("the runner fires every cron handler once").
-      def run_driving_tick(test, runtime)
-        scheduler = Hecks::Runtime::DrivingScheduler.new(runtime)
-        results   = scheduler.fire_all!(kinds: ["cron"])
-        actual    = results.flat_map { |r| r.events.map(&:name) }
-
-        expected = test.expect[:emits]
-        return fail_result(test, "expected emits: #{expected.inspect}, got #{actual.inspect}") if expected && actual != expected
-
-        pass_result(test)
+      # `kind: :driving_tick` (slice 1.3) was written to prove a `driving
+      # on cron/interval` handler dispatches deterministically, by firing
+      # every cron handler once through `Hecks::Runtime::DrivingScheduler
+      # #fire_all!`. THAT CLASS DOES NOT EXIST AND NEVER DID -- not in
+      # hecks 1.3.0, and not in the vendored copy this runner was written
+      # against either (checked with `git log -S` over vendor/). The old
+      # code called it anyway, so the single `:driving_tick` test in the
+      # corpus has always died on a NameError that the catch-all rescue
+      # relabelled. Reported as its own explicit error rather than
+      # silently passed or quietly skipped: the capability is genuinely
+      # missing from the gem, and a runner that pretends otherwise is the
+      # exact failure this file's fix exists to end.
+      def run_driving_tick(test, _runtime)
+        error_result(test,
+                     "kind: :driving_tick needs a driving-adapter scheduler (fire every `driving on cron` " \
+                     "handler once); hecks #{Hecks::VERSION} ships none -- there is no " \
+                     "Hecks::Runtime::DrivingScheduler or any other cron-firing API to port onto")
       end
 
       def run_query(test, runtime, domain_name)
@@ -158,33 +178,6 @@ module HecksagainRuntime
         return normalize(value[:value]) if value.is_a?(Hash) && value.keys == [:value]
 
         value
-      end
-
-      def qualify(command, on_aggregate, domain_name, bluebook)
-        return command.to_s if command.to_s.include?(".")
-
-        resolved = on_aggregate
-        target   = bluebook&.aggregate(on_aggregate)
-        if bluebook && !(target && target.command(command))
-          owner = bluebook.aggregates.find { |a| a.command(command) }
-          resolved = owner.name if owner
-        end
-        "#{domain_name}::#{resolved}.#{command}"
-      end
-
-      # `include_hecksagons:` (slice 1.3) -- see run_one's own comment on
-      # the two kinds that pass true. The sibling folder sits one level up
-      # from `source`'s own directory (`.../tools/bluebook/tools.bluebook`
-      # -> `.../tools/hecksagons/`), the exact convention tools.behaviors's
-      # own header names.
-      def isolated_dir_for(source, include_hecksagons: false)
-        dir = Dir.mktmpdir("behaviors-")
-        FileUtils.cp(source, File.join(dir, File.basename(source)))
-        if include_hecksagons
-          sibling = File.join(File.dirname(File.dirname(source)), "hecksagons")
-          Dir.glob(File.join(sibling, "*.hecksagon")).each { |f| FileUtils.cp(f, File.join(dir, File.basename(f))) }
-        end
-        dir
       end
 
       def pass_result(test, pending: false)
