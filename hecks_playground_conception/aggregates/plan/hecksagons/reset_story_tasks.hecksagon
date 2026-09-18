@@ -5,9 +5,4 @@ Hecks.hecksagon "Plan" do
   # tasks are untouched ; reopened tasks rebuild pending_task_count via the existing
   # IncrementOnTaskReopened policy (which now fires on adapter-dispatched commands too).
   # {id} = the reset story ref (event) ; record-first the matched Task's id for Reopen.
-  adapter "ReopenTasksOnStoryReset" do
-    driven on "Plan::Story.StoryReset" do |event|
-      dispatch "Plan::Task.Reopen", for_each: { from: "Plan::Task.ForStory", where: { story: "{id}" } }, with: { id: "{id}" }
-    end
-  end
 end

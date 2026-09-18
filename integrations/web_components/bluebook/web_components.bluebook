@@ -1,6 +1,5 @@
 HecksPlayground.bluebook "WebComponents", version: "2026.05.01.1" do
   vision "UI as a domain — every component maps to DaisyUI classes and binds to bluebook concepts"
-  category "capability"
 
   # ============================================================
   # WEB COMPONENTS — powered by DaisyUI
@@ -636,17 +635,18 @@ HecksPlayground.bluebook "WebComponents", version: "2026.05.01.1" do
   # GLOSSARY
   # ============================================================
 
-  glossary do
-    define "component", as: "A reusable UI block that maps to a DaisyUI class and a bluebook concept"
-    define "daisy class", as: "The DaisyUI CSS class that styles the component"
-    define "generation rule", as: "When the builder should emit this component based on domain IR"
-    define "shell", as: "The app frame — daisy drawer with sidebar and navbar"
-    define "command form", as: "A daisy modal or inline form generated from command attributes"
-    define "lifecycle bar", as: "Contextual transition buttons from lifecycle definition"
-    define "board", as: "Kanban view — daisy columns from lifecycle states"
-    prefer "component", not: ["widget", "element", "block"]
-    prefer "card", not: ["panel", "tile", "box"]
-    prefer "modal", not: ["dialog", "popup", "overlay"]
-    prefer "toast", not: ["notification", "snackbar", "flash"]
-  end
+  # Glossary (kept as a comment: hecks 1.3.0 has no `glossary` word).
+  # glossary do
+  #   define "component", as: "A reusable UI block that maps to a DaisyUI class and a bluebook concept"
+  #   define "daisy class", as: "The DaisyUI CSS class that styles the component"
+  #   define "generation rule", as: "When the builder should emit this component based on domain IR"
+  #   define "shell", as: "The app frame — daisy drawer with sidebar and navbar"
+  #   define "command form", as: "A daisy modal or inline form generated from command attributes"
+  #   define "lifecycle bar", as: "Contextual transition buttons from lifecycle definition"
+  #   define "board", as: "Kanban view — daisy columns from lifecycle states"
+  #   prefer "component", not: ["widget", "element", "block"]
+  #   prefer "card", not: ["panel", "tile", "box"]
+  #   prefer "modal", not: ["dialog", "popup", "overlay"]
+  #   prefer "toast", not: ["notification", "snackbar", "flash"]
+  # end
 end

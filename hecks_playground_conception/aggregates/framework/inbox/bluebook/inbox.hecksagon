@@ -8,8 +8,5 @@ Hecks.hecksagon "Inbox" do
   # Impure edge, hecksagon-first : on Check, poll Gmail via node bin/inbox_poll.mjs
   # and cascade the outcome into RecordResult. Re-expressed (i780, 2026-08-17)
   # from the retired `adapter :exec` kwargs form onto the spawn effect port.
-  Inbox::Inbox.spawned_by("InboxPoll", on: "InboxChecked") do
-    success "Cascade::Cascade.RecordResult"
-    failure "Cascade::Cascade.RecordResult"
-  end
+  Inbox::Inbox.spawned_by("InboxPoll", on: "InboxChecked")
 end

@@ -1,6 +1,5 @@
 Hecks.bluebook "ChaosMonkey", version: "2026.05.14.1" do
   vision "Resilience-by-disturbance for the bluebook system. ChaosMonkey deliberately corrupts runtime state — aggregate attributes, references, .heki files — and then verifies whether the discipline layer (tests + macrophages) catches the corruption. Caught corruptions confirm coverage ; uncaught corruptions become recorded Weaknesses — a backlog of blind spots the discipline layer needs to close. Dispatched on a circadian rhythm (slower than heartbeat sweeps in i616) so chaos perturbs the system daily / strategically rather than every invocation. Breaking things — even in production — is the discipline ; the bus chronicles every act so weaknesses surface loudly. Bluebook-native, dispatchable, queryable, audit-trailed."
-  category "framework"
 
   # ============================================================
   # CHAOS MONKEY — active resilience testing on a circadian beat

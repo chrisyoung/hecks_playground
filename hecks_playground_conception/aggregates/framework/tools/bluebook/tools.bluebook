@@ -1,6 +1,5 @@
 Hecks.bluebook "Tools", version: "2026.05.14.1" do
   vision "First-class tool invocations as dispatched commands, grouped by category. Each tool family is its own aggregate ; the kernel-hook's RecordResult chain lives in the sibling Cascade bluebook (extracted 2026-05-14, i609 phase 1). Replaces the earlier flat single-Tools aggregate (versions ≤ 2026.05.12.5) — sibling commands of unrelated kinds no longer share a single record. Per the locked 2026-05-12 conventions, every value object is declared INSIDE the aggregate that uses it ; duplication across aggregates (Id, Description, FilePath, SearchPath) is fine."
-  category "framework"
 
   # ============================================================
   # TOOLS — agent-level tool invocations as first-class dispatches

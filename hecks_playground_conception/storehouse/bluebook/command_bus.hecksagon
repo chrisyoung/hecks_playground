@@ -47,24 +47,17 @@ Hecks.hecksagon "CommandBus" do
   # the configured state on every dispatch ; HealthCheck projects
   # from the latest record. Same root as the other storehouse
   # aggregates ; the world's heki.dir resolves the literal path.
-  adapter :fs, root: "information"
 
   # :memory — Scope walks Lexicon's in-process index to build the
   # filtered phrase set ; ListPhrases reads the materialized set ;
   # Route's `expects "phrase is in this bus's scope"` clause checks
   # in-memory before delegating.
-  adapter :memory
 
   # :shell — Route delegates to Dispatch.Route once the scope
   # check passes. The :shell adapter re-invokes the storehouse
   # binary with the resolved phrase ; same pattern as
   # dispatch.hecksagon's :invoke binding. Substitution placeholders
   # interpolate the caller's phrase + params.
-  adapter :shell, name: :delegate,
-    command: "storehouse",
-    args: ["storehouse", "route", "{{phrase}}", "{{params_kv}}"],
-    output_format: :text,
-    timeout: 60
 
   # Migration plan task 4 (superseded, i788/i789/i790): this explicit bind
   # used to duplicate `adapter :memory` above -- bare `adapter :memory`

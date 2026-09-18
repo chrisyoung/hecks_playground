@@ -1,0 +1,8 @@
+# Driving/driven adapter declarations moved out of lexicon.hecksagon:
+# hecks 1.3.0's hecksagon grammar has no `adapter` word (no interval/cron
+# drivers, no `driven on` reactions). Kept verbatim as the spec for an
+# upstream hecks feature. Nothing loads this file.
+
+  adapter :fs, root: "."
+
+  adapter :memory

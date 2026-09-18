@@ -18,8 +18,5 @@ Hecks.hecksagon "Plan" do
   # origin/main` this file used to run inline : exit 0 iff the trees are
   # identical (no unpushed AND no unpulled) ; a divergent or stale local
   # main produces a non-empty diff -> exit 1 -> main_up_to_date = false.
-  Plan::Story.spawned_by("MainUpToDateCheck", on: "StoryChecksRequested") do
-    success "Plan::Story.RecordMainUpToDateCheckResult"
-    failure "Plan::Story.RecordMainUpToDateCheckResult"
-  end
+  Plan::Story.spawned_by("MainUpToDateCheck", on: "StoryChecksRequested")
 end

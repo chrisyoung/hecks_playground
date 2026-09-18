@@ -7,5 +7,4 @@
 # `spawned_by` verb.
 Hecks.adapter "ProcessHealthReap" do
   port "spawn"
-  handler "bin/process_health_reap"
 end

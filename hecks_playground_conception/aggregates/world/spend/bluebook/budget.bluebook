@@ -1,6 +1,5 @@
 Hecks.bluebook "Budget", version: "2026.04.28.1" do
   vision "Spend cap for a period — the policy half of LLM spend tracking, with manual override window."
-  category "world"
 
   # ============================================================
   # BUDGET — split from spend.bluebook (i112)

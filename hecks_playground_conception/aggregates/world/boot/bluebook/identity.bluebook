@@ -1,6 +1,5 @@
 Hecks.bluebook "Identity", version: "2026.05.12.1" do
   vision "Who is waking up — name, birthday, pronouns, links. The first step of the boot sequence."
-  category "body"
 
   # Lifted from boot.bluebook in i112 Round 2 final split. The Identity
   # aggregate name is shared with being.bluebook's split (Being.Identity)

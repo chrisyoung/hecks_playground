@@ -1,195 +1,38 @@
 #!/bin/bash
 # Miette Governance — pre-push enforcement
 #
-# [antibody-exempt: tooling/git-hooks/pre-push — git-hook glue, the behaviors
-#  gate itself. OS-edge surface git invokes, not a domain concept (sibling of
-#  bin/antibody-check, itself self-exempt). The hardcoded behaviors-roots list
-#  is a known smell ; a declared single-source both this hook and CI read is a
-#  follow-up.]
+# [antibody-exempt: tooling/git-hooks/pre-push — git-hook glue. OS-edge
+#  surface git invokes, not a domain concept (sibling of bin/antibody-check,
+#  itself self-exempt).]
 #
 # Tracked hook source. Install with: tooling/install-hooks
 #
-# Heavyweight gate that runs every .behaviors file across the
-# framework conception before allowing a push. Being corpora (miette,
-# miette_family) are separate repos and gate themselves.
-# Bounded (~30-60s) and local — the last line of defence before code
-# crosses the network.
+# This hook currently enforces NOTHING and always allows the push. It is
+# kept (rather than deleted) so tooling/install-hooks keeps overwriting any
+# older installed copy that still runs the gates below.
 #
-# The i112 anatomy reorg silently orphaned 44 .behaviors files for
-# weeks because the discipline ratchets only ran on-demand, and the
-# pre-commit gate's lightweight smoke didn't exercise behavioral
-# coverage. Pre-push closes that loop : if any .behaviors file fails,
-# the push is refused.
+# Exit 0 = push allowed.
 #
-# Skip rules :
-#   • A .behaviors file with no same-stem .bluebook in the same dir
-#     is treated as orphaned (skipped here so the companion-file
-#     ratchet in pre-commit owns that diagnostic).
+# Gates that used to live here, all retired:
 #
-# Exit 0 = push allowed. Exit 1 = push blocked.
-# Set BEHAVIORS_SKIP=1 to bypass for emergencies (an antibody failure).
-
-# i564 fix : resolve REPO against the worktree that's actually pushing,
-# not the main checkout. When `$0` is the hook script, its path lives
-# under the MAIN repo's .git/hooks/ (worktrees share hooks via the main
-# repo's gitdir by default), so dirname-relative resolution lands in
-# the main tree. `git rev-parse --show-toplevel` returns the top of the
-# working tree that invoked the hook — main for main pushes, the
-# worktree's top for worktree pushes. The behaviors corpus walk needs
-# to read from whichever tree is being pushed (staged + committed
-# bytes live in that tree's working files).
-REPO="$(git rev-parse --show-toplevel)"
-# MAIN_REPO is the main worktree's top, derived from the shared git
-# common dir. Worktrees inherit the built storehouse binary from main
-# (no per-worktree rebuild). On a main-tree push MAIN_REPO == REPO.
+#   • .behaviors corpus — RETIRED (hecksagain cutover, 2026-08-11, Chris's
+#     explicit sign-off). It ran the retired Rust binary's `storehouse
+#     behaviors` interpreter against content rewritten for hecksagain, and
+#     re-walked the WHOLE corpus on every push (8 of 137 files failed on a
+#     push touching 4 unrelated shell scripts). CI's Behaviors workflow
+#     (.github/workflows/test.yml) now sweeps the corpus with hecksagain-cli.
 #
-# `git rev-parse --git-common-dir` returns an ABSOLUTE path when the
-# common dir sits outside the cwd's tree (the worktree case) but a
-# RELATIVE ".git" when cwd already IS the main repo root — which it
-# always is for a real push from the main checkout, git invokes hooks
-# with cwd at the working tree's top. Wrapping in `cd … && pwd` forces
-# MAIN_REPO absolute either way (found while wiring blocker B's sibling-
-# repo lookup below — a relative MAIN_REPO silently broke it whenever
-# pushing from the main checkout directly, i768 slice 2.2c).
-MAIN_REPO="$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd)"
-
-# hecksagain cutover (i768 slice 2.2c blocker B): the referential-
-# integrity gate below used to run hecks_playground/rust's OWN storehouse binary.
-# rust/ is retired ; the binary now comes from hecks-hecksagain's
-# storehouse/ crate instead. Same "find a built binary outside this
-# repo" problem bin/loc-ratchet already solves for HECKS_PLAYGROUND_BIN — same
-# shape here : an env override first, then a conventional on-disk path,
-# with NO auto-build (a hook that might trigger a multi-minute cargo
-# build on every push is a broken hook) and NO silent no-op (the old
-# code had no existence guard at all — a missing binary made every
-# `"$STOREHOUSE" integrity …` call fail as a shell "command not found",
-# which the `if !` below would have reported as a false "dangling
-# reference" push-block, not the true "binary missing" cause).
+#   • Full Rust integration suite (rust/tests/*.rs) — RETIRED in the same
+#     cutover: those tests parse real bluebook content with the old Rust
+#     parser, whose behaviour against hecksagain-shaped content is no longer
+#     a maintained contract.
 #
-# hecks-hecksagain is checked out as a SIBLING of hecks_playground on this
-# machine (same convention every slice of this cutover has assumed —
-# Gemfile's git: source, the CF worker's git dep, this session's own
-# worktrees), so the default guess is "hecks_playground"'s sibling with the repo
-# name swapped in. HECKS_PLAYGROUND_HECKSAGAIN_BIN overrides directly for anyone
-# whose layout differs.
-HECKSAGAIN_REPO="${HECKS_PLAYGROUND_HECKSAGAIN_REPO:-$(dirname "$MAIN_REPO")/hecks-hecksagain}"
-STOREHOUSE="${HECKS_PLAYGROUND_HECKSAGAIN_BIN:-}"
-if [ -z "$STOREHOUSE" ]; then
-    for candidate in \
-        "$HECKSAGAIN_REPO/storehouse/target/release/storehouse" \
-        "$HECKSAGAIN_REPO/storehouse/target/debug/storehouse"; do
-        if [ -x "$candidate" ]; then
-            STOREHOUSE="$candidate"
-            break
-        fi
-    done
-fi
+#   • Referential-integrity gate (Sprint 24, `storehouse integrity
+#     hecks_playground_conception/aggregates`) — REMOVED 2026-09-14. Its
+#     binary came from a sibling checkout of the private hecks-hecksagain
+#     fork's Rust storehouse, which the playground no longer depends on.
+#     hecksagain-cli has no `integrity` verb, so there is no Ruby
+#     replacement yet; dangling cross-aggregate references are unguarded
+#     until one exists.
 
-# Gate 6b worktree detection — when pushing from a git worktree, .git is
-# a file (pointing to the common gitdir) rather than a directory.
-# In that case skip the behaviors gate and warn instead of blocking.
-#
-# Root cause: storehouse behaviors uses load_combined_domain, which walks
-# the aggregates/ root with depth=0 and the integrations/ bucket with
-# depth=1. When the behaviors file lives in a worktree path (e.g.
-# /private/tmp/sq-foo/hecks_playground_conception/aggregates/…), the aggregates
-# root resolves to that worktree path. Bluebooks within it get their
-# relative depth from that path. But the integrations/ bucket is always
-# loaded relative to MAIN_REPO (via heki::repo_root() which walks up
-# from the binary, not the worktree). The depth misalignment means
-# integrations/cloudflare_deploy/cloudflare_artifacts.bluebook (depth=1)
-# beats grammar/lexicon.bluebook (depth≥4) in the shallowest-wins sort —
-# wrong Compile wins, cascade assertions diverge from the main-checkout
-# result. This is structural, not a code regression.
-#
-# CI (parity.yml's cargo test sweep) is authoritative for behaviors
-# correctness. The pre-push gate is a local convenience fence; worktree
-# pushes from sidequest branches land in CI immediately.
-if [ -f "$REPO/.git" ] && [ "$REPO" != "$MAIN_REPO" ]; then
-    echo "pre-push: running from git worktree ($REPO) — behaviors gate deferred."
-    echo "  CI is authoritative. Run storehouse behaviors locally against"
-    echo "  the main checkout if you want to verify before the PR lands."
-    exit 0
-fi
-
-# RETIRED (hecksagain cutover, 2026-08-11, Chris's explicit sign-off,
-# same reasoning applied to the pre-commit hook's Gates 1/1b/2/6/6b):
-# `storehouse behaviors` is the retired Rust binary's `.behaviors`
-# interpreter, run against content now rewritten for hecksagain — the
-# whole corpus this whole gate used to walk. hecksagain has no
-# `.behaviors` interpreter of its own yet (checked directly, both the
-# vendored copy and the untouched original repo — `hecksagain-cli
-# behaviors` now returns an honest {ok:false,supported:false} rather
-# than pretending). Confirmed live at cutover : 8 of 137 files failed
-# on a push touching only 4 unrelated shell-script files, because this
-# gate re-walks the WHOLE corpus's current on-disk state against the
-# old binary's semantics every time, not just what's being pushed. A
-# real hecksagain-native regression suite is future work (Part 1 item
-# 5 of the migration plan), not written into this hook yet.
-
-# Full Rust integration suite. The behaviors corpus does NOT exercise the
-# rust/tests/*.rs integration tests (driven-adapter cascades, runtime gates), so a
-# broken integration test slips through here — sprint_uniqueness_test was committed
-# RED in the #5 work because nothing local ran cargo test. Close that loop : run the
-# release suite before the push crosses the network. Worktree / BEHAVIORS_SKIP pushes
-# already early-exit above ; skipped when there is no rust/ CRATE — post the
-# storehouse extraction the engine lives in the sibling storehouse repo and is
-# gated there, so this is a no-op here (guard on Cargo.toml, NOT the dir : a
-# stale rust/target/ build artifact can keep the dir present after `git rm`).
-# RETIRED (hecksagain cutover, 2026-08-11, Chris's explicit sign-off,
-# same reasoning as the pre-commit hook's Gates 1/1b/2/6/6b and this
-# hook's own .behaviors gate just above): confirmed live, not assumed
-# -- a real push attempt hit TWO separate failures here in a row
-# (agent_defs_establishment_test.rs, authenticate_gate_test.rs), both
-# genuine instances of Part 2's own original, foundational migration-
-# risk finding (a dedicated comment on the first one has the full
-# trace): rust/tests/*.rs integration tests that `parser::parse(...)` /
-# `include_str!(...)` real bluebook content now hit the OLD Rust
-# parser's silent identified_by-fallback bug the moment that content is
-# hecksagain-shaped. This is systemic, not two isolated tests -- rather
-# than whack-a-mole every affected test file individually (an unknown,
-# possibly large count across rust/tests/), the whole gate is retired
-# here, matching how broadly the same root cause already forced
-# retiring the pre-commit hook's parity/lifecycle/behaviors gates. The
-# Rust runtime is retained post-cutover only for its scoped, still-
-# relevant jobs (daily_musing_cf, the driving-loop scheduler) ; its
-# bluebook-parsing behavior against hecksagain-shaped content is no
-# longer a maintained contract, so testing it against that content is
-# no longer meaningful. Gate 8/9/10's Rust-code-hygiene checks in the
-# pre-commit hook (cargo check --tests, specializer byte-identity, wasm
-# guard) were deliberately left untouched -- those test the Rust CODE
-# itself compiling/behaving correctly, not its agreement with bluebook
-# content, a genuinely different, still-real concern.
-
-# Referential-integrity gate (Sprint 24). A dangling cross-aggregate
-# reference — a stored FK pointing at a record that no longer exists — is the
-# silent-orphan class that severed 144 plan stories from their sprints with no
-# error. `storehouse integrity` resolves every declared belongs_to / reference
-# against the live store ; a dangler blocks the push HERE, not hours later in
-# forensics. Main-repo only (worktrees deferred to CI above, like behaviors).
-if [ -d "$MAIN_REPO/hecks_playground_conception/aggregates" ]; then
-    if [ -z "$STOREHOUSE" ] || [ ! -x "$STOREHOUSE" ]; then
-        echo "pre-push: storehouse binary not found — integrity gate deferred."
-        echo "  Looked for HECKS_PLAYGROUND_HECKSAGAIN_BIN, then a built binary under"
-        echo "  $HECKSAGAIN_REPO/storehouse/target/{release,debug}/storehouse."
-        echo "  Build it (cd $HECKSAGAIN_REPO/storehouse && cargo build --release)"
-        echo "  or set HECKS_PLAYGROUND_HECKSAGAIN_BIN to run this gate locally ; CI is"
-        echo "  authoritative either way."
-    else
-        echo "pre-push: running storehouse integrity (referential-integrity gate)…"
-        if ! "$STOREHOUSE" integrity "$MAIN_REPO/hecks_playground_conception/aggregates" >/tmp/prepush_integrity.log 2>&1; then
-            cat /tmp/prepush_integrity.log
-            echo "PUSH BLOCKED: dangling cross-aggregate reference(s)."
-            echo "  Run : $STOREHOUSE integrity hecks_playground_conception/aggregates"
-            exit 1
-        fi
-        echo "pre-push: integrity green — no dangling references."
-    fi
-fi
-
-# NOTE: the .behaviors gate this hook's header describes was RETIRED in
-# the hecksagain cutover (see the comment block above) — nothing above
-# this point actually runs it, so there is no "$total" file count to
-# report. The referential-integrity gate is this hook's one remaining
-# enforced check.
 exit 0

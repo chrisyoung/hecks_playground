@@ -18,18 +18,4 @@ Hecks.hecksagon "ShellAdapter" do
   # (discovery) ; the smoke in tools.behaviors goes green when
   # both land.
 
-  adapter "ShellAdapter" do
-    driven on "Tools::ShellTool.BashRan" do |event|
-      # Moved under `with:` (i788/i789/i790) -- DrivenCapture#dispatch
-      # takes `with: {}, for_each: nil`, no bare-kwargs catch-all ; same
-      # defect family as i787's for_each with: {} migration
-      # (f5557d80b), this file just wasn't on that sweep's list.
-      dispatch "Tools::TaskTool.Get",
-               with: {
-                 id:          "shell-adapter-smoke",
-                 task_id:     "shell-adapter-smoke-task",
-                 description: "Shell adapter smoke check"
-               }
-    end
-  end
 end

@@ -15,11 +15,6 @@ Hecks.hecksagon "VolunteerPull" do
   # worktree lease is created ONLY AFTER Story.Start's four givens pass (sprint
   # set, state tasked, contracts ratified, deps resolved). worker rides through
   # Start as a pass-through input into the StoryStarted event.
-  adapter "StartOnClaimAcquired" do
-    driven on "Conductor::Claim.ClaimAcquired" do |event|
-      dispatch "Plan::Story.Start", with: { story: "{story}", worker: "{worker}" }
-    end
-  end
 
   # SEAM 2b : the story actually STARTED (gates passed) -> NOW grant its worktree
   # lease. StoryStarted carries Start's inputs (build_event clones them), so
@@ -30,16 +25,6 @@ Hecks.hecksagon "VolunteerPull" do
   # path yet — honest, not faked). worker is the stored FK SEAM 3 matches on :
   # the lease records WHICH worker holds it, so a later WorkerDied matches it via
   # Lease.HeldByWorker (where worker == the dead worker_id).
-  adapter "GrantOnStoryStarted" do
-    driven on "Plan::Story.StoryStarted" do |event|
-      # expires_at "{now+3600}" -- clock-arithmetic interpolation, already
-      # flagged by this file's own comment as "not faked" (i.e. not real
-      # yet) -- interpolate_args only resolves bare {word} tokens, so this
-      # value passes through as literal text until that lands. Not this
-      # fix's scope ; the with: wrap alone gets the file parsing again.
-      dispatch "Conductor::Lease.Grant", with: { worktree_path: "worktrees/{story}", story: "{story}", worker: "{worker}", expires_at: "{now+3600}" }
-    end
-  end
 
   # ------------------------------------------------------------------
   # SEAM 1 (worker self-select) is NOW WIRED FOR REAL — see the sibling

@@ -1,6 +1,5 @@
 Hecks.bluebook "OllamaAdapter", version: "2026.05.11.1" do
   vision "LLM inference via Ollama — driven adapter for language production"
-  category "adapter"
 
   # ============================================================
   # OLLAMA ADAPTER

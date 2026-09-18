@@ -1,6 +1,5 @@
 Hecks.bluebook "RestartPrompt", version: "2026.05.19.1" do
   vision "The mechanism that keeps the next session oriented. When Miette or a sidequest agent composes a recap of the current session's arc, it dispatches RestartPrompt.Compose. A bus-event daemon (bin/restart-prompt-daemon, supervised by overmind) catches the RestartPromptComposed event and writes hecks_playground_conception/inbox/restarts_inbox/latest.md — the canonical orientation artifact the next session pastes in. Bus-driven, not periodic : the daemon is always listening, writes only when a Compose fires. The Composition entity records audit history ; latest_* attrs on the root are the fast-path surface for the daemon (avoids a second query). total_compositions is passed in by the caller so it remains a pure domain record with no runtime arithmetic dependency."
-  category "framework"
 
   # ============================================================
   # RESTARTPROMPT — singleton session orientation record

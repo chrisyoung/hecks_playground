@@ -1,6 +1,5 @@
 HecksPlayground.bluebook "PageCompliance", version: "2026.05.12.1" do
   vision "Generate pages from aggregates and validate them against the bluebook — no orphan elements"
-  category "infrastructure"
 
   # 2026-05-12 : primitives wrapped in typed value-objects per the
   # no-primitive-envy discipline. Per-aggregate VO sets ; duplication

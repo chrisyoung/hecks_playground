@@ -1,0 +1,14 @@
+# Driving/driven adapter declarations moved out of worktree_removed_check.hecksagon:
+# hecks 1.3.0's hecksagon grammar has no `adapter` word (no interval/cron
+# drivers, no `driven on` reactions). Kept verbatim as the spec for an
+# upstream hecks feature. Nothing loads this file.
+
+  adapter "WorktreeRemovedCheck" do
+    driven on "Plan::Story.WorktreeUnlocked" do |event|
+      dispatch "Plan::Story.RecordWorktreeRemovedCheckResult",
+               with: {
+                 story: "{id}",
+                 ok: true
+               }
+    end
+  end

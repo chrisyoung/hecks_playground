@@ -24,8 +24,6 @@ Hecks.hecksagon "WebDebug" do
   # written `path`. A dropped frame is no loss, so there is no failure branch :
   # a non-zero handler exit just records no path (the buffer file is the truth).
   # Mirrors Pizzas::Order.charged_by("Stripe", on: "OrderPlaced").
-  WebDebug::Screenshot.buffered_by("DiskBuffer", on: "FrameCaptured") do
-    success "Screenshot.RecordStored"
-  end
+  WebDebug::Screenshot.buffered_by("DiskBuffer", on: "FrameCaptured")
 
 end

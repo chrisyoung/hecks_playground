@@ -1,0 +1,5 @@
+# Search — declared here because hecks 1.3.0 ships no Search adapter; Tools binds it
+# with `executed_by` (tools/bluebook/tools.hecksagon), same declaration as the fork.
+Hecks.adapter "Search" do
+  port "execution"
+end

@@ -1,6 +1,5 @@
 Hecks.bluebook "ToolCache", version: "2026.05.20.1" do
   vision "MCP tool-cache as a first-class domain. ToolStats records per-tool call counts and last-seen-at across sessions ; ToolCacheSnapshot freezes a hot-path roster (the top-N most-called tools) for the SessionStart additionalContext injection. The Claude Code harness has no native pre-load hook ; ToolSearch is the only loader and it's pull-only. So the cache surfaces as a markdown catalog in /tmp/tool_cache_latest.md that the UserPromptSubmit hook injects as additionalContext — the LLM reads the right names from the catalog instead of guessing and false-negatives on ToolSearch misses. Persistence pair : the projected JSON at ~/.claude/tool-cache.json (read by the discovery surface and the snapshot writer) plus the event log (the bus truth). The dispatch IS the act per the locked 2026-05-12 principles ; bin/update-tool-cache walks recent transcript jsonls, dispatches RecordCall per observed tool_use, then dispatches Compose to mint a fresh snapshot."
-  category "framework"
 
   # ============================================================
   # TOOL_CACHE — MCP-tool hot-path memory across sessions

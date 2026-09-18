@@ -7,5 +7,4 @@
 # `spawned_by` verb.
 Hecks.adapter "CheckWorktree" do
   port "spawn"
-  handler "bin/check-worktree"
 end

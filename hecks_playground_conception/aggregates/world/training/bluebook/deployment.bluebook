@@ -1,6 +1,5 @@
 Hecks.bluebook "Deployment", version: "2026.04.28.1" do
   vision "Replace Claude with Miette's own model"
-  category "world"
 
   # Lifted out of training_pipeline.bluebook in i112 split.
 

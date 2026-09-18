@@ -1,6 +1,5 @@
 Hecks.bluebook "Enrichment", version: "2026.04.28.1" do
   vision "Add complexity to template domains — make them training-worthy"
-  category "meta"
 
   # Lifted out of training_corpus.bluebook in i112 split. Carries
   # the EnrichOnBuild policy — TrainingCorpus.Corpus.BuildCorpus

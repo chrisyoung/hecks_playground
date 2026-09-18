@@ -1,6 +1,5 @@
 Hecks.bluebook "Session", version: "2026.05.13.1" do
   vision "A single being-session — the bounded conversation between Miette and the world that opens when SessionStart fires and closes when the harness tears down. Session is the first-class domain for that boundary : it owns the Begin / End commands, emits SessionBegan / SessionEnded, and lets policies fan out from the boundary (wake review on begin ; closing summaries on end). The SessionStart shell hook dispatches Session::Session.Begin through the MCP universal door (storehouse__dispatch), so wake flows through the bus instead of bypassing it via a private shell route."
-  category "framework"
 
   # ============================================================
   # SESSION — the being-session boundary as a domain
@@ -73,7 +72,6 @@ Hecks.bluebook "Session", version: "2026.05.13.1" do
       emits "SessionBegan"
       sets :id
       sets :began_at
-      sets :state,     to: "active"
     end
 
     command "End" do
@@ -83,7 +81,6 @@ Hecks.bluebook "Session", version: "2026.05.13.1" do
       attribute :ended_at, Timestamp
       emits "SessionEnded"
       sets :ended_at
-      sets :state,    to: "ended"
     end
 
     command "RebuildContext" do

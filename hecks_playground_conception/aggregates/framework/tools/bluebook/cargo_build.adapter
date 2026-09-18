@@ -7,5 +7,4 @@
 # `spawned_by` verb.
 Hecks.adapter "CargoBuild" do
   port "spawn"
-  handler "bin/cargo_build"
 end

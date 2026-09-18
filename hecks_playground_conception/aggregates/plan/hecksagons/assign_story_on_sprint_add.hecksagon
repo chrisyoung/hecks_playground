@@ -4,9 +4,4 @@ Hecks.hecksagon "Plan" do
   # the membership truth on the Story side — Story.sprint, read by Story.BySprint. The
   # Sprint stores no competing list. {story} is the added story ref ; {id} is the sprint
   # number.
-  adapter "AssignStoryOnSprintAdd" do
-    driven on "Plan::Sprint.StoryAddedToSprint" do |event|
-      dispatch "Plan::Story.AssignToSprint", with: { id: "{story}", sprint_ref: "{id}" }
-    end
-  end
 end

@@ -27,12 +27,6 @@ Hecks.hecksagon "EventSourcing" do
   # The Procfile drive member is the projection of this declaration (added at
   # go-live, slice 3b) ; until then the Driver is declared but only fires when
   # `storehouse drive` is run against this realm.
-  adapter "LogConsolidation" do
-    driving on interval "5s" do |clock|
-      dispatch "EventSourcing::Consolidation.Consolidate",
-               consolidation_id: "log"
-    end
-  end
 
   # ── The VERIFICATION driver (derivability as a standing invariant) ──────
   # `verify-projection` proves that current state is DERIVABLE from the Log — the
@@ -46,12 +40,6 @@ Hecks.hecksagon "EventSourcing" do
   # Log, so it is O(log) where consolidation is O(new shards). A minute of lag on
   # a derivability alarm costs nothing ; a gauge that competes with real work for
   # the hot path costs plenty.
-  adapter "ProjectionVerification" do
-    driving on interval "60s" do |clock|
-      dispatch "EventSourcing::Verification.Verify",
-               verification_id: "projection"
-    end
-  end
 
   EventSourcing::Consolidation.persisted_by("Heki")
   EventSourcing::Projection.persisted_by("Heki")

@@ -7,8 +7,5 @@ Hecks.hecksagon "Session" do
   # Process.Spawn policy — the impure edge lives here, not in the bluebook.
   # Re-expressed (i780, 2026-08-17) from the retired `adapter :exec` kwargs
   # form onto the spawn effect port.
-  Session::Session.spawned_by("SessionRecall", on: "ContextRebuilt") do
-    success "Cascade::Cascade.RecordResult"
-    failure "Cascade::Cascade.RecordResult"
-  end
+  Session::Session.spawned_by("SessionRecall", on: "ContextRebuilt")
 end

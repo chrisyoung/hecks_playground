@@ -1,6 +1,5 @@
 Hecks.bluebook "Cascade", version: "2026.05.14.1" do
   vision "Kernel-hook outcome chain extracted from Tools (i609 phase 1, 2026-05-14). After a ShellTool / FileTool / SearchTool / WebTool / EmailTool dispatch runs through its adapter, the adapter chains Cascade.RecordResult carrying the captured outcome (tool, output, exit_code, ok). The Cascade record shares the originating invocation id so the join is straightforward. Per the locked 2026-05-12 conventions, every value object is declared INSIDE the aggregate that uses it ; duplication across aggregates (Id, Description) is fine."
-  category "framework"
 
   # ============================================================
   # CASCADE — kernel-hook outcome chain

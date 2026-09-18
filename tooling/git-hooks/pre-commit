@@ -4,52 +4,34 @@
 # Tracked hook source. Install with: tooling/install-hooks
 #
 # Gates in order:
-#   1. Parity suite (Ruby/Rust parser IR agreement) — block on drift
-#   2. Lifecycle validator — block on any unreachable transitions
-#   2b. Validator gate — `storehouse validate` on every staged .bluebook
-#       (catches duplicate command names, unknown policy targets,
-#        structural shape bugs)
-#   3. Conceiver parity test — block if either conceiver drifts
-#   4. Miette enforce (storehouse governance) — advisory, never blocks
+#   1. Parity suite (Ruby/Rust parser IR agreement) — RETIRED
+#   2. Lifecycle validator — RETIRED
+#   2b. Validator gate — `hecksagain-cli validate` per domain root when a
+#       .bluebook is staged (catches duplicate command names, unknown
+#       policy targets, structural shape bugs)
+#   3. Conceiver parity test — REMOVED (needed the hecks-hecksagain fork)
+#   4. Miette enforce — REMOVED (needed the hecks-hecksagain fork)
 #   4b. Companion-file ratchet — bluebook moves bring .behaviors +
 #       .fixtures with them ; new aggregates and commands need test
 #       coverage in their .behaviors companion
 #   5. Antibody: surface non-bluebook adds/mods (list only — the
 #      commit-msg hook does the actual enforcement, since that's
 #      the only hook that sees the message's exemption marker)
-#   6. Smoke tests must pass
-#   6b. Behaviors corpus — `storehouse test` over each root
-#       (parallel to Gate 6 during the i500 migration window)
+#   6. Smoke tests — RETIRED
+#   6b. Behaviors corpus — RETIRED
 #   7. LoC ratchet — non-bluebook LoC may not increase vs origin/main
-#   8. cargo check --tests — all integration test targets compile, in
-#      hecks-hecksagain's storehouse/ (i768 slice 2.2c: rust/ retired
-#      from hecks_playground ; gate now runs against the fork's checkout)
-#   9. Specializer byte-identity — codegen output equals storehouse/src/<name>.rs
-#      for all tracked shapes (same fork checkout as Gate 8)
-#   10. wasm32 build guard — the storehouse lib still compiles for
-#       wasm32-unknown-unknown (the deciderate / bin-buddy worker target),
-#       skipped gracefully when rustup or the wasm32 target is absent,
-#       or when no hecks-hecksagain checkout is found
+#      (currently disabled)
+#   8. cargo check --tests — REMOVED (needed the hecks-hecksagain fork)
+#   9. Specializer byte-identity — REMOVED (needed the hecks-hecksagain fork)
+#   10. wasm32 build guard — REMOVED (needed the hecks-hecksagain fork)
 #
-# Gates 3/8/9/10 run against hecks-hecksagain's storehouse/ crate, not a
-# path inside this repo (i768 slice 2.2c blocker C) — rust/ retired from
-# hecks_playground in full ; the engine these gates test now lives in the fork,
-# checked out as a sibling of this repo (HECKS_PLAYGROUND_HECKSAGAIN_REPO overrides
-# the sibling-repo guess). Each gate SKIPS with a loud stderr line (not a
-# silent no-op) when no such checkout is found, same discipline as
-# pre-push's integrity gate.
+# Nothing in this hook reads a checkout of the private hecks-hecksagain
+# fork any more; the playground runs on the published `hecks` gem.
 #
 # Exit 0 = commit allowed. Exit 1 = commit blocked.
-# Set PARITY_SKIP=1 to bypass gate 1 (an antibody failure).
-# Set LIFECYCLE_SKIP=1 to bypass gate 2 (also an antibody failure).
-# Set VALIDATE_SKIP=1 to bypass gate 2b (also an antibody failure).
+# Set VALIDATE_SKIP=1 to bypass gate 2b (an antibody failure).
 # Set COMPANION_SKIP=1 to bypass gate 4b (also an antibody failure).
-# Set TESTS_SKIP=1 to bypass gate 6 (also an antibody failure).
-# Set BEHAVIORS_SKIP=1 to bypass gate 6b (also an antibody failure).
 # Set RATCHET_SKIP=1 to bypass gate 7 (also an antibody failure).
-# Set CARGO_CHECK_SKIP=1 to bypass gate 8 (also an antibody failure).
-# Set SPECIALIZER_SKIP=1 to bypass gate 9 (also an antibody failure).
-# Set WASM_SKIP=1 to bypass gate 10 (also an antibody failure).
 
 # i637 — worktree-aware repo anchor. The hook script lives in the
 # shared core.hooksPath (always the main repo's .git/hooks), so a
@@ -63,29 +45,6 @@
 REPO="$(git rev-parse --show-toplevel 2>/dev/null)"
 [ -n "$REPO" ] || REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 
-# hecksagain cutover (i768 slice 2.2c blocker C): rust/ retired from
-# hecks_playground — the engine's own crate, and the binary Gate 4 shells out to,
-# now live in hecks-hecksagain's storehouse/ instead. Same sibling-repo
-# convention blocker B wired into pre-push (env override first, then a
-# conventional on-disk path), so one HECKS_PLAYGROUND_HECKSAGAIN_REPO controls
-# both hooks' lookup. HECKSAGAIN_STOREHOUSE is the crate's SOURCE tree
-# (Gates 3/8/9/10 `cd` into it and run cargo directly against fork
-# sources, not a path-dep) ; STOREHOUSE below is a built BINARY (Gate 4
-# shells out to it, same as pre-push's integrity gate) — different
-# artifacts, same repo.
-HECKSAGAIN_REPO="${HECKS_PLAYGROUND_HECKSAGAIN_REPO:-$(dirname "$REPO")/hecks-hecksagain}"
-HECKSAGAIN_STOREHOUSE="$HECKSAGAIN_REPO/storehouse"
-STOREHOUSE="${HECKS_PLAYGROUND_HECKSAGAIN_BIN:-}"
-if [ -z "$STOREHOUSE" ]; then
-    for candidate in \
-        "$HECKSAGAIN_STOREHOUSE/target/release/storehouse" \
-        "$HECKSAGAIN_STOREHOUSE/target/debug/storehouse"; do
-        if [ -x "$candidate" ]; then
-            STOREHOUSE="$candidate"
-            break
-        fi
-    done
-fi
 CONCEPTION_DIR="$REPO/hecks_playground_conception"
 PARITY_TEST="$REPO/parity/parity_test.rb"
 HECKSAGON_PARITY_TEST="$REPO/parity/hecksagon_parity_test.rb"
@@ -144,7 +103,7 @@ HECKSAGAIN_CLI="$REPO/hecksagain_runtime/bin/hecksagain-cli"
 if [ -z "$VALIDATE_SKIP" ] && [ -x "$HECKSAGAIN_CLI" ]; then
     staged_bluebooks=$(git diff --cached --name-only --diff-filter=ACM | grep '\.bluebook$' || true)
     if [ -n "$staged_bluebooks" ]; then
-        out=$("$HECKSAGAIN_CLI" validate "$CONCEPTION_DIR" 2>&1)
+        out=$("$HECKSAGAIN_CLI" validate "$CONCEPTION_DIR" 2>/dev/null)  # stdout only: hecks prints [hecks] warnings on stderr, which would break the JSON parse
         ok=$(printf '%s' "$out" | ruby -rjson -e 'puts (JSON.parse(STDIN.read)["ok"] == true) rescue puts "false"' 2>/dev/null || echo 'false')
         swept=$(printf '%s' "$out" | ruby -rjson -e 'puts JSON.parse(STDIN.read)["roots_swept"]' 2>/dev/null || echo '?')
         invalid=$(printf '%s' "$out" | ruby -rjson -e 'j=JSON.parse(STDIN.read); puts j["invalid"] || (j["valid"] == false ? 1 : 0)' 2>/dev/null || echo '?')
@@ -165,33 +124,14 @@ if [ -z "$VALIDATE_SKIP" ] && [ -x "$HECKSAGAIN_CLI" ]; then
     fi
 fi
 
-# == Gate 3: conceiver parity test ==
-# Bluebook conceiver and behaviors conceiver must keep the same
-# shape: same files, same Conceiver trait, same surface. Guard fixed
-# on re-home -- the pre-extraction guard had decayed to `[ -d "/rust" ]`
-# (literal root, always skipped) ; now anchored at hecks-hecksagain's
-# storehouse/ (i768 slice 2.2c blocker C -- rust/ retired from hecks_playground,
-# would otherwise have silently decayed to a no-op again the same way).
-if [ -d "$HECKSAGAIN_STOREHOUSE" ]; then
-if ! (cd "$HECKSAGAIN_STOREHOUSE" \
-        && cargo test --release --test conceiver_parity_test \
-             >/tmp/conceiver_parity.out 2>&1); then
-    echo "COMMIT BLOCKED: conceiver parity test failed (drift between conceivers)."
-    echo ""
-    tail -30 /tmp/conceiver_parity.out
-    echo ""
-    echo "Re-run: (cd $HECKSAGAIN_STOREHOUSE && cargo test --release --test conceiver_parity_test)"
-    exit 1
-fi
-else
-    echo "pre-commit: Gate 3 (conceiver parity) skipped — no hecks-hecksagain/storehouse checkout found at $HECKSAGAIN_STOREHOUSE (set HECKS_PLAYGROUND_HECKSAGAIN_REPO?)."
-fi
+# ── Gate 3: conceiver parity test — REMOVED 2026-09-14 ─────────────
+# `cargo test --test conceiver_parity_test` against the Rust storehouse
+# crate in a sibling hecks-hecksagain fork checkout. Removed with that
+# dependency; there is no Rust crate in this repo for it to test.
 
-# ── Gate 4: Miette enforce ─────────────────────────────────────────
-# Governance advisory. Never blocks (yet).
-if [ -x "$STOREHOUSE" ] && "$STOREHOUSE" enforce "$CONCEPTION_DIR" 2>/dev/null; then
-    :
-fi
+# ── Gate 4: Miette enforce — REMOVED 2026-09-14 ────────────────────
+# Advisory-only (never blocked) `storehouse enforce`, using a storehouse
+# binary built in the same fork checkout. Removed with that dependency.
 
 # ── Gate 4b: Companion-file ratchet — moving a .bluebook means moving
 # its .behaviors and .fixtures too. ───────────────────────────────────
@@ -352,90 +292,11 @@ if false && [ -z "$RATCHET_SKIP" ] && [ -x "$REPO/bin/loc-ratchet" ]; then
     "$REPO/bin/loc-ratchet" --base "origin/main" --verbose || true
 fi
 
-# == Gate 8: cargo check --tests -- all integration tests compile ==
-# The smoke gate (Gate 6) runs only the smoke_test binary ; other
-# integration tests aren't built locally. A Rust struct can grow a
-# field and one of 30+ test files lag behind for months unnoticed --
-# until a CI parity job tries the full cargo test build and fails.
-# This gate builds every test target without running them (~10-30s
-# warm, ~60s cold).
-#
-# Set CARGO_CHECK_SKIP=1 to bypass (an antibody failure for emergencies).
-# Repointed at hecks-hecksagain's storehouse/ (i768 slice 2.2c blocker C) --
-# rust/ retired from hecks_playground ; see HECKSAGAIN_STOREHOUSE's definition above.
-if [ -z "$CARGO_CHECK_SKIP" ] && [ -f "$HECKSAGAIN_STOREHOUSE/Cargo.toml" ]; then
-if ! ( cd "$HECKSAGAIN_STOREHOUSE" && cargo check --tests --quiet --workspace ) >/tmp/cargo_check_tests.out 2>&1; then
-    cat /tmp/cargo_check_tests.out
-    echo ""
-    echo "COMMIT BLOCKED: cargo check --tests failed."
-    echo "  Re-run : cd $HECKSAGAIN_STOREHOUSE && cargo check --tests --workspace"
-    echo "  Bypass (use only for emergencies) : CARGO_CHECK_SKIP=1 git commit ..."
-    exit 1
-fi
-else
-    if [ -z "$CARGO_CHECK_SKIP" ]; then
-        echo "pre-commit: Gate 8 (cargo check --tests) skipped — no hecks-hecksagain/storehouse checkout found at $HECKSAGAIN_STOREHOUSE (set HECKS_PLAYGROUND_HECKSAGAIN_REPO?)."
-    fi
-fi
-
-# == Gate 9: specializer byte-identity -- codegen output matches tracked files ==
-# The Rust specializer turns codegen fragments (codegen/<shape>/snippets/*.rs.frag)
-# + shape contracts into rust/src/<name>.rs. Drift between what the
-# specializer emits and what's committed means the kernel surface is
-# editable in two places -- silently breaking future regenerations.
-# The gate enforces single-source-of-truth : the specializer's output
-# IS the file. Runs in ~0.2s on a warm release cache.
-#
-# Set SPECIALIZER_SKIP=1 to bypass (an antibody failure for emergencies).
-# Repointed at hecks-hecksagain's storehouse/ (i768 slice 2.2c blocker C) --
-# rust/ retired from hecks_playground ; see HECKSAGAIN_STOREHOUSE's definition above.
-if [ -z "$SPECIALIZER_SKIP" ] && [ -f "$HECKSAGAIN_STOREHOUSE/tests/specializer_golden_test.rs" ]; then
-if ! ( cd "$HECKSAGAIN_STOREHOUSE" && cargo test --release --test specializer_golden_test --quiet ) >/tmp/specializer_goldens.out 2>&1; then
-    cat /tmp/specializer_goldens.out
-    echo ""
-    echo "COMMIT BLOCKED: specializer byte-identity goldens drifted."
-    echo "  One or more $HECKSAGAIN_STOREHOUSE/src/<name>.rs files no longer match what the"
-    echo "  specializer would emit from codegen/<shape>/snippets/*.rs.frag."
-    echo ""
-    echo "  Fix : sync the codegen fragment(s) so the specializer's output"
-    echo "  equals the production file. Never edit src/<name>.rs by hand."
-    echo "  Re-run : cd $HECKSAGAIN_STOREHOUSE && cargo test --release --test specializer_golden_test"
-    echo "  Bypass (use only for emergencies) : SPECIALIZER_SKIP=1 git commit ..."
-    exit 1
-fi
-else
-    if [ -z "$SPECIALIZER_SKIP" ]; then
-        echo "pre-commit: Gate 9 (specializer byte-identity) skipped — no hecks-hecksagain/storehouse checkout found at $HECKSAGAIN_STOREHOUSE (set HECKS_PLAYGROUND_HECKSAGAIN_REPO?)."
-    fi
-fi
-
-# == Gate 10: wasm32 build guard -- the storehouse lib stays wasm-safe ==
-# The deciderate / bin-buddy Cloudflare-worker target consumes the
-# storehouse crate with default-features off, compiled for
-# wasm32-unknown-unknown. A non-wasm dep sneaking into the no-default
-# surface would break those workers at deploy, not here. Homebrew cargo
-# has NO wasm32 std, so this uses the rustup stable toolchain ; if rustup
-# or the wasm32 target is absent (an OSS contributor without it), the
-# gate skips gracefully rather than blocking.
-#
-# Set WASM_SKIP=1 to bypass (an antibody failure for emergencies).
-# Repointed at hecks-hecksagain's storehouse/ (i768 slice 2.2c blocker C) --
-# rust/ retired from hecks_playground ; see HECKSAGAIN_STOREHOUSE's definition above.
-if [ -z "$WASM_SKIP" ] && [ -f "$HECKSAGAIN_STOREHOUSE/Cargo.toml" ] && command -v rustup >/dev/null 2>&1 \
-&& rustup target list --installed 2>/dev/null | grep -q '^wasm32-unknown-unknown$'; then
-if ! ( cd "$HECKSAGAIN_STOREHOUSE" && rustup run stable cargo check --target wasm32-unknown-unknown -p storehouse --no-default-features --quiet ) >/tmp/wasm_check.out 2>&1; then
-    cat /tmp/wasm_check.out
-    echo ""
-    echo "COMMIT BLOCKED: storehouse lib failed wasm32-unknown-unknown build."
-    echo "  The deciderate / bin-buddy worker target consumes this crate."
-    echo "  Re-run : cd $HECKSAGAIN_STOREHOUSE && rustup run stable cargo check --target wasm32-unknown-unknown -p storehouse --no-default-features"
-    echo "  Bypass (use only for emergencies) : WASM_SKIP=1 git commit ..."
-    exit 1
-fi
-else
-    if [ -z "$WASM_SKIP" ] && [ ! -f "$HECKSAGAIN_STOREHOUSE/Cargo.toml" ]; then
-        echo "pre-commit: Gate 10 (wasm32 build guard) skipped — no hecks-hecksagain/storehouse checkout found at $HECKSAGAIN_STOREHOUSE (set HECKS_PLAYGROUND_HECKSAGAIN_REPO?)."
-    fi
-fi
+# ── Gates 8/9/10: cargo check --tests, specializer byte-identity, wasm32
+# build guard — REMOVED 2026-09-14 ──────────────────────────────────
+# All three ran cargo against the Rust storehouse crate in a sibling
+# checkout of the private hecks-hecksagain fork (hecks_playground's own
+# rust/ was retired in i768 slice 2.2c). The playground no longer depends
+# on that fork, so there is no crate here for them to check.
 
 exit 0

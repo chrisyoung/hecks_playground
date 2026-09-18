@@ -1,6 +1,5 @@
 Hecks.bluebook "DomainCell", version: "2026.04.28.1" do
   vision "A domain's lifecycle from conception through maturity or death — the cell cycle that lets new domains arrive, grow, validate, and sometimes die."
-  category "world"
 
   # ============================================================
   # CELL CYCLE — domain lifecycle

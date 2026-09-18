@@ -16,8 +16,5 @@ Hecks.hecksagon "Conductor" do
   # reads it straight off the triggering event's payload. success ==
   # failure -> Cascade::Cascade.RecordResult, matching every other
   # spawned_by conversion in this corpus.
-  Conductor::Lease.spawned_by("WorktreeRemove", on: "LeaseReclaimed") do
-    success "Cascade::Cascade.RecordResult"
-    failure "Cascade::Cascade.RecordResult"
-  end
+  Conductor::Lease.spawned_by("WorktreeRemove", on: "LeaseReclaimed")
 end

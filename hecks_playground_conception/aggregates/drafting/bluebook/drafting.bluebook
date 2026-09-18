@@ -1,6 +1,5 @@
 Hecks.bluebook "Drafting", version: "2026.05.24.1" do
   vision "Collaborative document drafting — track a document and its revisions as we co-edit. The current text lives in a markdown main file ; each change is recorded as a Revision (a summary plus a unified diff), so we always know what changed, in what order, and can read the document evolve. Bluebook-first revision control for prose."
-  category "drafting"
 
   aggregate "Document" do
     description "A document we are drafting together — its markdown main file and its revision history"

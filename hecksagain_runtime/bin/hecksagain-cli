@@ -25,9 +25,7 @@
 #   hecksagain-cli statusline                 (prints a PLAIN line, not JSON --
 #                                               statusline-command.sh's exec contract)
 
-# hecksagain-cutover PRD, slice 2.1: `hecksagain` now resolves through the
-# Bundler `git:` dependency pinned in ../../Gemfile (hecks-hecksagain,
-# ref-pinned), not the hand-maintained ../../vendor/hecksagain/lib copy.
+# `hecks` resolves through the published gem pinned in ../../Gemfile.
 # BUNDLE_GEMFILE is set explicitly (not left to Dir.pwd) because this
 # script is spawned directly (tooling/storehouse-mcp's cli_dispatch.mjs
 # execs the file, not `bundle exec ruby ...`) from whatever cwd the

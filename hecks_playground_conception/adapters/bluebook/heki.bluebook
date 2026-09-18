@@ -1,6 +1,5 @@
 Hecks.bluebook "HekiAdapter", version: "2026.04.16.1" do
   vision "Heki persistence — aggregate state lives in .heki binary stores"
-  category "adapter"
 
   # ============================================================
   # HEKI PERSISTENCE ADAPTER

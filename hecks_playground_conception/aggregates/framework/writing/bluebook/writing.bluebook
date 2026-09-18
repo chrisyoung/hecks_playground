@@ -1,6 +1,5 @@
 Hecks.bluebook "Writing", version: "2026.05.14.1" do
   vision "Prose composition surface. Every piece of content Miette (or any sub-agent) produces (emails, marketing copy, replies, page text, inbox cards, any prose) dispatches through Writing.Compose before reaching the underlying creation tool (Gmail draft, FileTool.Edit, page render). The dispatch records the draft, attaches a purpose, and triggers the WritingDiscipline macrophage so style rules are enforced uniformly instead of living as informal guidance in system prompts. The first two rules : no em-dashes (U+2014 is forbidden) and sparse use of the negative-positive 'we don.t X, we Y' construction. Composition IS a domain ; writing IS a first-class concept."
-  category "framework"
 
   # ============================================================
   # WRITING : the prose composition surface

@@ -1,6 +1,5 @@
 Hecks.bluebook "RVDC" do
   vision "RV electrical system designer — wire sizing, fuse selection, load balancing, and a printable wiring sheet"
-  category "application"
 
   aggregate "App" do
     description "The RVDC application — maps four domains into one runnable web app"

@@ -1,0 +1,32 @@
+# Driving/driven adapter declarations moved out of git.hecksagon:
+# hecks 1.3.0's hecksagon grammar has no `adapter` word (no interval/cron
+# drivers, no `driven on` reactions). Kept verbatim as the spec for an
+# upstream hecks feature. Nothing loads this file.
+
+  adapter :memory
+
+# spawned_by success/failure routing (the bare bind stays in the .hecksagon):
+  Git::Git.spawned_by("GitStatus", on: "StatusChecked") do
+    success "Cascade::Cascade.RecordResult"
+    failure "Cascade::Cascade.RecordResult"
+  end
+
+  Git::Git.spawned_by("GitLog", on: "LogRead") do
+    success "Cascade::Cascade.RecordResult"
+    failure "Cascade::Cascade.RecordResult"
+  end
+
+  Git::Git.spawned_by("GitDiff", on: "DiffRead") do
+    success "Cascade::Cascade.RecordResult"
+    failure "Cascade::Cascade.RecordResult"
+  end
+
+  Git::Git.spawned_by("GitCurrentBranch", on: "CurrentBranchRead") do
+    success "Cascade::Cascade.RecordResult"
+    failure "Cascade::Cascade.RecordResult"
+  end
+
+  Git::Git.spawned_by("GitWorktreeList", on: "WorktreeListRead") do
+    success "Cascade::Cascade.RecordResult"
+    failure "Cascade::Cascade.RecordResult"
+  end

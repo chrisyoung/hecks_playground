@@ -1,6 +1,5 @@
 Hecks.bluebook "AgentInbox" do
   vision "The durable blackboard that makes Tools::AgentTool.SendMessage REAL — inter-agent messaging through storehouse (i708 stigmergy), not the harness's missing SendMessage. The runtime never had an agent-resume API, so agent_tool.hecksagon's adapter was a canned 'agent resumed' stub. AgentMessage is the substrate that replaces the stub : a sender records a durable message addressed to an agent id ; the target agent reads it on its poll loop and Replies ; the sender's out-of-process adapter binary block-polls the reply query until it lands and returns it. The bus is the medium, the .heki record is the trace ; no orchestrator threads prompts between agents."
-  category "framework"
 
   aggregate "AgentMessage" do
     description "One message addressed to a running agent by id, durable on the blackboard. Lifecycle : sent (recorded, unread) -> read (the target agent picked it up off its Unread poll) -> replied (the target agent posted its answer). The sender's send-message adapter binary block-polls the `answered` query for this id ; the reply is durable aggregate state, the binary only gives it a synchronous face."

@@ -1,0 +1,25 @@
+# Driving/driven adapter declarations moved out of agent_inbox.hecksagon:
+# hecks 1.3.0's hecksagon grammar has no `adapter` word (no interval/cron
+# drivers, no `driven on` reactions). Kept verbatim as the spec for an
+# upstream hecks feature. Nothing loads this file.
+
+  adapter "InboxPollClock" do
+    driving on interval "2s" do |clock|
+      dispatch "AgentInbox::InboxPoller.Poll",
+               name: "inbox_poller",
+               last_polled_at: "{now}"
+    end
+  end
+
+  adapter "InboxAutoReply" do
+    driven on "AgentInbox::InboxPoller.Polled" do |event|
+      dispatch "AgentInbox::AgentMessage.Reply",
+               for_each: { from: "AgentInbox::AgentMessage.AllUnread", where: {} },
+               with: {
+                 id: "{mid}",
+                 reply: "[agent {agent_id}] received: {body}"
+               }
+    end
+  end
+
+  adapter :heki

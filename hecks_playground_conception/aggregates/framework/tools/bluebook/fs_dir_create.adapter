@@ -7,5 +7,4 @@
 # `spawned_by` verb.
 Hecks.adapter "FsDirCreate" do
   port "spawn"
-  handler "bin/filesystem_directory_create"
 end

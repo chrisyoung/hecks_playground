@@ -35,24 +35,7 @@ Hecks.hecksagon "AgentInbox" do
   # The whole sweep runs in ONE warm `storehouse drive` process — Poll, Polled,
   # and the per-message Reply cascade all in-process, no per-tick cold spawn.
 
-  adapter "InboxPollClock" do
-    driving on interval "2s" do |clock|
-      dispatch "AgentInbox::InboxPoller.Poll",
-               name: "inbox_poller",
-               last_polled_at: "{now}"
-    end
-  end
 
-  adapter "InboxAutoReply" do
-    driven on "AgentInbox::InboxPoller.Polled" do |event|
-      dispatch "AgentInbox::AgentMessage.Reply",
-               for_each: { from: "AgentInbox::AgentMessage.AllUnread", where: {} },
-               with: {
-                 id: "{mid}",
-                 reply: "[agent {agent_id}] received: {body}"
-               }
-    end
-  end
 
   # Persistence : :heki, not :memory. The drive process is SEPARATE from the
   # sender's send-message adapter binary. Memory-backing the messages would put
@@ -60,7 +43,6 @@ Hecks.hecksagon "AgentInbox" do
   # see the reply. Durable heki is the shared medium that makes the
   # Send -> Poll -> Reply flow function across processes (same reasoning as
   # process_health.hecksagon).
-  adapter :heki
 
   # Explicit persisted_by, restored (i788/i789/i790) -- bare `adapter
   # :heki` above no longer synthesizes a domain-wide default (see

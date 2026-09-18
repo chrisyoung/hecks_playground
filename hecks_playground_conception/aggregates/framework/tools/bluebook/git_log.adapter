@@ -7,5 +7,4 @@
 # `spawned_by` verb.
 Hecks.adapter "GitLog" do
   port "spawn"
-  handler "bin/git_log"
 end

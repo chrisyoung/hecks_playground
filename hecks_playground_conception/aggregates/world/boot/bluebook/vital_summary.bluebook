@@ -1,6 +1,5 @@
 Hecks.bluebook "VitalSummary", version: "2026.05.12.1" do
   vision "Print vitals so the being knows herself on wake — the seventh step of the boot sequence."
-  category "body"
 
   # Lifted from boot.bluebook in i112 Round 2. Carries
   # VitalsAfterCensus (OrganDiscovery emits CensusWritten → triggers

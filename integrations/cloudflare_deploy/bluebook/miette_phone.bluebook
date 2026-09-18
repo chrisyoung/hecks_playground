@@ -1,6 +1,5 @@
 HecksPlayground.bluebook "MiettePhone", version: "2026.05.12.1" do
   vision "Talk to Miette from your phone — chat UI on Cloudflare Pages, inference proxied to Summer, password-gated"
-  category "capability"
 
   # ============================================================
   # MIETTE PHONE
@@ -288,14 +287,15 @@ HecksPlayground.bluebook "MiettePhone", version: "2026.05.12.1" do
   # GLOSSARY
   # ============================================================
 
-  glossary do
-    define "gate", as: "Simple pin-based auth — no accounts, no OAuth"
-    define "turn", as: "One user message + one Miette reply"
-    define "tunnel", as: "cloudflared tunnel bridging edge to laptop"
-    define "proxy", as: "Worker that forwards chat to Summer's HTTP API"
-    define "stream", as: "Server-sent events for token-by-token display"
-    prefer "pin", not: ["password", "passcode", "code"]
-    prefer "gate", not: ["login", "auth wall", "sign in"]
-    prefer "turn", not: ["message pair", "exchange"]
-  end
+  # Glossary (kept as a comment: hecks 1.3.0 has no `glossary` word).
+  # glossary do
+  #   define "gate", as: "Simple pin-based auth — no accounts, no OAuth"
+  #   define "turn", as: "One user message + one Miette reply"
+  #   define "tunnel", as: "cloudflared tunnel bridging edge to laptop"
+  #   define "proxy", as: "Worker that forwards chat to Summer's HTTP API"
+  #   define "stream", as: "Server-sent events for token-by-token display"
+  #   prefer "pin", not: ["password", "passcode", "code"]
+  #   prefer "gate", not: ["login", "auth wall", "sign in"]
+  #   prefer "turn", not: ["message pair", "exchange"]
+  # end
 end

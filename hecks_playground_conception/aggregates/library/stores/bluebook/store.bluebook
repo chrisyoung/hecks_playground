@@ -1,6 +1,5 @@
 Hecks.bluebook "Store", version: "2026.04.28.1" do
   vision "Long-term memory entries — one record per stored signal. The shelf where remembered things are laid."
-  category "library"
 
   # ============================================================
   # STORE — long-term memory entries from consolidation

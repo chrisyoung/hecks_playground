@@ -1,6 +1,5 @@
 Hecks.bluebook "DispatchAudit", version: "2026.05.12.1" do
   vision "Audit log of Dispatch.Route emissions, attributed by Agent. The first bluebook to demonstrate the i483 form `role Role, as: Agent` end-to-end : every command declares the Role it runs in and the Agent who fills it. Two aggregates, three commands, no string-roles."
-  category "framework"
 
   # ============================================================
   # DISPATCHAUDIT — first bluebook in the i483 form

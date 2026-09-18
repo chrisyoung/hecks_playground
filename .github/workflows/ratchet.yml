@@ -25,57 +25,15 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
 
-      # hecks_playground/rust/ is retired (i768 slice 2.2b) — the `storehouse` binary
-      # loc-ratchet's is-dispatched query needs now lives in the private
-      # hecks-hecksagain fork instead. Checked out as a sibling, PINNED to
-      # the same rev summer/Cargo.toml and the worker's Cargo.toml resolve
-      # (bump all three together). continue-on-error : loc-ratchet already
-      # falls back to hard-coded concerns + "every file counts" when no
-      # binary is found (see bin/loc-ratchet's STOREHOUSE_BIN lookup +
-      # `fallback` helper) — a missing/misconfigured HECKSAGAIN_TOKEN
-      # degrades the ratchet's precision, it doesn't have to fail the job.
-      - name: Checkout hecks-hecksagain (storehouse fork, optional)
-        continue-on-error: true
-        uses: actions/checkout@v4
-        with:
-          repository: chrisyoung/hecks-hecksagain
-          ref: 77fdc103f8d1ded56cc6e69369fd688e0ce4be1a
-          token: ${{ secrets.HECKSAGAIN_TOKEN }}
-          path: hecks-hecksagain
-
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.3"
 
-      # loc-ratchet asks `storehouse is-dispatched <path>` (i122) to
-      # skip files claimed by some hecksagon adapter / specializer
-      # target / runner. Without the binary available, every file
-      # counts and the ratchet over-reports — IR-claimed surfaces
-      # like specializer targets get counted as plain rust. Build
-      # before the ratchet step so the IR-query is honoured.
-      - uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache cargo build
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            hecks-hecksagain/storehouse/target
-          key: ${{ runner.os }}-ratchet-cargo-${{ hashFiles('hecks-hecksagain/storehouse/Cargo.lock', 'hecks-hecksagain/storehouse/Cargo.toml') }}
-
-      - name: Build storehouse (release)
-        # --workspace : the `storehouse` [[bin]] lives in the storehouse-cli
-        # member crate (hecks-hecksagain/storehouse/cli) ; the workspace
-        # root package is the lib, so a bare `cargo build` never produces
-        # the binary loc-ratchet's is-dispatched query needs. Guarded on
-        # the checkout above having actually landed a Cargo.toml — the
-        # checkout step is allowed to fail (missing HECKSAGAIN_TOKEN) and
-        # this build must not turn that into a hard job failure too.
-        if: hashFiles('hecks-hecksagain/storehouse/Cargo.toml') != ''
-        run: cargo build --manifest-path hecks-hecksagain/storehouse/Cargo.toml --release --workspace
-
+      # No storehouse binary is built here. bin/loc-ratchet's
+      # `storehouse is-dispatched` / `dump-fixtures` queries used to come
+      # from the private hecks-hecksagain fork's Rust storehouse; the playground
+      # no longer depends on that fork. Without a binary, loc-ratchet uses
+      # its built-in `fallback` (hard-coded concerns, every file counts),
+      # which over-reports rather than under-reports.
       - name: Run loc-ratchet
-        env:
-          HECKS_PLAYGROUND_BIN: ${{ github.workspace }}/hecks-hecksagain/storehouse/target/release/storehouse
         run: bin/loc-ratchet --base "origin/${{ github.base_ref }}" --verbose

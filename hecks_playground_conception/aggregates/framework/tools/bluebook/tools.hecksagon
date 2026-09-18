@@ -34,7 +34,6 @@ Hecks.hecksagon "Tools" do
   # outcome chain to its own aggregate, separating "the act" from
   # "what came back".
 
-  adapter :memory
 
   # ── THE EXECUTION PORT (2026-08-12) ──
   #
@@ -50,8 +49,9 @@ Hecks.hecksagon "Tools" do
   # declaration, because it makes the missing edge invisible.
   #
   # The replacement says the same thing in hecksagain's own idiom — an
-  # `execution` port (verb `executed_by`, signal :reply, declared at
-  # vendor/hecksagain/lib/hecksagain/ports/execution.port) with one adapter
+  # `execution` port (verb `executed_by`, signal :reply, declared in this
+  # corpus at aggregates/framework/ports/execution.port -- NOT present in
+  # the published hecks gem 1.3.0) with one adapter
   # per tool category. These are ordinary binds, so Registry::Verification
   # type-checks them at boot exactly as it does `persisted_by` : an adapter
   # that does not implement `executed_by` now fails LOUDLY at wiring instead
@@ -81,8 +81,6 @@ Hecks.hecksagon "Tools" do
   # Runtime status : i594 has landed — the runtime auto-dispatches these
   # :web_tool bindings after a matching command via
   # `Runtime::resolve_web_tool_adapters`, chaining into Cascade.RecordResult.
-  adapter :web_tool, command: "HecksPlayground::Framework::Tools::WebTool.WebFetch",  tool: :web_fetch,  result_into: "HecksPlayground::Framework::Cascade::Cascade.RecordResult"
-  adapter :web_tool, command: "HecksPlayground::Framework::Tools::WebTool.WebSearch", tool: :web_search, result_into: "HecksPlayground::Framework::Cascade::Cascade.RecordResult"
 
   # ── EmailTool : execution port (i757) ──
   #
@@ -192,10 +190,7 @@ Hecks.hecksagon "Tools" do
   # Impure edge, hecksagon-first : on Sidequest.Dispatch, spawn the sub-agent via
   # node bin/sidequest_run.mjs (i707/i708). Re-expressed (i780, 2026-08-17)
   # from the retired `adapter :exec` kwargs form onto the spawn effect port.
-  Tools::Sidequest.spawned_by("SidequestRun", on: "SidequestDispatched") do
-    success "Cascade::Cascade.RecordResult"
-    failure "Cascade::Cascade.RecordResult"
-  end
+  Tools::Sidequest.spawned_by("SidequestRun", on: "SidequestDispatched")
   # Same invocation-event shape as the AppendLog block above.
   Tools::Sidequest.persisted_by("AppendLog")
 end

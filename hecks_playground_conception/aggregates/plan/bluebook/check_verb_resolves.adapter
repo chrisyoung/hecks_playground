@@ -7,5 +7,4 @@
 # `spawned_by` verb.
 Hecks.adapter "CheckVerbResolves" do
   port "spawn"
-  handler "bin/check-verb-resolves"
 end

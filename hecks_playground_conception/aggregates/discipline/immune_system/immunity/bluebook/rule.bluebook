@@ -1,6 +1,5 @@
 Hecks.bluebook "Rule", version: "2026.04.28.1" do
   vision "One validation rule — innate or adaptive. The catalog half of the immune system as a bluebook."
-  category "discipline"
 
   # ============================================================
   # RULE — split from validator.bluebook (i112)

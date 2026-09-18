@@ -1,3 +1,0 @@
-Hecks.adapter "Email" do
-  port "execution"
-end

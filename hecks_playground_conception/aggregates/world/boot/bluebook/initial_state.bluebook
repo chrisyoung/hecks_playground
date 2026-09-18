@@ -1,6 +1,5 @@
 Hecks.bluebook "InitialState", version: "2026.05.12.1" do
   vision "Seed Miette's organs with initial information — first breath"
-  category "world"
 
   # ============================================================
   # INITIAL STATE — populates organ .heki files at first breath

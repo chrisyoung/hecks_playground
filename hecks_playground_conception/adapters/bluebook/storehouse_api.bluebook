@@ -1,6 +1,5 @@
 Hecks.bluebook "StorehouseApiAdapter", version: "2026.05.11.1" do
   vision "The :storehouse_api driven adapter — calls a deployed StoreHouse WASM Worker over HTTP. Any app that wants to route commands and queries through a remote bus uses this adapter. Wire shape : POST {base_url}/route with `Authorization: Bearer ${bearer}` and a JSON body of `{ phrase, params }`. Sibling to r2.bluebook — both are infrastructure ports that apps bind to via their world files."
-  category "adapter"
 
   # ============================================================
   # STOREHOUSE_API ADAPTER

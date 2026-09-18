@@ -7,5 +7,4 @@
 # `spawned_by` verb.
 Hecks.adapter "CheckTests" do
   port "spawn"
-  handler "bin/check-tests"
 end

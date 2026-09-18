@@ -1,6 +1,5 @@
 Hecks.bluebook "ChangeTracker", version: "2026.05.16.1" do
   vision "Track what changed since last beat — only process the delta. Part of how Miette stays fast at 100,000 domains."
-  category "meta"
 
   # ============================================================
   # CHANGE TRACKER

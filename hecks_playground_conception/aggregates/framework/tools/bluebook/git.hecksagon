@@ -7,7 +7,6 @@ Hecks.hecksagon "Git" do
   # done-is-done gates consume Git.CurrentBranch + Git.WorktreeList to
   # self-verify.
 
-  adapter :memory
 
   # `adapter :memory` above is inert (no domain-wide-default sugar left
   # for it — see command_bus.hecksagon's own comment, same shape). Same
@@ -18,24 +17,9 @@ Hecks.hecksagon "Git" do
   # (i728) already learned the hard way (i788/i789/i790).
   Git::Git.persisted_by("AppendLog")
 
-  Git::Git.spawned_by("GitStatus", on: "StatusChecked") do
-    success "Cascade::Cascade.RecordResult"
-    failure "Cascade::Cascade.RecordResult"
-  end
-  Git::Git.spawned_by("GitLog", on: "LogRead") do
-    success "Cascade::Cascade.RecordResult"
-    failure "Cascade::Cascade.RecordResult"
-  end
-  Git::Git.spawned_by("GitDiff", on: "DiffRead") do
-    success "Cascade::Cascade.RecordResult"
-    failure "Cascade::Cascade.RecordResult"
-  end
-  Git::Git.spawned_by("GitCurrentBranch", on: "CurrentBranchRead") do
-    success "Cascade::Cascade.RecordResult"
-    failure "Cascade::Cascade.RecordResult"
-  end
-  Git::Git.spawned_by("GitWorktreeList", on: "WorktreeListRead") do
-    success "Cascade::Cascade.RecordResult"
-    failure "Cascade::Cascade.RecordResult"
-  end
+  Git::Git.spawned_by("GitStatus", on: "StatusChecked")
+  Git::Git.spawned_by("GitLog", on: "LogRead")
+  Git::Git.spawned_by("GitDiff", on: "DiffRead")
+  Git::Git.spawned_by("GitCurrentBranch", on: "CurrentBranchRead")
+  Git::Git.spawned_by("GitWorktreeList", on: "WorktreeListRead")
 end

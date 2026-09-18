@@ -1,6 +1,5 @@
 Hecks.bluebook "TrainingExtraction", version: "2026.05.12.1" do
   vision "Turn a bluebook into a training pair — vision is the prompt, structure is the completion. The extractor audits its own coverage so traits it forgot are surfaced, not silently dropped"
-  category "meta"
 
   # ============================================================
   # COVERAGE AUDIT — dream-surfaced gap (2026-04-24)
@@ -110,7 +109,6 @@ Hecks.bluebook "TrainingExtraction", version: "2026.05.12.1" do
       attribute :coverage_gaps, list_of(TraitIdentifier)
       attribute :reference_edges, Count
       emits "CoverageAudited"
-      sets :coverage_status, to: "audited"
       sets :coverage_gaps
       sets :reference_edges
     end
@@ -120,7 +118,6 @@ Hecks.bluebook "TrainingExtraction", version: "2026.05.12.1" do
       goal "One declared feature was absent from the completion — name it and move coverage_status to gaps_found. Fires once per gap so downstream operators see each miss rather than a summary count."
       reference_to(TrainingPair)
       attribute :trait_identifier, TraitIdentifier
-      sets :coverage_status, to: "gaps_found"
       emits "CoverageGapFound"
     end
 
@@ -129,7 +126,6 @@ Hecks.bluebook "TrainingExtraction", version: "2026.05.12.1" do
       goal "The audit completed with zero gaps — every declared trait landed in the completion. The extractor saw all of itself this pass."
       reference_to(TrainingPair)
       given("audit must have completed") { coverage_status == "audited" }
-      sets :coverage_status, to: "clean"
       emits "CoverageClean"
     end
 

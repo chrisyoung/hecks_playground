@@ -1,6 +1,5 @@
 Hecks.bluebook "Filesystem", version: "2026.05.29.1" do
   vision "Filesystem tool invocations as typed Door commands -- mv, rm, read-range, mkdir, rmdir, ls become first-class dispatched commands. Each command records its output on state via a RenderResult VO, mirroring the Cargo/Git tool pattern. The :filesystem_tool adapter family wires these commands to the underlying OS calls at dispatch time. Per-verb bin/ scripts handle the actual shell-out (static-cmd DSL constraint tracked by policy-cmd-needs-interpolation-or-bin-scripts). Conceived 2026-05-29 to close the filesystem-manipulation gap in the i528 StoreHouse arc."
-  category "framework"
 
   # ============================================================
   # FILESYSTEM -- OS filesystem operations as first-class dispatches

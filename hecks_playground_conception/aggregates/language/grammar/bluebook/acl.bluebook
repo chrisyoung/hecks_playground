@@ -1,6 +1,5 @@
 Hecks.bluebook "Acl", version: "2026.04.28.1" do
   vision "A phrase book entry — who can say what, and how they say it"
-  category "language"
 
   # ============================================================
   # ACL — access control phrase book

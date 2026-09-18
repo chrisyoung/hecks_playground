@@ -1,6 +1,5 @@
 Hecks.bluebook "Role", version: "2026.05.12.1" do
   vision "The type an Agent fills in a command's scope. A Role carries a name and a list of Phrase permissions. Roles are the canonical replacement for the role-string sprinkled across every command in the conception today."
-  category "framework"
 
   # ============================================================
   # ROLE — what an Agent fills

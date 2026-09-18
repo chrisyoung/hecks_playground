@@ -1,6 +1,5 @@
 Hecks.bluebook "Sidequest", version: "2026.05.22.1" do
   vision "A unit of interruptive work, modelled as domain. A sidequest is PROPOSED (by Miette, or by a warm worker watching the main session and self-authoring), VOLUNTEERED for by an idle worker that claims it, EXECUTED through the bus, then COMPLETED or FAILED. The open queue IS the event stream : a SidequestProposed event is an open call ; a worker dispatches Volunteer to claim it. Because every step is a dispatch, the whole swarm is logged, auditable, and replayable in `storehouse follow`. The warm long-lived runtime makes the workers cheap (no per-task boot) ; this domain makes the work first-class (no per-task hand-written prompt) — the worker reads the description, not a 200-word brief. Workers act only through storehouse, same wall as everyone."
-  category "framework"
 
   aggregate "Sidequest" do
     description "One unit of interruptive work, captured as a domain record. Identified by its id. Carries what to do (description), who raised it (source : operator / worker-watch / self-volunteer), its lifecycle status, the worker that claimed it, and the result. Workers subscribe to SidequestProposed, Volunteer to claim, and Complete/Fail when done."

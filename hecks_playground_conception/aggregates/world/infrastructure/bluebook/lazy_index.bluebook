@@ -1,6 +1,5 @@
 Hecks.bluebook "LazyIndex", version: "2026.05.16.1" do
   vision "Load domain entries on demand — not all at boot. Part of how Miette stays fast at 100,000 domains."
-  category "meta"
 
   # ============================================================
   # LAZY INDEX
