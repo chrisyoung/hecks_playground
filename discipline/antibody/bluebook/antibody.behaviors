@@ -1,4 +1,4 @@
-HecksPlayground.behaviors "Antibody" do
+Hecks.behaviors "Antibody" do
   vision "Behavioral tests for the Antibody capability — every exemption, every shebang, every slip-through covered in memory"
 
   # ── StagedCheck aggregate ──────────────────────────────────────

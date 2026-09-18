@@ -1,4 +1,4 @@
-HecksPlayground.behaviors "CloudflareDeploy" do
+Hecks.behaviors "CloudflareDeploy" do
   vision "Behavioral tests for the CloudflareDeploy domain — runtime push (Deployment lifecycle: provision → migrate → deploy → live)"
 
   # ── Deployment aggregate ──────────────────────────────────────────

@@ -1,4 +1,4 @@
-HecksPlayground.world "CloudflareDeploy" do
+Hecks.world "CloudflareDeploy" do
   persisted_by("Heki") do
     dir :default
   end

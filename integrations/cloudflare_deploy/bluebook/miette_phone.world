@@ -1,4 +1,4 @@
-HecksPlayground.world "MiettePhone" do
+Hecks.world "MiettePhone" do
   persisted_by("Heki") do
     dir :default
   end

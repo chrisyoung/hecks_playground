@@ -1,4 +1,4 @@
-HecksPlayground.bluebook "DomainTag", version: "2026.05.12.1" do
+Hecks.bluebook "DomainTag", version: "2026.05.12.1" do
   vision "HTML accessibility tagging conventions — every generated element maps back to a domain concept"
 
   # === Domain Mapping ===

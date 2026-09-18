@@ -1,4 +1,4 @@
-HecksPlayground.hecksagon "CloudflareArtifacts" do
+Hecks.hecksagon "CloudflareArtifacts" do
   CloudflareArtifacts::Compilation.persisted_by("Heki")
   CloudflareArtifacts::WorkerScript.persisted_by("Heki")
   CloudflareArtifacts::PagesSite.persisted_by("Heki")

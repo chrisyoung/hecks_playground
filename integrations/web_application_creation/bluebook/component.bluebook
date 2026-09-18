@@ -1,4 +1,4 @@
-HecksPlayground.bluebook "Component", version: "2026.05.12.1" do
+Hecks.bluebook "Component", version: "2026.05.12.1" do
   vision "Reusable UI components — domain-tagged, accessible, stylable"
 
   # === Component Library ===

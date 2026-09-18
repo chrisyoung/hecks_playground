@@ -1,4 +1,4 @@
-HecksPlayground.world "RenderingRule" do
+Hecks.world "RenderingRule" do
   persisted_by("Heki") do
     dir :default
   end
