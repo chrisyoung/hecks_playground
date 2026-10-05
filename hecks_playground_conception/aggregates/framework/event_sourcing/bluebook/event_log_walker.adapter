@@ -1,0 +1,7 @@
+# EventLogWalker : answers the LogWalker port. Pure computation over the Log rows a
+# caller hands in -- reads and writes nothing itself.
+require_relative "event_log_walker"
+
+Hecks.adapter "EventLogWalker" do
+  port "LogWalker"
+end

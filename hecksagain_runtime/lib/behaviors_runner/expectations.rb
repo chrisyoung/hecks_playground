@@ -137,6 +137,12 @@ module HecksagainRuntime
         expected = test.expect[:count]
         return fail_result(test, "expected count: #{expected}, got #{count}") if expected && count != expected
 
+        # `row:` checks the first row by dotted path ("steps.event_id" maps over a list).
+        (test.expect[:row] || {}).each do |path, want|
+          got = path.to_s.split(".").inject(rows.first) { |acc, k| acc.is_a?(Array) ? acc.map { |e| e[k.to_sym] } : acc&.fetch(k.to_sym, nil) }
+          return fail_result(test, "expected #{path}: #{want.inspect}, got #{normalize(got).inspect}") unless normalize(got) == normalize(want)
+        end
+
         pass_result(test)
       end
 

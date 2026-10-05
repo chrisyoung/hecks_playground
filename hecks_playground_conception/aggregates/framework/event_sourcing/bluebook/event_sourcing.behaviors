@@ -175,4 +175,83 @@ Hecks.behaviors "EventSourcing" do
              transient: "0", fields_checked: "12", detail: "Counter::c1::hits"
       expect status: "drifted", drift_fields: "1", detail: "Counter::c1::hits"
     end
+
+  # ── Event : the lineage + trust walks, answered by the LogWalker port ──
+  #
+  # The walks consume the Log rows they are handed (`log`), so these run with no
+  # Append setup. `link` builds a minimal row ; `signed` builds a hash-chained one
+  # (entry_hash is the sha256 recipe on the IntegrityReport value object).
+
+  link = ->(id, cause, seq) { { event_id: { value: id }, causation_id: { value: cause }, sequence: { value: seq } } }
+  signed = lambda do |id, cause, seq, prev, hash, value = "pending"|
+    { event_id: { value: id }, causation_id: { value: cause }, sequence: { value: seq },
+      aggregate_name: { value: "Order" }, aggregate_id: { value: "o1" },
+      command: { verb: "Order.Place", inputs: "" }, delta: { field: "status", value: value },
+      prev_hash: { value: prev }, entry_hash: { value: hash } }
   end
+  h1 = "2238e135b1d4aa5217696371e89c7b190fab4a8760c51ed61db4fc4885e89c3a"
+  h2 = "44a8799aa27c6685efcbe95caeb68db43535b0313bda9ee45344edea7c1af877"
+  h3 = "23bc87cfd661bcc003f8f078c5544c57522f15d41d4139302337cb76f5857c28"
+  chain = [signed.("a:1", "", 1, "", h1), signed.("a:2", "a:1", 2, h1, h2, "paid"), signed.("a:3", "a:2", 3, h2, h3, "shipped")]
+
+  test "CausationTrace walks from an event up to its root cause" do
+    tests "CausationTrace", on: "Event", kind: :query
+    input  event_id: { value: "e3" }, log: [link.("e1", "", 1), link.("e2", "e1", 2), link.("e3", "e2", 3)]
+    expect count: 1, row: { "root_event_id": "e1", "reached_root": true, "stopped": "root", "steps.event_id": %w[e3 e2 e1], "steps.depth": [0, 1, 2] }
+  end
+
+  test "CausationTrace reports a cause missing from the log" do
+    tests "CausationTrace", on: "Event", kind: :query
+    input  event_id: { value: "e2" }, log: [link.("e2", "gone", 2)]
+    expect row: { "root_event_id": "e2", "reached_root": false, "stopped": "missing", "steps.event_id": %w[e2] }
+  end
+
+  test "CausationTrace stops a causation cycle instead of looping" do
+    tests "CausationTrace", on: "Event", kind: :query
+    input  event_id: { value: "e1" }, log: [link.("e1", "e2", 1), link.("e2", "e1", 2)]
+    expect row: { "stopped": "cycle", "reached_root": false, "steps.event_id": %w[e1 e2] }
+  end
+
+  test "CausationTrace on an unknown event walks nothing" do
+    tests "CausationTrace", on: "Event", kind: :query
+    input  event_id: { value: "nope" }, log: [link.("e1", "", 1)]
+    expect row: { "stopped": "unknown", "reached_root": false, "steps.event_id": [] }
+  end
+
+  test "ConsequenceTree fans out breadth-first with siblings in sequence order" do
+    tests "ConsequenceTree", on: "Event", kind: :query
+    input  event_id: { value: "e1" },
+           log: [link.("e1", "", 1), link.("e3", "e1", 3), link.("e2", "e1", 2), link.("e4", "e2", 4), link.("x", "", 5)]
+    expect count: 1, row: { "size": 4, "height": 2, "steps.event_id": %w[e1 e2 e3 e4], "steps.depth": [0, 1, 1, 2] }
+  end
+
+  test "ConsequenceTree of a leaf is just itself" do
+    tests "ConsequenceTree", on: "Event", kind: :query
+    input  event_id: { value: "e2" }, log: [link.("e1", "", 1), link.("e2", "e1", 2)]
+    expect row: { "size": 1, "height": 0, "steps.event_id": %w[e2] }
+  end
+
+  test "ConsequenceTree stops a causation cycle instead of looping" do
+    tests "ConsequenceTree", on: "Event", kind: :query
+    input  event_id: { value: "e1" }, log: [link.("e1", "e2", 1), link.("e2", "e1", 2)]
+    expect row: { "size": 2, "steps.event_id": %w[e1 e2] }
+  end
+
+  test "ChainIntact reports a shard whose hashes all re-derive as intact" do
+    tests "ChainIntact", on: "Event", kind: :query
+    input  log: chain
+    expect count: 1, row: { "checked": 3, "intact": true, "broken.event_id": [] }
+  end
+
+  test "ChainIntact flags an edited entry" do
+    tests "ChainIntact", on: "Event", kind: :query
+    input  log: [chain[0], signed.("a:2", "a:1", 2, h1, h2, "refunded"), chain[2]]
+    expect row: { "intact": false, "broken.event_id": %w[a:2], "broken.reason": %w[edited], "broken.shard": %w[a] }
+  end
+
+  test "ChainIntact flags the entry after a dropped one" do
+    tests "ChainIntact", on: "Event", kind: :query
+    input  log: [chain[0], chain[2]]
+    expect row: { "intact": false, "checked": 2, "broken.event_id": %w[a:3], "broken.reason": %w[broken_link] }
+  end
+end
