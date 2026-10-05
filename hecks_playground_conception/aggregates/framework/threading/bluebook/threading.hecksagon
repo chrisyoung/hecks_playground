@@ -1,5 +1,5 @@
 Hecks.hecksagon "Threading" do
-  uses_framework "Governance"
+  attaches "Governance"
   Threading::Thread.persisted_by("Memory")
   Threading::Mailbox.persisted_by("Memory")
 end

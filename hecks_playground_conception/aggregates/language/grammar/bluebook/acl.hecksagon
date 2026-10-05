@@ -1,4 +1,4 @@
 Hecks.hecksagon "Acl" do
-  uses_framework "Governance"
+  attaches "Governance"
   Acl::Acl.persisted_by("Heki")
 end

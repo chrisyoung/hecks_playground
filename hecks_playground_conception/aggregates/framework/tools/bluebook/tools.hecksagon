@@ -1,5 +1,5 @@
 Hecks.hecksagon "Tools" do
-  uses_framework "Governance"
+  attaches "Governance"
   # ============================================================
   # TOOLS — adapter bindings : <Category>Tool.X dispatch → real run
   # ============================================================

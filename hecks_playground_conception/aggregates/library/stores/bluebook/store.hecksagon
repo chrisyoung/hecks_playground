@@ -1,4 +1,4 @@
 Hecks.hecksagon "Store" do
-  uses_framework "Governance"
+  attaches "Governance"
   Store::Store.persisted_by("Heki")
 end

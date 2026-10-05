@@ -420,7 +420,7 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
     # Predicate, equivalently:
     #   state in {ready_for_closure, completed} ⇒ all criteria true.
     invariant "closure_criteria_met" do
-      holds_when { state != "ready_for_closure" && state != "completed" || all_stories_done == true && merged_to_main == true && ci_passing == true && summary_drafted == true && worktrees_pruned == true && prs_for_open_branches == true }
+      state != "ready_for_closure" && state != "completed" || all_stories_done == true && merged_to_main == true && ci_passing == true && summary_drafted == true && worktrees_pruned == true && prs_for_open_branches == true
     end
 
     # ============================================================
@@ -1198,19 +1198,19 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
     end
 
     invariant "ready_means_verified" do
-      holds_when { state != "ready_for_review" && state != "done" || verified == true }
+      state != "ready_for_review" && state != "done" || verified == true
     end
 
     invariant "merged_means_ready" do
-      holds_when { state != "ready_for_review" && state != "done" || merged_to_main == true }
+      state != "ready_for_review" && state != "done" || merged_to_main == true
     end
 
     invariant "clean_means_ready" do
-      holds_when { state != "ready_for_review" && state != "done" || worktree_clean == true }
+      state != "ready_for_review" && state != "done" || worktree_clean == true
     end
 
     invariant "tests_pass_means_ready" do
-      holds_when { state != "ready_for_review" && state != "done" || tests_passing == true }
+      state != "ready_for_review" && state != "done" || tests_passing == true
     end
 
     invariant "ready_means_all_tasks_resolved" do
@@ -1219,7 +1219,7 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       # every task must walk to done or cancelled before the Story can
       # transition to ready_for_review or done. Same gate-pattern as
       # the four live-check invariants above.
-      holds_when { state != "ready_for_review" && state != "done" || pending_task_count == 0 }
+      state != "ready_for_review" && state != "done" || pending_task_count == 0
     end
 
     invariant "removed_means_done" do
@@ -1227,7 +1227,7 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       # Binds done only — the worktree still exists at ready_for_review (pre-merge)
       # and is removed before Approve. Set true by bin/check-worktree-removed via the
       # RunWorktreeRemovedCheckOnUnlocked cascade ; lying requires lying to git worktree list.
-      holds_when { state != "done" || worktree_removed == true }
+      state != "done" || worktree_removed == true
     end
 
     command "MarkReady" do

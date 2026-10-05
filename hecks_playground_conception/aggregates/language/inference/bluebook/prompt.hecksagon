@@ -1,4 +1,4 @@
 Hecks.hecksagon "Prompt" do
-  uses_framework "Governance"
+  attaches "Governance"
   Prompt::Prompt.persisted_by("Heki")
 end

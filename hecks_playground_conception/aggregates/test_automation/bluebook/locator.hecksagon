@@ -1,5 +1,5 @@
 Hecks.hecksagon "TestAutomation" do
-  uses_framework "Governance"
+  attaches "Governance"
   # Persistence only for now. The BrowserScan effect port --
   #   TestAutomation::Locator.rescanned_by("BrowserScan", on: "ResolutionFailed") do
   #     success "TestAutomation::Locator.Heal"

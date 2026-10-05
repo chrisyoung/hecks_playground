@@ -1,4 +1,4 @@
 Hecks.hecksagon "Conception" do
-  uses_framework "Governance"
+  attaches "Governance"
   Conception::Conception.persisted_by("Heki")
 end

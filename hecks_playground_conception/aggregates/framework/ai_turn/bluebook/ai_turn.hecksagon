@@ -1,4 +1,4 @@
 Hecks.hecksagon "AiTurn" do
-  uses_framework "Governance"
+  attaches "Governance"
   AiTurn::AiTurn.persisted_by("Heki")
 end

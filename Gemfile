@@ -10,7 +10,7 @@ gem "websocket"
 # that copy and its VENDORED_FROM.md history are gone. The gem ships
 # lib/ only -- anything needing hecks's Rust crate or bin/ scripts uses a
 # source checkout of heckslabs/hecks instead.
-gem "hecks", "~> 1.3"
+gem "hecks", "~> 3.4"
 
 group :development, :test do
   gem "rake"

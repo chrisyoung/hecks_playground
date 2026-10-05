@@ -5,8 +5,8 @@ Hecks.behaviors "Conception" do
 
   test "ConceiveDomain sets name + vision + requested_by + source + category + bounded_contexts" do
     tests "ConceiveDomain", on: "Conception"
-    input  name: "sample", vision: "sample", requested_by: "sample", source: "sample", category: "sample", bounded_contexts: "sample"
-    expect name: "sample", vision: "sample", requested_by: "sample", source: "sample", category: "sample", bounded_contexts: "sample", status: "conceived"
+    input  name: "sample", vision: "sample", requested_by: "sample", source: "sample", category: "sample", bounded_contexts: ["sample"]
+    expect name: "sample", vision: "sample", requested_by: "sample", source: "sample", category: "sample", bounded_contexts: ["sample"], status: "conceived"
   end
 
   test "ConceiveDomain cascades through policy chain" do

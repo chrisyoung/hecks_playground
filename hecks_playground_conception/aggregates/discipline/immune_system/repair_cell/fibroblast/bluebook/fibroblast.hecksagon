@@ -1,5 +1,5 @@
 Hecks.hecksagon "Fibroblast" do
-  uses_framework "Governance"
+  attaches "Governance"
   Fibroblast::Fibroblast.persisted_by("Heki")
 
   # Impure edge, hecksagon-first : on Sweep (which emits SweepRan), run the

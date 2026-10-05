@@ -1,4 +1,4 @@
 Hecks.hecksagon "RustToBluebookMacrophage" do
-  uses_framework "Governance"
+  attaches "Governance"
   RustToBluebookMacrophage::RustToBluebookMacrophage.persisted_by("Memory")
 end

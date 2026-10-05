@@ -1,5 +1,5 @@
 Hecks.hecksagon "Filesystem" do
-  uses_framework "Governance"
+  attaches "Governance"
   Filesystem::Filesystem.persisted_by("Heki")
 
   # Impure edges, hecksagon-first : each Filesystem command shells its OS op and

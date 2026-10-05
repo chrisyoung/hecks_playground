@@ -1,4 +1,4 @@
 Hecks.hecksagon "SessionLog" do
-  uses_framework "Governance"
+  attaches "Governance"
   SessionLog::StorehouseEntry.persisted_by("Memory")
 end

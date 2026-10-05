@@ -1,5 +1,5 @@
 Hecks.hecksagon "AgentInbox" do
-  uses_framework "Governance"
+  attaches "Governance"
   # ============================================================
   # AGENT INBOX wiring — the receiver-as-Driver (i708 stigmergy)
   # ============================================================

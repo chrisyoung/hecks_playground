@@ -1,5 +1,5 @@
 Hecks.hecksagon "OutboundEvent" do
-  uses_framework "Governance"
+  attaches "Governance"
   # persistence : the outbox is event-sourced, so its Record / Claim /
   # MarkDelivered lifecycle rides the append-only Log (audit + replay + the
   # read model of undelivered deliveries). The bare `.event_sourced` verb

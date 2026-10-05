@@ -1,4 +1,4 @@
 Hecks.hecksagon "HandlerRegistry" do
-  uses_framework "Governance"
+  attaches "Governance"
   HandlerRegistry::HandlerRegistry.persisted_by("Heki")
 end

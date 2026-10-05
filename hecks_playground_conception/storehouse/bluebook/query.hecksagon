@@ -1,5 +1,5 @@
 Hecks.hecksagon "Query" do
-  uses_framework "Governance"
+  attaches "Governance"
   # ============================================================
   # QUERY — hexagonal wiring for the read bus declared in query.bluebook
   # ============================================================

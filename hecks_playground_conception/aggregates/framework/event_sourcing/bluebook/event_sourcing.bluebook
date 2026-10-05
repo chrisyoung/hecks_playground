@@ -257,6 +257,8 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
       # Keys on sequence.value (the nested int), like AtSequence : the runtime
       # INJECTS the `sequence.value > sequence` range clause (the where() DSL
       # can't address a dotted key portably) and drives the seek through it.
+      where(sequence: { gt: :sequence })
+      order_by :sequence
       description "Every event strictly after a sequence — the Snapshot fall-forward tail, backed by the sequence-range seek"
     end
 

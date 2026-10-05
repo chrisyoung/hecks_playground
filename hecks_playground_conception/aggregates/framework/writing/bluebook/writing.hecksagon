@@ -1,4 +1,4 @@
 Hecks.hecksagon "Writing" do
-  uses_framework "Governance"
+  attaches "Governance"
   Writing::Writing.persisted_by("Heki")
 end

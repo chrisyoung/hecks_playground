@@ -1,5 +1,5 @@
 Hecks.hecksagon "ArtifactClaim" do
-  uses_framework "Governance"
+  attaches "Governance"
   ArtifactClaim::ArtifactClaim.persisted_by("Heki")
   ArtifactClaim::NoPromisesSweep.persisted_by("Heki")
 
