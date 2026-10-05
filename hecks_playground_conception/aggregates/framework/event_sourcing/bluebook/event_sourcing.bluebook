@@ -282,13 +282,114 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
           where(actor: :actor)
         end
 
-        # Follow-up: port the recursive walks to a 3.x port + returns value object.
-        # CausationTrace (backward lineage walk), ConsequenceTree (forward lineage tree)
-        # and ChainIntact (per-shard hash re-derivation) were named queries the old
-        # engine special-cased. Hecks 3.x refuses a query with no where and no bound
-        # port ("has no answer path"), so the declarations were removed to let this
-        # chapter boot. No .behaviors test named them. Restore each as a port
-        # operation answered by an adapter, returning a value object.
+        # ── Lineage + trust walks : answered by the LogWalker port ──────
+        #
+        # Three questions a single where() cannot say, because each is an
+        # unbounded walk or a recomputation over the Log : what caused this
+        # (CausationTrace, backward), what did this cause (ConsequenceTree,
+        # forward), and does the hash chain still re-derive (ChainIntact).
+        # Under hecks 3.x a query is answered from this aggregate's records OR
+        # from outside by exactly one port, never both. These three have no
+        # where, so the EventSourcing hecksagon binds each to the LogWalker
+        # port (event_sourcing.ports.hecksagon) and an adapter walks the rows.
+        #
+        # The adapter is built bare and sees no records, so the Log slice to
+        # walk is the `log` argument : the caller composes it (Replay,
+        # ByCorrelation, ... return Event rows, which are exactly LogEntry
+        # rows) and the port executes the walk. The answer is a value object,
+        # built and checked before it enters the domain.
+
+        query "CausationTrace" do
+          description "Walk the causation chain from this event up to its root cause"
+          attribute :event_id, EventId
+          attribute :log,      list_of(LogEntry)
+          returns CausationChain
+        end
+
+        query "ConsequenceTree" do
+          description "Walk forward from this event through everything it caused, breadth-first"
+          attribute :event_id, EventId
+          attribute :log,      list_of(LogEntry)
+          returns ConsequenceTree
+        end
+
+        query "ChainIntact" do
+          description "Re-derive every entry's hash chain per shard ; the report lists the entries that do not"
+          attribute :log, list_of(LogEntry)
+          returns IntegrityReport
+        end
+
+        # The rows the walks consume : an Event, as the Log returns it.
+        value_object "LogEntry" do
+          attribute :event_id,       EventId
+          attribute :causation_id,   CausationId
+          attribute :sequence,       Sequence
+          attribute :aggregate_name, AggregateName, optional: true
+          attribute :aggregate_id,   AggregateId,   optional: true
+          attribute :command,        Command,       optional: true
+          attribute :event_name,     EventName,     optional: true
+          attribute :delta,          Delta,         optional: true
+          attribute :correlation_id, CorrelationId, optional: true
+          attribute :actor,          Actor,         optional: true
+          attribute :recorded_at,    RecordedAt,    optional: true
+          attribute :prev_hash,      PrevHash,      optional: true
+          attribute :entry_hash,     EntryHash,     optional: true
+        end
+
+        # One event on a lineage walk. depth 0 is the event asked about ;
+        # backward it grows toward the root cause, forward toward the leaves.
+        value_object "LineageStep" do
+          attribute :event_id,       String
+          attribute :causation_id,   String
+          attribute :aggregate_name, String
+          attribute :aggregate_id,   String
+          attribute :verb,           String
+          attribute :event_name,     String
+          attribute :sequence,       Integer
+          attribute :depth,          Integer
+        end
+
+        value_object "CausationChain" do
+          # steps run from the event asked about up to the root cause. `stopped`
+          # says why the walk ended : "root" (an empty causation_id), "missing"
+          # (the cause is not in the log slice), "cycle" (the chain loops back)
+          # or "unknown" (the event is not in the slice at all).
+          attribute :start_event_id, String
+          attribute :root_event_id,  String
+          attribute :stopped,        String
+          attribute :reached_root,   Boolean
+          attribute :steps,          list_of(LineageStep)
+        end
+
+        value_object "ConsequenceTree" do
+          # steps are level-ordered (depth 0 is the root event) and siblings are
+          # in sequence order, so the tree shape is rebuilt from the flat list.
+          attribute :root_event_id, String
+          attribute :size,          Integer
+          attribute :height,        Integer
+          attribute :steps,         list_of(LineageStep)
+        end
+
+        value_object "BrokenEntry" do
+          # reason : "edited" (its content no longer hashes to its entry_hash) or
+          # "broken_link" (its prev_hash does not name the entry before it in
+          # its shard : one was dropped or reordered).
+          attribute :event_id, String
+          attribute :shard,    String
+          attribute :sequence, Integer
+          attribute :reason,   String
+        end
+
+        value_object "IntegrityReport" do
+          # Hash recipe : sha256 hex over event_id, aggregate_name, aggregate_id,
+          # command verb + inputs, event_name, delta field + value, causation_id,
+          # correlation_id, actor, sequence, recorded_at and prev_hash, joined
+          # with the unit separator (0x1f). A shard is the text before the first
+          # ":" in an event_id ; an id with no ":" belongs to the one unnamed shard.
+          attribute :checked, Integer
+          attribute :intact,  Boolean
+          attribute :broken,  list_of(BrokenEntry)
+        end
       end
 
   # ============================================================

@@ -1,0 +1,12 @@
+# The LogWalker port : answers the three Event queries that walk or recompute the Log
+# (CausationTrace, ConsequenceTree, ChainIntact). The adapter behind it is
+# event_log_walker.adapter / event_log_walker.rb in this directory.
+Hecks.hecksagon "EventSourcing" do
+  attaches "Governance"
+
+  EventSourcing::Event.port "LogWalker" do
+    answers_query "CausationTrace"
+    answers_query "ConsequenceTree"
+    answers_query "ChainIntact"
+  end
+end

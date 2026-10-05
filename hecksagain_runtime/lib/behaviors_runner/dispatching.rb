@@ -51,7 +51,29 @@ module HecksagainRuntime
           sibling = File.join(File.dirname(File.dirname(source)), "hecksagons")
           Dir.glob(File.join(sibling, "*.hecksagon")).each { |f| FileUtils.cp(f, File.join(dir, File.basename(f))) }
         end
+        copy_port_wiring(source, dir)
         dir
+      end
+
+      # A bluebook whose queries are answered by a port boots only with that port bound, so
+      # `<stem>.ports.hecksagon` and the adapters beside it (`*.adapter` with its `.rb`) travel
+      # with the bluebook into the isolated dir, along with the `context_map.hecksagon` an
+      # `attaches` needs. A hecksagon makes every aggregate's persistence an explicit decision,
+      # so the copy is given the memory binds a test runs on (the bluebook's real stores stay in
+      # its own hecksagon, which is not copied).
+      def copy_port_wiring(source, dir)
+        beside = File.dirname(source)
+        ports  = File.join(beside, "#{File.basename(source, '.bluebook')}.ports.hecksagon")
+        return unless File.file?(ports)
+
+        [ports, File.join(beside, "context_map.hecksagon"), *Dir.glob(File.join(beside, "*.adapter")),
+         *Dir.glob(File.join(beside, "*.rb"))].select { |f| File.file?(f) }.each do |f|
+          FileUtils.cp(f, File.join(dir, File.basename(f)))
+        end
+        text   = File.read(source)
+        domain = text[/Hecks\.bluebook\s+"(\w+)"/, 1]
+        binds  = text.scan(/^\s*aggregate\s+"(\w+)"/).flatten.map { |a| "  #{domain}::#{a}.persisted_by(\"Memory\")\n" }
+        File.write(File.join(dir, "memory_binds.hecksagon"), "Hecks.hecksagon \"#{domain}\" do\n#{binds.join}end\n")
       end
 
       # A behaviors test writes a dispatch with receiver identity and
