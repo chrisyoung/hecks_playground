@@ -1,4 +1,4 @@
 Hecks.hecksagon "InitialState" do
-  uses_framework "Governance"
+  attaches "Governance"
   InitialState::InitialState.persisted_by("Heki")
 end

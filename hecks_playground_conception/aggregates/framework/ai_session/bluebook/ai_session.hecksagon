@@ -1,4 +1,4 @@
 Hecks.hecksagon "AiSession" do
-  uses_framework "Governance"
+  attaches "Governance"
   AiSession::AiSession.persisted_by("Heki")
 end

@@ -201,16 +201,20 @@ Hecks.bluebook "SessionLog", version: "2026.05.21.1" do
 
     query Recent do
       description "Read the most recent N dispatch entries, newest first by dispatched_at. The dispatch-detail panel + demo timeline read this. Async children sort alongside their parents via parent_invocation_id."
+      order_by :dispatched_at, :desc
+      limit :limit
       attribute :limit, EventCount
     end
 
     query ByParent do
       description "Read all async entries whose parent_invocation_id matches a given invocation — the later outcomes a command caused. Reconstructs the cause→effect chain for one dispatch."
+      where(parent_invocation_id: :parent_invocation_id)
       attribute :parent_invocation_id, InvocationId
     end
 
     query BySource do
       description "Read all entries dispatched by a given source — process-manager, operator, hook, sidequest-agent, cascade, or daemon. Backs Chris's 'show me everything the process managers dispatched' filter."
+      where(source_tag: :source_tag)
       attribute :source_tag, SourceTag
     end
   end

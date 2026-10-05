@@ -1,5 +1,5 @@
 Hecks.hecksagon "ProcessHealth" do
-  uses_framework "Governance"
+  attaches "Governance"
   ProcessHealth::ProcessSentinel.persisted_by("Heki")
   ProcessHealth::ProcessMacrophage.persisted_by("Heki")
 

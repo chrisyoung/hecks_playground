@@ -6,8 +6,8 @@ Hecks.behaviors "Acl" do
 
   test "Grant sets actor + canonical_phrase + command_path" do
     tests "Grant", on: "Acl"
-    input  actor: "sample", canonical_phrase: "sample", command_path: "sample"
-    expect actor: "sample", canonical_phrase: "sample", command_path: "sample"
+    input  actor: "sample", canonical_phrase: "sample", command_path: ["sample"]
+    expect actor: "sample", canonical_phrase: "sample", command_path: ["sample"]
   end
 
   test "Grant cascades through policy chain" do

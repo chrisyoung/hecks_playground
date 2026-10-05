@@ -1,4 +1,4 @@
 Hecks.hecksagon "AgentInstrumentation" do
-  uses_framework "Governance"
+  attaches "Governance"
   AgentInstrumentation::AgentDefinition.persisted_by("Heki")
 end

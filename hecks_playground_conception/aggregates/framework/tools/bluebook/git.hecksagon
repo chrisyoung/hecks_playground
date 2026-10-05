@@ -1,5 +1,5 @@
 Hecks.hecksagon "Git" do
-  uses_framework "Governance"
+  attaches "Governance"
   # Impure edges, hecksagon-first : each Git.X command runs its git script and
   # cascades the output into RecordResult. Re-expressed (i780, 2026-08-17)
   # from the retired `adapter :exec` kwargs form onto the spawn effect port —

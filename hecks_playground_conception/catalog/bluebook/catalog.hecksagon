@@ -1,5 +1,5 @@
 Hecks.hecksagon "Catalog" do
-  uses_framework "Governance"
+  attaches "Governance"
   Catalog::Entry.persisted_by("Heki")
   Catalog::Version.persisted_by("Heki")
   Catalog::Mirror.persisted_by("Heki")

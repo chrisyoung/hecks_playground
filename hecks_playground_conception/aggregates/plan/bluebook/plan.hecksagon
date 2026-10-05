@@ -1,5 +1,5 @@
 Hecks.hecksagon "Plan" do
-  uses_framework "Governance"
+  attaches "Governance"
   Plan::Sprint.persisted_by("Heki")
   Plan::Story.persisted_by("Heki")
   Plan::Task.persisted_by("Heki")

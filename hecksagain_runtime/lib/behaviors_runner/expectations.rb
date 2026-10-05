@@ -49,7 +49,7 @@ module HecksagainRuntime
           dir = Dispatching.isolated_dir_for(source, include_hecksagons: include_hecksagons)
         end
 
-        runtime    = Hecks.boot(dir, install_facade: false)
+        runtime    = Hecks.boot(dir, install_doors: false)
         domain_name = runtime.registry.bluebooks.keys.first
         return error_result(test, "could not determine a domain name from #{source}") unless domain_name
 
@@ -176,6 +176,9 @@ module HecksagainRuntime
       def normalize(value)
         return Hecks::Runtime::Value.materialize_unwrapped(value) if value.is_a?(Hecks::Runtime::Value)
         return normalize(value[:value]) if value.is_a?(Hash) && value.keys == [:value]
+        # hecks 2.x+ materialises each element of a list_of(ValueObject) as a Value, so a list is
+        # compared element by element, the same way a scalar is.
+        return value.map { |element| normalize(element) } if value.is_a?(Array)
 
         value
       end

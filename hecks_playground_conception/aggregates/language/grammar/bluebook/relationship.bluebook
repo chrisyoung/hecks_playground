@@ -116,11 +116,11 @@ Hecks.bluebook "Relationship", version: "2026.06.18.2" do
     # ── Invariants — the validator's rules, as state predicates ──
 
     invariant "the verb carries the boundary — inside scope is exactly the inside verbs" do
-      scope == "unresolved" || (scope == "inside") == (verb == "list_of" || verb == "reference_to")
+      scope == "unresolved" || (scope == "inside" && (verb == "list_of" || verb == "reference_to")) || (scope != "inside" && verb != "list_of" && verb != "reference_to")
     end
 
     invariant "composition is inside ; reference is cross — the scope decides the nature" do
-      nature == "unresolved" || (nature == "composition") == (scope == "inside")
+      nature == "unresolved" || (nature == "composition" && scope == "inside") || (nature != "composition" && scope != "inside")
     end
   end
 end

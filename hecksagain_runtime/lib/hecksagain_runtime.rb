@@ -472,7 +472,7 @@ module HecksagainRuntime
   # {ok, state, events} hash -- no cascade/timeline text to scrape (see
   # dispatch_render.mjs's old design, retired by this rewrite).
   def self.dispatch(root, verb, args = {})
-    runtime = Hecks.boot(stage_flat_corpus(root), install_facade: false)
+    runtime = Hecks.boot(stage_flat_corpus(root), install_doors: false)
     args    = AttrDecode.decode_args(runtime, verb, args, kind: :command)
     result  = runtime.dispatch(verb, **symbolize(args))
     {
@@ -497,7 +497,7 @@ module HecksagainRuntime
   end
 
   def self.query(root, verb, args = {})
-    runtime = Hecks.boot(stage_flat_corpus(root), install_facade: false)
+    runtime = Hecks.boot(stage_flat_corpus(root), install_doors: false)
     args    = AttrDecode.decode_args(runtime, verb, args, kind: :query)
     rows    = runtime.query(verb, **symbolize(args))
     { ok: true, rows: rows }
@@ -509,7 +509,7 @@ module HecksagainRuntime
   # aggregate's current head records). This is the few-lines version Part 5
   # recommended over writing a new subsystem.
   def self.state(root, aggregate_fqn, id)
-    runtime = Hecks.boot(stage_flat_corpus(root), install_facade: false)
+    runtime = Hecks.boot(stage_flat_corpus(root), install_doors: false)
     domain_name, aggregate_name = aggregate_fqn.split("::")
     bluebook = runtime.registry.bluebooks.fetch(domain_name)
     ir       = bluebook.aggregates.find { |a| a.name == aggregate_name } or
@@ -553,7 +553,7 @@ module HecksagainRuntime
   # shape change from dump.rs's shape, not a preserved-compatibility
   # adapter (Part 5's explicit call).
   def self.catalog(root)
-    runtime = Hecks.boot(stage_flat_corpus(root), install_facade: false)
+    runtime = Hecks.boot(stage_flat_corpus(root), install_doors: false)
     { ok: true, bluebooks: runtime.registry.bluebooks.transform_values(&:to_h) }
   rescue StandardError => e
     { ok: false, error: e.message, error_class: e.class.name }
@@ -569,7 +569,7 @@ module HecksagainRuntime
   # documented miss behaviour, restored under the new corpus-root contract.
   def self.describe_aggregate(root, aggregate_fqn)
     domain_name, aggregate_name = aggregate_fqn.split("::")
-    runtime = Hecks.boot(stage_flat_corpus(root), install_facade: false)
+    runtime = Hecks.boot(stage_flat_corpus(root), install_doors: false)
     available = runtime.registry.bluebooks.values.flat_map do |b|
       b.aggregates.map { |a| "#{b.name}::#{a.name}" }
     end
@@ -584,7 +584,7 @@ module HecksagainRuntime
   end
 
   def self.list_aggregates(root)
-    runtime = Hecks.boot(stage_flat_corpus(root), install_facade: false)
+    runtime = Hecks.boot(stage_flat_corpus(root), install_doors: false)
     { ok: true, aggregates: runtime.registry.bluebooks.values.flat_map { |b| b.aggregates.map(&:name) } }
   rescue StandardError => e
     { ok: false, error: e.message, error_class: e.class.name }
@@ -600,7 +600,7 @@ module HecksagainRuntime
   ADAPTER_HANDLERS_PATH = File.expand_path("../adapter_handlers.yml", __dir__)
 
   def self.adapter_handler(root, adapter_name)
-    runtime = Hecks.boot(stage_flat_corpus(root), install_facade: false)
+    runtime = Hecks.boot(stage_flat_corpus(root), install_doors: false)
     adapter = runtime.registry.adapters[adapter_name]
     return { ok: false, error: "no such adapter #{adapter_name.inspect}", available: runtime.registry.adapters.keys } unless adapter
 

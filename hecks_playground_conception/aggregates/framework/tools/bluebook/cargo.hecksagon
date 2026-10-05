@@ -1,5 +1,5 @@
 Hecks.hecksagon "Cargo" do
-  uses_framework "Governance"
+  attaches "Governance"
   Cargo::Cargo.persisted_by("Heki")
 
   # Impure edges, hecksagon-first : each Cargo command runs its cargo script and

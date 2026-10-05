@@ -13,7 +13,7 @@
 # ClearOverride already says the same thing, and is real access control
 # now that Governance is attached below.
 Hecks.hecksagon "Budget" do
-  uses_framework "Governance"
+  attaches "Governance"
 
   Budget::Budget.persisted_by("Memory")
 end

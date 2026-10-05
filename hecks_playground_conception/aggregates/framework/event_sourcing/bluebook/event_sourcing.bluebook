@@ -257,6 +257,8 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
       # Keys on sequence.value (the nested int), like AtSequence : the runtime
       # INJECTS the `sequence.value > sequence` range clause (the where() DSL
       # can't address a dotted key portably) and drives the seek through it.
+      where(sequence: { gt: :sequence })
+      order_by :sequence
       description "Every event strictly after a sequence — the Snapshot fall-forward tail, backed by the sequence-range seek"
     end
 
@@ -280,53 +282,13 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
           where(actor: :actor)
         end
 
-        query "CausationTrace" do |event_id|
-          # The recursive lineage walk a single where() CANNOT express : from a
-          # root event, follow causation_id up the chain to the root cause,
-          # accumulating each event in order. The runtime resolves this as a
-          # traversal (cycle-guarded ; stops at an empty causation_id or a
-          # missing event) — like MatchInput, it is a named query the engine
-          # special-cases, not a record-filter. This is the lineage the Event's
-          # causation_id was always 'lineage-ready' FOR ; no longer deferred.
-          # And Append now STAMPS causation_id : a cascaded command's events
-          # carry the triggering event's id (the last Log event of the upstream
-          # aggregate that fired the cascade), so this walk BITES on the live
-          # Log, not only on constructed chains. Root dispatches leave it empty,
-          # where the walk stops.
-          description "Walk the causation chain from this event up to its root cause"
-        end
-
-        query "ConsequenceTree" do |event_id|
-          # The FORWARD lineage walk — CausationTrace's mirror, and the other half
-          # of a trustable log : backward answers "what caused this?", forward
-          # answers "what did this cause?". Backward is a WALK (an event has at
-          # most ONE cause) ; forward is a TREE (one event may cause MANY), so the
-          # traversal fans out breadth-first and each row carries a `depth`
-          # (0 = the root event itself) so the caller rebuilds the tree shape from
-          # the flat, level-ordered list. Neither a where() nor repeated find() can
-          # express it : the depth is unbounded AND causation_id is not a key, so
-          # the runtime builds the reverse index causation_id -> children once and
-          # walks it. Siblings come back in Log `sequence` order, so the answer is
-          # deterministic rather than repository-iteration-order. Cycle-guarded,
-          # like the backward walk.
-          description "Walk forward from this event through everything it caused"
-        end
-
-        query "ChainIntact" do
-          # TRUST : re-derive every entry's hash and report the ones that do not
-          # match. Two ways an entry can fail — its own content no longer hashes to
-          # its recorded entry_hash (it was EDITED), or its prev_hash does not name
-          # the entry before it in its shard (one was DROPPED or REORDERED). An
-          # empty result means every chain re-derives.
-          #
-          # Per SHARD, because that is where a total order exists at append time :
-          # one shard has one writer. Entries are grouped by the shard embedded in
-          # their event_id and ordered by sequence within it.
-          #
-          # A named query the runtime special-cases (like CausationTrace) : a
-          # recomputation over ordered entries is not something a where() can say.
-          description "Every entry whose hash chain does not re-derive — empty means intact"
-        end
+        # Follow-up: port the recursive walks to a 3.x port + returns value object.
+        # CausationTrace (backward lineage walk), ConsequenceTree (forward lineage tree)
+        # and ChainIntact (per-shard hash re-derivation) were named queries the old
+        # engine special-cased. Hecks 3.x refuses a query with no where and no bound
+        # port ("has no answer path"), so the declarations were removed to let this
+        # chapter boot. No .behaviors test named them. Restore each as a port
+        # operation answered by an adapter, returning a value object.
       end
 
   # ============================================================

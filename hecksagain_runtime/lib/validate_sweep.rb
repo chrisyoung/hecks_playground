@@ -61,7 +61,7 @@ module HecksagainRuntime
     end
 
     def validate_one(root)
-      Hecks.boot(HecksagainRuntime.stage_flat_corpus(root), install_facade: false)
+      Hecks.boot(HecksagainRuntime.stage_flat_corpus(root), install_doors: false)
       { valid: true }
     rescue StandardError => e
       { valid: false, error: e.message, error_class: e.class.name }

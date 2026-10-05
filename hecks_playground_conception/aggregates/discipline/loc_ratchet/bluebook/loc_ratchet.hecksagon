@@ -1,4 +1,4 @@
 Hecks.hecksagon "LocRatchet" do
-  uses_framework "Governance"
+  attaches "Governance"
   LocRatchet::Concern.persisted_by("Heki")
 end

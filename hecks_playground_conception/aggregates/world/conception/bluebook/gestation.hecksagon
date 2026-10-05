@@ -1,4 +1,4 @@
 Hecks.hecksagon "Gestation" do
-  uses_framework "Governance"
+  attaches "Governance"
   Gestation::Gestation.persisted_by("Heki")
 end

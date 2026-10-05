@@ -1,5 +1,5 @@
 Hecks.hecksagon "Pizzas" do
-  uses_framework "Governance"
+  attaches "Governance"
   Pizzas::Pizza.persisted_by("Heki")
   Pizzas::Order.persisted_by("Heki")
 end

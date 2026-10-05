@@ -44,8 +44,8 @@ Hecks.behaviors "Catalog" do
 
   test "SnapshotVersion sets domain_name + version + snapshot + developed_from + aggregate_count + command_count + vector" do
     tests "SnapshotVersion", on: "Version"
-    input  domain_name: "sample", version: "sample", snapshot: "sample", developed_from: "sample", aggregate_count: 1, command_count: 1, vector: 1.0
-    expect domain_name: "sample", version: "sample", snapshot: "sample", developed_from: "sample", aggregate_count: 1, command_count: 1, vector: 1.0
+    input  domain_name: "sample", version: "sample", snapshot: "sample", developed_from: "sample", aggregate_count: 1, command_count: 1, vector: [1.0]
+    expect domain_name: "sample", version: "sample", snapshot: "sample", developed_from: "sample", aggregate_count: 1, command_count: 1, vector: [1.0]
   end
 
   test "CompareVersions sets domain_name + from_version + to_version" do

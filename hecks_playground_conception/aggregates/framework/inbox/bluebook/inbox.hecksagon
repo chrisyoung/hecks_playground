@@ -2,7 +2,7 @@ Hecks.hecksagon "Inbox" do
   # Was missing entirely -- masked until now by the :exec bug (i780,
   # 2026-08-17). Inbox::Inbox.Check declares role "Framework" ; a role only
   # means anything once Governance is attached to check it against.
-  uses_framework "Governance"
+  attaches "Governance"
   Inbox::Inbox.persisted_by("Heki")
 
   # Impure edge, hecksagon-first : on Check, poll Gmail via node bin/inbox_poll.mjs

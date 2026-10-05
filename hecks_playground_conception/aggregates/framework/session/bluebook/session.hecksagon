@@ -1,5 +1,5 @@
 Hecks.hecksagon "Session" do
-  uses_framework "Governance"
+  attaches "Governance"
   Session::Session.persisted_by("Heki")
 
   # Impure edge, hecksagon-first : on RebuildContext, run session-recall and

@@ -25,7 +25,7 @@ require "hecks"
 module HecksagainRuntime
   module GovernedDoor
     def self.lookup_door(root, tool)
-      runtime = Hecks.boot(HecksagainRuntime.stage_flat_corpus(root), install_facade: false)
+      runtime = Hecks.boot(HecksagainRuntime.stage_flat_corpus(root), install_doors: false)
       runtime.registry.bluebooks.each_value do |bluebook|
         bluebook.aggregates.each do |agg|
           agg.commands.each do |cmd|
