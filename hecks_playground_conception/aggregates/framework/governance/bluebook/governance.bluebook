@@ -43,7 +43,6 @@ Hecks.bluebook "Governance", version: "2026.06.26.1" do
     end
 
     command "Record" do
-      role "Framework"
       goal "Record that a denied or vetoed dispatch was attempted. Dispatched by a Gate's veto (or any adapter that reaches the bus). One immutable record per attempt."
       attribute :id,          Id
       attribute :tool_name,   ToolName
