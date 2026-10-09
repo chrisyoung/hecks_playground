@@ -19,7 +19,10 @@ Hecks.bluebook "Antibody", version: "2026.04.21.1" do
 
   # ---- CommitCheck ------------------------------------------------
 
-  aggregate "CommitCheck", "One commit validated in isolation against the antibody rules" do
+  aggregate "CommitCheck" do
+
+    description "One commit validated in isolation against the antibody rules"
+    identified_by :sha
     attribute :sha, CommitSha
     attribute :subject, CommitSubject
     attribute :touched_files, list_of(FilePath)
@@ -59,45 +62,45 @@ Hecks.bluebook "Antibody", version: "2026.04.21.1" do
     end
     command "ValidateCommit" do
       role "System"
-      description "Survey the files and message of a commit — record it as a clean pass"
+      goal "Survey the files and message of a commit — record it as a clean pass"
       attribute :sha, CommitSha
       attribute :subject, CommitSubject
       attribute :touched_files, list_of(FilePath)
       attribute :flagged_files, list_of(FilePath)
-      then_set :sha, to: :sha
-      then_set :subject, to: :subject
-      then_set :touched_files, to: :touched_files
-      then_set :flagged_files, to: :flagged_files
+      sets :sha
+      sets :subject
+      sets :touched_files
+      sets :flagged_files
       emits "CommitEvaluated"
     end
 
     command "ExemptCommit" do
       role "System"
-      description "A commit's message carries valid exemption markers covering every flagged file"
+      goal "A commit's message carries valid exemption markers covering every flagged file"
       attribute :sha, CommitSha
       attribute :subject, CommitSubject
       attribute :touched_files, list_of(FilePath)
       attribute :flagged_files, list_of(FilePath)
       attribute :exemption_reasons, list_of(Reason)
-      then_set :sha, to: :sha
-      then_set :subject, to: :subject
-      then_set :touched_files, to: :touched_files
-      then_set :flagged_files, to: :flagged_files
-      then_set :exemption_reasons, to: :exemption_reasons
+      sets :sha
+      sets :subject
+      sets :touched_files
+      sets :flagged_files
+      sets :exemption_reasons
       emits "CommitExempted"
     end
 
     command "RejectCommit" do
       role "System"
-      description "A commit has flagged files that no exemption marker covers"
+      goal "A commit has flagged files that no exemption marker covers"
       attribute :sha, CommitSha
       attribute :subject, CommitSubject
       attribute :touched_files, list_of(FilePath)
       attribute :flagged_files, list_of(FilePath)
-      then_set :sha, to: :sha
-      then_set :subject, to: :subject
-      then_set :touched_files, to: :touched_files
-      then_set :flagged_files, to: :flagged_files
+      sets :sha
+      sets :subject
+      sets :touched_files
+      sets :flagged_files
       emits "CommitRejected"
     end
 
@@ -110,7 +113,10 @@ Hecks.bluebook "Antibody", version: "2026.04.21.1" do
 
   # ---- BranchScan -------------------------------------------------
 
-  aggregate "BranchScan", "A sweep of base..HEAD — either a single-diff survey or a per-commit walk" do
+  aggregate "BranchScan" do
+
+    description "A sweep of base..HEAD — either a single-diff survey or a per-commit walk"
+    identified_by :base_ref
     attribute :base_ref, BranchRef
     attribute :touched_files, list_of(FilePath)
     attribute :flagged_files, list_of(FilePath)
@@ -156,33 +162,33 @@ Hecks.bluebook "Antibody", version: "2026.04.21.1" do
     end
     command "ScanBranch" do
       role "System"
-      description "Survey mode — diff base..HEAD, flag any extension in CODE_EXTS without an exemption"
+      goal "Survey mode — diff base..HEAD, flag any extension in CODE_EXTS without an exemption"
       attribute :base_ref, BranchRef
       attribute :touched_files, list_of(FilePath)
       attribute :flagged_files, list_of(FilePath)
-      then_set :base_ref, to: :base_ref
-      then_set :touched_files, to: :touched_files
-      then_set :flagged_files, to: :flagged_files
-      then_set :mode, to: "survey"
+      sets :base_ref
+      sets :touched_files
+      sets :flagged_files
+      sets :mode, to: "survey"
       emits "ScanCompleted"
     end
 
     command "ScanEachCommit" do
       role "System"
-      description "Per-commit mode — walk every commit in base..HEAD, each in isolation"
+      goal "Per-commit mode — walk every commit in base..HEAD, each in isolation"
       attribute :base_ref, BranchRef
       attribute :per_commit_verdicts, list_of(CommitVerdict)
-      then_set :base_ref, to: :base_ref
-      then_set :per_commit_verdicts, to: :per_commit_verdicts
-      then_set :mode, to: "each_commit"
+      sets :base_ref
+      sets :per_commit_verdicts
+      sets :mode, to: "each_commit"
       emits "EachCommitScanCompleted"
     end
 
     command "ScanUnresolvable" do
       role "System"
-      description "The declared base ref does not resolve — the scan cannot proceed"
+      goal "The declared base ref does not resolve — the scan cannot proceed"
       attribute :base_ref, BranchRef
-      then_set :base_ref, to: :base_ref
+      sets :base_ref
       emits "ScanUnresolvable"
     end
 
@@ -195,7 +201,11 @@ Hecks.bluebook "Antibody", version: "2026.04.21.1" do
 
   # ---- StagedCheck ------------------------------------------------
 
-  aggregate "StagedCheck", "The in-flight commit — what the pre-commit hook is about to let through" do
+  aggregate "StagedCheck" do
+
+    description "The in-flight commit — what the pre-commit hook is about to let through"
+    identified_by :check_id
+    attribute :check_id, CheckId
     attribute :staged_files, list_of(FilePath)
     attribute :flagged_files, list_of(FilePath)
     attribute :message_path, FilePath
@@ -203,6 +213,11 @@ Hecks.bluebook "Antibody", version: "2026.04.21.1" do
     attribute :mode, Mode
     attribute :result, Result, default: { value: "pending" }
 
+
+    value_object "CheckId" do
+      # One hook invocation's identity : the caller names each in-flight check.
+      attribute :value, String
+    end
 
     value_object "FilePath" do
       # Filesystem path — staged / flagged file, or the commit-message path.
@@ -225,49 +240,57 @@ Hecks.bluebook "Antibody", version: "2026.04.21.1" do
     end
     command "CheckStaged" do
       role "System"
-      description "List-only mode — enumerate flagged files, never block the commit"
+      goal "List-only mode — enumerate flagged files, never block the commit"
+      attribute :check_id, CheckId
+      sets :check_id
       attribute :staged_files, list_of(FilePath)
       attribute :flagged_files, list_of(FilePath)
-      then_set :staged_files, to: :staged_files
-      then_set :flagged_files, to: :flagged_files
-      then_set :mode, to: "list_only"
+      sets :staged_files
+      sets :flagged_files
+      sets :mode, to: "list_only"
       emits "StagedListed"
     end
 
     command "EnforceStaged" do
       role "System"
-      description "Hook mode — the commit has no flagged files that lack exemption"
+      goal "Hook mode — the commit has no flagged files that lack exemption"
+      attribute :check_id, CheckId
+      sets :check_id
       attribute :staged_files, list_of(FilePath)
       attribute :flagged_files, list_of(FilePath)
       attribute :message_path, FilePath
-      then_set :staged_files, to: :staged_files
-      then_set :flagged_files, to: :flagged_files
-      then_set :message_path, to: :message_path
-      then_set :mode, to: "enforce"
+      sets :staged_files
+      sets :flagged_files
+      sets :message_path
+      sets :mode, to: "enforce"
       emits "StagedClean"
     end
 
     command "ExemptStaged" do
       role "System"
-      description "The staged message carries exemption markers that cover every flagged file"
+      goal "The staged message carries exemption markers that cover every flagged file"
+      attribute :check_id, CheckId
+      sets :check_id
       attribute :staged_files, list_of(FilePath)
       attribute :flagged_files, list_of(FilePath)
       attribute :message_path, FilePath
       attribute :exemption_reasons, list_of(Reason)
-      then_set :staged_files, to: :staged_files
-      then_set :flagged_files, to: :flagged_files
-      then_set :message_path, to: :message_path
-      then_set :exemption_reasons, to: :exemption_reasons
+      sets :staged_files
+      sets :flagged_files
+      sets :message_path
+      sets :exemption_reasons
       emits "StagedExempted"
     end
 
     command "RejectStaged" do
       role "System"
-      description "The staged commit has flagged files that no exemption covers — block the commit"
+      goal "The staged commit has flagged files that no exemption covers — block the commit"
+      attribute :check_id, CheckId
+      sets :check_id
       attribute :staged_files, list_of(FilePath)
       attribute :flagged_files, list_of(FilePath)
-      then_set :staged_files, to: :staged_files
-      then_set :flagged_files, to: :flagged_files
+      sets :staged_files
+      sets :flagged_files
       emits "StagedRejected"
     end
 
@@ -296,8 +319,10 @@ Hecks.bluebook "Antibody", version: "2026.04.21.1" do
   # row set lives in `information/exempt_registry.heki` and is mutated
   # by RegisterExemption / RetireExemption.
 
-  aggregate "ExemptRegistry", "One non-bluebook file path allowed past the bluebook-first macrophage — kernel-surface or transitional" do
-    identified_by { path.value }
+  aggregate "ExemptRegistry" do
+
+    description "One non-bluebook file path allowed past the bluebook-first macrophage — kernel-surface or transitional"
+    identified_by :path
 
     # Repo-relative path (suffix-matched against the edited file).
     attribute :path, FilePath
@@ -327,26 +352,34 @@ Hecks.bluebook "Antibody", version: "2026.04.21.1" do
     end
     command "RegisterExemption" do
       role "Chris"
-      description "Add a kernel-surface or transitional file to the exemption list. The macrophage hook reads this on every Edit / Write event ; suffix-matching means relative or absolute paths both resolve. Idempotent — registering an existing path overwrites the reason."
+      goal "Add a kernel-surface or transitional file to the exemption list. The macrophage hook reads this on every Edit / Write event ; suffix-matching means relative or absolute paths both resolve. Idempotent — registering an existing path overwrites the reason."
       attribute :path, FilePath
       attribute :reason, Reason
-      then_set :path,    to: :path
-      then_set :reason,  to: :reason
+      sets :path
+      sets :reason
       emits "ExemptionRegistered"
     end
 
     command "RegisterExemptions" do
       role "Chris"
-      description "Bulk variant of RegisterExemption — one dispatch, N records saved. The runtime detects the bulk shape (single attribute, list_of value_object whose fields cover the aggregate's identity + value attrs) and iterates : for each ExemptionSpec it builds a per-row state and saves it through the standard save path. Upsert semantics carry through ; re-dispatching with overlapping specs overwrites the matching rows. Emits one `ExemptionRegistered` per row so downstream listeners (macrophage dashboard, audit log) see the same events whether the registration came in one-by-one or as a batch. The Many-form convention : every Register* command in the corpus that has a natural multi-row shape gets a Many sibling. Antibody is the proving ground (i113 / i116)."
+      goal "Bulk variant of RegisterExemption — one dispatch, N records saved. The runtime detects the bulk shape (single attribute, list_of value_object whose fields cover the aggregate's identity + value attrs) and iterates : for each ExemptionSpec it builds a per-row state and saves it through the standard save path. Upsert semantics carry through ; re-dispatching with overlapping specs overwrites the matching rows. Emits one `ExemptionsRegistered` fact for the batch: an event is one fact and the gem requires every emitter of a name to declare the same fields, so the batch cannot share `ExemptionRegistered` with the single form. The Many-form convention : every Register* command in the corpus that has a natural multi-row shape gets a Many sibling. Antibody is the proving ground (i113 / i116)."
       attribute :specs, list_of(ExemptionSpec)
-      emits "ExemptionRegistered"
+      emits "ExemptionsRegistered"
+    end
+
+    command "ReviseExemption" do
+      role "Chris"
+      goal "Replace the reason on a path already in the registry. RegisterExemption is a creator and is refused when the path exists, so overwriting is its own command acting on the existing record."
+      reference_to(ExemptRegistry)
+      attribute :reason, Reason
+      sets :reason
+      emits "ExemptionRevised"
     end
 
     command "RetireExemption" do
       role "Chris"
-      description "Remove a path from the registry — the file is now bluebook-conceived (or has been deleted). The macrophage will start blocking edits to it again on the next hook fire. The `then_delete` mutation removes the record from the heki store after the event fires."
+      goal "Remove a path from the registry — the file is now bluebook-conceived (or has been deleted). The macrophage will start blocking edits to it again on the next hook fire. The published gem has no delete mutation word, so retirement is recorded as the ExemptionRetired event and the row removal itself is not expressible until the gem gains one."
       reference_to(ExemptRegistry)
-      then_delete
       emits "ExemptionRetired"
     end
   end

@@ -128,6 +128,7 @@ Hecks.bluebook "ProcessHealth", version: "2026.05.20.2" do
     command "RecordHeartbeat" do
       role "System"
       goal "The watched process emitted a heartbeat (Heart.Beat, Breath.Inhale, Inbox.Check, or its domain-equivalent). Stamps last_heartbeat_at and last_seen_at, sets signal_source to 'heartbeat', and (via MarkAliveOnHeartbeat policy) cascades into MarkAlive. Idempotent — multiple heartbeats in a sweep window all stamp the latest."
+      attribute :process_name, ProcessName
       attribute :last_heartbeat_at, Timestamp
       sets :last_heartbeat_at
       sets :last_seen_at,      to: :last_heartbeat_at
@@ -137,6 +138,7 @@ Hecks.bluebook "ProcessHealth", version: "2026.05.20.2" do
     command "MarkAlive" do
       role "System"
       goal "The sweep confirmed this sentinel is alive on this tick. Sets state='alive', records the signal_source (heartbeat | log_mtime), resets consecutive_misses to 0, and stamps last_seen_at. Dispatched by the macrophage runtime when signal layer 1 or 2 fires."
+      attribute :process_name, ProcessName
       attribute :last_seen_at,    Timestamp
       attribute :signal_source,   SignalSource
       sets :state,              to: "alive"
@@ -149,6 +151,7 @@ Hecks.bluebook "ProcessHealth", version: "2026.05.20.2" do
     command "MarkHanged" do
       role "System"
       goal "The sweep saw a pid but no recent activity. Sets state='hanged', signal_source='pgrep', stamps last_seen_at, and bumps consecutive_misses. Dispatched by the macrophage runtime when signal layer 3 fires. If consecutive_misses crosses the mark-dead threshold, the MarkDeadAfterRepeatedHangs policy then cascades MarkDead."
+      attribute :process_name, ProcessName
       attribute :last_seen_at,        Timestamp
       attribute :consecutive_misses,  MissCount
       sets :state,                to: "hanged"
@@ -161,6 +164,7 @@ Hecks.bluebook "ProcessHealth", version: "2026.05.20.2" do
     command "MarkDead" do
       role "System"
       goal "The sweep saw nothing — no pid, no log activity, no heartbeat. Sets state='dead', signal_source='none', stamps last_seen_at as the observation moment (the moment the absence was confirmed, not the moment the process died — that's unknowable from pgrep). Dispatched by the macrophage runtime when signal layer 4 fires, or by MarkDeadAfterRepeatedHangs when a hanged sentinel exhausts its miss tolerance."
+      attribute :process_name, ProcessName
       attribute :last_seen_at, Timestamp
       sets :state,         to: "dead"
       sets :signal_source, to: "none"
@@ -279,6 +283,7 @@ Hecks.bluebook "ProcessHealth", version: "2026.05.20.2" do
     command "StartSession" do
       role "System"
       goal "Reset per-session tallies at session boot. The watchlist + sweep_cadence_seconds + mark_dead_threshold persist across sessions ; sweeps_run + heals_requested reset. Consistent with the discipline-layer Macrophage : tallies are per-session, configuration persists."
+      attribute :name, Name
       attribute :session_started_at, Timestamp
       sets :session_started_at
       sets :sweeps_run,         to: 0
@@ -291,6 +296,7 @@ Hecks.bluebook "ProcessHealth", version: "2026.05.20.2" do
     command "Watch" do
       role "System"
       goal "Add a process_name to the watchlist. Idempotent — adding a name already on the list is a no-op (the runtime de-dupes). The watchlist is the single source of truth for who is supervised ; ProcessSentinel records are dynamic state derived from sweeping the watchlist."
+      reference_to ProcessMacrophage
       attribute :process_name, ProcessName
       emits "ProcessWatched"
     end
@@ -298,6 +304,7 @@ Hecks.bluebook "ProcessHealth", version: "2026.05.20.2" do
     command "Unwatch" do
       role "System"
       goal "Remove a process_name from the watchlist. Sentinels already recorded against that name are not deleted (audit trail) ; they simply stop receiving MarkX commands on future sweeps."
+      reference_to ProcessMacrophage
       attribute :process_name, ProcessName
       emits "ProcessUnwatched"
     end
@@ -307,6 +314,7 @@ Hecks.bluebook "ProcessHealth", version: "2026.05.20.2" do
     command "Sweep" do
       role "System"
       goal "One sweep tick. The runtime (process_health.hecksagon binds this to bin/process_health_sweep via the :exec adapter) walks the watchlist ; for each ProcessName it gathers the four signal layers (heartbeat / log_mtime / pgrep / none) and dispatches MarkAlive | MarkHanged | MarkDead on the matching ProcessSentinel. Sweep itself only records the tick happened — the per-sentinel fan-out is the runtime's job (mirrors Inbox.Check which records the poll without expressing per-message fan-out). The cadence dispatcher is a MindstreamMember calling Sweep --every 30s."
+      reference_to ProcessMacrophage
       attribute :last_sweep_at, Timestamp
       sets :last_sweep_at
       emits "Swept"
@@ -317,6 +325,7 @@ Hecks.bluebook "ProcessHealth", version: "2026.05.20.2" do
     command "Heal" do
       role "System"
       goal "Request recovery for an unhealthy sentinel and act on it. The bluebook layer records the dispatch — heals_requested is bumped (caller passes the next count, mirrors RestartPrompt.Compose pattern), last_heal_attempted_at is stamped, HealRequested is emitted. The :exec adapter (process_health.hecksagon) catches the dispatch and runs bin/process_health_heal, which : (1) verifies overmind is alive (else `overmind start -D` from hecks_playground_conception/) ; (2) walks process_sentinel.heki for state=dead records ; (3) runs `overmind restart <process_name>` per dead sentinel ; (4) dispatches MarkAlive on each restarted sentinel so the ProposeHealOnDeath policy doesn't re-fire on the next sweep. heals_requested is passed in by the caller — runtime reads state and increments externally, the bluebook stays arithmetic-free."
+      reference_to ProcessMacrophage
       attribute :process_name,           ProcessName
       attribute :reason,                 HealReason
       attribute :requested_at,           Timestamp
@@ -342,7 +351,7 @@ Hecks.bluebook "ProcessHealth", version: "2026.05.20.2" do
     # command's then_set chain (RecordHeartbeat stamps timestamps ;
     # this policy promotes the sentinel state).
     on "HeartbeatRecorded"
-    trigger MarkAlive
+    trigger ProcessSentinel::MarkAlive
   end
 
   policy "MarkHangedOnMissingHeartbeat" do
@@ -353,7 +362,7 @@ Hecks.bluebook "ProcessHealth", version: "2026.05.20.2" do
     # placeholder documents the contract — the same Sweep event
     # is consumed by the runtime fan-out.
     on "Swept"
-    trigger MarkHanged
+    trigger ProcessSentinel::MarkHanged
   end
 
   policy "MarkDeadAfterRepeatedHangs" do
@@ -363,7 +372,7 @@ Hecks.bluebook "ProcessHealth", version: "2026.05.20.2" do
     # same tick the threshold is crossed — no waiting for the
     # next sweep.
     on "MarkedHanged"
-    trigger MarkDead
+    trigger ProcessSentinel::MarkDead
   end
 
   policy "ProposeHealOnDeath" do
@@ -376,7 +385,7 @@ Hecks.bluebook "ProcessHealth", version: "2026.05.20.2" do
     # restarts cleanly is alive again and ProposeHealOnDeath won't
     # re-fire on the next sweep.
     on "MarkedDead"
-    trigger Heal
+    trigger ProcessMacrophage::Heal
   end
 
 end

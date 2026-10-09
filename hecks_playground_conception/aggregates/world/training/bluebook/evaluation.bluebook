@@ -32,10 +32,12 @@ Hecks.bluebook "Evaluation", version: "2026.04.28.1" do
     command "EvaluateModel" do
       role "System"
       goal "Run the trained model against test set — does it produce valid Bluebooks? Does it converse like Miette?"
-      attribute :bluebook_accuracy,    Score
-      attribute :conversation_quality, Score
-      attribute :behavior_adherence,   Score
+      attribute :name,                 Name
+      attribute :bluebook_accuracy,    Score, optional: true
+      attribute :conversation_quality, Score, optional: true
+      attribute :behavior_adherence,   Score, optional: true
       emits "ModelEvaluated"
+      sets :name
       sets :bluebook_accuracy
       sets :conversation_quality
       sets :behavior_adherence
@@ -44,6 +46,6 @@ Hecks.bluebook "Evaluation", version: "2026.04.28.1" do
 
   policy "EvaluateOnComplete" do
     on "FineTuneCompleted"
-    trigger World::Training::Evaluation::Evaluation::EvaluateModel
+    trigger Evaluation::EvaluateModel, with: { name: :ref }
   end
 end

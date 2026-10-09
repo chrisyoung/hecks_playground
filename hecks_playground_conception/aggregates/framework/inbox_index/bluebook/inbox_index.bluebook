@@ -172,6 +172,7 @@ Hecks.bluebook "InboxIndex", version: "2026.05.20.1" do
     command "StartSession" do
       role "System"
       goal "Reset per-session counters at runtime boot. Lifetime totals on disk (in next.json) are preserved — this resets only the in-memory tallies the aggregate exposes for observability."
+      attribute :name,               Name
       attribute :session_started_at, Timestamp
       sets :session_started_at
       emits "SessionStarted"
@@ -182,6 +183,7 @@ Hecks.bluebook "InboxIndex", version: "2026.05.20.1" do
     command "Allocate" do
       role "Agent"
       goal "Atomically return the current next_number and advance it by 1. The default verb for 'I'm about to file an inbox card ; give me the next i-number.' Atomicity is enforced by the bin/hecks_playground-inbox shim's flock on the persistence file — concurrent Allocate dispatches from sibling agents serialize at the OS level, so each gets a distinct number. The returned number is what the caller writes as `i<N>.md` into the target inbox ; InboxIndex does not file the card or know which inbox it lands in. requester is a free-form label (branch, task tag, 'manual') recorded for the audit surface. Increments total_allocated ; updates last_allocated_at and last_allocated_to ; emits NumberAllocated so downstream observers (the statusline counter, an audit reactor) can react."
+      reference_to(InboxIndex)
       attribute :allocated_number, Number
       attribute :requester,        Requester
       attribute :allocated_at,     Timestamp
@@ -195,6 +197,7 @@ Hecks.bluebook "InboxIndex", version: "2026.05.20.1" do
     command "Reserve" do
       role "Agent"
       goal "Atomically take a contiguous range of N i-numbers and advance next_number by N. The verb for spawning sidequest agents : 'I'm dispatching 5 child agents who will each file a card ; reserve a block of 5 so they can pick from a known range without colliding with each other or with anyone else.' Returned as a Range value object (start + count). The caller is responsible for distributing the range to its children ; InboxIndex just hands out the block atomically. Increments total_reserved ; updates last_reserved_at ; emits RangeReserved."
+      reference_to(InboxIndex)
       attribute :reserved_range, Range
       attribute :requester,      Requester
       attribute :reserved_at,    Timestamp
@@ -208,6 +211,7 @@ Hecks.bluebook "InboxIndex", version: "2026.05.20.1" do
     command "Recover" do
       role "System"
       goal "Re-scan a set of inbox directories on disk, compute the global max(i*.md), and re-ground next_number to max + 1. Idempotent — never decreases next_number, only advances it if disk reality has overtaken the persisted state (e.g. a hand-filed card with a guessed number, a worktree merge that brought in cards filed elsewhere, a rename that exposed a higher number than the allocator knew about). Run automatically on the first call to Allocate when next.json does not yet exist ; run by hand via `hecks_playground-inbox recover` when the operator suspects drift. The scan_roots attribute carries the list of directories walked — the bin/hecks_playground-inbox shim defaults this to the union of all `~/Projects/*/inbox/`, `~/Projects/*/*.inbox/`, and `~/Projects/*/.../hecks_playground_conception/inbox/` directories the scan finds. Increments recoveries ; updates last_recovered_at ; emits StateRecovered carrying the max observed on disk and whether next_number was advanced."
+      reference_to(InboxIndex)
       attribute :observed_max,    Number
       attribute :previous_next,   Number
       attribute :new_next,        Number

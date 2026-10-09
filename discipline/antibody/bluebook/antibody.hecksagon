@@ -1,4 +1,5 @@
 Hecks.hecksagon "Antibody" do
+  attaches "Governance"
   # Antibody has no persistence — every verdict is a fresh, one-shot
   # evaluation. The memory adapter holds the CommitCheck / BranchScan /
   # StagedCheck aggregates for the lifetime of a single CLI invocation
@@ -26,47 +27,55 @@ Hecks.hecksagon "Antibody" do
   # explicitly keeps both parsers byte-equal without either side
   # auto-splitting.
 
-  adapter :shell,
-          name:    :git_resolve_ref,
-          command: "git",
-          args:    ["rev-parse", "--verify", "{{ref}}"],
-          ok_exit: 0
+  # ---- Words the published gem does not admit, parked as comments ----
+  #
+  # The hecksagon grammar in hecks 3.10 admits only attaches, bounded, port,
+  # subscribe and translates (plus persisted_by binds). The shell adapters and
+  # the gate blocks below are the retired fork's words, which the gem refuses
+  # at boot, so they are kept here as comments rather than lost. Restore them
+  # when the gem gains a shell-adapter word and a per-role command allowlist.
+  #
+  # adapter :shell,
+  #         name:    :git_resolve_ref,
+  #         command: "git",
+  #         args:    ["rev-parse", "--verify", "{{ref}}"],
+  #         ok_exit: 0
 
-  adapter :shell,
-          name:    :git_list_commits,
-          command: "git",
-          args:    ["log", "--format=%H", "--reverse", "{{base_ref}}..HEAD"],
-          ok_exit: 0
+  # adapter :shell,
+  #         name:    :git_list_commits,
+  #         command: "git",
+  #         args:    ["log", "--format=%H", "--reverse", "{{base_ref}}..HEAD"],
+  #         ok_exit: 0
 
-  adapter :shell,
-          name:    :git_show_touched,
-          command: "git",
-          args:    ["show", "--name-only", "--diff-filter=AM", "--format=", "{{sha}}"],
-          ok_exit: 0
+  # adapter :shell,
+  #         name:    :git_show_touched,
+  #         command: "git",
+  #         args:    ["show", "--name-only", "--diff-filter=AM", "--format=", "{{sha}}"],
+  #         ok_exit: 0
 
-  adapter :shell,
-          name:    :git_commit_message,
-          command: "git",
-          args:    ["log", "-1", "--format=%B", "{{sha}}"],
-          ok_exit: 0
+  # adapter :shell,
+  #         name:    :git_commit_message,
+  #         command: "git",
+  #         args:    ["log", "-1", "--format=%B", "{{sha}}"],
+  #         ok_exit: 0
 
-  adapter :shell,
-          name:    :git_commit_subject,
-          command: "git",
-          args:    ["log", "-1", "--format=%s", "{{sha}}"],
-          ok_exit: 0
+  # adapter :shell,
+  #         name:    :git_commit_subject,
+  #         command: "git",
+  #         args:    ["log", "-1", "--format=%s", "{{sha}}"],
+  #         ok_exit: 0
 
-  adapter :shell,
-          name:    :git_branch_diff,
-          command: "git",
-          args:    ["diff", "--name-only", "--diff-filter=AM", "{{base_ref}}...HEAD"],
-          ok_exit: 0
+  # adapter :shell,
+  #         name:    :git_branch_diff,
+  #         command: "git",
+  #         args:    ["diff", "--name-only", "--diff-filter=AM", "{{base_ref}}...HEAD"],
+  #         ok_exit: 0
 
-  adapter :shell,
-          name:    :git_staged_files,
-          command: "git",
-          args:    ["diff", "--cached", "--name-only", "--diff-filter=AM"],
-          ok_exit: 0
+  # adapter :shell,
+  #         name:    :git_staged_files,
+  #         command: "git",
+  #         args:    ["diff", "--cached", "--name-only", "--diff-filter=AM"],
+  #         ok_exit: 0
 
   # ---- Gates ------------------------------------------------------
   #
@@ -76,17 +85,17 @@ Hecks.hecksagon "Antibody" do
   # :hook   — the pre-commit path. Narrower: it only touches the
   #           staged-check aggregate and its own message file.
 
-  gate "CommitCheck", :ci do
-    allow :ValidateCommit, :ExemptCommit, :RejectCommit
-  end
+  # gate "CommitCheck", :ci do
+  #   allow :ValidateCommit, :ExemptCommit, :RejectCommit
+  # end
 
-  gate "BranchScan", :ci do
-    allow :ScanBranch, :ScanEachCommit, :ScanUnresolvable
-  end
+  # gate "BranchScan", :ci do
+  #   allow :ScanBranch, :ScanEachCommit, :ScanUnresolvable
+  # end
 
-  gate "StagedCheck", :hook do
-    allow :CheckStaged, :EnforceStaged, :ExemptStaged, :RejectStaged
-  end
+  # gate "StagedCheck", :hook do
+  #   allow :CheckStaged, :EnforceStaged, :ExemptStaged, :RejectStaged
+  # end
 
   # ---- Persistence binds -----------------------------------------
   Antibody::CommitCheck.persisted_by("Heki")

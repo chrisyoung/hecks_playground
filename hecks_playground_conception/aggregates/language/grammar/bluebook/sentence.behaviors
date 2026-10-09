@@ -6,20 +6,20 @@ Hecks.behaviors "Sentence" do
 
   test "Define sets phrase + domain + command + aggregate + actor + parameters" do
     tests "Define", on: "Sentence"
-    input  phrase: "sample", domain: "sample", command: "sample", aggregate: "sample", actor: "sample", parameters: "sample"
-    expect phrase: "sample", domain: "sample", command: "sample", aggregate: "sample", actor: "sample", parameters: "sample"
+    input  phrase: "sample", realm: "sample", subrealms: [], domain: "sample", command: "sample", aggregate: "sample", actor: "sample", parameters: ["sample"]
+    expect phrase: "sample", domain: "sample", command: "sample", aggregate: "sample", actor: "sample", parameters: ["sample"]
   end
 
   test "Define cascades through policy chain" do
     tests "Define", on: "Sentence", kind: :cross_cascade
-    input  phrase: "sample", domain: "sample", command: "sample", aggregate: "sample", actor: "sample", parameters: "sample"
-    expect emits_subset: ["SentenceDefined", "VocabularyCompiled"]
+    input  phrase: "sample", realm: "sample", subrealms: [], domain: "sample", command: "sample", aggregate: "sample", actor: "sample", parameters: ["sample"]
+    expect_event "SentenceDefined", "VocabularyCompiled"
   end
 
   test "Translate sets natural_phrase" do
     tests "Translate", on: "Sentence"
-    setup  "Sentence::Sentence.Define", phrase: "sample", domain: "sample", command: "sample", aggregate: "sample", actor: "sample", parameters: "sample"
-    input  natural_phrase: "sample"
-    expect translations_size: 1
+    setup  "Sentence::Sentence.Define", phrase: "sample", realm: "sample", subrealms: [], domain: "sample", command: "sample", aggregate: "sample", actor: "sample", parameters: ["sample"]
+    input  phrase: "sample", natural_phrase: "sample"
+    expect translations: ["sample"]
   end
 end

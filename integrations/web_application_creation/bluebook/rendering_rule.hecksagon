@@ -1,3 +1,4 @@
 Hecks.hecksagon "RenderingRule" do
+  attaches "Governance"
   RenderingRule::RenderingRule.persisted_by("Heki")
 end

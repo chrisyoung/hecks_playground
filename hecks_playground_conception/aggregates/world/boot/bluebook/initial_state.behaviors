@@ -6,7 +6,7 @@ Hecks.behaviors "InitialState" do
 
   test "SeedOrgans sets organs_seeded + records_created" do
     tests "SeedOrgans", on: "InitialState"
-    input  organs_seeded: 1, records_created: 1
-    expect organs_seeded: 1, records_created: 1
+    input  name: "sample", organs_seeded: 1, records_created: 1
+    expect name: "sample", organs_seeded: 1, records_created: 1
   end
 end

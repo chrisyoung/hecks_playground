@@ -7,7 +7,8 @@ Hecks.behaviors "Mindstream" do
     tests "Define", on: "Mindstream"
     input  name:        "boot",
            description: "The Miette boot pipeline as a one-shot supervised mindstream.",
-           directory:   { path: "hecks_playground_conception" }
+           directory:   { path: "hecks_playground_conception" },
+           corpus_roots: { value: "self/system_prompt/bluebook" }
     expect name:        "boot",
            description: "The Miette boot pipeline as a one-shot supervised mindstream.",
            directory:   { path: "hecks_playground_conception" }
@@ -17,10 +18,12 @@ Hecks.behaviors "Mindstream" do
 
   test "Register a one-shot member under a mindstream" do
     tests "Register", on: "MindstreamMember"
+    setup  "Mindstream::Mindstream.Define", name: "boot", description: "boot pipeline", directory: { path: "hecks_playground_conception" }, corpus_roots: { value: "self/system_prompt/bluebook" }
     input  name:       "boot",
            mindstream: "boot",
            command:    { line: "../rust/target/release/storehouse run ../runtime/boot/bluebook/boot.bluebook" },
-           lifespan:   { kind: "one_shot", may_exit: true, restart_on_failure: false }
+           lifespan:   { kind: "one_shot", may_exit: true, restart_on_failure: false },
+           order:      1
     expect name:       "boot",
            command:    { line: "../rust/target/release/storehouse run ../runtime/boot/bluebook/boot.bluebook" },
            lifespan:   { kind: "one_shot", may_exit: true, restart_on_failure: false }
@@ -28,10 +31,12 @@ Hecks.behaviors "Mindstream" do
 
   test "Register a persistent member — defaults to restart_on_failure" do
     tests "Register", on: "MindstreamMember"
+    setup  "Mindstream::Mindstream.Define", name: "studio", description: "studio surface", directory: { path: "hecks_playground_conception" }, corpus_roots: { value: "self/system_prompt/bluebook" }
     input  name:       "studio",
            mindstream: "studio",
            command:    { line: "./surface/studio/studio.sh" },
-           lifespan:   { kind: "persistent", may_exit: false, restart_on_failure: true }
+           lifespan:   { kind: "persistent", may_exit: false, restart_on_failure: true },
+           order:      2
     expect lifespan:   { kind: "persistent", may_exit: false, restart_on_failure: true }
   end
 

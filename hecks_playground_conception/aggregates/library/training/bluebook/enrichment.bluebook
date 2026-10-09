@@ -31,9 +31,11 @@ Hecks.bluebook "Enrichment", version: "2026.04.28.1" do
     command "EnrichDomains" do
       role "System"
       goal "Add cross-references, lifecycles, fixtures, and policies to flat domains"
-      attribute :strategy,         Strategy
-      attribute :domains_enriched, DomainCount
+      attribute :name,             Name
+      attribute :strategy,         Strategy, optional: true
+      attribute :domains_enriched, DomainCount, optional: true
       emits "DomainsEnriched"
+      sets :name
       sets :strategy
       sets :domains_enriched
     end
@@ -41,6 +43,6 @@ Hecks.bluebook "Enrichment", version: "2026.04.28.1" do
 
   policy "EnrichOnBuild" do
     on "CorpusBuilt"
-    trigger EnrichDomains
+    trigger Enrichment::EnrichDomains, with: { name: :name }
   end
 end

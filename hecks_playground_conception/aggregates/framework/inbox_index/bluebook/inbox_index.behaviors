@@ -30,6 +30,7 @@ Hecks.behaviors "InboxIndex" do
 
   test "Allocate records last_allocated_at + requester" do
     tests "Allocate", on: "InboxIndex"
+    setup  "StartSession", name: { value: "default" }, session_started_at: { value: "2026-05-14T00:00:00Z" }
     input  name:             { value: "default" },
            allocated_number: { value: 658 },
            requester:        { value: "inbox-centralized-numbering" },
@@ -40,6 +41,7 @@ Hecks.behaviors "InboxIndex" do
 
   test "Allocate emits NumberAllocated" do
     tests "Allocate", on: "InboxIndex"
+    setup  "StartSession", name: { value: "default" }, session_started_at: { value: "2026-05-14T00:00:00Z" }
     input  name:             { value: "default" },
            allocated_number: { value: 659 },
            requester:        { value: "manual" },
@@ -56,6 +58,7 @@ Hecks.behaviors "InboxIndex" do
 
   test "Reserve records last_reserved_at + requester" do
     tests "Reserve", on: "InboxIndex"
+    setup  "StartSession", name: { value: "default" }, session_started_at: { value: "2026-05-14T00:00:00Z" }
     input  name:           { value: "default" },
            reserved_range: { start: 660, count: 5 },
            requester:      { value: "audit-sidequest" },
@@ -66,6 +69,7 @@ Hecks.behaviors "InboxIndex" do
 
   test "Reserve emits RangeReserved" do
     tests "Reserve", on: "InboxIndex"
+    setup  "StartSession", name: { value: "default" }, session_started_at: { value: "2026-05-14T00:00:00Z" }
     input  name:           { value: "default" },
            reserved_range: { start: 665, count: 3 },
            requester:      { value: "autophagy-sidequest" },
@@ -83,6 +87,7 @@ Hecks.behaviors "InboxIndex" do
 
   test "Recover advances next_number to new_next" do
     tests "Recover", on: "InboxIndex"
+    setup  "StartSession", name: { value: "default" }, session_started_at: { value: "2026-05-14T00:00:00Z" }
     input  name:          { value: "default" },
            observed_max:  { value: 670 },
            previous_next: { value: 668 },
@@ -94,6 +99,7 @@ Hecks.behaviors "InboxIndex" do
 
   test "Recover emits StateRecovered" do
     tests "Recover", on: "InboxIndex"
+    setup  "StartSession", name: { value: "default" }, session_started_at: { value: "2026-05-14T00:00:00Z" }
     input  name:          { value: "default" },
            observed_max:  { value: 700 },
            previous_next: { value: 700 },

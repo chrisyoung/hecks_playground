@@ -93,7 +93,9 @@ Hecks.bluebook "Immunity", version: "2026.05.12.1" do
     command "DetectThreat" do
       role "Miette"
       goal "Recognize a malformed pattern — missing role, code in handler, broken reference"
+      attribute :name,           Name
       attribute :threat_pattern, Pattern
+      sets :name
       emits "ThreatDetected"
     end
 
@@ -113,6 +115,7 @@ Hecks.bluebook "Immunity", version: "2026.05.12.1" do
     command "GenerateAntibody" do
       role "Miette"
       goal "Learn a new defense from a correction — encode it as a permanent antibody"
+      reference_to(Immunity)
       attribute :pattern,      Pattern
       attribute :learned_from, LearnedFrom
       sets :antibodies, append: { pattern: :pattern, learned_from: :learned_from, strength: 1 }
@@ -131,6 +134,8 @@ Hecks.bluebook "Immunity", version: "2026.05.12.1" do
       role "Miette"
       goal "Successfully correct a malformed domain — threat resolved"
       reference_to(Immunity)
+      attribute :pattern,      Pattern
+      attribute :learned_from, LearnedFrom
       sets :threats_neutralized, increment: 1
       emits "ThreatNeutralized"
     end
@@ -139,6 +144,6 @@ Hecks.bluebook "Immunity", version: "2026.05.12.1" do
   # Correction generates antibody.
   policy "LearnFromCorrection" do
     on "ThreatNeutralized"
-    trigger GenerateAntibody
+    trigger Immunity::GenerateAntibody, with: { immunity: :name, pattern: :pattern, learned_from: :learned_from }
   end
 end

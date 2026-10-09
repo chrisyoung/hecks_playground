@@ -20,11 +20,13 @@ Hecks.behaviors "CloudflareArtifacts" do
 
   test "GenerateWorker runs" do
     tests "GenerateWorker", on: "WorkerScript"
+    input  source_path: "sample"
     expect ok: "true"
   end
 
   test "GenerateWorker cascades through policy chain" do
     tests "GenerateWorker", on: "WorkerScript", kind: :cascade
+    input  source_path: "sample"
     expect emits: ["WorkerGenerated", "ConfigGenerated"]
   end
 
@@ -33,18 +35,20 @@ Hecks.behaviors "CloudflareArtifacts" do
 
   test "GenerateSite runs" do
     tests "GenerateSite", on: "PagesSite"
+    input  source_path: "sample"
     expect ok: "true"
   end
 
   test "GenerateSite cascades through policy chain" do
     tests "GenerateSite", on: "PagesSite", kind: :cascade
+    input  source_path: "sample"
     expect emits: ["SiteGenerated", "ApiWired"]
   end
 
   test "WireApiCalls sets api_base_url" do
     tests "WireApiCalls", on: "PagesSite"
-    setup  "GenerateSite"
-    input  api_base_url: "sample"
+    setup  "GenerateSite", source_path: "sample"
+    input  source_path: "sample", api_base_url: "sample"
     expect api_base_url: "sample"
   end
 
@@ -53,6 +57,7 @@ Hecks.behaviors "CloudflareArtifacts" do
 
   test "GenerateMigrations runs" do
     tests "GenerateMigrations", on: "Migration"
+    input  source_path: "sample"
     expect ok: "true"
   end
 
@@ -61,13 +66,13 @@ Hecks.behaviors "CloudflareArtifacts" do
 
   test "GenerateConfig sets project_name" do
     tests "GenerateConfig", on: "WranglerConfig"
-    input  project_name: "sample"
+    input  source_path: "sample", project_name: "sample"
     expect project_name: "sample"
   end
 
   test "GenerateConfig cascades through policy chain" do
     tests "GenerateConfig", on: "WranglerConfig", kind: :cascade
-    input  project_name: "sample"
+    input  source_path: "sample", project_name: "sample"
     expect emits: ["ConfigGenerated"]
   end
 

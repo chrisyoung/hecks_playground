@@ -33,9 +33,11 @@ Hecks.bluebook "Compilation", version: "2026.04.28.1" do
     command "CompileNursery" do
       role "System"
       goal "Compress all nursery domains into a single corpus file"
+      attribute :name,             Name
       attribute :domains_compiled, DomainCount
       attribute :output_path,      OutputPath
       emits "NurseryCompiled"
+      sets :name
       sets :domains_compiled
       sets :output_path
     end

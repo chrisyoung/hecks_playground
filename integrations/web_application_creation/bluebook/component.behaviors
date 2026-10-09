@@ -12,6 +12,7 @@ Hecks.behaviors "Component" do
   test "CustomizeComponent runs" do
     tests "CustomizeComponent", on: "Component"
     setup  "DefineComponent", name: "sample", component_type: "sample", maps_to: "sample"
+    input  name: "sample"
     expect ok: "true"
   end
 end

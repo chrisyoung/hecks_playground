@@ -293,6 +293,7 @@ Hecks.bluebook "Storehouse", version: "2026.06.27.1" do
     command "Declare" do
       role "Framework"
       goal "Bring a Gate into being — declared through the storehouse door (a normal dispatch, no DSL). Declares the phase, the check (a built-in verdict key like 'authorize' / 'authenticate', OR a bluebook query named Aggregate.Query), the match pattern, and the order. Idempotent on name : re-declaring replaces the phase/check/pattern/order. The runtime picks up the change on next boot, or on the in-session re-hydrate that follows a Gate lifecycle event."
+      reference_to(Gate)
       attribute :name,    GateName
       attribute :phase,   Phase
       attribute :check,   Check

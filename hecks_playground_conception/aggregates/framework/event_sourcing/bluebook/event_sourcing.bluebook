@@ -456,7 +456,8 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
       role "System"
       goal "Empty the projection so the Log can be replayed into it from scratch"
       goal "Reset the fold. The runtime calls Rebuild then replays the Log (Event.Replay) folding each delta via Apply — a projection is always reproducible from the Log alone. Clears the derived view and the counters."
-      attribute :name, ProjectionName
+      reference_to(Projection)
+      sets :name
       sets :events_applied, to: 0
       sets :last_sequence,  to: 0
       sets :view,           to: []
@@ -467,7 +468,7 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
       role "System"
       goal "Fold one event delta into the view — the actual derivation step"
       goal "Apply a single event's delta to the projection : append the derived row (key=field, value=resolved value), advance the watermark to the event's sequence, and increment events_applied. The runtime drives this once per event during replay or live tailing. This is the honest fold : the view is DERIVED from the deltas, never recorded precomputed."
-      attribute :name,      ProjectionName
+      reference_to(Projection)
       attribute :row_key,   RowKey
       attribute :row_value, RowValue
       attribute :sequence,  Sequence
@@ -643,7 +644,8 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
       role "System"
       goal "Record the standing verdict on derivability"
       goal "Where the measurement lands, so the answer is queryable domain state rather than console output. Upserts on the singleton key — the LATEST verdict is the one that matters ; the history of verdicts rides the Log like any other fact."
-      attribute :verification_id, VerificationId
+      reference_to(Verification)
+      sets :verification_id
       attribute :status,          Status
       attribute :checked_at,      CheckedAt
       attribute :drift_fields,    DriftFields
@@ -699,6 +701,7 @@ Hecks.bluebook "EventSourcing", version: "2026.06.19.1" do
       role "System"
       goal "Fold this realm's per-process Event shards into the global ordered Log"
       goal "Maintenance command — the AppendLog adapter's consolidation half. Carries no shard data : the runtime hook run_consolidate performs ONE merge pass (read each shard from its checkpoint offset, order by (ts, shard, seq), write new records to the global event.heki idempotently by event_id, advance the checkpoint), then RECLAIMS every shard the merge has now folded whole whose owning process is dead (deleting the file and pruning its checkpoint entry, guarded by a trustworthy live-process probe so a live owner's open shard is never unlinked). Dispatched by the driving-on-interval Driver, never by hand. Touches the singleton so the record's existence is the freshness signal."
+      attribute :consolidation_id, ConsolidationId
     end
   end
 end

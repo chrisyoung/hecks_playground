@@ -92,6 +92,7 @@ Hecks.bluebook "DomainCell", version: "2026.04.28.1" do
       transition "Mature" => "growing", from: "conceived"
       transition "Mature" => "growing", from: "growing"
       transition "PassCheckpoint" => "validated", from: "growing"
+      transition "PassCheckpoint" => "validated", from: "validated"
       transition "Divide" => "divided", from: "validated"
       transition "TriggerApoptosis" => "dead", from: "conceived"
       transition "TriggerApoptosis" => "dead", from: "growing"
@@ -108,6 +109,6 @@ Hecks.bluebook "DomainCell", version: "2026.04.28.1" do
   # Validation is a checkpoint
   policy "ValidateOnMature" do
     on "DomainMatured"
-    trigger PassCheckpoint
+    trigger DomainCell::PassCheckpoint, with: { domain_name: :domain_name, checkpoint_name: "matured" }
   end
 end

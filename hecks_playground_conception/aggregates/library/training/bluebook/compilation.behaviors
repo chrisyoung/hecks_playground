@@ -6,7 +6,7 @@ Hecks.behaviors "Compilation" do
 
   test "CompileNursery sets domains_compiled + output_path" do
     tests "CompileNursery", on: "Compilation"
-    input  domains_compiled: 1, output_path: "sample"
-    expect domains_compiled: 1, output_path: "sample"
+    input  name: "sample", domains_compiled: 1, output_path: "sample"
+    expect name: "sample", domains_compiled: 1, output_path: "sample"
   end
 end

@@ -3,7 +3,10 @@ Hecks.bluebook "AppShell", version: "2026.05.12.1" do
 
   # === Application Shell ===
 
-  aggregate "AppShell", "The overall application frame — navigation, layout, theme" do
+  aggregate "AppShell" do
+
+    description "The overall application frame — navigation, layout, theme"
+    identified_by :app_name
     attribute :app_name, AppName
     attribute :navigation, list_of(NavItem)
     attribute :layout_type, LayoutType
@@ -35,28 +38,28 @@ Hecks.bluebook "AppShell", version: "2026.05.12.1" do
 
     command "GenerateShell" do
       role "System"
-      description "Create the app shell — nav from aggregates, layout from domain structure"
+      goal "Create the app shell — nav from aggregates, layout from domain structure"
       attribute :app_name, AppName
       attribute :layout_type, LayoutType
       emits "ShellGenerated"
-      then_set :app_name, to: :app_name
-      then_set :layout_type, to: :layout_type
+      sets :app_name
+      sets :layout_type
     end
 
     command "BuildNavigation" do
       role "System"
-      description "Generate navigation from aggregates — each aggregate gets a nav item"
+      goal "Generate navigation from aggregates — each aggregate gets a nav item"
       reference_to(AppShell)
       emits "NavigationBuilt"
     end
 
     command "ApplyTheme" do
       role "Designer"
-      description "Apply the style guide to the shell — colors, fonts, spacing"
+      goal "Apply the style guide to the shell — colors, fonts, spacing"
       reference_to(AppShell)
       attribute :theme, ThemeName
       emits "ThemeApplied"
-      then_set :theme, to: :theme
+      sets :theme
     end
   end
 
@@ -64,6 +67,6 @@ Hecks.bluebook "AppShell", version: "2026.05.12.1" do
 
   policy "NavOnShell" do
     on "ShellGenerated"
-    trigger "BuildNavigation"
+    trigger AppShell::BuildNavigation, with: { app_name: :app_name }
   end
 end

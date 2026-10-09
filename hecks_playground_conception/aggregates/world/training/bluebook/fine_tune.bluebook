@@ -52,11 +52,13 @@ Hecks.bluebook "FineTune", version: "2026.04.28.1" do
     command "StartFineTune" do
       role "Creator"
       goal "Begin training Miette's model"
+      attribute :ref,           Ref
       attribute :base_model,    BaseModelName
       attribute :dataset_size,  PairCount
       attribute :epochs,        EpochCount
       attribute :learning_rate, LearningRate
       emits "FineTuneStarted"
+      sets :ref
       sets :base_model
       sets :dataset_size
       sets :epochs

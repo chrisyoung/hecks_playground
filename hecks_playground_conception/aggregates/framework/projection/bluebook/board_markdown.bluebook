@@ -36,6 +36,7 @@ Hecks.bluebook "BoardMarkdownProjector", version: "2026.05.25.1" do
     command "RenderBoard" do
       role "Miette"
       goal "Record the markdown rendered from the board records. The runtime feeds the records (the Plan::Story.board query result, through the bus) to the projector arm, which walks them into a table + counts footer ; RenderBoard captures that markdown on last_render and emits BoardRendered. Mirrors terraform ProjectHecksagon : the command records the emitted text, the arm computes it. The arm is EMITTED from this contract by the specializer (f4/i557), not hand-written."
+      attribute :name, ProjectorName, default: { value: "board_markdown" }
       attribute :markdown, RenderResult
       attribute :record_count, RecordCount
       emits "BoardRendered"

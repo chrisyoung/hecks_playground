@@ -3,33 +3,38 @@ Hecks.behaviors "Conductor" do
 
   test "Grant creates an active lease" do
     tests "Grant", on: "Lease"
-    input  worktree_path: "p1", story: "s1", worker: "w1", expires_at: "t0"
+    setup  "Conductor::Worker.Register", worker_id: "w1", stale_after: 4102444800
+    input  worktree_path: "p1", story: "s1", worker: "w1", expires_at: 0
     expect worktree_path: "p1", state: "active"
   end
 
   test "Grant stores the story and worker foreign keys" do
     tests "Grant", on: "Lease"
-    input  worktree_path: "p1b", story: "s1", worker: "w1", expires_at: "t0"
+    setup  "Conductor::Worker.Register", worker_id: "w1", stale_after: 4102444800
+    input  worktree_path: "p1b", story: "s1", worker: "w1", expires_at: 0
     expect worktree_path: "p1b", story: "s1", worker: "w1"
   end
 
   test "Renew extends expires_at" do
     tests "Renew", on: "Lease"
-    setup  "Grant", worktree_path: "p2", story: "s1", worker: "w1", expires_at: "t0"
-    input  worktree_path: "p2", expires_at: "t9"
-    expect expires_at: "t9"
+    setup  "Conductor::Worker.Register", worker_id: "w1", stale_after: 4102444800
+    setup  "Grant", worktree_path: "p2", story: "s1", worker: "w1", expires_at: 0
+    input  worktree_path: "p2", expires_at: 9
+    expect expires_at: 9
   end
 
   test "Lease Expire moves an active lease to expired" do
     tests "Expire", on: "Lease"
-    setup  "Grant", worktree_path: "p3", story: "s1", worker: "w1", expires_at: "t0"
+    setup  "Conductor::Worker.Register", worker_id: "w1", stale_after: 4102444800
+    setup  "Grant", worktree_path: "p3", story: "s1", worker: "w1", expires_at: 0
     input  worktree_path: "p3"
     expect state: "expired"
   end
 
   test "Reclaim returns the path to the pool" do
     tests "Reclaim", on: "Lease"
-    setup  "Grant", worktree_path: "p4", story: "s1", worker: "w1", expires_at: "t0"
+    setup  "Conductor::Worker.Register", worker_id: "w1", stale_after: 4102444800
+    setup  "Grant", worktree_path: "p4", story: "s1", worker: "w1", expires_at: 0
     input  worktree_path: "p4"
     expect state: "reclaimed"
   end
@@ -40,20 +45,23 @@ Hecks.behaviors "Conductor" do
 
   test "Active includes a granted (active) lease" do
     tests "Active", on: "Lease", kind: :query
-    setup  "Grant", worktree_path: "p5", story: "s1", worker: "w1", expires_at: "t0"
+    setup  "Conductor::Worker.Register", worker_id: "w1", stale_after: 4102444800
+    setup  "Grant", worktree_path: "p5", story: "s1", worker: "w1", expires_at: 0
     expect includes: { worktree_path: "p5", state: "active" }
   end
 
   test "Active excludes a reclaimed lease" do
     tests "Active", on: "Lease", kind: :query
-    setup  "Grant",   worktree_path: "p6", story: "s1", worker: "w1", expires_at: "t0"
+    setup  "Conductor::Worker.Register", worker_id: "w1", stale_after: 4102444800
+    setup  "Grant",   worktree_path: "p6", story: "s1", worker: "w1", expires_at: 0
     setup  "Reclaim", worktree_path: "p6"
     expect count: 0
   end
 
   test "Active excludes an expired lease" do
     tests "Active", on: "Lease", kind: :query
-    setup  "Grant",  worktree_path: "p7", story: "s1", worker: "w1", expires_at: "t0"
+    setup  "Conductor::Worker.Register", worker_id: "w1", stale_after: 4102444800
+    setup  "Grant",  worktree_path: "p7", story: "s1", worker: "w1", expires_at: 0
     setup  "Expire", worktree_path: "p7"
     expect count: 0
   end
@@ -64,20 +72,23 @@ Hecks.behaviors "Conductor" do
 
   test "Expired includes a lease that has timed out" do
     tests "Expired", on: "Lease", kind: :query
-    setup  "Grant",  worktree_path: "p8", story: "s1", worker: "w1", expires_at: "t0"
+    setup  "Conductor::Worker.Register", worker_id: "w1", stale_after: 4102444800
+    setup  "Grant",  worktree_path: "p8", story: "s1", worker: "w1", expires_at: 0
     setup  "Expire", worktree_path: "p8"
     expect includes: { worktree_path: "p8", state: "expired" }
   end
 
   test "Expired excludes an active lease" do
     tests "Expired", on: "Lease", kind: :query
-    setup  "Grant", worktree_path: "p9", story: "s1", worker: "w1", expires_at: "t0"
+    setup  "Conductor::Worker.Register", worker_id: "w1", stale_after: 4102444800
+    setup  "Grant", worktree_path: "p9", story: "s1", worker: "w1", expires_at: 0
     expect count: 0
   end
 
   test "Expired excludes a reclaimed lease" do
     tests "Expired", on: "Lease", kind: :query
-    setup  "Grant",   worktree_path: "p10", story: "s1", worker: "w1", expires_at: "t0"
+    setup  "Conductor::Worker.Register", worker_id: "w1", stale_after: 4102444800
+    setup  "Grant",   worktree_path: "p10", story: "s1", worker: "w1", expires_at: 0
     setup  "Reclaim", worktree_path: "p10"
     expect count: 0
   end
@@ -88,50 +99,56 @@ Hecks.behaviors "Conductor" do
 
   test "HeldByWorker includes an active lease held by that worker" do
     tests "HeldByWorker", on: "Lease", kind: :query
-    setup  "Grant", worktree_path: "p11", story: "s1", worker: "w1", expires_at: "t0"
+    setup  "Conductor::Worker.Register", worker_id: "w1", stale_after: 4102444800
+    setup  "Grant", worktree_path: "p11", story: "s1", worker: "w1", expires_at: 0
     input  worker: "w1"
     expect includes: { worktree_path: "p11", worker: "w1", state: "active" }
   end
 
   test "HeldByWorker excludes a lease held by a different worker" do
     tests "HeldByWorker", on: "Lease", kind: :query
-    setup  "Grant", worktree_path: "p12", story: "s1", worker: "w2", expires_at: "t0"
+    setup  "Conductor::Worker.Register", worker_id: "w2", stale_after: 4102444800
+    setup  "Conductor::Worker.Register", worker_id: "w1", stale_after: 4102444800
+    setup  "Grant", worktree_path: "p12", story: "s1", worker: "w2", expires_at: 0
     input  worker: "w1"
     expect count: 0
   end
 
   test "HeldByWorker excludes a reclaimed lease for that worker" do
     tests "HeldByWorker", on: "Lease", kind: :query
-    setup  "Grant",   worktree_path: "p13", story: "s1", worker: "w1", expires_at: "t0"
+    setup  "Conductor::Worker.Register", worker_id: "w1", stale_after: 4102444800
+    setup  "Grant",   worktree_path: "p13", story: "s1", worker: "w1", expires_at: 0
     setup  "Reclaim", worktree_path: "p13"
     input  worker: "w1"
     expect count: 0
   end
 
   # PastTtl query (the lease-TTL clock consumer) : runtime enforces
-  # state == active AND expires_at < :now. ISO-8601 instants sort
-  # chronologically, so :now is a plain literal here ; in production the {now}
-  # clock primitive fills it. The expiry sweep fans Lease.Expire over this.
+  # state == active AND expires_at < :now. expires_at and :now are Unix epoch seconds, so :now is a
+  # plain literal here ; in production the {now} clock primitive fills it. The expiry sweep fans Lease.Expire over this.
 
   test "PastTtl includes an active lease whose TTL has elapsed" do
     tests "PastTtl", on: "Lease", kind: :query
-    setup  "Grant", worktree_path: "pttl1", story: "s1", worker: "w1", expires_at: "2026-01-01T00:00:00Z"
-    input  now: "2026-06-01T00:00:00Z"
+    setup  "Conductor::Worker.Register", worker_id: "w1", stale_after: 4102444800
+    setup  "Grant", worktree_path: "pttl1", story: "s1", worker: "w1", expires_at: 1767225600
+    input  now: 1780272000
     expect includes: { worktree_path: "pttl1", state: "active" }
   end
 
   test "PastTtl excludes an active lease whose TTL is still in the future" do
     tests "PastTtl", on: "Lease", kind: :query
-    setup  "Grant", worktree_path: "pttl2", story: "s1", worker: "w1", expires_at: "2027-01-01T00:00:00Z"
-    input  now: "2026-06-01T00:00:00Z"
+    setup  "Conductor::Worker.Register", worker_id: "w1", stale_after: 4102444800
+    setup  "Grant", worktree_path: "pttl2", story: "s1", worker: "w1", expires_at: 1798761600
+    input  now: 1780272000
     expect count: 0
   end
 
   test "PastTtl excludes an already-expired lease even past its TTL" do
     tests "PastTtl", on: "Lease", kind: :query
-    setup  "Grant",  worktree_path: "pttl3", story: "s1", worker: "w1", expires_at: "2026-01-01T00:00:00Z"
+    setup  "Conductor::Worker.Register", worker_id: "w1", stale_after: 4102444800
+    setup  "Grant",  worktree_path: "pttl3", story: "s1", worker: "w1", expires_at: 1767225600
     setup  "Expire", worktree_path: "pttl3"
-    input  now: "2026-06-01T00:00:00Z"
+    input  now: 1780272000
     expect count: 0
   end
 end

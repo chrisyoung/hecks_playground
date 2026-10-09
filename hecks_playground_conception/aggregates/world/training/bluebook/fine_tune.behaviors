@@ -6,20 +6,21 @@ Hecks.behaviors "FineTune" do
 
   test "StartFineTune sets base_model + dataset_size + epochs + learning_rate" do
     tests "StartFineTune", on: "FineTune"
-    input  base_model: "sample", dataset_size: 1, epochs: 1, learning_rate: 1.0
-    expect base_model: "sample", dataset_size: 1, epochs: 1, learning_rate: 1.0, status: "training"
+    input  ref: "sample", base_model: "sample", dataset_size: 1, epochs: 1, learning_rate: 1.0
+    expect ref: "sample", base_model: "sample", dataset_size: 1, epochs: 1, learning_rate: 1.0, status: "training"
   end
 
   test "RecordEpoch sets loss" do
     tests "RecordEpoch", on: "FineTune"
-    setup  "StartFineTune", base_model: "sample", dataset_size: 1, epochs: 1, learning_rate: 1.0
-    input  loss: 1.0
+    setup  "StartFineTune", ref: "sample", base_model: "sample", dataset_size: 1, epochs: 1, learning_rate: 1.0
+    input  id: "sample", loss: 1.0
     expect loss: 1.0
   end
 
   test "CompleteFineTune runs" do
     tests "CompleteFineTune", on: "FineTune"
-    setup  "StartFineTune", base_model: "sample", dataset_size: 1, epochs: 1, learning_rate: 1.0
+    setup  "StartFineTune", ref: "sample", base_model: "sample", dataset_size: 1, epochs: 1, learning_rate: 1.0
+    input  id: "sample"
     expect status: "complete"
   end
 
@@ -41,8 +42,9 @@ Hecks.behaviors "FineTune" do
   # Evaluation row (real metrics would land via a follow-on
   # EvaluateModel dispatch with payload).
   test "CompleteFineTune cascades through policy chain" do
-    tests "CompleteFineTune", on: "FineTune", kind: :cross_cascade
-    setup  "StartFineTune", base_model: "sample", dataset_size: 1, epochs: 1, learning_rate: 1.0
+    tests "FineTune::FineTune.CompleteFineTune", on: "FineTune", kind: :cross_cascade
+    setup  "FineTune::FineTune.StartFineTune", ref: "sample", base_model: "sample", dataset_size: 1, epochs: 1, learning_rate: 1.0
+    input  id: "sample"
     expect emits: ["FineTuneCompleted", "ModelEvaluated"]
   end
 end

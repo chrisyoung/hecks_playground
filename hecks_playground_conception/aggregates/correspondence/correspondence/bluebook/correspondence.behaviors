@@ -70,7 +70,7 @@ Hecks.behaviors "Correspondence" do
            summary:     { value: "Full reply to Joey." },
            thread_ref:  { value: "19e2efeb3b7f2109" },
            composed_at: { value: "2026-05-16T10:00:00Z" }
-    input  correspondent_id: "beyondfitaz@gmail.com",
+    input  person: { value: "beyondfitaz@gmail.com" },
            letter_id:        { value: "01JCKCORR0010" },
            sent_at:          { value: "2026-05-16T10:30:00Z" }
     expect draft_status: "sent"
@@ -85,7 +85,7 @@ Hecks.behaviors "Correspondence" do
            summary:     { value: "Sending proper reply now." },
            thread_ref:  { value: "" },
            composed_at: { value: "2026-05-16T10:05:00Z" }
-    input  correspondent_id: "beyondfitaz@gmail.com",
+    input  person: { value: "beyondfitaz@gmail.com" },
            letter_id:        { value: "01JCKCORR0011" },
            sent_at:          { value: "2026-05-16T10:35:00Z" }
     expect last_sent_at: { value: "2026-05-16T10:35:00Z" }
@@ -96,14 +96,21 @@ Hecks.behaviors "Correspondence" do
     setup  "ReceiveInbound",
            person:      { value: "beyondfitaz@gmail.com" },
            received_at: { value: "2026-05-24T09:00:00Z" }
-    setup  "ComposeDraft",
+    setup  "ComposeFollowUp",
+           person:      { value: "beyondfitaz@gmail.com" },
+           letter_id:   { value: "01JCKCORR0060" },
+           subject:     { value: "Re: Website updates" },
+           summary:     { value: "Sending the reply now." },
+           thread_ref:  { value: "" },
+           composed_at: { value: "2026-05-24T09:30:00Z" }
+    setup  "ComposeFollowUp",
            person:      { value: "beyondfitaz@gmail.com" },
            letter_id:   { value: "01JCKCORR0013" },
            subject:     { value: "Re: Website updates" },
            summary:     { value: "Clearing the awaiting flag." },
            thread_ref:  { value: "" },
            composed_at: { value: "2026-05-24T09:30:00Z" }
-    input  correspondent_id: "beyondfitaz@gmail.com",
+    input  person: { value: "beyondfitaz@gmail.com" },
            letter_id:        { value: "01JCKCORR0013" },
            sent_at:          { value: "2026-05-24T10:00:00Z" }
     expect awaiting_reply: false
@@ -118,7 +125,7 @@ Hecks.behaviors "Correspondence" do
            summary:     { value: "Full response to Meredith." },
            thread_ref:  { value: "" },
            composed_at: { value: "2026-05-16T11:00:00Z" }
-    input  correspondent_id: "meredith@example.com",
+    input  person: { value: "meredith@example.com" },
            letter_id:        { value: "01JCKCORR0012" },
            sent_at:          { value: "2026-05-16T11:20:00Z" }
     expect emits: ["ResponseSent"]
@@ -135,7 +142,7 @@ Hecks.behaviors "Correspondence" do
            summary:     { value: "Got this - one of the 21 dups." },
            thread_ref:  { value: "" },
            composed_at: { value: "2026-05-16T09:00:00Z" }
-    input  correspondent_id: "beyondfitaz@gmail.com",
+    input  person: { value: "beyondfitaz@gmail.com" },
            letter_id:        { value: "01JCKCORR0020" }
     expect draft_status: "discarded"
   end
@@ -149,7 +156,7 @@ Hecks.behaviors "Correspondence" do
            summary:     { value: "Duplicate ack draft to be discarded." },
            thread_ref:  { value: "" },
            composed_at: { value: "2026-05-16T09:05:00Z" }
-    input  correspondent_id: "beyondfitaz@gmail.com",
+    input  person: { value: "beyondfitaz@gmail.com" },
            letter_id:        { value: "01JCKCORR0021" }
     expect emits: ["DraftDiscarded"]
   end
@@ -169,15 +176,8 @@ Hecks.behaviors "Correspondence" do
     setup  "ReceiveInbound",
            person:      { value: "beyondfitaz@gmail.com" },
            received_at: { value: "2026-05-24T09:00:00Z" }
-    setup  "ComposeDraft",
-           person:      { value: "beyondfitaz@gmail.com" },
-           letter_id:   { value: "01JCKCORR0060" },
-           subject:     { value: "Re: Website updates" },
-           summary:     { value: "Sending the reply now." },
-           thread_ref:  { value: "" },
-           composed_at: { value: "2026-05-24T09:30:00Z" }
     setup  "MarkSent",
-           correspondent_id: "beyondfitaz@gmail.com",
+           person: { value: "beyondfitaz@gmail.com" },
            letter_id:        { value: "01JCKCORR0060" },
            sent_at:          { value: "2026-05-24T10:00:00Z" }
     expect count: 0
@@ -230,7 +230,7 @@ Hecks.behaviors "Correspondence" do
            thread_ref:  { value: "" },
            composed_at: { value: "2026-05-16T10:00:00Z" }
     setup  "MarkSent",
-           correspondent_id: "beyondfitaz@gmail.com",
+           person: { value: "beyondfitaz@gmail.com" },
            letter_id:        { value: "01JCKCORR0051" },
            sent_at:          { value: "2026-05-16T10:30:00Z" }
     expect count: 0
@@ -246,8 +246,23 @@ Hecks.behaviors "Correspondence" do
            thread_ref:  { value: "" },
            composed_at: { value: "2026-05-16T09:00:00Z" }
     setup  "Discard",
-           correspondent_id: "beyondfitaz@gmail.com",
+           person: { value: "beyondfitaz@gmail.com" },
            letter_id:        { value: "01JCKCORR0052" }
     expect count: 0
   end
+
+  test "ComposeFollowUp drafts for a correspondent that already exists" do
+    tests "ComposeFollowUp", on: "Correspondent"
+    setup  "ReceiveInbound",
+           person:      { value: "beyondfitaz@gmail.com" },
+           received_at: { value: "2026-05-24T09:00:00Z" }
+    input  person:      { value: "beyondfitaz@gmail.com" },
+           letter_id:   { value: "01JCKCORR0070" },
+           subject:     { value: "Re: Website updates" },
+           summary:     { value: "Following up." },
+           thread_ref:  { value: "" },
+           composed_at: { value: "2026-05-24T09:30:00Z" }
+    expect draft_status: "drafting", emits: ["FollowUpComposed"]
+  end
+
 end

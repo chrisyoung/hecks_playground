@@ -1,23 +1,29 @@
 Hecks.behaviors "MiettePhone" do
   vision "Behavioral tests for the MiettePhone domain — exercises every command and query in memory"
 
+  # Identities: a gate session is named by gate_id and opens the conversation of the same id;
+  # a chat screen is keyed by its conversation; the Summer proxy is named "summer" (the name
+  # the policies relay through). Policies fire in every test, so a test that sends a message
+  # first sets up the proxy and the screen the cascade reaches.
+
   # ── Gate aggregate ──────────────────────────────────────────
 
   test "Authenticate sets pin" do
     tests "Authenticate", on: "Gate"
-    input  pin: "sample"
+    input  gate_id: "g1", pin: "sample"
     expect locked: "false"
   end
 
   test "Authenticate cascades through policy chain" do
     tests "Authenticate", on: "Gate", kind: :cascade
-    input  pin: "sample"
+    input  gate_id: "g1", pin: "sample"
     expect emits: ["SessionGranted", "ConversationStarted"]
   end
 
   test "RevokeSession runs" do
     tests "RevokeSession", on: "Gate"
-    setup  "Gate.Authenticate", pin: "sample"
+    setup  "MiettePhone::Gate.Authenticate", gate_id: "g1", pin: "sample"
+    input  gate_id: "g1"
     expect locked: "true"
   end
 
@@ -26,40 +32,50 @@ Hecks.behaviors "MiettePhone" do
 
   test "ActivateSession runs" do
     tests "ActivateSession", on: "Conversation"
+    setup  "MiettePhone::Conversation.StartConversation", conversation_id: "c1"
+    input  conversation_id: "c1"
     expect session_active: true
   end
 
   test "StartConversation runs" do
     tests "StartConversation", on: "Conversation"
+    input  conversation_id: "c1"
     expect ok: "true"
   end
 
   test "SendMessage sets content" do
     tests "SendMessage", on: "Conversation"
-    setup  "ActivateSession"
-    input  content: "sample"
+    setup  "MiettePhone::InferenceProxy.ConfigureProxy", proxy_id: "summer", summer_origin: "sample", timeout_ms: 1
+    setup  "MiettePhone::Conversation.StartConversation", conversation_id: "c1"
+    setup  "MiettePhone::ChatScreen.OpenScreen", conversation_id: "c1"
+    setup  "MiettePhone::Conversation.ActivateSession", conversation_id: "c1"
+    input  conversation_id: "c1", content: "sample"
     expect ok: "true"
   end
 
   test "SendMessage cascades through policy chain" do
     tests "SendMessage", on: "Conversation", kind: :cascade
-    setup  "ConfigureProxy", summer_origin: "sample", timeout_ms: 1
-    setup  "RenderChat"
-    setup  "ActivateSession"
-    input  content: "sample"
+    setup  "MiettePhone::InferenceProxy.ConfigureProxy", proxy_id: "summer", summer_origin: "sample", timeout_ms: 1
+    setup  "MiettePhone::Conversation.StartConversation", conversation_id: "c1"
+    setup  "MiettePhone::ChatScreen.OpenScreen", conversation_id: "c1"
+    setup  "MiettePhone::Conversation.ActivateSession", conversation_id: "c1"
+    input  conversation_id: "c1", content: "sample"
     expect emits: ["MessageSent", "MessageRelayed", "ReplyReceived", "ChatRendered", "StreamStarted"]
   end
 
   test "ReceiveReply sets content + latency_ms" do
     tests "ReceiveReply", on: "Conversation"
-    input  content: "sample", latency_ms: 1
+    setup  "MiettePhone::Conversation.StartConversation", conversation_id: "c1"
+    setup  "MiettePhone::ChatScreen.OpenScreen", conversation_id: "c1"
+    input  conversation_id: "c1", content: "sample", latency_ms: 1
     expect ok: "true"
   end
 
   test "ReceiveReply cascades through policy chain" do
     tests "ReceiveReply", on: "Conversation", kind: :cascade
-    setup  "RenderChat"
-    input  content: "sample", latency_ms: 1
+    setup  "MiettePhone::Conversation.StartConversation", conversation_id: "c1"
+    setup  "MiettePhone::ChatScreen.OpenScreen", conversation_id: "c1"
+    input  conversation_id: "c1", content: "sample", latency_ms: 1
     expect emits: ["ReplyReceived", "ChatRendered"]
   end
 
@@ -68,43 +84,62 @@ Hecks.behaviors "MiettePhone" do
 
   test "ConfigureProxy sets summer_origin + timeout_ms" do
     tests "ConfigureProxy", on: "InferenceProxy"
-    input  summer_origin: "sample", timeout_ms: 1
+    input  proxy_id: "summer", summer_origin: "sample", timeout_ms: 1
     expect summer_origin: "sample", timeout_ms: 1
   end
 
   test "RelayMessage sets content" do
     tests "RelayMessage", on: "InferenceProxy"
-    input  content: "sample"
+    setup  "MiettePhone::InferenceProxy.ConfigureProxy", proxy_id: "summer", summer_origin: "sample", timeout_ms: 1
+    setup  "MiettePhone::Conversation.StartConversation", conversation_id: "c1"
+    setup  "MiettePhone::ChatScreen.OpenScreen", conversation_id: "c1"
+    input  proxy_id: "summer", conversation_id: "c1", content: "sample"
     expect ok: "true"
   end
 
   test "RelayMessage cascades through policy chain" do
     tests "RelayMessage", on: "InferenceProxy", kind: :cascade
-    setup  "RenderChat"
-    input  content: "sample"
+    setup  "MiettePhone::InferenceProxy.ConfigureProxy", proxy_id: "summer", summer_origin: "sample", timeout_ms: 1
+    setup  "MiettePhone::Conversation.StartConversation", conversation_id: "c1"
+    setup  "MiettePhone::ChatScreen.OpenScreen", conversation_id: "c1"
+    input  proxy_id: "summer", conversation_id: "c1", content: "sample"
     expect emits: ["MessageRelayed", "ReplyReceived", "ChatRendered"]
   end
 
   test "CheckHealth runs" do
     tests "CheckHealth", on: "InferenceProxy"
+    setup  "MiettePhone::InferenceProxy.ConfigureProxy", proxy_id: "summer", summer_origin: "sample", timeout_ms: 1
+    input  proxy_id: "summer"
     expect ok: "true"
   end
 
 
   # ── ChatScreen aggregate ──────────────────────────────────────────
 
+  test "OpenScreen opens the screen for a conversation" do
+    tests "OpenScreen", on: "ChatScreen"
+    input  conversation_id: "c1"
+    expect conversation_id: "c1"
+  end
+
   test "RenderChat runs" do
     tests "RenderChat", on: "ChatScreen"
+    setup  "MiettePhone::ChatScreen.OpenScreen", conversation_id: "c1"
+    input  conversation_id: "c1"
     expect ok: "true"
   end
 
   test "StreamResponse runs" do
     tests "StreamResponse", on: "ChatScreen"
+    setup  "MiettePhone::ChatScreen.OpenScreen", conversation_id: "c1"
+    input  conversation_id: "c1"
     expect ok: "true"
   end
 
   test "ToggleTheme runs" do
     tests "ToggleTheme", on: "ChatScreen"
+    setup  "MiettePhone::ChatScreen.OpenScreen", conversation_id: "c1"
+    input  conversation_id: "c1"
     expect ok: "true"
   end
 

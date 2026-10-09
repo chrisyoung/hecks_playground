@@ -36,8 +36,10 @@ Hecks.bluebook "DataPrep", version: "2026.04.28.1" do
     command "PrepareData" do
       role "System"
       goal "Convert bluebooks to instruction-response pairs for fine-tuning"
+      attribute :name,   Name
       attribute :format, Format
       emits "DataPrepared"
+      sets :name
       sets :format
       sets :status, to: "prepared"
     end
@@ -52,6 +54,6 @@ Hecks.bluebook "DataPrep", version: "2026.04.28.1" do
 
   policy "SplitOnPrep" do
     on "DataPrepared"
-    trigger SplitDataset
+    trigger DataPrep::SplitDataset, with: { data_prep: :name }
   end
 end

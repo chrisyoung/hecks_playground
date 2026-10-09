@@ -14,7 +14,9 @@ Hecks.behaviors "EventSourcing" do
            correlation_id: { value: "flow-1" },
            actor:          { value: "Customer" },
            sequence:       { value: 1 },
-           recorded_at:    { value: "2026-06-19T00:00:00Z" }
+           recorded_at:    { value: "2026-06-19T00:00:00Z" },
+           event_name: { value: "EventAppended" }, verdict: { allowed: "true", role: "System", policy_id: "" },
+           bluebook_version: { value: "1" }, runtime_version: { value: "1" }, prev_hash: { value: "" }, entry_hash: { value: "" }
     expect sequence: { value: 1 }, emits: ["EventAppended"]
   end
 
@@ -30,7 +32,9 @@ Hecks.behaviors "EventSourcing" do
            correlation_id: { value: "flow-1" },
            actor:          { value: "System" },
            sequence:       { value: 2 },
-           recorded_at:    { value: "2026-06-19T00:00:01Z" }
+           recorded_at:    { value: "2026-06-19T00:00:01Z" },
+           event_name: { value: "EventAppended" }, verdict: { allowed: "true", role: "System", policy_id: "" },
+           bluebook_version: { value: "1" }, runtime_version: { value: "1" }, prev_hash: { value: "" }, entry_hash: { value: "" }
     expect causation_id: { value: "e1" }, correlation_id: { value: "flow-1" }
   end
 
@@ -41,11 +45,15 @@ Hecks.behaviors "EventSourcing" do
     setup  "Append", event_id: { value: "e1" }, aggregate_name: { value: "Order" }, aggregate_id: { value: "o1" },
            command: { verb: "HecksPlayground::Catalog::Pizzas::Order.PlaceOrder", inputs: "" }, delta: { field: "status", value: "pending" },
            causation_id: { value: "c0" }, correlation_id: { value: "flow-1" }, actor: { value: "Customer" },
-           sequence: { value: 1 }, recorded_at: { value: "t1" }
+           sequence: { value: 1 }, recorded_at: { value: "t1" },
+           event_name: { value: "EventAppended" }, verdict: { allowed: "true", role: "System", policy_id: "" },
+           bluebook_version: { value: "1" }, runtime_version: { value: "1" }, prev_hash: { value: "" }, entry_hash: { value: "" }
     setup  "Append", event_id: { value: "e2" }, aggregate_name: { value: "Order" }, aggregate_id: { value: "o1" },
            command: { verb: "Order.Authorize", inputs: "" }, delta: { field: "status", value: "authorized" },
            causation_id: { value: "e1" }, correlation_id: { value: "flow-1" }, actor: { value: "System" },
-           sequence: { value: 2 }, recorded_at: { value: "t2" }
+           sequence: { value: 2 }, recorded_at: { value: "t2" },
+           event_name: { value: "EventAppended" }, verdict: { allowed: "true", role: "System", policy_id: "" },
+           bluebook_version: { value: "1" }, runtime_version: { value: "1" }, prev_hash: { value: "" }, entry_hash: { value: "" }
     input  aggregate_name: { value: "Order" }
     expect count: 2
   end
@@ -55,11 +63,15 @@ Hecks.behaviors "EventSourcing" do
     setup  "Append", event_id: { value: "e1" }, aggregate_name: { value: "Order" }, aggregate_id: { value: "o1" },
            command: { verb: "HecksPlayground::Catalog::Pizzas::Order.PlaceOrder", inputs: "" }, delta: { field: "status", value: "pending" },
            causation_id: { value: "c0" }, correlation_id: { value: "flow-1" }, actor: { value: "Customer" },
-           sequence: { value: 1 }, recorded_at: { value: "t1" }
+           sequence: { value: 1 }, recorded_at: { value: "t1" },
+           event_name: { value: "EventAppended" }, verdict: { allowed: "true", role: "System", policy_id: "" },
+           bluebook_version: { value: "1" }, runtime_version: { value: "1" }, prev_hash: { value: "" }, entry_hash: { value: "" }
     setup  "Append", event_id: { value: "e2" }, aggregate_name: { value: "Order" }, aggregate_id: { value: "o2" },
            command: { verb: "HecksPlayground::Catalog::Pizzas::Order.PlaceOrder", inputs: "" }, delta: { field: "status", value: "pending" },
            causation_id: { value: "c0" }, correlation_id: { value: "flow-2" }, actor: { value: "Customer" },
-           sequence: { value: 2 }, recorded_at: { value: "t2" }
+           sequence: { value: 2 }, recorded_at: { value: "t2" },
+           event_name: { value: "EventAppended" }, verdict: { allowed: "true", role: "System", policy_id: "" },
+           bluebook_version: { value: "1" }, runtime_version: { value: "1" }, prev_hash: { value: "" }, entry_hash: { value: "" }
     input  aggregate_id: { value: "o1" }
     expect count: 1
   end
@@ -69,11 +81,15 @@ Hecks.behaviors "EventSourcing" do
     setup  "Append", event_id: { value: "e1" }, aggregate_name: { value: "Order" }, aggregate_id: { value: "o1" },
            command: { verb: "HecksPlayground::Catalog::Pizzas::Order.PlaceOrder", inputs: "" }, delta: { field: "status", value: "pending" },
            causation_id: { value: "c0" }, correlation_id: { value: "flow-1" }, actor: { value: "Customer" },
-           sequence: { value: 1 }, recorded_at: { value: "t1" }
+           sequence: { value: 1 }, recorded_at: { value: "t1" },
+           event_name: { value: "EventAppended" }, verdict: { allowed: "true", role: "System", policy_id: "" },
+           bluebook_version: { value: "1" }, runtime_version: { value: "1" }, prev_hash: { value: "" }, entry_hash: { value: "" }
     setup  "Append", event_id: { value: "e2" }, aggregate_name: { value: "Order" }, aggregate_id: { value: "o2" },
            command: { verb: "HecksPlayground::Catalog::Pizzas::Order.PlaceOrder", inputs: "" }, delta: { field: "status", value: "pending" },
            causation_id: { value: "c0" }, correlation_id: { value: "flow-2" }, actor: { value: "Customer" },
-           sequence: { value: 2 }, recorded_at: { value: "t2" }
+           sequence: { value: 2 }, recorded_at: { value: "t2" },
+           event_name: { value: "EventAppended" }, verdict: { allowed: "true", role: "System", policy_id: "" },
+           bluebook_version: { value: "1" }, runtime_version: { value: "1" }, prev_hash: { value: "" }, entry_hash: { value: "" }
     input  correlation_id: { value: "flow-1" }
     expect count: 1
   end
@@ -88,15 +104,21 @@ Hecks.behaviors "EventSourcing" do
     setup  "Append", event_id: { value: "e1" }, aggregate_name: { value: "Order" }, aggregate_id: { value: "o1" },
            command: { verb: "HecksPlayground::Catalog::Pizzas::Order.PlaceOrder", inputs: "" }, delta: { field: "status", value: "pending" },
            causation_id: { value: "c0" }, correlation_id: { value: "flow-1" }, actor: { value: "Customer" },
-           sequence: { value: 1 }, recorded_at: { value: "t1" }
+           sequence: { value: 1 }, recorded_at: { value: "t1" },
+           event_name: { value: "EventAppended" }, verdict: { allowed: "true", role: "System", policy_id: "" },
+           bluebook_version: { value: "1" }, runtime_version: { value: "1" }, prev_hash: { value: "" }, entry_hash: { value: "" }
     setup  "Append", event_id: { value: "e2" }, aggregate_name: { value: "Order" }, aggregate_id: { value: "o1" },
            command: { verb: "Order.Authorize", inputs: "" }, delta: { field: "status", value: "authorized" },
            causation_id: { value: "e1" }, correlation_id: { value: "flow-1" }, actor: { value: "System" },
-           sequence: { value: 2 }, recorded_at: { value: "t2" }
+           sequence: { value: 2 }, recorded_at: { value: "t2" },
+           event_name: { value: "EventAppended" }, verdict: { allowed: "true", role: "System", policy_id: "" },
+           bluebook_version: { value: "1" }, runtime_version: { value: "1" }, prev_hash: { value: "" }, entry_hash: { value: "" }
     setup  "Append", event_id: { value: "e3" }, aggregate_name: { value: "Order" }, aggregate_id: { value: "o1" },
            command: { verb: "Order.Ship", inputs: "" }, delta: { field: "status", value: "shipped" },
            causation_id: { value: "e2" }, correlation_id: { value: "flow-1" }, actor: { value: "System" },
-           sequence: { value: 3 }, recorded_at: { value: "t3" }
+           sequence: { value: 3 }, recorded_at: { value: "t3" },
+           event_name: { value: "EventAppended" }, verdict: { allowed: "true", role: "System", policy_id: "" },
+           bluebook_version: { value: "1" }, runtime_version: { value: "1" }, prev_hash: { value: "" }, entry_hash: { value: "" }
     input  seq: { value: 2 }
     expect count: 1
   end
@@ -107,7 +129,7 @@ Hecks.behaviors "EventSourcing" do
     tests "Apply", on: "Projection"
     setup  "Rebuild", name: { value: "current_state:Order" }
     input  name: { value: "current_state:Order" }, row_key: { value: "status" }, row_value: { value: "pending" }, sequence: { value: 1 }
-    expect events_applied: 1, view_size: 1, last_sequence: { value: 1 }, emits: ["DeltaApplied"]
+    expect events_applied: 1, view: [{ key: "status", value: "pending" }], last_sequence: { value: 1 }, emits: ["DeltaApplied"]
   end
 
   test "Apply chained three times DERIVES the accumulated view (honest fold)" do
@@ -116,14 +138,15 @@ Hecks.behaviors "EventSourcing" do
     setup  "Apply", name: { value: "orders_by_customer" }, row_key: { value: "o1" }, row_value: { value: "ada" }, sequence: { value: 1 }
     setup  "Apply", name: { value: "orders_by_customer" }, row_key: { value: "o2" }, row_value: { value: "bo" },  sequence: { value: 2 }
     input  name: { value: "orders_by_customer" }, row_key: { value: "o3" }, row_value: { value: "cy" }, sequence: { value: 3 }
-    expect events_applied: 3, view_size: 3, last_sequence: { value: 3 }
+    expect events_applied: 3, view: [{ key: "o1", value: "ada" }, { key: "o2", value: "bo" }, { key: "o3", value: "cy" }], last_sequence: { value: 3 }
   end
 
   test "Rebuild empties the projection for a fresh replay" do
     tests "Rebuild", on: "Projection"
+    setup  "Rebuild", name: { value: "current_state:Order" }
     setup  "Apply", name: { value: "current_state:Order" }, row_key: { value: "status" }, row_value: { value: "pending" }, sequence: { value: 1 }
     input  name: { value: "current_state:Order" }
-    expect events_applied: 0, view_size: 0, emits: ["ProjectionRebuilt"]
+    expect events_applied: 0, view: [], emits: ["ProjectionRebuilt"]
   end
 
   # ── Snapshot : a cached fold at a watermark ────────────────────────────
@@ -160,8 +183,8 @@ Hecks.behaviors "EventSourcing" do
       tests "Record", on: "Verification"
       input  verification_id: "projection", status: "derivable",
              checked_at: "2026-07-22T03:00:00Z", drift_fields: "0",
-             transient: "0", fields_checked: "12", detail: "-"
-      expect status: "derivable", drift_fields: "0", fields_checked: "12",
+             transient: "0", fields_checked: "12", missing_rows: "0", detail: "-"
+      expect status: "derivable", drift_fields: "0", fields_checked: "12", missing_rows: "0",
              emits: ["VerificationRecorded"]
     end
 
@@ -169,10 +192,10 @@ Hecks.behaviors "EventSourcing" do
       tests "Record", on: "Verification"
       setup  "Record", verification_id: "projection", status: "derivable",
              checked_at: "2026-07-22T03:00:00Z", drift_fields: "0",
-             transient: "0", fields_checked: "12", detail: "-"
+             transient: "0", fields_checked: "12", missing_rows: "0", detail: "-"
       input  verification_id: "projection", status: "drifted",
              checked_at: "2026-07-22T03:01:00Z", drift_fields: "1",
-             transient: "0", fields_checked: "12", detail: "Counter::c1::hits"
+             transient: "0", fields_checked: "12", missing_rows: "0", detail: "Counter::c1::hits"
       expect status: "drifted", drift_fields: "1", detail: "Counter::c1::hits"
     end
 

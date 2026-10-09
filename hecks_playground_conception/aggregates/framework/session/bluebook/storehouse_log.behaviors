@@ -59,7 +59,10 @@ Hecks.behaviors "SessionLog" do
            dispatched_at:        { value: "2026-05-21T19:00:00Z" },
            kind:                 { value: "sync" },
            parent_invocation_id: { value: "" },
-           event_count:          { value: 1 }
+           event_count:          { value: 1 },
+           source_tag:           { value: "operator" },
+           metadata_json:        { value: "{}" },
+           events:               []
     expect emits: ["Recorded"]
   end
 
@@ -75,7 +78,10 @@ Hecks.behaviors "SessionLog" do
            dispatched_at:        { value: "2026-05-21T19:18:13Z" },
            kind:                 { value: "async" },
            parent_invocation_id: { value: "inv_speak_parent" },
-           event_count:          { value: 1 }
+           event_count:          { value: 1 },
+           source_tag:           { value: "operator" },
+           metadata_json:        { value: "{}" },
+           events:               []
     expect kind:                 { value: "async" },
            parent_invocation_id: { value: "inv_speak_parent" }
   end
@@ -92,7 +98,10 @@ Hecks.behaviors "SessionLog" do
            dispatched_at:        { value: "2026-05-21T20:12:23Z" },
            kind:                 { value: "sync" },
            parent_invocation_id: { value: "" },
-           event_count:          { value: 0 }
+           event_count:          { value: 0 },
+           source_tag:           { value: "operator" },
+           metadata_json:        { value: "{}" },
+           events:               []
     expect outcome:     { value: "error" },
            event_count: { value: 0 }
   end

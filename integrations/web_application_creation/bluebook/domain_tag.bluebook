@@ -3,7 +3,10 @@ Hecks.bluebook "DomainTag", version: "2026.05.12.1" do
 
   # === Domain Mapping ===
 
-  aggregate "DomainTag", "HTML accessibility attributes that map every element to the domain" do
+  aggregate "DomainTag" do
+
+    description "HTML accessibility attributes that map every element to the domain"
+    identified_by :tag_prefix
     attribute :tag_prefix, TagPrefix
     attribute :conventions, list_of(TagConvention)
 
@@ -38,15 +41,15 @@ Hecks.bluebook "DomainTag", version: "2026.05.12.1" do
 
     command "DefineTagPrefix" do
       role "System"
-      description "Set the data attribute prefix — e.g. data-domain, data-bluebook"
+      goal "Set the data attribute prefix — e.g. data-domain, data-bluebook"
       attribute :tag_prefix, TagPrefix
       emits "TagPrefixDefined"
-      then_set :tag_prefix, to: :tag_prefix
+      sets :tag_prefix
     end
 
     command "RegisterConvention" do
       role "System"
-      description "Map an HTML element type to a domain concept"
+      goal "Map an HTML element type to a domain concept"
       reference_to(DomainTag)
       attribute :element_type, ElementType
       attribute :attribute_name, AttributeName

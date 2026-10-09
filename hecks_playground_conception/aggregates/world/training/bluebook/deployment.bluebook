@@ -34,9 +34,11 @@ Hecks.bluebook "Deployment", version: "2026.04.28.1" do
     command "DeployModel" do
       role "Creator"
       goal "Wire the trained model into Miette's shell — she speaks with her own voice"
+      attribute :name,           Name
       attribute :model_path,     ModelPath
       attribute :serving_method, ServingMethod
       emits "ModelDeployed"
+      sets :name
       sets :model_path
       sets :serving_method
       sets :status,         to: "live"

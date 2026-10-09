@@ -32,7 +32,7 @@ Hecks.behaviors "Writing" do
            recipient:    { value: "chris@embryonaut.ai" },
            description:  { value: "demo of revision flow" },
            composed_at:  { value: "2026-05-14T10:02:00Z" }
-    input  writing_id:  "01JCKZWRITE0003",
+    input  id:          { value: "01JCKZWRITE0003" },
            draft_text:  { value: "Revised pass with no em-dash, just a colon." },
            revised_at:  { value: "2026-05-14T10:02:30Z" }
     expect draft_text: { value: "Revised pass with no em-dash, just a colon." }
@@ -47,7 +47,7 @@ Hecks.behaviors "Writing" do
            recipient:    { value: "" },
            description:  { value: "card revision demo" },
            composed_at:  { value: "2026-05-14T10:03:00Z" }
-    input  writing_id:  "01JCKZWRITE0004",
+    input  id:          { value: "01JCKZWRITE0004" },
            draft_text:  { value: "Cleaner prose." },
            revised_at:  { value: "2026-05-14T10:03:30Z" }
     expect emits: ["DraftRevised"]
@@ -62,7 +62,7 @@ Hecks.behaviors "Writing" do
            recipient:    { value: "chris@embryonaut.ai" },
            description:  { value: "macrophage feedback channel" },
            composed_at:  { value: "2026-05-14T10:04:00Z" }
-    input  writing_id:        "01JCKZWRITE0005",
+    input  id:                { value: "01JCKZWRITE0005" },
            violations_count:  { value: 2 }
     expect violations_count: { value: 2 }
   end
@@ -76,7 +76,7 @@ Hecks.behaviors "Writing" do
            recipient:    { value: "chris@embryonaut.ai" },
            description:  { value: "macrophage feedback channel" },
            composed_at:  { value: "2026-05-14T10:05:00Z" }
-    input  writing_id:        "01JCKZWRITE0006",
+    input  id:                { value: "01JCKZWRITE0006" },
            violations_count:  { value: 0 }
     expect emits: ["ViolationsCountRecorded"]
   end

@@ -189,6 +189,7 @@ Hecks.bluebook "HandlerRegistry", version: "2026.05.14.1" do
     command "StartSession" do
       role "System"
       goal "Reset per-session counters at runtime boot. The HandlerRegistry keeps per-session tallies so observability surfaces (statusline, dashboards) reflect what the current session has done, not lifetime totals. The Invocation entity collection is NOT reset — it's an audit trail that spans sessions."
+      attribute :name, Name
       attribute :session_started_at, Timestamp
       sets :session_started_at
       emits "SessionStarted"
@@ -199,6 +200,7 @@ Hecks.bluebook "HandlerRegistry", version: "2026.05.14.1" do
     command "RegisterHandler" do
       role "System"
       goal "Record a (command, handler_kind, handler_args) tuple at boot time. The runtime walks every bluebook in the corpus at boot, finds each `handler` declaration inside a command block, and dispatches RegisterHandler with the command's FQN, the declared handler kind, and the kind-specific args encoded as a JSON string. The registration is the bluebook-native record of what runs when this command dispatches. Increments handlers_registered ; updates last_registered_at and last_command ; emits HandlerRegistered so downstream listeners (the dispatcher, the macrophage's HandlerCoverage rule) can react. Re-registering an existing command_fqn overwrites the previous registration with a HandlerReRegistered event for the audit trail (not modeled in this stub — adds in the operational version)."
+      attribute :name, Name
       attribute :handler_name,    HandlerName
       attribute :command,         CommandRef
       attribute :handler_kind,    HandlerKind
@@ -215,6 +217,7 @@ Hecks.bluebook "HandlerRegistry", version: "2026.05.14.1" do
     command "UnregisterHandler" do
       role "System"
       goal "Remove a previously-registered handler. Dispatched when a command is renamed (i604 forwarder migration) or removed from the corpus. The previous registration is dropped from the registry ; subsequent ResolveHandler calls for that command_fqn return a not-found signal that the dispatcher routes to the pure-event path. Updates last_command ; emits HandlerUnregistered so the audit trail captures the removal."
+      attribute :name, Name
       attribute :handler_name,     HandlerName
       attribute :command,          CommandRef
       attribute :reason,           ReasonText
@@ -228,6 +231,7 @@ Hecks.bluebook "HandlerRegistry", version: "2026.05.14.1" do
     command "ResolveHandler" do
       role "System"
       goal "Look up the registered handler for a command FQN. The dispatcher calls this before invoking a command — it asks the registry 'what handler runs for Tools::ShellTool.Bash ?' and receives the registered handler_kind + handler_args. Resolution increments handlers_resolved ; updates last_resolved_at and last_command ; emits HandlerResolved carrying the matched handler details so the dispatcher and the meta-bus envelope can both observe the resolution. A miss (no handler registered for the command FQN) emits HandlerResolutionMissed instead — the dispatcher routes that to the pure-event path."
+      attribute :name, Name
       attribute :command,        CommandRef
       attribute :resolved_at,    Timestamp
       attribute :handler_kind,   HandlerKind
@@ -242,6 +246,7 @@ Hecks.bluebook "HandlerRegistry", version: "2026.05.14.1" do
     command "InvokeHandler" do
       role "System"
       goal "Fire the resolved handler with the command's input attrs. This is the universal invocation site — every handler-resolved command flows through this command. The handler kind determines which substrate runs : :rust dispatches to a registered runtime function ; :mcp invokes the named tool on the named MCP server ; :shell expands the command template and executes ; :dispatch re-dispatches the named bluebook command ; :claude_tool and :web_tool route to their respective adapter families. The handler's return value becomes the payload of an envelope-wrapped event (per i613's envelope shape, per i618's ResponseEmitted). Increments handlers_invoked ; updates last_invoked_at and last_command ; emits HandlerInvoked carrying the return payload."
+      attribute :name, Name
       attribute :handler_name,    HandlerName
       attribute :command,         CommandRef
       attribute :handler_kind,    HandlerKind
@@ -260,6 +265,7 @@ Hecks.bluebook "HandlerRegistry", version: "2026.05.14.1" do
     command "RecordInvocation" do
       role "System"
       goal "Append one Invocation row to the audit trail. Dispatched by the dispatcher after every InvokeHandler so the per-invocation detail accumulates on the entity collection. Carries the handler name, command FQN, handler kind, dispatch+complete timestamps, the outcome, and a short payload summary. The full handler return payload lives on the envelope-wrapped event ; the Invocation row is the fast-query inspection surface. Does NOT update the per-session tallies on the parent aggregate (those are handled by InvokeHandler) ; this command exists so the audit row is its own first-class event."
+      attribute :name, Name
       attribute :handler_name,    HandlerName
       attribute :command,         CommandRef
       attribute :handler_kind,    HandlerKind

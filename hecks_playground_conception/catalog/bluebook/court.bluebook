@@ -69,6 +69,12 @@ Hecks.bluebook "Court", version: "2026.05.12.1" do
       attribute :value, String
     end
 
+    value_object "Passed" do
+      # Same wrapper Finding carries, so FindingUpdatesCase hands the
+      # event's passed value straight to CheckLaw.
+      attribute :value, TrueClass
+    end
+
     attribute :case_id, CaseId
     attribute :action_type, ActionType
     attribute :actor, Actor
@@ -107,9 +113,10 @@ Hecks.bluebook "Court", version: "2026.05.12.1" do
       role "Judge"
       goal "Begin hearing the case — identify which laws apply to this action type"
       reference_to(Case)
+      attribute :case_id, CaseId
       attribute :laws_applicable, LawsApplicable
       emits "CaseHeard"
-      given("case must be filed") { status == "filed" }
+      given("case must be filed or appealed") { status == "filed" || status == "appealed" }
       sets :laws_applicable
     end
 
@@ -117,7 +124,8 @@ Hecks.bluebook "Court", version: "2026.05.12.1" do
       role "Judge"
       goal "Check one applicable law against the action — pass or violate"
       reference_to(Case)
-      attribute :passed, TrueClass
+      attribute :case_id, CaseId
+      attribute :passed, Passed
       emits "LawCheckedInCase"
     end
 
@@ -125,6 +133,7 @@ Hecks.bluebook "Court", version: "2026.05.12.1" do
       role "Judge"
       goal "All applicable laws passed — the action was lawful"
       reference_to(Case)
+      attribute :case_id, CaseId
       emits "RuledInnocent"
       given("no violations") { laws_violated == 0 }
       sets :ruling, to: "innocent"
@@ -134,6 +143,7 @@ Hecks.bluebook "Court", version: "2026.05.12.1" do
       role "Judge"
       goal "One or more laws were violated — the action was unlawful"
       reference_to(Case)
+      attribute :case_id, CaseId
       emits "RuledGuilty"
       sets :ruling, to: "guilty"
     end
@@ -142,6 +152,7 @@ Hecks.bluebook "Court", version: "2026.05.12.1" do
       role "Architect"
       goal "Reopen a closed case for re-examination — new evidence or amended law"
       reference_to(Case)
+      attribute :case_id, CaseId
       emits "CaseAppealed"
     end
 
@@ -279,6 +290,8 @@ Hecks.bluebook "Court", version: "2026.05.12.1" do
       role "Architect"
       goal "A precedent no longer applies — the law was amended or the reasoning was wrong"
       reference_to(Precedent)
+      attribute :law_name, LawName
+      attribute :action_type, ActionType
       attribute :reasoning, Reasoning
       emits "PrecedentOverturned"
       sets :ruling, to: "overturned"
@@ -289,12 +302,12 @@ Hecks.bluebook "Court", version: "2026.05.12.1" do
   # Court flow
   policy "HearOnFiling" do
     on "CaseFiled"
-    trigger Hear
+    trigger Case::Hear, with: { case_id: :case_id, laws_applicable: 0 }
   end
 
   policy "FindingUpdatesCase" do
     on "FindingRecorded"
-    trigger CheckLaw
+    trigger Case::CheckLaw, with: { case_id: :case_id, passed: :passed }
   end
 
   policy "ViolationToLaw" do

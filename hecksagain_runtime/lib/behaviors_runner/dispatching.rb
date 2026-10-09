@@ -46,13 +46,39 @@ module HecksagainRuntime
       # tools.behaviors's own header names.
       def isolated_dir_for(source, include_hecksagons: false)
         dir = Dir.mktmpdir("behaviors-")
-        FileUtils.cp(source, File.join(dir, File.basename(source)))
+        stage_bluebooks(source, dir)
         if include_hecksagons
           sibling = File.join(File.dirname(File.dirname(source)), "hecksagons")
           Dir.glob(File.join(sibling, "*.hecksagon")).each { |f| FileUtils.cp(f, File.join(dir, File.basename(f))) }
         end
         copy_port_wiring(source, dir)
         dir
+      end
+
+      # The source bluebook plus any same-domain sibling it reaches through
+      # `reference_to` / `belongs_to` / `has_many` / `has_one` (conductor/claim.bluebook
+      # points at worker.bluebook, which a lone copy cannot resolve). Siblings of another
+      # domain, and same-domain ones nothing points at, stay out so a test still boots
+      # only what it exercises. Files are numbered in dependency order because a bluebook
+      # validates itself as it loads.
+      def stage_bluebooks(source, dir)
+        domain = HecksagainRuntime.domain_name_of(source)
+        pool   = Dir.glob(File.join(File.dirname(source), "*.bluebook")).reject { |f| f == source }
+                    .select { |f| HecksagainRuntime.domain_name_of(f) == domain }
+        wanted = [source]
+        queue  = [source]
+        until queue.empty?
+          needs = File.read(queue.shift).scan(/^\s*(?:reference_to|belongs_to|has_many|has_one)\s+(\w+)/).flatten
+          (pool - wanted).each do |f|
+            next unless (File.read(f).scan(/^\s*aggregate\s+"(\w+)"/).flatten & needs).any?
+
+            wanted << f
+            queue << f
+          end
+        end
+        HecksagainRuntime.ordered_files(wanted).each_with_index do |f, i|
+          FileUtils.cp(f, File.join(dir, wanted.size == 1 ? File.basename(f) : format("%03d_%s", i, File.basename(f))))
+        end
       end
 
       # A bluebook whose queries are answered by a port boots only with that port bound, so

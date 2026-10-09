@@ -59,10 +59,9 @@ Hecks.bluebook "Budget", version: "2026.04.28.1" do
     command "OverrideBudget" do
       role "Creator"
       goal "Disable the cap for a period until a specific timestamp"
-      attribute :period,   Period
+      reference_to(Budget)
       attribute :until_ts, Timestamp
       emits "BudgetOverridden"
-      sets :period
       sets :override_active, to: "yes"
       sets :override_until,  to: :until_ts
     end
@@ -70,9 +69,8 @@ Hecks.bluebook "Budget", version: "2026.04.28.1" do
     command "ClearOverride" do
       role "Creator"
       goal "Re-engage the cap before the override window expires"
-      attribute :period, Period
+      reference_to(Budget)
       emits "OverrideCleared"
-      sets :period
       sets :override_active, to: "no"
       sets :override_until,  to: ""
     end

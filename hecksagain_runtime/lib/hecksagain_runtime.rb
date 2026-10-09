@@ -246,14 +246,35 @@ module HecksagainRuntime
             # this project shape has none ; excludes vendor/node_modules/
             # .git/spec/test the same way a real project's own tooling
             # would.
-            [File.join(root, "**", "*.{bluebook,hecksagon,world,fixtures,behaviors}")]
+            # `.adapter`/`.port` only from a domain's own bluebook/ dir (as a scoped boot
+            # sees them), so the stage answers a port a domain declares (EventSourcing's
+            # LogWalker) without loading framework/adapters/ or the fork-only ports.
+            [File.join(root, "**", "*.{bluebook,hecksagon,world,fixtures,behaviors}"),
+             File.join(root, "**", "{bluebook,adapters,ports}", "*.{adapter,port}")]
           end
         return root unless canon_globs
 
         digest = Digest::SHA256.hexdigest(File.expand_path(root))[0, 12]
         stage_root = File.join(Dir.tmpdir, "hecksagain_runtime_stage_#{digest}")
+        # The published hecks gem only defines `Hecks.hecksagon`; the playground's
+        # own `Hecks.adapter_family` / `behavior_kind` / `provider` hecksagons are
+        # fork-only words, and loading one in a scattered whole-corpus stage raised
+        # NoMethodError into every domain staged with it (found live 2026-10-09:
+        # 42 + more behaviors errors). They are skipped here, not loaded.
         source_files = canon_globs.flat_map { |g| Dir.glob(g) }
                                    .reject { |f| f =~ %r{/(vendor|node_modules|\.git|spec|test)/} }
+                                   .reject { |f| f =~ %r{/fixtures/} && !f.end_with?(".fixtures") }
+                                   .reject { |f| f.include?("/framework/governance/") }
+                                   .reject { |f| f.end_with?(".hecksagon") && File.read(f).match?(/^Hecks\.(?!hecksagon\b)[a-z_]+/) }
+                                   .uniq { |f| f.end_with?(".port") ? File.read(f) : f }
+        # A `.port` using the fork-only `produces` word cannot load under the pinned gem;
+        # an `.adapter` bound to such a port goes with it.
+        unloadable = source_files.select { |f| f.end_with?(".port") && File.read(f).match?(/^\s*produces\b/) }
+        unloadable_ports = unloadable.flat_map { |f| File.read(f).scan(/^Hecks\.port\s+["']([^"']+)["']/).flatten }
+        source_files -= unloadable
+        source_files = source_files.reject do |f|
+          f.end_with?(".adapter") && unloadable_ports.include?(File.read(f)[/^\s*port\s+["']([^"']+)["']/, 1])
+        end
         source_mtimes = source_files.map { |f| File.mtime(f) }
         newest_source = source_mtimes.max
         stage_dir = File.join(stage_root, "bluebook")
@@ -368,7 +389,7 @@ module HecksagainRuntime
             name = seen[base] > 1 ? disambiguated_name(f, root) : base
             prefixed = format("%03d_%s", i, name)
             first_pass_names[base] << prefixed
-            FileUtils.cp(f, File.join(stage_dir, prefixed))
+            stage_copy(f, File.join(stage_dir, prefixed))
           end
           # Second pass: files whose base collided need their FIRST
           # occurrence renamed too (seen[base] was 1 on the first pass, so
@@ -378,7 +399,7 @@ module HecksagainRuntime
           seen.select { |_, count| count > 1 }.each_key do |base|
             first_pass_names[base].each { |name| FileUtils.rm_f(File.join(stage_dir, name)) }
             source_files.select { |f| File.basename(f) == base }.sort.each do |f|
-              FileUtils.cp(f, File.join(stage_dir, disambiguated_name(f, root)))
+              stage_copy(f, File.join(stage_dir, disambiguated_name(f, root)))
             end
           end
           FileUtils.touch(marker)
@@ -386,6 +407,17 @@ module HecksagainRuntime
           File.write(shape_marker, current_shape)
         end
         stage_root
+  end
+
+  # Copies one source file into the stage. An `.adapter` names its Ruby
+  # implementation with `require_relative`, which would resolve against the
+  # stage (where every file carries a numeric prefix and the `.rb` is not
+  # copied); it is rewritten to the absolute path beside the real source.
+  def self.stage_copy(src, dest)
+    return FileUtils.cp(src, dest) unless src.end_with?(".adapter")
+
+    dir = File.dirname(File.expand_path(src))
+    File.write(dest, File.read(src).gsub(/^(\s*)require_relative\s+["']([^"']+)["']/) { "#{$1}require #{File.join(dir, $2).inspect}" })
   end
 
   # Vendored addition, not (yet) upstream hecksagain (migration plan task

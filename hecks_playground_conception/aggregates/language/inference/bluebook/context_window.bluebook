@@ -38,6 +38,7 @@ Hecks.bluebook "ContextWindow", version: "2026.04.28.1" do
     command "BuildContext" do
       role "System"
       goal "Assemble the context — system prompt + Bluebook grammar + few-shot examples + organ behaviors"
+      attribute :name,           Name
       attribute :grammar_tokens, TokenCount
       attribute :example_tokens, TokenCount
       attribute :organ_tokens,   TokenCount

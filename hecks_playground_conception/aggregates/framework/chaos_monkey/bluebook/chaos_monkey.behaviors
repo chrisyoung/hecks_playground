@@ -5,7 +5,8 @@ Hecks.behaviors "ChaosMonkey" do
 
   test "StartSession sets session_started_at" do
     tests "StartSession", on: "ChaosMonkey"
-    input  session_started_at: "sample"
+    input  name: "default",
+           session_started_at: "sample"
     expect ok: "true"
   end
 
@@ -13,7 +14,8 @@ Hecks.behaviors "ChaosMonkey" do
 
   test "PerturbCircadian records last_perturbed_at" do
     tests "PerturbCircadian", on: "ChaosMonkey"
-    input  perturbed_at: "sample"
+    input  name: "default",
+           perturbed_at: "sample"
     expect last_perturbed_at: "sample"
   end
 
@@ -21,7 +23,8 @@ Hecks.behaviors "ChaosMonkey" do
 
   test "CorruptAttribute records the latest target + kind" do
     tests "CorruptAttribute", on: "ChaosMonkey"
-    input  perturbed_at:    "sample",
+    input  name: "default",
+           perturbed_at:    "sample",
            target:          "sample",
            attribute_name:  "sample",
            original_value:  "sample",
@@ -32,7 +35,8 @@ Hecks.behaviors "ChaosMonkey" do
 
   test "BreakReference records the latest target + kind" do
     tests "BreakReference", on: "ChaosMonkey"
-    input  perturbed_at:    "sample",
+    input  name: "default",
+           perturbed_at:    "sample",
            target:          "sample",
            reference_name:  "sample",
            original_value:  "sample",
@@ -43,7 +47,8 @@ Hecks.behaviors "ChaosMonkey" do
 
   test "CorruptHeki records the latest target + kind" do
     tests "CorruptHeki", on: "ChaosMonkey"
-    input  perturbed_at:  "sample",
+    input  name: "default",
+           perturbed_at:  "sample",
            target:        "sample",
            heki_path:     "sample",
            heki_patch:    "sample",
@@ -55,13 +60,15 @@ Hecks.behaviors "ChaosMonkey" do
 
   test "RunVerification records the outcome" do
     tests "RunVerification", on: "ChaosMonkey"
-    input  verified_at: "sample", target: "sample", outcome: "caught"
+    input  name: "default",
+           verified_at: "sample", target: "sample", outcome: "caught"
     expect last_outcome: "caught"
   end
 
   test "RecordWeakness runs" do
     tests "RecordWeakness", on: "ChaosMonkey"
-    input  discovered_at: "sample",
+    input  name: "default",
+           discovered_at: "sample",
            target:        "sample",
            kind:          "attribute",
            summary:       "sample"
@@ -72,7 +79,8 @@ Hecks.behaviors "ChaosMonkey" do
 
   test "RevertCorruption runs" do
     tests "RevertCorruption", on: "ChaosMonkey"
-    input  reverted_at: "sample", target: "sample"
+    input  name: "default",
+           reverted_at: "sample", target: "sample"
     expect ok: "true"
   end
 
@@ -80,13 +88,15 @@ Hecks.behaviors "ChaosMonkey" do
 
   test "ExemptTarget runs" do
     tests "ExemptTarget", on: "ChaosMonkey"
-    input  target: "sample", reason: "sample", added_at: "sample"
+    input  name: "default",
+           target: "sample", reason: "sample", added_at: "sample"
     expect ok: "true"
   end
 
   test "RemoveExemption runs" do
     tests "RemoveExemption", on: "ChaosMonkey"
-    input  target: "sample", removed_at: "sample"
+    input  name: "default",
+           target: "sample", removed_at: "sample"
     expect ok: "true"
   end
 end

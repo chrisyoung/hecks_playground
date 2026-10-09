@@ -18,21 +18,21 @@ Hecks.behaviors "PageCompliance" do
   test "ReportCompliance sets total_elements + tagged_elements + orphan_elements + missing_commands" do
     tests "ReportCompliance", on: "DomainCompliance"
     setup  "ScanApp", app_path: "sample", bluebook_path: "sample"
-    input  total_elements: 1, tagged_elements: 1, orphan_elements: 1, missing_commands: "sample"
-    expect total_elements: 1, tagged_elements: 1, orphan_elements: 1, missing_commands: "sample"
+    input  app_path: "sample", total_elements: 1, tagged_elements: 1, orphan_elements: 1, missing_commands: ["sample"]
+    expect total_elements: 1, tagged_elements: 1, orphan_elements: 1, missing_commands: ["sample"]
   end
 
   test "FlagOrphan sets element + location" do
     tests "FlagOrphan", on: "DomainCompliance"
     setup  "ScanApp", app_path: "sample", bluebook_path: "sample"
-    input  element: "sample", location: "sample"
+    input  app_path: "sample", element: "sample", location: "sample"
     expect ok: "true"
   end
 
   test "FlagMissingCommand sets command_name" do
     tests "FlagMissingCommand", on: "DomainCompliance"
     setup  "ScanApp", app_path: "sample", bluebook_path: "sample"
-    input  command_name: "sample"
+    input  app_path: "sample", command_name: "sample"
     expect ok: "true"
   end
 
@@ -54,12 +54,14 @@ Hecks.behaviors "PageCompliance" do
   test "CustomizePage runs" do
     tests "CustomizePage", on: "Page"
     setup  "GeneratePage", name: "sample", page_type: "sample", aggregate_name: "sample", route: "sample"
+    input  name: "sample"
     expect status: "customized"
   end
 
   test "ValidatePage runs" do
     tests "ValidatePage", on: "Page"
     setup  "GeneratePage", name: "sample", page_type: "sample", aggregate_name: "sample", route: "sample"
+    input  name: "sample"
     expect status: "validated"
   end
 end

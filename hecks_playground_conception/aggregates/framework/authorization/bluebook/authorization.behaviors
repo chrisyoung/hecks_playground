@@ -45,7 +45,7 @@ Hecks.behaviors "Authorization" do
   test "Active excludes a retired rule" do
     tests "Active", on: "Policy", kind: :query
     setup  "Permit", id: "p4", principal: "editor", action: "Doc.Edit", resource: "Doc", condition: "-", expires_at: "-"
-    setup  "Policy.Retire", id: "p4"
+    setup  "Authorization::Policy.Retire", id: "p4"
     expect count: 0
   end
 
@@ -92,7 +92,7 @@ Hecks.behaviors "Authorization" do
   test "Active excludes a retired assignment" do
     tests "Active", on: "RoleAssignment", kind: :query
     setup  "Assign", auth_identity_id: "a6", role_name: "editor"
-    setup  "RoleAssignment.Retire", id: "a6"
+    setup  "Authorization::RoleAssignment.Retire", id: "a6"
     expect count: 0
   end
 end

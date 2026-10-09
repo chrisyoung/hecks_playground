@@ -36,6 +36,7 @@ Hecks.bluebook "Hexagon", version: "2026.06.16.2" do
       role "Framework"
       goal "Bring a domain's hexagon into being — its domain name. Its bindings are sibling Binding records aggregated via has_many."
       attribute :domain, DomainName
+      attribute :binding, Binding
       emits "Conceived"
       sets :domain
     end
@@ -97,6 +98,8 @@ Hecks.bluebook "Hexagon", version: "2026.06.16.2" do
       attribute :name,   FamilyName
       attribute :verb,   HowVerb
       attribute :signal, Signal
+      attribute :field,  Field
+      attribute :produced_field, ProducedField
       emits "FamilyDeclared"
       sets :name
       sets :verb
@@ -220,6 +223,7 @@ Hecks.bluebook "Hexagon", version: "2026.06.16.2" do
       role "Framework"
       goal "Declare an adapter — it belongs_to the family it implements, and names the standalone handler the adapter-host execs (empty for in-process persistence adapters). Config is in .world ; cross-domain wiring is the hexagon's job at runtime, so no FQN is stored here."
       attribute :name, AdapterName
+      attribute :family, Family
       attribute :handler, HandlerPath, default: { value: "" }
       emits "AdapterDeclared"
       sets :name
@@ -295,10 +299,11 @@ Hecks.bluebook "Hexagon", version: "2026.06.16.2" do
       role "Framework"
       goal "Wire a port (this domain's aggregate) + its triggering event to an adapter (has_one). The adapter holds the FQN it dispatches through storehouse ; the binding never names another bluebook. The how-verb is derived through the adapter's family."
       attribute :phrase,    Phrase
+      attribute :adapter,   Adapter
       attribute :aggregate, AggregateRef
-      attribute :on,        EventRef
-      attribute :success,   VerdictRef
-      attribute :failure,   VerdictRef
+      attribute :on,        EventRef,    default: { value: "" }
+      attribute :success,   VerdictRef,  default: { value: "" }
+      attribute :failure,   VerdictRef,  default: { value: "" }
       emits "Bound"
       sets :phrase
       sets :aggregate

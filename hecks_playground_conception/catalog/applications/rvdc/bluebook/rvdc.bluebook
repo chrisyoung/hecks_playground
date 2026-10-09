@@ -23,13 +23,17 @@ Hecks.bluebook "RVDC" do
     command "Boot" do
       role "Owner"
       goal "Start the RVDC application with all four domains — boots Electrical, RVPower, RVCircuits, and RVWiringSheet as a single runtime"
+      attribute :name, Name
       attribute :port, Integer
       emits "AppBooted"
+      sets :name
     end
 
     command "RegisterDomains" do
       role "System"
       goal "Map the nursery domains this app depends on — RVDC uses Electrical (fundamentals), RVPower (sources), RVCircuits (wiring), RVWiringSheet (reference)"
+      reference_to(App)
+      attribute :name, Name
       attribute :domains, list_of(Domain)
       sets :domains
       emits "DomainsRegistered"

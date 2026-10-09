@@ -12,13 +12,14 @@ Hecks.behaviors "AgentInbox" do
   test "MarkRead runs" do
     tests "MarkRead", on: "AgentMessage"
     setup  "Send", agent_id: "sample_agentid", body: "sample_body", mid: "sample_mid"
+    input  mid: "sample_mid"
     expect status: "read", emits: ["AgentMessageRead"]
   end
 
   test "Reply runs" do
     tests "Reply", on: "AgentMessage"
     setup  "Send", agent_id: "sample_agentid", body: "sample_body", mid: "sample_mid"
-    input  reply: "sample_reply"
+    input  mid: "sample_mid", reply: "sample_reply"
     expect reply: "sample_reply", status: "replied", emits: ["AgentMessageReplied"]
   end
 
@@ -48,7 +49,7 @@ Hecks.behaviors "AgentInbox" do
 
   test "Poll runs" do
     tests "Poll", on: "InboxPoller"
-    input  last_polled_at: "sample_lastpolledat"
+    input  name: "inbox_poller", last_polled_at: "sample_lastpolledat"
     expect last_polled_at: "sample_lastpolledat", emits: ["Polled"]
   end
 

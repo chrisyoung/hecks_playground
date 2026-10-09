@@ -46,9 +46,11 @@ Hecks.bluebook "Violation", version: "2026.04.28.1" do
 
     command "DetectViolation" do
       goal "A rule was broken"
+      attribute :ref,       Ref
       attribute :rule_name, RuleName
       attribute :message,   Message
       emits "ViolationDetected"
+      sets :ref
       sets :rule_name
       sets :message
     end

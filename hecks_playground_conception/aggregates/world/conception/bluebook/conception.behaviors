@@ -1,6 +1,14 @@
 Hecks.behaviors "Conception" do
   vision "Behavioral tests for the Conception domain — exercises every command and query in memory"
 
+  # The :cross_cascade tests run against the whole staged corpus, so a verb
+  # is spelled Domain::Aggregate.Command (a bare name resolves against
+  # whichever domain loads first). The staged store is shared by every
+  # cross_cascade test in a run, so each test keeps its own identity token
+  # (t02, t03, ...) and never reuses another's. The one singleton, the
+  # nursery corpus the policies index into, is opened once by the first
+  # test below and relied on by the cascade tests after it.
+
   # ── Conception aggregate ──────────────────────────────────────────
 
   test "ConceiveDomain sets name + vision + requested_by + source + category + bounded_contexts" do
@@ -9,128 +17,138 @@ Hecks.behaviors "Conception" do
     expect name: "sample", vision: "sample", requested_by: "sample", source: "sample", category: "sample", bounded_contexts: ["sample"], status: "conceived"
   end
 
+  test "OpenCorpus opens the nursery corpus the cascade policies index into" do
+    tests "NurseryCorpus::Corpus.OpenCorpus", on: "Corpus", kind: :cross_cascade
+    input  name: "nursery"
+    expect name: "nursery", domain_count: 0, total_vectors: 0
+  end
+
   test "ConceiveDomain cascades through policy chain" do
-    tests "ConceiveDomain", on: "Conception", kind: :cross_cascade
-    setup  "NurseryCorpus::Corpus.IndexDomain", domain_name: "sample", vector: 1.0
-    setup  "StartGestation", project_name: "sample", nursery_path: "sample", bounded_contexts: "sample"
-    input  name: "sample", vision: "sample", requested_by: "sample", source: "sample", category: "sample", bounded_contexts: "sample"
-    expect emits_subset: ["DomainConceived", "NearestFound", "GestationStarted"]
+    tests "Conception::Conception.ConceiveDomain", on: "Conception", kind: :cross_cascade
+    setup  "NurseryCorpus::Corpus.OpenCorpus", name: "nursery"
+    input  name: "t03", vision: "sample", requested_by: "sample", source: "sample", category: "sample", bounded_contexts: ["sample"]
+    expect_event "DomainConceived", "NearestFound", "GestationStarted"
   end
 
 
   # ── Gestation aggregate ──────────────────────────────────────────
 
   test "StartGestation sets project_name + nursery_path + bounded_contexts" do
-    tests "StartGestation", on: "Gestation", kind: :cross_cascade
-    input  project_name: "sample", nursery_path: "sample", bounded_contexts: "sample"
-    expect project_name: "sample", nursery_path: "sample", bounded_contexts: "sample", contractions: 0
+    tests "Gestation::Gestation.StartGestation", on: "Gestation", kind: :cross_cascade
+    input  project_name: "t04", nursery_path: "sample", bounded_contexts: ["sample"]
+    expect project_name: "t04", nursery_path: "sample", bounded_contexts: ["sample"], contractions: 0
   end
 
   test "FormAggregate sets aggregate_name" do
-    tests "FormAggregate", on: "Gestation", kind: :cross_cascade
-    setup  "StartGestation", project_name: "sample", nursery_path: "sample", bounded_contexts: "sample"
-    input  aggregate_name: "sample"
-    expect aggregates_size: 1
+    tests "Gestation::Gestation.FormAggregate", on: "Gestation", kind: :cross_cascade
+    setup  "Gestation::Gestation.StartGestation", project_name: "t05", nursery_path: "sample", bounded_contexts: ["sample"]
+    input  project_name: "t05", aggregate_name: "sample"
+    expect aggregates: ["sample"]
   end
 
   test "FormCommand sets command_name" do
-    tests "FormCommand", on: "Gestation", kind: :cross_cascade
-    setup  "StartGestation", project_name: "sample", nursery_path: "sample", bounded_contexts: "sample"
-    input  command_name: "sample"
-    expect commands_size: 1
+    tests "Gestation::Gestation.FormCommand", on: "Gestation", kind: :cross_cascade
+    setup  "Gestation::Gestation.StartGestation", project_name: "t06", nursery_path: "sample", bounded_contexts: ["sample"]
+    input  project_name: "t06", command_name: "sample"
+    expect commands: ["sample"]
   end
 
   test "FormPolicy sets policy_name" do
-    tests "FormPolicy", on: "Gestation", kind: :cross_cascade
-    setup  "StartGestation", project_name: "sample", nursery_path: "sample", bounded_contexts: "sample"
-    input  policy_name: "sample"
-    expect policies_size: 1
+    tests "Gestation::Gestation.FormPolicy", on: "Gestation", kind: :cross_cascade
+    setup  "Gestation::Gestation.StartGestation", project_name: "t07", nursery_path: "sample", bounded_contexts: ["sample"]
+    input  project_name: "t07", policy_name: "sample"
+    expect policies: ["sample"]
   end
 
   test "Contract runs" do
-    tests "Contract", on: "Gestation", kind: :cross_cascade
-    setup  "StartGestation", project_name: "sample", nursery_path: "sample", bounded_contexts: "sample"
-    expect ok: "true"
+    tests "Gestation::Gestation.Contract", on: "Gestation", kind: :cross_cascade
+    setup  "Gestation::Gestation.StartGestation", project_name: "t08", nursery_path: "sample", bounded_contexts: ["sample"]
+    input  project_name: "t08"
+    expect contractions: 1
   end
 
 
   # ── Labor aggregate ──────────────────────────────────────────
 
   test "ValidateBluebook sets domain_name + bluebook_source" do
-    tests "ValidateBluebook", on: "Labor", kind: :cross_cascade
-    input  domain_name: "sample", bluebook_source: "sample"
-    expect domain_name: "sample", bluebook_source: "sample", valid: "checking"
+    tests "Labor::Labor.ValidateBluebook", on: "Labor", kind: :cross_cascade
+    input  domain_name: "t09", bluebook_source: "sample"
+    expect domain_name: "t09", bluebook_source: "sample", valid: "checking"
   end
 
   test "ValidateBluebook cascades through policy chain" do
-    tests "ValidateBluebook", on: "Labor", kind: :cross_cascade
-    input  domain_name: "sample", bluebook_source: "sample"
+    tests "Labor::Labor.ValidateBluebook", on: "Labor", kind: :cross_cascade
+    input  domain_name: "t10", bluebook_source: "sample"
     expect emits: ["BluebookValidated", "ParityChecked"]
   end
 
   test "CheckParity sets parity" do
-    tests "CheckParity", on: "Labor", kind: :cross_cascade
-    setup  "ValidateBluebook", domain_name: "sample", bluebook_source: "sample"
-    input  id: "sample", parity: "sample"
+    tests "Labor::Labor.CheckParity", on: "Labor", kind: :cross_cascade
+    setup  "Labor::Labor.ValidateBluebook", domain_name: "t11", bluebook_source: "sample"
+    input  domain_name: "t11", parity: "sample"
     expect parity: "sample"
   end
 
   test "PassLabor runs" do
-    tests "PassLabor", on: "Labor", kind: :cross_cascade
-    setup  "ValidateBluebook", domain_name: "sample", bluebook_source: "sample"
+    tests "Labor::Labor.PassLabor", on: "Labor", kind: :cross_cascade
+    setup  "Labor::Labor.ValidateBluebook", domain_name: "t12", bluebook_source: "sample"
+    input  domain_name: "t12"
     expect valid: "yes"
   end
 
   test "PassLabor cascades through policy chain" do
-    tests "PassLabor", on: "Labor", kind: :cross_cascade
-    setup  "DeliverDomain", domain_name: "sample", path: "sample", aggregate_count: 1, command_count: 1, fixture_count: 1
-    setup  "NurseryCorpus::Corpus.IndexDomain", domain_name: "sample", vector: 1.0
-    setup  "Postpartum::Postpartum.CheckHealth", domain_name: "sample"
-    setup  "ValidateBluebook", domain_name: "sample", bluebook_source: "sample"
+    tests "Labor::Labor.PassLabor", on: "Labor", kind: :cross_cascade
+    setup  "NurseryCorpus::Corpus.OpenCorpus", name: "nursery"
+    setup  "Labor::Labor.ValidateBluebook", domain_name: "t13", bluebook_source: "sample"
+    input  domain_name: "t13"
     expect emits: ["LaborPassed", "DomainDelivered", "BirthRegistered", "DomainIndexed", "HealthChecked"]
   end
 
   test "FailLabor sets errors" do
-    tests "FailLabor", on: "Labor", kind: :cross_cascade
-    setup  "ValidateBluebook", domain_name: "sample", bluebook_source: "sample"
-    input  errors: "sample"
-    expect errors: "sample", valid: "no"
+    tests "Labor::Labor.FailLabor", on: "Labor", kind: :cross_cascade
+    setup  "Labor::Labor.ValidateBluebook", domain_name: "t14", bluebook_source: "sample"
+    input  domain_name: "t14", errors: ["sample"]
+    expect errors: ["sample"], valid: "no"
   end
 
 
   # ── Delivery aggregate ──────────────────────────────────────────
 
   test "DeliverDomain sets domain_name + path + aggregate_count + command_count + fixture_count" do
-    tests "DeliverDomain", on: "Delivery", kind: :cross_cascade
-    input  domain_name: "sample", path: "sample", aggregate_count: 1, command_count: 1, fixture_count: 1
-    expect domain_name: "sample", path: "sample", aggregate_count: 1, command_count: 1, fixture_count: 1
+    tests "Delivery::Delivery.DeliverDomain", on: "Delivery", kind: :cross_cascade
+    input  domain_name: "t15", path: "sample", aggregate_count: 1, command_count: 1, fixture_count: 1
+    expect domain_name: "t15", path: "sample", aggregate_count: 1, command_count: 1, fixture_count: 1
   end
 
   test "DeliverDomain cascades through policy chain" do
-    tests "DeliverDomain", on: "Delivery", kind: :cross_cascade
-    setup  "NurseryCorpus::Corpus.IndexDomain", domain_name: "sample", vector: 1.0
-    setup  "Postpartum::Postpartum.CheckHealth", domain_name: "sample"
-    input  domain_name: "sample", path: "sample", aggregate_count: 1, command_count: 1, fixture_count: 1
+    tests "Delivery::Delivery.DeliverDomain", on: "Delivery", kind: :cross_cascade
+    setup  "NurseryCorpus::Corpus.OpenCorpus", name: "nursery"
+    input  domain_name: "t16", path: "sample", aggregate_count: 1, command_count: 1, fixture_count: 1
     expect emits: ["DomainDelivered", "BirthRegistered", "DomainIndexed", "HealthChecked"]
   end
 
   test "RegisterBirth runs" do
-    tests "RegisterBirth", on: "Delivery", kind: :cross_cascade
-    setup  "DeliverDomain", domain_name: "sample", path: "sample", aggregate_count: 1, command_count: 1, fixture_count: 1
-    expect ok: "true"
+    tests "Delivery::Delivery.RegisterBirth", on: "Delivery", kind: :cross_cascade
+    setup  "Delivery::Delivery.DeliverDomain", domain_name: "t17", path: "sample", aggregate_count: 1, command_count: 1, fixture_count: 1
+    input  domain_name: "t17"
+    expect_event "BirthRegistered"
   end
 
+  # Delivery already registered a birth through its own policy, so the
+  # postpartum check (a create) is refused as a duplicate and only the
+  # corpus indexing follows the second registration.
   test "RegisterBirth cascades through policy chain" do
-    tests "RegisterBirth", on: "Delivery", kind: :cross_cascade
-    setup  "DeliverDomain", domain_name: "sample", path: "sample", aggregate_count: 1, command_count: 1, fixture_count: 1
-    setup  "NurseryCorpus::Corpus.IndexDomain", domain_name: "sample", vector: 1.0
-    setup  "Postpartum::Postpartum.CheckHealth", domain_name: "sample"
-    expect emits: ["BirthRegistered", "DomainIndexed", "HealthChecked"]
+    tests "Delivery::Delivery.RegisterBirth", on: "Delivery", kind: :cross_cascade
+    setup  "NurseryCorpus::Corpus.OpenCorpus", name: "nursery"
+    setup  "Delivery::Delivery.DeliverDomain", domain_name: "t18", path: "sample", aggregate_count: 1, command_count: 1, fixture_count: 1
+    input  domain_name: "t18"
+    expect emits: ["BirthRegistered", "DomainIndexed"]
   end
 
   test "IndexInNursery runs" do
-    tests "IndexInNursery", on: "Delivery", kind: :cross_cascade
-    setup  "DeliverDomain", domain_name: "sample", path: "sample", aggregate_count: 1, command_count: 1, fixture_count: 1
+    tests "Delivery::Delivery.IndexInNursery", on: "Delivery", kind: :cross_cascade
+    setup  "Delivery::Delivery.DeliverDomain", domain_name: "t19", path: "sample", aggregate_count: 1, command_count: 1, fixture_count: 1
+    input  domain_name: "t19"
     expect indexed: "yes"
   end
 
@@ -138,21 +156,22 @@ Hecks.behaviors "Conception" do
   # ── Postpartum aggregate ──────────────────────────────────────────
 
   test "CheckHealth sets domain_name" do
-    tests "CheckHealth", on: "Postpartum", kind: :cross_cascade
-    input  domain_name: "sample"
-    expect domain_name: "sample"
+    tests "Postpartum::Postpartum.CheckHealth", on: "Postpartum", kind: :cross_cascade
+    input  domain_name: "t20"
+    expect domain_name: "t20"
   end
 
   test "DeclareHealthy runs" do
-    tests "DeclareHealthy", on: "Postpartum", kind: :cross_cascade
-    setup  "Postpartum::Postpartum.CheckHealth", domain_name: "sample"
+    tests "Postpartum::Postpartum.DeclareHealthy", on: "Postpartum", kind: :cross_cascade
+    setup  "Postpartum::Postpartum.CheckHealth", domain_name: "t21"
+    input  domain_name: "t21"
     expect healthy: "yes"
   end
 
   test "FlagConcern sets concern" do
-    tests "FlagConcern", on: "Postpartum", kind: :cross_cascade
-    setup  "Postpartum::Postpartum.CheckHealth", domain_name: "sample"
-    input  concern: "sample"
+    tests "Postpartum::Postpartum.FlagConcern", on: "Postpartum", kind: :cross_cascade
+    setup  "Postpartum::Postpartum.CheckHealth", domain_name: "t22"
+    input  domain_name: "t22", concern: "sample"
     expect healthy: "concern"
   end
 
@@ -160,56 +179,58 @@ Hecks.behaviors "Conception" do
   # ── Development aggregate ──────────────────────────────────────────
 
   test "ComputeVector sets domain_name" do
-    tests "ComputeVector", on: "Development", kind: :cross_cascade
-    input  domain_name: "sample"
+    tests "Development::Development.ComputeVector", on: "Development", kind: :cross_cascade
+    input  domain_name: "t23"
     # Cascade continues : VectorComputed → FindArchetype → status "matched".
     # Lock the immediate domain_name mutation here ; the cascade itself is
     # asserted by the sibling "ComputeVector cascades through policy chain".
-    expect domain_name: "sample"
+    expect domain_name: "t23"
   end
 
   test "ComputeVector cascades through policy chain" do
-    tests "ComputeVector", on: "Development", kind: :cross_cascade
-    input  domain_name: "sample"
+    tests "Development::Development.ComputeVector", on: "Development", kind: :cross_cascade
+    input  domain_name: "t24"
     expect emits: ["VectorComputed", "ArchetypeFound"]
   end
 
+  # ComputeVector's own cascade already found an archetype (status
+  # "matched"), so this finds it again.
   test "FindArchetype runs" do
-    tests "FindArchetype", on: "Development", kind: :cross_cascade
-    setup  "ComputeVector", domain_name: "sample"
+    tests "Development::Development.FindArchetype", on: "Development", kind: :cross_cascade
+    setup  "Development::Development.ComputeVector", domain_name: "t25"
+    input  domain_name: "t25"
     expect status: "matched"
   end
 
   test "PlanDevelopment sets target_vector" do
-    tests "PlanDevelopment", on: "Development", kind: :cross_cascade
-    setup  "ComputeVector", domain_name: "sample"
-    setup  "FindArchetype"
-    input  target_vector: 1.0
-    expect target_vector: 1.0, status: "planned"
+    tests "Development::Development.PlanDevelopment", on: "Development", kind: :cross_cascade
+    setup  "Development::Development.ComputeVector", domain_name: "t26"
+    input  domain_name: "t26", target_vector: [1.0]
+    expect target_vector: [1.0], status: "planned"
   end
 
   test "DevelopDomain runs" do
-    tests "DevelopDomain", on: "Development", kind: :cross_cascade
-    setup  "ComputeVector", domain_name: "sample"
-    setup  "FindArchetype"
-    setup  "PlanDevelopment", target_vector: 1.0
+    tests "Development::Development.DevelopDomain", on: "Development", kind: :cross_cascade
+    setup  "Development::Development.ComputeVector", domain_name: "t27"
+    setup  "Development::Development.PlanDevelopment", domain_name: "t27", target_vector: [1.0]
+    input  domain_name: "t27"
     expect status: "developed"
   end
 
   test "DevelopDomain cascades through policy chain" do
-    tests "DevelopDomain", on: "Development", kind: :cross_cascade
-    setup  "NurseryCorpus::Corpus.IndexDomain", domain_name: "sample", vector: 1.0
-    setup  "ComputeVector", domain_name: "sample"
-    setup  "FindArchetype"
-    setup  "PlanDevelopment", target_vector: 1.0
+    tests "Development::Development.DevelopDomain", on: "Development", kind: :cross_cascade
+    setup  "NurseryCorpus::Corpus.OpenCorpus", name: "nursery"
+    setup  "Development::Development.ComputeVector", domain_name: "t28"
+    setup  "Development::Development.PlanDevelopment", domain_name: "t28", target_vector: [1.0]
+    input  domain_name: "t28"
     expect emits: ["DomainDeveloped", "DomainIndexed"]
   end
 
   test "RejectDevelopment runs" do
-    tests "RejectDevelopment", on: "Development", kind: :cross_cascade
-    setup  "ComputeVector", domain_name: "sample"
-    setup  "FindArchetype"
-    setup  "PlanDevelopment", target_vector: 1.0
+    tests "Development::Development.RejectDevelopment", on: "Development", kind: :cross_cascade
+    setup  "Development::Development.ComputeVector", domain_name: "t29"
+    setup  "Development::Development.PlanDevelopment", domain_name: "t29", target_vector: [1.0]
+    input  domain_name: "t29"
     expect status: "rejected"
   end
 
@@ -217,20 +238,24 @@ Hecks.behaviors "Conception" do
   # ── Corpus aggregate ──────────────────────────────────────────
 
   test "IndexDomain sets domain_name + vector" do
-    tests "IndexDomain", on: "Corpus", kind: :cross_cascade
-    input  domain_name: "sample", vector: 1.0
-    expect ok: "true"
+    tests "NurseryCorpus::Corpus.IndexDomain", on: "Corpus", kind: :cross_cascade
+    setup  "NurseryCorpus::Corpus.OpenCorpus", name: "t30"
+    input  name: "t30", domain_name: "t30", vector: [1.0]
+    expect domain_count: 1, total_vectors: 1
   end
 
   test "QueryNearest sets target_vector + k" do
-    tests "QueryNearest", on: "Corpus", kind: :cross_cascade
-    input  target_vector: 1.0, k: 1
-    expect ok: "true"
+    tests "NurseryCorpus::Corpus.QueryNearest", on: "Corpus", kind: :cross_cascade
+    setup  "NurseryCorpus::Corpus.OpenCorpus", name: "t31"
+    input  name: "t31", target_vector: [1.0], k: 1
+    expect emits: ["NearestFound"]
   end
 
   test "RebuildCorpus runs" do
-    tests "RebuildCorpus", on: "Corpus", kind: :cross_cascade
-    expect ok: "true"
+    tests "NurseryCorpus::Corpus.RebuildCorpus", on: "Corpus", kind: :cross_cascade
+    setup  "NurseryCorpus::Corpus.OpenCorpus", name: "t32"
+    input  name: "t32"
+    expect emits: ["CorpusRebuilt"]
   end
 
 end

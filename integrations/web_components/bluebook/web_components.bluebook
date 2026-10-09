@@ -28,7 +28,11 @@ Hecks.bluebook "WebComponents", version: "2026.05.01.1" do
   #   <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
   #   <script src="https://cdn.tailwindcss.com"></script>
 
-  aggregate "WebComponents", "DaisyUI component library — every UI component is a value_object under this single root" do
+  aggregate "WebComponents" do
+
+    description "DaisyUI component library — every UI component is a value_object under this single root"
+    identified_by :kind
+    attribute :kind, ComponentKind
     value_object "ActiveTheme" do
       # The currently-selected theme name for the running app.
       attribute :value, String
@@ -596,12 +600,13 @@ Hecks.bluebook "WebComponents", version: "2026.05.01.1" do
 
     command "RenderComponent" do
       role "Builder"
-      description "Render any component by kind — kind is one of Shell, Sidebar, Navbar, Page, Tabs, Breadcrumbs, Steps, AggregateCard, DataTable, StatCard, ListItem, Badge, Avatar, Timeline, Accordion, Board, CommandForm, QuickAdd, FilterBar, SearchBox, Rating, ActionButton, Dropdown, Modal, LifecycleBar, Fab, Swap, Toast, Alert, Loading, Progress, Skeleton, Tooltip, EmptyState, EventStream, Theme, ThemeToggle"
+      goal "Render any component by kind — kind is one of Shell, Sidebar, Navbar, Page, Tabs, Breadcrumbs, Steps, AggregateCard, DataTable, StatCard, ListItem, Badge, Avatar, Timeline, Accordion, Board, CommandForm, QuickAdd, FilterBar, SearchBox, Rating, ActionButton, Dropdown, Modal, LifecycleBar, Fab, Swap, Toast, Alert, Loading, Progress, Skeleton, Tooltip, EmptyState, EventStream, Theme, ThemeToggle"
       attribute :kind,        ComponentKind
-      attribute :aggregate,   AggregateRef
-      attribute :command,     CommandRef
-      attribute :variant,     ComponentVariant
-      attribute :daisy_theme, DaisyThemeName
+      attribute :aggregate,   AggregateRef,      optional: true
+      attribute :command,     CommandRef,        optional: true
+      attribute :variant,     ComponentVariant,  optional: true
+      attribute :daisy_theme, DaisyThemeName,    optional: true
+      sets :kind
       emits "ComponentRendered"
     end
   end
@@ -626,10 +631,12 @@ Hecks.bluebook "WebComponents", version: "2026.05.01.1" do
   #
   # The render workflow is a single command, dispatched per kind.
 
-  workflow "BuildApp" do
-    description "Generate a full DaisyUI app from a domain bluebook — one RenderComponent dispatch per kind"
-    step "RenderComponent"
-  end
+  # Parked: the published gem has no `workflow` word (the policies below already
+  # carry the sequence). Restore when the gem gains one.
+  # workflow "BuildApp" do
+  # description "Generate a full DaisyUI app from a domain bluebook — one RenderComponent dispatch per kind"
+  # step "RenderComponent"
+  # end
 
   # ============================================================
   # GLOSSARY

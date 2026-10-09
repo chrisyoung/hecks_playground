@@ -120,7 +120,8 @@ Hecks.behaviors "Capabilities" do
 
   test "Discover emits CapabilitiesDiscovered" do
     tests "Discover", on: "Capability"
-    input  registered_at: { value: "2026-05-12T10:04:00Z" }
+    input  name:          { value: "discovery" },
+           registered_at: { value: "2026-05-12T10:04:00Z" }
     expect emits: ["CapabilitiesDiscovered"]
   end
 end

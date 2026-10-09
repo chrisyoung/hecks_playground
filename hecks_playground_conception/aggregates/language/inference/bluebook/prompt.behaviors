@@ -6,20 +6,20 @@ Hecks.behaviors "Prompt" do
 
   test "RunInference sets input" do
     tests "RunInference", on: "Prompt"
-    input  input: "sample"
+    input  ref: { value: "prompt-1" }, input: "sample"
     expect input: "sample"
   end
 
   test "RunInference cascades through policy chain" do
     tests "RunInference", on: "Prompt", kind: :cascade
-    input  input: "sample"
+    input  ref: { value: "prompt-1" }, input: "sample"
     expect emits: ["InferenceRan", "OutputValidated"]
   end
 
   test "ValidateOutput sets valid" do
     tests "ValidateOutput", on: "Prompt"
-    setup  "RunInference", input: "sample"
-    input  valid: "sample"
+    setup  "RunInference", ref: { value: "prompt-1" }, input: "sample"
+    input  ref: { value: "prompt-1" }, valid: "sample"
     expect valid: "sample"
   end
 end

@@ -53,6 +53,7 @@ Hecks.bluebook "NoneInStateGate" do
 
     command "ReleaseClaim" do
       role "System"
+      reference_to(Claim)
       attribute :slot, Slot
       sets :state, to: "released"
       emits "ClaimReleased"

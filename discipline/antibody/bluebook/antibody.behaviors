@@ -5,61 +5,61 @@ Hecks.behaviors "Antibody" do
 
   test "CheckStaged list-only never blocks on clean files" do
     tests "CheckStaged", on: "StagedCheck"
-    input  staged_files: "sample", flagged_files: "sample"
+    input  check_id: "c1", staged_files: ["a.rs"], flagged_files: ["a.rs"]
     expect mode: "list_only", result: "flagged_list"
   end
 
   test "CheckStaged list-only never blocks even when files are flagged" do
     tests "CheckStaged", on: "StagedCheck"
-    input  staged_files: "sample", flagged_files: "sample"
+    input  check_id: "c1", staged_files: ["a.rs"], flagged_files: ["a.rs"]
     expect result: "flagged_list"
   end
 
   test "EnforceStaged passes when staged files are all bluebook/heki" do
     tests "EnforceStaged", on: "StagedCheck"
-    input  staged_files: "sample", flagged_files: "sample", message_path: "sample"
+    input  check_id: "c1", staged_files: ["a.rs"], flagged_files: ["a.rs"], message_path: "sample"
     expect mode: "enforce", result: "clean"
   end
 
   test "ExemptStaged records reasons when the message carries a line-anchored marker" do
     tests "ExemptStaged", on: "StagedCheck"
-    input  staged_files: "sample", flagged_files: "sample", message_path: "sample", exemption_reasons: "sample"
+    input  check_id: "c1", staged_files: ["a.rs"], flagged_files: ["a.rs"], message_path: "sample", exemption_reasons: ["kernel"]
     expect result: "exempted"
   end
 
   test "ExemptStaged accepts leading whitespace before the marker" do
     tests "ExemptStaged", on: "StagedCheck"
-    input  staged_files: "sample", flagged_files: "sample", message_path: "sample", exemption_reasons: "sample"
+    input  check_id: "c1", staged_files: ["a.rs"], flagged_files: ["a.rs"], message_path: "sample", exemption_reasons: ["kernel"]
     expect result: "exempted"
   end
 
   test "ExemptStaged is case-insensitive on the marker prefix" do
     tests "ExemptStaged", on: "StagedCheck"
-    input  staged_files: "sample", flagged_files: "sample", message_path: "sample", exemption_reasons: "sample"
+    input  check_id: "c1", staged_files: ["a.rs"], flagged_files: ["a.rs"], message_path: "sample", exemption_reasons: ["kernel"]
     expect result: "exempted"
   end
 
   test "RejectStaged fires when an untriaged Ruby file is staged without exemption" do
     tests "RejectStaged", on: "StagedCheck"
-    input  staged_files: "sample", flagged_files: "sample"
+    input  check_id: "c1", staged_files: ["a.rs"], flagged_files: ["a.rs"]
     expect result: "rejected"
   end
 
   test "RejectStaged fires when the exemption marker sits in inline prose (prose anchor fails)" do
     tests "RejectStaged", on: "StagedCheck"
-    input  staged_files: "sample", flagged_files: "sample"
+    input  check_id: "c1", staged_files: ["a.rs"], flagged_files: ["a.rs"]
     expect result: "rejected"
   end
 
   test "RejectStaged fires for an extensionless bin/ script with a ruby shebang" do
     tests "RejectStaged", on: "StagedCheck"
-    input  staged_files: "sample", flagged_files: "sample"
+    input  check_id: "c1", staged_files: ["a.rs"], flagged_files: ["a.rs"]
     expect result: "rejected"
   end
 
   test "EnforceStaged is clean for an extensionless bin/ script with an awk shebang" do
     tests "EnforceStaged", on: "StagedCheck"
-    input  staged_files: "sample", flagged_files: "sample", message_path: "sample"
+    input  check_id: "c1", staged_files: ["a.rs"], flagged_files: ["a.rs"], message_path: "sample"
     expect result: "clean"
   end
 
@@ -68,19 +68,19 @@ Hecks.behaviors "Antibody" do
 
   test "ValidateCommit records a clean single-commit pass" do
     tests "ValidateCommit", on: "CommitCheck"
-    input  sha: "sample", subject: "sample", touched_files: "sample", flagged_files: "sample"
-    expect sha: "sample", verdict: "pass"
+    input  sha: "s1", subject: "sample", touched_files: ["a.rs"], flagged_files: ["a.rs"]
+    expect sha: "s1", verdict: "pass"
   end
 
   test "ExemptCommit records the exemption reasons from the message" do
     tests "ExemptCommit", on: "CommitCheck"
-    input  sha: "sample", subject: "sample", touched_files: "sample", flagged_files: "sample", exemption_reasons: "sample"
+    input  sha: "s1", subject: "sample", touched_files: ["a.rs"], flagged_files: ["a.rs"], exemption_reasons: ["kernel"]
     expect verdict: "exempted"
   end
 
   test "RejectCommit records the flagged files that no exemption covered" do
     tests "RejectCommit", on: "CommitCheck"
-    input  sha: "sample", subject: "sample", touched_files: "sample", flagged_files: "sample"
+    input  sha: "s1", subject: "sample", touched_files: ["a.rs"], flagged_files: ["a.rs"]
     expect verdict: "rejected"
   end
 
@@ -89,25 +89,25 @@ Hecks.behaviors "Antibody" do
 
   test "ScanBranch records a survey of base..HEAD" do
     tests "ScanBranch", on: "BranchScan"
-    input  base_ref: "sample", touched_files: "sample", flagged_files: "sample"
+    input  base_ref: "sample", touched_files: ["a.rs"], flagged_files: ["a.rs"]
     expect base_ref: "sample", mode: "survey", result: "clean"
   end
 
   test "ScanEachCommit records a multi-commit PR where every commit exempts its own files" do
     tests "ScanEachCommit", on: "BranchScan"
-    input  base_ref: "sample", per_commit_verdicts: "sample"
+    input  base_ref: "sample", per_commit_verdicts: [{ sha: "s1", verdict: "pass", flagged_files: [] }]
     expect mode: "each_commit", result: "clean"
   end
 
   test "ScanEachCommit also records the case where one commit is unexempt — per-commit list carries it" do
     tests "ScanEachCommit", on: "BranchScan"
-    input  base_ref: "sample", per_commit_verdicts: "sample"
+    input  base_ref: "sample", per_commit_verdicts: [{ sha: "s1", verdict: "pass", flagged_files: [] }]
     expect mode: "each_commit", result: "clean"
   end
 
   test "ScanEachCommit distinguishes an earlier-commit exemption from a later untriaged commit (the slip-through fix)" do
     tests "ScanEachCommit", on: "BranchScan"
-    input  base_ref: "sample", per_commit_verdicts: "sample"
+    input  base_ref: "sample", per_commit_verdicts: [{ sha: "s1", verdict: "pass", flagged_files: [] }]
     expect mode: "each_commit"
   end
 
@@ -126,19 +126,37 @@ Hecks.behaviors "Antibody" do
     expect path: "rust/src/sample.rs", reason: "kernel-floor — retires when sample"
   end
 
+  # PENDING: hecks 3.10 refuses a creating command on an identity that already exists
+  # (AlreadyExists), so the fork's upsert-on-register is not expressible; the overwrite
+  # is covered by ReviseExemption below. Restore this as a live test if the gem ever
+  # admits an upsert word for a creating command.
   test "RegisterExemption overwrites the reason for an existing path (idempotent upsert)" do
-    tests "RegisterExemption", on: "ExemptRegistry"
+    tests "RegisterExemption", on: "ExemptRegistry", kind: :pending
     setup  "RegisterExemption", path: "rust/src/sample.rs", reason: "old reason"
     input  path: "rust/src/sample.rs", reason: "new reason — kernel-surface"
     expect path: "rust/src/sample.rs", reason: "new reason — kernel-surface"
   end
 
+  # PENDING: the fork iterated a bulk list and saved one record plus one event per row.
+  # hecks 3.10 saves one record per command and requires every emitter of an event name
+  # to declare the same fields, so RegisterExemptions now emits the single batch fact
+  # ExemptionsRegistered and per-row fan-out is not expressible. Restore (with per-row
+  # events) when the gem gains a bulk-create word.
   test "RegisterExemptions accepts a bulk specs list (one ExemptionRegistered emitted per row)" do
-    tests "RegisterExemptions", on: "ExemptRegistry"
-    input  specs: "[{\"path\":\"rust/src/a.rs\",\"reason\":\"kernel\"},{\"path\":\"rust/src/b.rs\",\"reason\":\"transitional\"}]"
+    tests "RegisterExemptions", on: "ExemptRegistry", kind: :pending
+    input  specs: [{ path: "rust/src/a.rs", reason: "kernel" }, { path: "rust/src/b.rs", reason: "transitional" }]
     expect emits: ["ExemptionRegistered", "ExemptionRegistered"]
   end
 
+  test "ReviseExemption overwrites the reason for an existing path" do
+    tests "ReviseExemption", on: "ExemptRegistry"
+    setup  "RegisterExemption", path: "rust/src/sample.rs", reason: "old reason"
+    input  path: "rust/src/sample.rs", reason: "new reason — kernel-surface"
+    expect path: "rust/src/sample.rs", reason: "new reason — kernel-surface"
+  end
+
+  # PENDING: hecks 3.10 has no delete word, so RetireExemption only records the
+  # ExemptionRetired event and the row cannot be removed. Restore when the gem gains one.
   test "RetireExemption removes the registry entry — deletion-assert is pending runner support" do
     tests "RetireExemption", on: "ExemptRegistry", kind: :pending
     setup  "RegisterExemption", path: "rust/src/sample.rs", reason: "sample"

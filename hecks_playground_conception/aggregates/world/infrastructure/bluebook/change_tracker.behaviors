@@ -6,20 +6,24 @@ Hecks.behaviors "ChangeTracker" do
 
   test "ScanForChanges sets tracked_files + changed_since_last" do
     tests "ScanForChanges", on: "ChangeTracker"
-    input  tracked_files: 1, changed_since_last: 1
+    input  name: { value: "default" }, tracked_files: 1, changed_since_last: 1
     expect tracked_files: 1, changed_since_last: 1
   end
 
+  # PENDING : ProcessedOnBatch reacts to BatchCompleted, which RunBatch emits, and neither
+  # is declared in this repo (that batch domain moved out). Back to :cross_cascade, with its
+  # RunBatch setup, once a domain here emits BatchCompleted.
   test "ScanForChanges cascades through policy chain" do
-    tests "ScanForChanges", on: "ChangeTracker", kind: :cross_cascade
+    tests "ScanForChanges", on: "ChangeTracker", kind: :pending
     setup  "RunBatch", operation: "sample", file_count: 1
-    input  tracked_files: 1, changed_since_last: 1
+    input  name: { value: "default" }, tracked_files: 1, changed_since_last: 1
     expect emits: ["ChangesScanned", "BatchCompleted", "ChangesProcessed"]
   end
 
   test "MarkProcessed runs" do
     tests "MarkProcessed", on: "ChangeTracker"
-    setup  "ScanForChanges", tracked_files: 1, changed_since_last: 1
+    setup  "ScanForChanges", name: { value: "default" }, tracked_files: 1, changed_since_last: 1
+    input  name: { value: "default" }
     expect changed_since_last: 0
   end
 end

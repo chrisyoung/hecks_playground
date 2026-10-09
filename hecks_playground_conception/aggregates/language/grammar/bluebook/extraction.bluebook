@@ -114,6 +114,7 @@ Hecks.bluebook "Extraction", version: "2026.06.13.1" do
     command "Declare" do
       role "Framework"
       goal "Declare a block rule — its keyword, the IR node it produces, and whether it opens a body. Its contained child keywords and FieldRules attach via the list attribute and has_many."
+      attribute :grammar, Grammar
       attribute :keyword, Keyword
       attribute :produces, IrNode
       attribute :opens_block, Flag
@@ -169,6 +170,7 @@ Hecks.bluebook "Extraction", version: "2026.06.13.1" do
     command "Declare" do
       role "Framework"
       goal "Declare how one field is read — its name, ReadStrategy, and the source token the strategy keys on. Belongs to a BlockRule."
+      attribute :block_rule, BlockRule
       attribute :field, FieldName
       attribute :strategy, ReadStrategy
       attribute :source_token, SourceToken

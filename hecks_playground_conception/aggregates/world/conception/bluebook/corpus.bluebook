@@ -55,9 +55,20 @@ Hecks.bluebook "NurseryCorpus", version: "2026.04.16.1" do
       attribute :value, Integer
     end
 
+    command "OpenCorpus" do
+      role "System"
+      goal "Open the nursery vector space — the corpus exists before any domain is indexed into it"
+      attribute :name, Name
+      emits "CorpusOpened"
+      sets :name
+      sets :domain_count,  to: 0
+      sets :total_vectors, to: 0
+    end
+
     command "IndexDomain" do
       role "System"
       goal "Add a domain's structural vector to the corpus"
+      reference_to(Corpus)
       attribute :domain_name, DomainName
       attribute :vector,      list_of(VectorComponent)
       emits "DomainIndexed"
@@ -68,6 +79,7 @@ Hecks.bluebook "NurseryCorpus", version: "2026.04.16.1" do
     command "QueryNearest" do
       role "System"
       goal "Find k nearest domains by cosine similarity to a target vector"
+      reference_to(Corpus)
       attribute :target_vector, list_of(VectorComponent)
       attribute :k,             K
       emits "NearestFound"
@@ -76,22 +88,23 @@ Hecks.bluebook "NurseryCorpus", version: "2026.04.16.1" do
     command "RebuildCorpus" do
       role "System"
       goal "Rescan all nursery and catalog domains, recompute all vectors"
+      reference_to(Corpus)
       emits "CorpusRebuilt"
     end
   end
 
   policy "IndexOnBirth" do
     on "BirthRegistered"
-    trigger IndexDomain
+    trigger Corpus::IndexDomain, with: { name: "nursery", domain_name: :domain_name, vector: [] }
   end
 
   policy "IndexOnDevelopment" do
     on "DomainDeveloped"
-    trigger IndexDomain
+    trigger Corpus::IndexDomain, with: { name: "nursery", domain_name: :domain_name, vector: [] }
   end
 
   policy "RebuildOnConception" do
     on "DomainConceived"
-    trigger QueryNearest
+    trigger Corpus::QueryNearest, with: { name: "nursery", target_vector: [], k: 1 }
   end
 end

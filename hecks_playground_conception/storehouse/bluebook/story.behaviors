@@ -12,22 +12,22 @@ Hecks.behaviors "Story" do
   test "ComposeStep appends one ordered step" do
     tests "ComposeStep", on: "Story"
     setup  "Conceive", id: "i724", title: "Explicit cascade as storehouse entity"
-    input  order: 0, phrase: "Voice::Voice.Speak", args: "{\"text\":\"hi\"}"
-    expect steps_size: 1
+    input  id: "i724", order: 0, phrase: "Voice::Voice.Speak", args: "{\"text\":\"hi\"}"
+    expect steps: [{ order: 0, phrase: "Voice::Voice.Speak", args: "{\"text\":\"hi\"}" }]
   end
 
   test "ComposeStep accretes two steps in order" do
     tests "ComposeStep", on: "Story"
     setup  "Conceive", id: "i724", title: "Explicit cascade as storehouse entity"
-    setup  "ComposeStep", order: 0, phrase: "Voice::Voice.Speak", args: "{}"
-    input  order: 1, phrase: "Inbox::Inbox.Check", args: "{}"
-    expect steps_size: 2
+    setup  "ComposeStep", id: "i724", order: 0, phrase: "Voice::Voice.Speak", args: "{}"
+    input  id: "i724", order: 1, phrase: "Inbox::Inbox.Check", args: "{}"
+    expect steps: [{ order: 0, phrase: "Voice::Voice.Speak", args: "{}" }, { order: 1, phrase: "Inbox::Inbox.Check", args: "{}" }]
   end
 
   test "Run flips the Story complete" do
     tests "Run", on: "Story"
     setup  "Conceive", id: "i724", title: "Explicit cascade as storehouse entity"
-    input  step_count: 2
+    input  id: "i724", step_count: 2
     expect status: "complete"
   end
 
