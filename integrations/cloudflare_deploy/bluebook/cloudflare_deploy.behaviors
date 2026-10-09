@@ -20,62 +20,63 @@ Hecks.behaviors "CloudflareDeploy" do
     expect emits: ["D1Provisioned", "MigrationsApplied", "WorkerDeployed", "PagesDeployed", "AppLive"]
   end
 
-  # PENDING: hecks 3.10 fires the bluebook's policies in every test, so the ProvisionD1
-  # setup already drives the record to `live` and ApplyMigrations (from: provisioned) is
-  # refused. Restore when the runner can seed a record at a lifecycle state or run a
-  # test with policies off (runner change, not a bluebook change).
+  # The steps below run with the policies off (`cascade: false`) : with them on, the
+  # ProvisionD1 setup drives the record to `live` and every mid-chain command is refused by
+  # the lifecycle. The whole chain, policies on, is the first test above.
   test "ApplyMigrations runs" do
-    tests "ApplyMigrations", on: "Deployment", kind: :pending
+    tests "ApplyMigrations", on: "Deployment", cascade: false
     setup  "ProvisionD1", database_name: "sample"
     input  name: "deploy"
     expect status: "migrated"
   end
 
-  # PENDING: same reason as "ApplyMigrations runs" - the setup settles the whole chain.
-  test "ApplyMigrations cascades through policy chain" do
-    tests "ApplyMigrations", on: "Deployment", kind: :pending
+  test "ApplyMigrations emits MigrationsApplied (policies off)" do
+    tests "ApplyMigrations", on: "Deployment", cascade: false
     setup  "ProvisionD1", database_name: "sample"
     input  name: "deploy"
-    expect emits: ["MigrationsApplied", "WorkerDeployed", "PagesDeployed", "AppLive"]
+    expect emits: ["MigrationsApplied"]
   end
 
-  # PENDING: same reason as "ApplyMigrations runs" - the setups settle the whole chain.
   test "DeployWorker runs" do
-    tests "DeployWorker", on: "Deployment", kind: :pending
+    tests "DeployWorker", on: "Deployment", cascade: false
     setup  "ProvisionD1", database_name: "sample"
+    setup  "ApplyMigrations", name: "deploy"
     input  name: "deploy"
     expect status: "api_live"
   end
 
-  # PENDING: same reason as "ApplyMigrations runs" - the setups settle the whole chain.
-  test "DeployWorker cascades through policy chain" do
-    tests "DeployWorker", on: "Deployment", kind: :pending
+  test "DeployWorker emits WorkerDeployed (policies off)" do
+    tests "DeployWorker", on: "Deployment", cascade: false
     setup  "ProvisionD1", database_name: "sample"
+    setup  "ApplyMigrations", name: "deploy"
     input  name: "deploy"
-    expect emits: ["WorkerDeployed", "PagesDeployed", "AppLive"]
+    expect emits: ["WorkerDeployed"]
   end
 
-  # PENDING: same reason as "ApplyMigrations runs" - the setups settle the whole chain.
   test "DeployPages runs" do
-    tests "DeployPages", on: "Deployment", kind: :pending
+    tests "DeployPages", on: "Deployment", cascade: false
     setup  "ProvisionD1", database_name: "sample"
+    setup  "ApplyMigrations", name: "deploy"
+    setup  "DeployWorker", name: "deploy"
     input  name: "deploy"
     expect status: "ui_live"
   end
 
-  # PENDING: same reason as "ApplyMigrations runs" - the setups settle the whole chain.
-  test "DeployPages cascades through policy chain" do
-    tests "DeployPages", on: "Deployment", kind: :pending
+  test "DeployPages emits PagesDeployed (policies off)" do
+    tests "DeployPages", on: "Deployment", cascade: false
     setup  "ProvisionD1", database_name: "sample"
+    setup  "ApplyMigrations", name: "deploy"
+    setup  "DeployWorker", name: "deploy"
     input  name: "deploy"
-    expect emits: ["PagesDeployed", "AppLive"]
+    expect emits: ["PagesDeployed"]
   end
 
-  # PENDING: same reason as "ApplyMigrations runs" - the setups settle the whole chain
-  # (MarkLive has already run, with no URLs, by the time the test calls it).
   test "MarkLive sets worker_url + pages_url" do
-    tests "MarkLive", on: "Deployment", kind: :pending
+    tests "MarkLive", on: "Deployment", cascade: false
     setup  "ProvisionD1", database_name: "sample"
+    setup  "ApplyMigrations", name: "deploy"
+    setup  "DeployWorker", name: "deploy"
+    setup  "DeployPages", name: "deploy"
     input  name: "deploy", worker_url: "sample", pages_url: "sample"
     expect worker_url: "sample", pages_url: "sample", status: "live"
   end
