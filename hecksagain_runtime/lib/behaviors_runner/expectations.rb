@@ -69,6 +69,7 @@ module HecksagainRuntime
         end
 
         runtime    = Hecks.boot(dir, install_doors: false)
+        runtime.registry.bluebooks.each_value { |chapter| chapter.policies.clear } if test.cascade_off?
         # The suite's own domain, not whichever loaded first: a whole-corpus stage holds many.
         own_domain  = HecksagainRuntime.domain_name_of(source)
         domain_name = runtime.registry.bluebooks.key?(own_domain) ? own_domain : runtime.registry.bluebooks.keys.first

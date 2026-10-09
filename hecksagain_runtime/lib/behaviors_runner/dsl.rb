@@ -40,12 +40,13 @@ module HecksagainRuntime
     # is known only once a runtime is booted, so it is a parameter here
     # rather than a field.
     TestCase = Struct.new(:description, :tests_command, :on_aggregate, :kind,
-                          :setups, :input, :expect, keyword_init: true) do
+                          :setups, :input, :expect, :cascade, keyword_init: true) do
       def fqn(domain_name)
         tests_command.to_s.include?(".") ? tests_command.to_s : "#{domain_name}::#{on_aggregate}.#{tests_command}"
       end
 
       def pending?       = kind == :pending
+      def cascade_off?   = cascade == false
       def query?         = kind == :query
       def cross_cascade? = kind == :cross_cascade
       def cascade?       = kind == :cascade
@@ -72,15 +73,20 @@ module HecksagainRuntime
           @tests_command = nil
           @on_aggregate  = nil
           @kind          = nil
+          @cascade       = true
           @setups        = []
           @input         = {}
           @expect        = {}
         end
 
-        def tests(command, on: nil, kind: nil)
+        # `cascade: false` runs the test with the domain's policies switched off, so a command
+        # in the middle of a policy chain can be exercised on its own (the gem has no
+        # cascade-off mode of its own : the runner empties each loaded chapter's policy list).
+        def tests(command, on: nil, kind: nil, cascade: true)
           @tests_command = command
           @on_aggregate  = on
           @kind          = kind
+          @cascade       = cascade
         end
 
         def setup(command, **kwargs)
@@ -97,7 +103,7 @@ module HecksagainRuntime
         def build
           TestCase.new(description: @description, tests_command: @tests_command,
                        on_aggregate: @on_aggregate, kind: @kind,
-                       setups: @setups, input: @input, expect: @expect)
+                       setups: @setups, input: @input, expect: @expect, cascade: @cascade)
         end
       end
 
