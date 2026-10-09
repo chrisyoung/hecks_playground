@@ -55,6 +55,7 @@ Hecks.bluebook "Applications", version: "2026.04.11.1" do
       role "Miette"
       goal "Add another app type — web, cli, mobile, api"
       reference_to(Application)
+      attribute :domain_path, DomainPath
       attribute :app_type, String
       emits "AppAdded"
       sets :app_types, append: { value: :app_type }
@@ -64,6 +65,7 @@ Hecks.bluebook "Applications", version: "2026.04.11.1" do
       role "Owner"
       goal "Deploy the app to production — it's alive in the world"
       reference_to(Application)
+      attribute :domain_path, DomainPath
       emits "AppDeployed"
     end
 
@@ -71,6 +73,7 @@ Hecks.bluebook "Applications", version: "2026.04.11.1" do
       role "Owner"
       goal "Application is no longer running — domain returns to catalog"
       reference_to(Application)
+      attribute :domain_path, DomainPath
       emits "ApplicationRetired"
     end
 
@@ -124,6 +127,7 @@ Hecks.bluebook "Applications", version: "2026.04.11.1" do
       role "System"
       goal "Domain moves to catalog — born, validated, versioned"
       reference_to(DomainLifecycle)
+      attribute :domain_name, DomainName
       attribute :catalog_path, CatalogPath
       emits "BirthTracked"
       sets :catalog_path
@@ -133,6 +137,7 @@ Hecks.bluebook "Applications", version: "2026.04.11.1" do
       role "System"
       goal "Domain moves to applications — viable, has a running app"
       reference_to(DomainLifecycle)
+      attribute :domain_name, DomainName
       attribute :application_path, ApplicationPath
       emits "ViabilityTracked"
       sets :application_path
@@ -178,13 +183,24 @@ Hecks.bluebook "Applications", version: "2026.04.11.1" do
       attribute :value, Integer
     end
 
+    command "OpenRegistry" do
+      role "System"
+      goal "Create the singleton registry once; IndexRegistry then refreshes it on every registration"
+      attribute :name, RegistryName
+      emits "RegistryOpened"
+      sets :name
+    end
+
     command "IndexRegistry" do
       role "System"
       goal "Scan applications folder, recount everything"
-      attribute :total_applications, TotalApplications
-      attribute :total_web, TotalWeb
-      attribute :total_cli, TotalCli
-      attribute :total_api, TotalApi
+      reference_to(AppRegistry)
+      attribute :name, RegistryName
+      # The IndexOnRegister policy knows nothing of the counts; the scan supplies them.
+      attribute :total_applications, TotalApplications, optional: true
+      attribute :total_web, TotalWeb, optional: true
+      attribute :total_cli, TotalCli, optional: true
+      attribute :total_api, TotalApi, optional: true
       emits "RegistryRebuilt"
       sets :total_applications
       sets :total_web
@@ -195,11 +211,11 @@ Hecks.bluebook "Applications", version: "2026.04.11.1" do
 
   policy "IndexOnRegister" do
     on "ApplicationRegistered"
-    trigger IndexRegistry
+    trigger AppRegistry::IndexRegistry, with: { name: "registry" }
   end
 
   policy "LifecycleOnRegister" do
     on "ApplicationRegistered"
-    trigger TrackViability
+    trigger DomainLifecycle::TrackViability, with: { domain_name: :name, application_path: :domain_path }
   end
 end

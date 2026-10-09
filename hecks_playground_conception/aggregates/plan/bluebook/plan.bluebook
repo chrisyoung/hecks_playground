@@ -515,7 +515,7 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
     # already exists so storehouse integrity can resolve it. A Story
     # pointing at a deleted Sprint is now a caught dangling reference,
     # not a silent orphan. Sprint.has_many Stories stays owner-side nav.
-    reference_to Sprint
+    reference_to Sprint, optional: true
 
     # ---- Project assignment ----
     # Story is the dependent side — it navigates TO Project by carrying the
@@ -525,7 +525,7 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
     attribute :project,        Project
 
     # ---- Owned use cases ----
-    reference_to UseCase
+    reference_to UseCase, optional: true
 
     # ---- Story dependencies (DAG edges) ----
     # A Story depends_on other Stories -- a self-referential association, NOT
@@ -1044,7 +1044,7 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       # Lease.Grant binds WHICH worker the worktree belongs to. NOT then_set
       # (Story holds no worker state) ; optional (required:false) so manual /
       # CLI Start and existing callers that pass only ref still dispatch.
-      attribute :worker, Worker
+      attribute :worker, Worker, optional: true
       given("story must be on a sprint board") { sprint != "" }
       given("story must be tasked before starting") { state == "tasked" }
       given("sprint must be active — replicated local flag, no cross-aggregate read") { sprint_active == true }
@@ -1453,32 +1453,32 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
   # only a real check re-arms them : a flag cannot be hand-set into ready.
   policy "ReadyOnVerbResolvesCheck" do
     on "Story.VerbResolvesCheckRecorded"
-    trigger Plan::Story::MarkReady
+    trigger Story::MarkReady, with: { story: :ref }
   end
 
   policy "ReadyOnMergedCheck" do
     on "Story.MergedCheckRecorded"
-    trigger Plan::Story::MarkReady
+    trigger Story::MarkReady, with: { story: :ref }
   end
 
   policy "ReadyOnWorktreeCheck" do
     on "Story.WorktreeCheckRecorded"
-    trigger Plan::Story::MarkReady
+    trigger Story::MarkReady, with: { story: :ref }
   end
 
   policy "ReadyOnTestsCheck" do
     on "Story.TestsCheckRecorded"
-    trigger Plan::Story::MarkReady
+    trigger Story::MarkReady, with: { story: :ref }
   end
 
   policy "ReadyOnPrMergeableCheck" do
     on "Story.PrMergeableCheckRecorded"
-    trigger Plan::Story::MarkReady
+    trigger Story::MarkReady, with: { story: :ref }
   end
 
   policy "ReadyOnMainUpToDateCheck" do
     on "Story.MainUpToDateCheckRecorded"
-    trigger Plan::Story::MarkReady
+    trigger Story::MarkReady, with: { story: :ref }
   end
 
   # ===== Task aggregate (task-completion-state, sprint 14) =====
@@ -1560,6 +1560,7 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       role "Miette"
       goal "Resolve a pending Task by marking it done. The cascade DecrementOnTaskCompleted policy bumps the owning Story's pending_task_count down so the ready_means_all_tasks_resolved gate can clear."
       reference_to(Task)
+      attribute :story, Story
       given("task must not already be resolved") { status != "done" && status != "cancelled" }
       emits "TaskCompleted"
     end
@@ -1568,6 +1569,7 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       role "Operator"
       goal "Drop a pending Task as no-longer-needed. Operator-only ; like Story.Cancel this is the soft-delete path. The cascade DecrementOnTaskCancelled policy decrements the owning Story's pending_task_count."
       reference_to(Task)
+      attribute :story, Story
       given("task must not already be resolved") { status != "done" && status != "cancelled" }
       emits "TaskCancelled"
     end
@@ -1576,6 +1578,7 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
       role "Miette"
       goal "Return a done or cancelled Task to pending — the work was prematurely resolved and is needed again. The cascade IncrementOnTaskReopened policy bumps the owning Story's pending_task_count back up."
       reference_to(Task)
+      attribute :story, Story
       given("task must currently be resolved") { status == "done" || status == "cancelled" }
       emits "TaskReopened"
     end
@@ -1614,22 +1617,22 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
   # counter command.
   policy "BumpOnTaskAdded" do
     on "Task.TaskAdded"
-    trigger Plan::Story::BumpPendingTaskCount
+    trigger Story::BumpPendingTaskCount, with: { story: :story }
   end
 
   policy "DropOnTaskCompleted" do
     on "Task.TaskCompleted"
-    trigger Plan::Story::DropPendingTaskCount
+    trigger Story::DropPendingTaskCount, with: { story: :story }
   end
 
   policy "DropOnTaskCancelled" do
     on "Task.TaskCancelled"
-    trigger Plan::Story::DropPendingTaskCount
+    trigger Story::DropPendingTaskCount, with: { story: :story }
   end
 
   policy "BumpOnTaskReopened" do
     on "Task.TaskReopened"
-    trigger Plan::Story::BumpPendingTaskCount
+    trigger Story::BumpPendingTaskCount, with: { story: :story }
   end
 
   # ===== from board/board.bluebook =====
@@ -1821,7 +1824,7 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
     end
 
     attribute :project,      Project
-    reference_to Story
+    reference_to Story, optional: true
     attribute :ordered_refs, list_of(Story)  # legacy ordering carrier ; the has_many declares the relationship, ordered_refs retains position semantics until the DSL supports `has_many Stories, ordered: true`
 
     # ── Commands ──────────────────────────────────────────────────
@@ -2139,8 +2142,8 @@ Hecks.bluebook "Plan", version: "2026.06.12.1" do
     # left as-is. Epic IS mutated (AddEpic appends to it) so it needs
     # list_of, not a scalar reference_to -- same correction as Story.
     # dependencies / Epic.sprints / Epic.stories above.
-    reference_to Backlog
-    reference_to Sprint
+    reference_to Backlog, optional: true
+    reference_to Sprint, optional: true
     attribute :epics, list_of(Epic)
 
     # ---- Lifecycle ----

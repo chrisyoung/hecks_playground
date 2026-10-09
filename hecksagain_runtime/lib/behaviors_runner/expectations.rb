@@ -21,7 +21,25 @@ module HecksagainRuntime
       module_function
 
       REFUSAL_CLASSES = Hecks::Runtime::DOMAIN_REFUSALS
-      NON_STATE_KEYS  = %i[ok emits refused count].freeze
+      NON_STATE_KEYS  = %i[ok emits emits_include refused count].freeze
+
+      # Heki writes each domain's records under a `data/` dir (in the staged corpus, or in
+      # the real tree when the root is booted as is), so a cross_cascade test would otherwise
+      # meet whatever an earlier test left there ("Grant creates a Acl that already exists"). The run's starting stores are
+      # noted once; before each cross_cascade test every store created since is removed.
+      def snapshot_stores(root)
+        @store_baseline = store_files(root)
+      end
+
+      def reset_stores(root, stage)
+        return unless @store_baseline
+
+        ((store_files(root) + store_files(stage)).uniq - @store_baseline).each { |f| FileUtils.rm_f(f) }
+      end
+
+      def store_files(root)
+        Dir.glob(File.join(root, "**", "data", "*.heki{,.journal}"))
+      end
 
       def run_one(test, source:, corpus_root: nil, staged_root: nil)
         return pass_result(test, pending: true) if test.pending?
@@ -30,6 +48,7 @@ module HecksagainRuntime
         if test.cross_cascade?
           return error_result(test, "cross_cascade test but no corpus_root given") unless corpus_root
           dir = staged_root || HecksagainRuntime.stage_flat_corpus(corpus_root)
+          reset_stores(corpus_root, dir)
         else
           # `:cascade`/`:driving_tick` (slice 1.3, driving-adapter-grammar
           # port) -- narrow, scoped widening of the isolated-dir case, NOT
@@ -50,7 +69,9 @@ module HecksagainRuntime
         end
 
         runtime    = Hecks.boot(dir, install_doors: false)
-        domain_name = runtime.registry.bluebooks.keys.first
+        # The suite's own domain, not whichever loaded first: a whole-corpus stage holds many.
+        own_domain  = HecksagainRuntime.domain_name_of(source)
+        domain_name = runtime.registry.bluebooks.key?(own_domain) ? own_domain : runtime.registry.bluebooks.keys.first
         return error_result(test, "could not determine a domain name from #{source}") unless domain_name
 
         failed_setup = replay_setups(test, runtime, domain_name)
@@ -90,16 +111,26 @@ module HecksagainRuntime
       end
 
       def run_command(test, runtime, domain_name)
+        logged_before = runtime.events.size
         result = Dispatching.dispatch_command(runtime, test.fqn(domain_name), test.input)
+        # Events the command emitted plus any a policy cascaded from them: the fork's
+        # dispatch result carried both, and `emits` / `expect_event` are written to that.
+        emitted = runtime.events[logged_before..] || result.events
 
         return fail_result(test, "expected refused: #{test.expect[:refused].inspect} but dispatch succeeded") if test.expect.key?(:refused)
 
         if (expected_emits = test.expect[:emits])
-          actual = result.events.map(&:name)
+          actual = emitted.map(&:name)
           return fail_result(test, "expected emits: #{expected_emits.inspect}, got #{actual.inspect}") unless actual == expected_emits
         end
 
-        state = result.state || {}
+        if (included = test.expect[:emits_include])
+          actual = emitted.map(&:name)
+          missing = included - actual
+          return fail_result(test, "expected event(s) #{missing.inspect}, got #{actual.inspect}") unless missing.empty?
+        end
+
+        state = settled_state(runtime, test.fqn(domain_name), result)
         test.expect.each do |key, expected|
           next if NON_STATE_KEYS.include?(key)
 
@@ -171,6 +202,19 @@ module HecksagainRuntime
       # instead of guessing wrong silently. Falls back to the original
       # guess (so the resulting UnknownVerb names the aggregate the author
       # meant) only if truly no aggregate declares it.
+      # The record read back from its repository, not `result.state`: a policy's own
+      # reentrant dispatch can re-save the aggregate after the command returns.
+      def settled_state(runtime, verb, result)
+        return result.state || {} unless result.respond_to?(:id) && result.id
+
+        domain, rest = verb.split("::", 2)
+        aggregate = runtime.registry.bluebook(domain)&.aggregate(rest.to_s.split(".", 2).first)
+        return result.state || {} unless aggregate
+
+        record = runtime.registry.repository(domain, aggregate).find(result.id)
+        record ? record.state : (result.state || {})
+      end
+
       # The real corpus writes VO-typed `expect` values BOTH ways: bare
       # (`expect sweeper_id: "fleet"`) and wrapped (`expect repo:
       # {value: "..."}`). A live record's field always comes back as a
@@ -180,8 +224,11 @@ module HecksagainRuntime
       # Normalizing BOTH sides to the same bare-scalar-or-plain-hash shape
       # is the one comparison that accepts either spelling.
       def normalize(value)
-        return Hecks::Runtime::Value.materialize_unwrapped(value) if value.is_a?(Hecks::Runtime::Value)
-        return normalize(value[:value]) if value.is_a?(Hash) && value.keys == [:value]
+        return normalize(Hecks::Runtime::Value.materialize_unwrapped(value)) if value.is_a?(Hecks::Runtime::Value)
+        # A one-attribute value object comes back bare whatever its attribute is called
+        # (`RepairStrategy { name }`), so `{ name: "x" }` unwraps the same way `{ value: "x" }` does.
+        return normalize(value.values.first) if value.is_a?(Hash) && value.size == 1
+        return value.transform_values { |field| normalize(field) } if value.is_a?(Hash)
         # hecks 2.x+ materialises each element of a list_of(ValueObject) as a Value, so a list is
         # compared element by element, the same way a scalar is.
         return value.map { |element| normalize(element) } if value.is_a?(Array)

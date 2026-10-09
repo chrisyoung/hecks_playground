@@ -150,7 +150,7 @@ Hecks.bluebook "Correspondence", version: "2026.05.24.1" do
 
     command "ReceiveInbound" do
       role "Miette"
-      goal "Record that an inbound message arrived from this person. Sets awaiting_reply to true and records last_inbound_at. Creates the Correspondent aggregate if it does not yet exist. Called by the inbox poll — this is how the ledger learns who needs a reply. Emits InboundReceived."
+      goal "Record that an inbound message arrived from this person. Sets awaiting_reply to true and records last_inbound_at. Creates the Correspondent aggregate, so it is refused when the person already exists : use ReceiveInboundAgain then. Called by the inbox poll — this is how the ledger learns who needs a reply. Emits InboundReceived."
       attribute :person,       Person
       attribute :received_at,  Timestamp
       given("person must not be empty") { person != "" }
@@ -160,9 +160,19 @@ Hecks.bluebook "Correspondence", version: "2026.05.24.1" do
       emits "InboundReceived"
     end
 
+    command "ReceiveInboundAgain" do
+      role "Miette"
+      goal "ReceiveInbound for a correspondent that already exists (they wrote before). ReceiveInbound creates the aggregate and is refused for an existing person; this is its twin and acts on the existing record. Sets awaiting_reply to true and records last_inbound_at. Emits InboundReceivedAgain."
+      reference_to(Correspondent)
+      attribute :received_at,  Timestamp
+      sets :awaiting_reply,   to: true
+      sets :last_inbound_at,  to: :received_at
+      emits "InboundReceivedAgain"
+    end
+
     command "ComposeDraft" do
       role "Miette"
-      goal "Record that a draft was composed for this correspondent. Call ONLY after AlreadyDrafted returns empty — if an active draft already exists, surface it instead. Inputs: the person (creates the aggregate if it does not exist), letter_id (fresh ULID), subject, summary (one-line gist of the body), optional thread_ref, composed_at. Appends a Letter(status=draft) to the history. Sets draft_status to drafting and last_draft_at. Emits DraftComposed."
+      goal "Record that a draft was composed for this correspondent. Call ONLY after AlreadyDrafted returns empty — if an active draft already exists, surface it instead. Inputs: the person (creates the aggregate, so it is refused when the person already exists : use ComposeFollowUp then), letter_id (fresh ULID), subject, summary (one-line gist of the body), optional thread_ref, composed_at. Appends a Letter(status=draft) to the history. Sets draft_status to drafting and last_draft_at. Emits DraftComposed."
       attribute :person,       Person
       attribute :letter_id,    LetterId
       attribute :subject,      Subject
@@ -174,6 +184,20 @@ Hecks.bluebook "Correspondence", version: "2026.05.24.1" do
       sets :draft_status,   to: "drafting"
       sets :last_draft_at,  to: :composed_at
       emits "DraftComposed"
+    end
+
+    command "ComposeFollowUp" do
+      role "Miette"
+      goal "ComposeDraft for a correspondent that already exists (an inbound was received, or an earlier letter was sent). ComposeDraft creates the aggregate and is refused for an existing person; this is its twin and acts on the existing record. Same inputs and effects as ComposeDraft. Emits FollowUpComposed."
+      reference_to(Correspondent)
+      attribute :letter_id,    LetterId
+      attribute :subject,      Subject
+      attribute :summary,      Summary
+      attribute :thread_ref,   ThreadRef
+      attribute :composed_at,  Timestamp
+      sets :draft_status,   to: "drafting"
+      sets :last_draft_at,  to: :composed_at
+      emits "FollowUpComposed"
     end
 
     command "MarkSent" do

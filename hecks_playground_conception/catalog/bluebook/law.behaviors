@@ -12,33 +12,36 @@ Hecks.behaviors "Law" do
   test "Amend sets description + check_expression" do
     tests "Amend", on: "Law"
     setup  "Enact", name: "sample", description: "sample", domain_scope: "sample", check_expression: "sample", severity: "sample"
-    input  description: "sample", check_expression: "sample"
+    input  name: "sample", description: "sample", check_expression: "sample"
     expect description: "sample", check_expression: "sample"
   end
 
   test "Suspend runs" do
     tests "Suspend", on: "Law"
     setup  "Enact", name: "sample", description: "sample", domain_scope: "sample", check_expression: "sample", severity: "sample"
+    input  name: "sample"
     expect status: "suspended"
   end
 
   test "Reinstate runs" do
     tests "Reinstate", on: "Law"
     setup  "Enact", name: "sample", description: "sample", domain_scope: "sample", check_expression: "sample", severity: "sample"
-    setup  "Suspend"
+    setup  "Suspend", name: "sample"
+    input  name: "sample"
     expect status: "active"
   end
 
   test "RecordViolation runs" do
     tests "RecordViolation", on: "Law"
     setup  "Enact", name: "sample", description: "sample", domain_scope: "sample", check_expression: "sample", severity: "sample"
+    input  name: "sample", violator: "sample", location: "sample", detail: "sample", detected_at: "sample"
     expect ok: "true"
   end
 
   test "RecordViolation cascades through policy chain" do
     tests "RecordViolation", on: "Law", kind: :cascade
     setup  "Enact", name: "sample", description: "sample", domain_scope: "sample", check_expression: "sample", severity: "sample"
-    setup  "Report", law_name: "sample", violator: "sample", location: "sample", detail: "sample", detected_at: "sample"
+    input  name: "sample", violator: "sample", location: "sample", detail: "sample", detected_at: "sample"
     expect emits: ["ViolationRecorded", "ViolationReported"]
   end
 
@@ -54,6 +57,7 @@ Hecks.behaviors "Law" do
   test "Resolve runs" do
     tests "Resolve", on: "Violation"
     setup  "Report", law_name: "sample", violator: "sample", location: "sample", detail: "sample", detected_at: "sample"
+    input  law_name: "sample", violator: "sample", detected_at: "sample"
     expect resolution: "resolved"
   end
 
@@ -62,40 +66,42 @@ Hecks.behaviors "Law" do
 
   test "Enforce sets scope" do
     tests "Enforce", on: "Enforcement"
-    input  scope: "sample"
+    input  enforcement_id: "e1", scope: "sample"
     expect scope: "sample", laws_checked: 0, laws_passed: 0, laws_violated: 0, verdict: "running"
   end
 
   test "RecordCheck runs" do
     tests "RecordCheck", on: "Enforcement"
-    setup  "Enforce", scope: "sample"
-    input  passed: "sample_trueclass"
+    setup  "Enforce", enforcement_id: "e1", scope: "sample"
+    input  enforcement_id: "e1", passed: true
     expect ok: "true"
   end
 
   test "RecordCheck cascades through policy chain" do
     tests "RecordCheck", on: "Enforcement", kind: :cascade
-    setup  "Enforce", scope: "sample"
-    input  passed: "sample_trueclass"
+    setup  "Enforce", enforcement_id: "e1", scope: "sample"
+    input  enforcement_id: "e1", passed: true
     expect emits: ["LawChecked", "EnforcementConcluded"]
   end
 
   test "Conclude sets enforced_at" do
     tests "Conclude", on: "Enforcement"
-    setup  "Enforce", scope: "sample"
-    input  enforced_at: "sample"
+    setup  "Enforce", enforcement_id: "e1", scope: "sample"
+    input  enforcement_id: "e1", enforced_at: "sample"
     expect enforced_at: "sample"
   end
 
   test "PassAll runs" do
     tests "PassAll", on: "Enforcement"
-    setup  "Enforce", scope: "sample"
+    setup  "Enforce", enforcement_id: "e1", scope: "sample"
+    input  enforcement_id: "e1"
     expect verdict: "lawful"
   end
 
   test "FailSome runs" do
     tests "FailSome", on: "Enforcement"
-    setup  "Enforce", scope: "sample"
+    setup  "Enforce", enforcement_id: "e1", scope: "sample"
+    input  enforcement_id: "e1"
     expect verdict: "unlawful"
   end
 

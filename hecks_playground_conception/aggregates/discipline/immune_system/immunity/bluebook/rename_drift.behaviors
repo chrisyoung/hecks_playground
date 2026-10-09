@@ -40,18 +40,20 @@ Hecks.behaviors "RenameDrift" do
     tests "RecordFinding", on: "RenameDriftCheck"
     setup  "Scan", ref:       { value: "find-1" },
                    repo_root: { value: "/tmp/finds" }
-    input  file_path:        { value: "/tmp/finds/a.rs" },
+    input  rename_drift_check: "find-1",
+           file_path:        { value: "/tmp/finds/a.rs" },
            line_no:          { value: 12 },
            reference_kind:   { value: "include_str" },
            reference_target: { value: "missing/path.bluebook" }
-    expect findings_size: 1
+    expect findings: [{ file_path: "/tmp/finds/a.rs", line_no: 12, reference_kind: "include_str", reference_target: "missing/path.bluebook" }]
   end
 
   test "RecordFinding emits FindingRecorded" do
     tests "RecordFinding", on: "RenameDriftCheck"
     setup  "Scan", ref:       { value: "find-2" },
                    repo_root: { value: "/tmp/finds" }
-    input  file_path:        { value: "/tmp/finds/b.bluebook" },
+    input  rename_drift_check: "find-2",
+           file_path:        { value: "/tmp/finds/b.bluebook" },
            line_no:          { value: 42 },
            reference_kind:   { value: "reference_to" },
            reference_target: { value: "StaleAggregateName" }
@@ -62,7 +64,8 @@ Hecks.behaviors "RenameDrift" do
     tests "RecordFinding", on: "RenameDriftCheck"
     setup  "Scan", ref:       { value: "find-3" },
                    repo_root: { value: "/tmp/finds" }
-    input  file_path:        { value: "/tmp/finds/c.rs" },
+    input  rename_drift_check: "find-3",
+           file_path:        { value: "/tmp/finds/c.rs" },
            line_no:          { value: 7 },
            reference_kind:   { value: "antibody_exempt" },
            reference_target: { value: "deleted/file.rb" }
@@ -78,6 +81,7 @@ Hecks.behaviors "RenameDrift" do
     tests "Pass", on: "RenameDriftCheck"
     setup  "Scan", ref:       { value: "pass-1" },
                    repo_root: { value: "/tmp/clean" }
+    input  rename_drift_check: "pass-1"
     expect violation_count: 0
   end
 
@@ -85,6 +89,7 @@ Hecks.behaviors "RenameDrift" do
     tests "Pass", on: "RenameDriftCheck"
     setup  "Scan", ref:       { value: "pass-2" },
                    repo_root: { value: "/tmp/clean" }
+    input  rename_drift_check: "pass-2"
     expect emits: ["ScanPassed"]
   end
 
@@ -92,6 +97,7 @@ Hecks.behaviors "RenameDrift" do
     tests "Pass", on: "RenameDriftCheck"
     setup  "Scan", ref:       { value: "pass-3" },
                    repo_root: { value: "/tmp/clean" }
+    input  rename_drift_check: "pass-3"
     expect status: "done"
   end
 
@@ -104,7 +110,8 @@ Hecks.behaviors "RenameDrift" do
     tests "Fail", on: "RenameDriftCheck"
     setup  "Scan", ref:       { value: "fail-1" },
                    repo_root: { value: "/tmp/dirty" }
-    input  violation_count: { value: 3 }
+    input  rename_drift_check: "fail-1",
+           violation_count: { value: 3 }
     expect violation_count: { value: 3 }
   end
 
@@ -112,7 +119,8 @@ Hecks.behaviors "RenameDrift" do
     tests "Fail", on: "RenameDriftCheck"
     setup  "Scan", ref:       { value: "fail-2" },
                    repo_root: { value: "/tmp/dirty" }
-    input  violation_count: { value: 1 }
+    input  rename_drift_check: "fail-2",
+           violation_count: { value: 1 }
     expect emits: ["ScanFailed"]
   end
 
@@ -120,7 +128,8 @@ Hecks.behaviors "RenameDrift" do
     tests "Fail", on: "RenameDriftCheck"
     setup  "Scan", ref:       { value: "fail-3" },
                    repo_root: { value: "/tmp/dirty" }
-    input  violation_count: { value: 5 }
+    input  rename_drift_check: "fail-3",
+           violation_count: { value: 5 }
     expect status: "violations_found"
   end
 end

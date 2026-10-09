@@ -61,6 +61,7 @@ Hecks.bluebook "Call", version: "2026.04.28.1" do
     command "RecordCall" do
       role "System"
       goal "Record a single LLM invocation — provider, token counts, cost, and the command that triggered it"
+      attribute :ref,         Ref
       attribute :provider,    ProviderName
       attribute :tokens_in,   TokenCount
       attribute :tokens_out,  TokenCount

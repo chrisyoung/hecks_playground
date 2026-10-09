@@ -20,13 +20,13 @@ Hecks.behaviors "OllamaAdapter" do
 
   test "Infer sets prompt" do
     tests "Infer", on: "Inference"
-    input  prompt: "sample"
+    input  inference_id: "inf1", prompt: "sample"
     expect prompt: "sample"
   end
 
   test "ReadResponse returns matching records" do
     tests "ReadResponse", on: "Inference", kind: :query
-    setup  "Infer", prompt: "sample"
+    setup  "Infer", inference_id: "inf1", prompt: "sample"
     expect count: 1
   end
 

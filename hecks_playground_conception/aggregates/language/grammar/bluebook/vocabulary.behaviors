@@ -11,7 +11,7 @@ Hecks.behaviors "Vocabulary" do
   test "Match sets input" do
     tests "Match", on: "Vocabulary"
     setup  "Vocabulary::Vocabulary.Compile"
-    input  input: "sample"
+    input  name: { value: "vocabulary" }, input: "sample"
     expect ok: "true"
   end
 end

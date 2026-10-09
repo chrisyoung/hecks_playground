@@ -3,7 +3,10 @@ Hecks.bluebook "Component", version: "2026.05.12.1" do
 
   # === Component Library ===
 
-  aggregate "Component", "A reusable UI component — domain-tagged, accessible, stylable" do
+  aggregate "Component" do
+
+    description "A reusable UI component — domain-tagged, accessible, stylable"
+    identified_by :name
     attribute :name, ComponentName
     attribute :component_type, ComponentType
     attribute :maps_to, MapsTo
@@ -41,20 +44,20 @@ Hecks.bluebook "Component", version: "2026.05.12.1" do
 
     command "DefineComponent" do
       role "System"
-      description "Create a component — form field, data table, card, lifecycle badge, action button"
+      goal "Create a component — form field, data table, card, lifecycle badge, action button"
       attribute :name, ComponentName
       attribute :component_type, ComponentType
       attribute :maps_to, MapsTo
       emits "ComponentDefined"
-      then_set :name, to: :name
-      then_set :component_type, to: :component_type
-      then_set :maps_to, to: :maps_to
-      then_set :accessible, to: "true"
+      sets :name
+      sets :component_type
+      sets :maps_to
+      sets :accessible, to: "true"
     end
 
     command "CustomizeComponent" do
       role "Designer"
-      description "Override a component's appearance — your design, not AI default"
+      goal "Override a component's appearance — your design, not AI default"
       reference_to(Component)
       emits "ComponentCustomized"
     end

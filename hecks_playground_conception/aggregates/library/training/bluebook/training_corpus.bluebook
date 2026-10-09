@@ -46,9 +46,11 @@ Hecks.bluebook "TrainingCorpus", version: "2026.04.28.1" do
     command "BuildCorpus" do
       role "Creator"
       goal "Assemble all nursery domains into a training dataset"
+      attribute :name,          Name
       attribute :total_domains, DomainCount
       attribute :format,        Format
       emits "CorpusBuilt"
+      sets :name
       sets :total_domains
       sets :format
     end

@@ -90,6 +90,10 @@ module HecksagainRuntime
         def input(**kwargs)  = @input.merge!(kwargs)
         def expect(**kwargs) = @expect.merge!(kwargs)
 
+        # `expect_event "Recorded"` : the command emitted that event (others
+        # may also fire) -- the loose twin of `expect emits: [...]`, which is exact.
+        def expect_event(*names) = (@expect[:emits_include] ||= []).concat(names.flatten.map(&:to_s))
+
         def build
           TestCase.new(description: @description, tests_command: @tests_command,
                        on_aggregate: @on_aggregate, kind: @kind,

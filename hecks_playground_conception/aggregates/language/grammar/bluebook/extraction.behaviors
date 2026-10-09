@@ -9,13 +9,16 @@ Hecks.behaviors "Extraction" do
 
   test "Declare records a block rule's keyword, produced node, and body flag" do
     tests "Declare", on: "BlockRule"
-    input  keyword: "command", produces: "Command", opens_block: "true"
+    setup  "Conceive", name: "canonical_bluebook"
+    input  grammar: "canonical_bluebook", keyword: "command", produces: "Command", opens_block: "true"
     expect keyword: "command", produces: "Command", opens_block: "true"
   end
 
   test "Declare records a field rule — the multi-line vision uses string_spanning" do
     tests "Declare", on: "FieldRule"
-    input  field: "vision", strategy: "string_spanning", source_token: ""
+    setup  "Conceive", name: "canonical_bluebook"
+    setup  "Extraction::BlockRule.Declare", grammar: "canonical_bluebook", keyword: "command", produces: "Command", opens_block: "true"
+    input  block_rule: "command", field: "vision", strategy: "string_spanning", source_token: ""
     expect field: "vision", strategy: "string_spanning"
   end
 end

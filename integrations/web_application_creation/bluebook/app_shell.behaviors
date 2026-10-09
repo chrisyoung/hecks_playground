@@ -18,13 +18,14 @@ Hecks.behaviors "AppShell" do
   test "BuildNavigation runs" do
     tests "BuildNavigation", on: "AppShell"
     setup  "GenerateShell", app_name: "sample", layout_type: "sample"
+    input  app_name: "sample"
     expect ok: "true"
   end
 
   test "ApplyTheme sets theme" do
     tests "ApplyTheme", on: "AppShell"
     setup  "GenerateShell", app_name: "sample", layout_type: "sample"
-    input  theme: "sample"
+    input  app_name: "sample", theme: "sample"
     expect theme: "sample"
   end
 end

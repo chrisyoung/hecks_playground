@@ -62,7 +62,7 @@ Hecks.bluebook "RenameDrift", version: "2026.05.12.1" do
     attribute :ref,             CheckRef
     attribute :repo_root,       RepoRoot
     attribute :status,          Status, default: { value: "idle" }
-    attribute :violation_count, ViolationCount, default: { value: "0" }
+    attribute :violation_count, ViolationCount, default: { value: 0 }
     attribute :findings,        list_of(Finding)
 
     # ── Value-objects : the domain's language ──
@@ -238,7 +238,7 @@ Hecks.bluebook "RenameDrift", version: "2026.05.12.1" do
 
   policy "AlertOnFinding" do
     on "FindingRecorded"
-    trigger DetectThreat
+    trigger DetectThreat, with: { name: "immunity", threat_pattern: :reference_target }
     across "Immunity"
   end
 end

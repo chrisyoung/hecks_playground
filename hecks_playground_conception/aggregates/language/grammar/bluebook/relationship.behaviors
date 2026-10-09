@@ -30,7 +30,8 @@ Hecks.behaviors "Relationship" do
   # one : across roots by global identity, a single target.
   test "Resolve derives scope, nature, and cardinality (cross has_one)" do
     tests "Resolve", on: "Relationship"
-    input  scope: "cross", nature: "reference", cardinality: "one"
+    setup  "Declare", phrase: "Order has_one Pizza", owner: "Order", verb: "has_one", leaf: "Pizza"
+    input  phrase: "Order has_one Pizza", scope: "cross", nature: "reference", cardinality: "one"
     expect scope: "cross", nature: "reference", cardinality: "one"
   end
 end

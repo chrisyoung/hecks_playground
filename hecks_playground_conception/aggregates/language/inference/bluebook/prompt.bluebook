@@ -47,6 +47,7 @@ Hecks.bluebook "Prompt", version: "2026.04.28.1" do
     command "RunInference" do
       role "System"
       goal "Send input to the local model with full context, get bluebook output"
+      attribute :ref,   Ref
       attribute :input, Input
       emits "InferenceRan"
       sets :input
@@ -64,6 +65,7 @@ Hecks.bluebook "Prompt", version: "2026.04.28.1" do
 
   policy "ValidateOnInference" do
     on "InferenceRan"
-    trigger ValidateOutput
+    # Opens the check as "pending" ; the Rust validator settles it to valid / invalid.
+    trigger Prompt::ValidateOutput, with: { valid: "pending" }
   end
 end

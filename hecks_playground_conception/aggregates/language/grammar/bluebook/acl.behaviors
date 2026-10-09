@@ -12,21 +12,21 @@ Hecks.behaviors "Acl" do
 
   test "Grant cascades through policy chain" do
     tests "Grant", on: "Acl", kind: :cross_cascade
-    input  actor: "sample", canonical_phrase: "sample", command_path: "sample"
-    expect emits_subset: ["AccessGranted", "VocabularyCompiled"]
+    input  actor: "sample", canonical_phrase: "sample", command_path: ["sample"]
+    expect_event "AccessGranted", "VocabularyCompiled"
   end
 
   test "AddPhrase sets phrase" do
     tests "AddPhrase", on: "Acl"
-    setup  "Grant", actor: "sample", canonical_phrase: "sample", command_path: "sample"
-    input  phrase: "sample"
-    expect natural_phrases_size: 1
+    setup  "Grant", actor: "sample", canonical_phrase: "sample", command_path: ["sample"]
+    input  canonical_phrase: "sample", phrase: "sample"
+    expect natural_phrases: ["sample"]
   end
 
   test "BindParam sets word + maps_to + in_command" do
     tests "BindParam", on: "Acl"
-    setup  "Grant", actor: "sample", canonical_phrase: "sample", command_path: "sample"
-    input  word: "sample", maps_to: "sample", in_command: "sample"
-    expect parameter_map_size: 1
+    setup  "Grant", actor: "sample", canonical_phrase: "sample", command_path: ["sample"]
+    input  canonical_phrase: "sample", word: "sample", maps_to: "sample", in_command: "sample"
+    expect parameter_map: [{ word: { value: "sample" }, maps_to: { value: "sample" }, in_command: { value: "sample" } }]
   end
 end

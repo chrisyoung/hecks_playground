@@ -11,9 +11,9 @@ Hecks.behaviors "Applications" do
 
   test "RegisterApplication cascades through policy chain" do
     tests "RegisterApplication", on: "Application", kind: :cascade
-    setup  "IndexRegistry", total_applications: 1, total_web: 1, total_cli: 1, total_api: 1
+    setup  "OpenRegistry", name: "registry"
     setup  "TrackGestation", domain_name: "sample", nursery_path: "sample"
-    setup  "TrackBirth", catalog_path: "sample"
+    setup  "TrackBirth", domain_name: "sample", catalog_path: "sample"
     input  name: "sample", domain_path: "sample", version: "sample"
     expect emits: ["ApplicationRegistered", "RegistryRebuilt", "ViabilityTracked"]
   end
@@ -21,20 +21,22 @@ Hecks.behaviors "Applications" do
   test "AddApp sets app_type" do
     tests "AddApp", on: "Application"
     setup  "RegisterApplication", name: "sample", domain_path: "sample", version: "sample"
-    input  app_type: "sample"
-    expect status: "pending", app_types_size: 1
+    input  domain_path: "sample", app_type: "sample"
+    expect status: "pending", app_types: [{ value: "sample" }]
   end
 
   test "DeployApp runs" do
     tests "DeployApp", on: "Application"
     setup  "RegisterApplication", name: "sample", domain_path: "sample", version: "sample"
+    input  domain_path: "sample"
     expect status: "deployed"
   end
 
   test "RetireApplication runs" do
     tests "RetireApplication", on: "Application"
     setup  "RegisterApplication", name: "sample", domain_path: "sample", version: "sample"
-    setup  "DeployApp"
+    setup  "DeployApp", domain_path: "sample"
+    input  domain_path: "sample"
     expect status: "retired"
   end
 
@@ -50,15 +52,15 @@ Hecks.behaviors "Applications" do
   test "TrackBirth sets catalog_path" do
     tests "TrackBirth", on: "DomainLifecycle"
     setup  "TrackGestation", domain_name: "sample", nursery_path: "sample"
-    input  catalog_path: "sample"
+    input  domain_name: "sample", catalog_path: "sample"
     expect catalog_path: "sample", stage: "born"
   end
 
   test "TrackViability sets application_path" do
     tests "TrackViability", on: "DomainLifecycle"
     setup  "TrackGestation", domain_name: "sample", nursery_path: "sample"
-    setup  "TrackBirth", catalog_path: "sample"
-    input  application_path: "sample"
+    setup  "TrackBirth", domain_name: "sample", catalog_path: "sample"
+    input  domain_name: "sample", application_path: "sample"
     expect application_path: "sample", stage: "viable"
   end
 
@@ -67,8 +69,15 @@ Hecks.behaviors "Applications" do
 
   test "IndexRegistry sets total_applications + total_web + total_cli + total_api" do
     tests "IndexRegistry", on: "AppRegistry"
-    input  total_applications: 1, total_web: 1, total_cli: 1, total_api: 1
+    setup  "OpenRegistry", name: "registry"
+    input  name: "registry", total_applications: 1, total_web: 1, total_cli: 1, total_api: 1
     expect total_applications: 1, total_web: 1, total_cli: 1, total_api: 1
+  end
+
+  test "OpenRegistry opens the singleton registry" do
+    tests "OpenRegistry", on: "AppRegistry"
+    input  name: "registry"
+    expect name: "registry"
   end
 
 end

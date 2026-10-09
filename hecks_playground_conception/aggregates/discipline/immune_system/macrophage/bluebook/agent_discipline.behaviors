@@ -73,6 +73,8 @@ Hecks.behaviors "AgentDiscipline" do
 
   test "ListAll returns the registered violation-kind registry" do
     tests "ListAll", on: "AgentDiscipline", kind: :query
+    setup  "Register", kind: "skip_env_var"
+    setup  "Register", kind: "ignored_isolation"
     expect count: 2
   end
 

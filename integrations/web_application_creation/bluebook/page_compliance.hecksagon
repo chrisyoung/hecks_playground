@@ -1,4 +1,5 @@
 Hecks.hecksagon "PageCompliance" do
+  attaches "Governance"
   PageCompliance::DomainCompliance.persisted_by("Heki")
   PageCompliance::Page.persisted_by("Heki")
 end

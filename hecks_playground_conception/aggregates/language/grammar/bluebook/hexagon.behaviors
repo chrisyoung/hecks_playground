@@ -4,21 +4,34 @@ Hecks.behaviors "Hexagon" do
   # ── Hexagon root — aggregates a domain's port-bindings (has_many Binding) ──
   test "Conceive sets domain" do
     tests "Conceive", on: "Hexagon"
-    input  domain: "Pizzas"
+    setup  "Hexagon::Field.Declare", name: "db"
+    setup  "Hexagon::ProducedField.Declare", name: "payment_ref"
+    setup  "Hexagon::Family.Declare", name: "persistence", verb: "persisted_by", signal: "reply", field: "db", produced_field: "payment_ref"
+    setup  "Hexagon::Adapter.Declare", name: "fulfillment", family: "persistence"
+    setup  "Hexagon::Binding.Bind", phrase: "Pizza::Order.persisted_by", adapter: "fulfillment", aggregate: "Pizza::Order"
+    input  domain: "Pizzas", binding: "Pizza::Order.persisted_by"
     expect domain: "Pizzas"
   end
 
   # ── Hexagon — optional startup validation : adapter targets resolve ──
   test "Verify runs the startup wiring check" do
     tests "Verify", on: "Hexagon"
-    setup  "Hexagon::Hexagon.Conceive", domain: "Pizzas"
+    setup  "Hexagon::Field.Declare", name: "db"
+    setup  "Hexagon::ProducedField.Declare", name: "payment_ref"
+    setup  "Hexagon::Family.Declare", name: "persistence", verb: "persisted_by", signal: "reply", field: "db", produced_field: "payment_ref"
+    setup  "Hexagon::Adapter.Declare", name: "fulfillment", family: "persistence"
+    setup  "Hexagon::Binding.Bind", phrase: "Pizza::Order.persisted_by", adapter: "fulfillment", aggregate: "Pizza::Order"
+    setup  "Hexagon::Hexagon.Conceive", domain: "Pizzas", binding: "Pizza::Order.persisted_by"
+    input  domain: "Pizzas"
     expect emits: ["Verified"]
   end
 
   # ── Family — impure boundary kind, names its how-verb ──
   test "Family.Declare sets name + verb + signal" do
     tests "Declare", on: "Family"
-    input  name: "persistence", verb: "persisted_by", signal: "reply"
+    setup  "Hexagon::Field.Declare", name: "db"
+    setup  "Hexagon::ProducedField.Declare", name: "payment_ref"
+    input  name: "persistence", verb: "persisted_by", signal: "reply", field: "db", produced_field: "payment_ref"
     expect name: "persistence", verb: "persisted_by", signal: "reply"
   end
 
@@ -39,14 +52,21 @@ Hecks.behaviors "Hexagon" do
   # ── Adapter — declares the family it implements (inverted arrow) ──
   test "Adapter.Declare sets name (belongs_to Family ; routing is the hexagon's job)" do
     tests "Declare", on: "Adapter"
-    input  name: "fulfillment"
+    setup  "Hexagon::Field.Declare", name: "db"
+    setup  "Hexagon::ProducedField.Declare", name: "payment_ref"
+    setup  "Hexagon::Family.Declare", name: "persistence", verb: "persisted_by", signal: "reply", field: "db", produced_field: "payment_ref"
+    input  name: "fulfillment", family: "persistence"
     expect name: "fulfillment"
   end
 
   # ── Binding — reply port ; verb derived through the adapter's family ──
   test "Bind wires a reply port — own-domain port only" do
     tests "Bind", on: "Binding"
-    input  phrase: "Pizza::Order.persisted_by", aggregate: "Pizza::Order", on: ""
+    setup  "Hexagon::Field.Declare", name: "db"
+    setup  "Hexagon::ProducedField.Declare", name: "payment_ref"
+    setup  "Hexagon::Family.Declare", name: "persistence", verb: "persisted_by", signal: "reply", field: "db", produced_field: "payment_ref"
+    setup  "Hexagon::Adapter.Declare", name: "fulfillment", family: "persistence"
+    input  phrase: "Pizza::Order.persisted_by", adapter: "fulfillment", aggregate: "Pizza::Order", on: ""
     expect aggregate: "Pizza::Order"
   end
 
@@ -54,7 +74,11 @@ Hecks.behaviors "Hexagon" do
   # cross-domain FQN lives in the adapter, resolved through storehouse ──
   test "Bind references only its own domain — no cross-domain FQN" do
     tests "Bind", on: "Binding"
-    input  phrase: "Pizza::Order.OrderAuthorized", aggregate: "Pizza::Order", on: "OrderAuthorized"
+    setup  "Hexagon::Field.Declare", name: "db"
+    setup  "Hexagon::ProducedField.Declare", name: "payment_ref"
+    setup  "Hexagon::Family.Declare", name: "persistence", verb: "persisted_by", signal: "reply", field: "db", produced_field: "payment_ref"
+    setup  "Hexagon::Adapter.Declare", name: "fulfillment", family: "persistence"
+    input  phrase: "Pizza::Order.OrderAuthorized", adapter: "fulfillment", aggregate: "Pizza::Order", on: "OrderAuthorized"
     expect aggregate: "Pizza::Order", on: "OrderAuthorized"
   end
 end

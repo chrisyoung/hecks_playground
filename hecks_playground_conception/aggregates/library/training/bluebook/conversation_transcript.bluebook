@@ -38,10 +38,12 @@ Hecks.bluebook "ConversationTranscript", version: "2026.04.28.1" do
     command "RecordTranscript" do
       role "System"
       goal "Capture a conversation session as training data"
+      attribute :ref,               Ref
       attribute :person,            PersonName
       attribute :turns,             TurnCount
       attribute :domains_conceived, EventCount
       emits "TranscriptRecorded"
+      sets :ref
       sets :person
       sets :turns
       sets :domains_conceived

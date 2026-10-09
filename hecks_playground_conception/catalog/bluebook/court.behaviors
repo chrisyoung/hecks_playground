@@ -3,51 +3,54 @@ Hecks.behaviors "Court" do
 
   # ── Case aggregate ──────────────────────────────────────────
 
+  # File fires HearOnFiling, so a freshly filed case is already in the hearing status.
   test "File sets action_type + actor + target + detail + occurred_at" do
     tests "File", on: "Case"
-    input  action_type: "sample", actor: "sample", target: "sample", detail: "sample", occurred_at: "sample"
-    expect action_type: "sample", actor: "sample", target: "sample", detail: "sample", occurred_at: "sample", laws_applicable: 0, laws_passed: 0, laws_violated: 0, status: "filed"
+    input  case_id: "c1", action_type: "sample", actor: "sample", target: "sample", detail: "sample", occurred_at: "sample"
+    expect action_type: "sample", actor: "sample", target: "sample", detail: "sample", occurred_at: "sample", laws_applicable: 0, laws_passed: 0, laws_violated: 0, status: "hearing"
   end
 
   test "File cascades through policy chain" do
     tests "File", on: "Case", kind: :cascade
-    input  action_type: "sample", actor: "sample", target: "sample", detail: "sample", occurred_at: "sample"
+    input  case_id: "c1", action_type: "sample", actor: "sample", target: "sample", detail: "sample", occurred_at: "sample"
     expect emits: ["CaseFiled", "CaseHeard"]
   end
 
   test "Hear sets laws_applicable" do
     tests "Hear", on: "Case"
-    setup  "Court::Case.File", action_type: "sample", actor: "sample", target: "sample", detail: "sample", occurred_at: "sample"
-    input  laws_applicable: 1
+    setup  "Court::Case.File", case_id: "c1", action_type: "sample", actor: "sample", target: "sample", detail: "sample", occurred_at: "sample"
+    setup  "RuleInnocent", case_id: "c1"
+    setup  "Appeal", case_id: "c1"
+    input  case_id: "c1", laws_applicable: 1
     expect laws_applicable: 1, status: "hearing"
   end
 
   test "CheckLaw runs" do
     tests "CheckLaw", on: "Case"
-    setup  "Court::Case.File", action_type: "sample", actor: "sample", target: "sample", detail: "sample", occurred_at: "sample"
-    input  passed: "sample_trueclass"
+    setup  "Court::Case.File", case_id: "c1", action_type: "sample", actor: "sample", target: "sample", detail: "sample", occurred_at: "sample"
+    input  case_id: "c1", passed: true
     expect ok: "true"
   end
 
   test "RuleInnocent runs" do
     tests "RuleInnocent", on: "Case"
-    setup  "Court::Case.File", action_type: "sample", actor: "sample", target: "sample", detail: "sample", occurred_at: "sample"
-    setup  "Hear", laws_applicable: 1
+    setup  "Court::Case.File", case_id: "c1", action_type: "sample", actor: "sample", target: "sample", detail: "sample", occurred_at: "sample"
+    input  case_id: "c1"
     expect ruling: "innocent", status: "closed"
   end
 
   test "RuleGuilty runs" do
     tests "RuleGuilty", on: "Case"
-    setup  "Court::Case.File", action_type: "sample", actor: "sample", target: "sample", detail: "sample", occurred_at: "sample"
-    setup  "Hear", laws_applicable: 1
+    setup  "Court::Case.File", case_id: "c1", action_type: "sample", actor: "sample", target: "sample", detail: "sample", occurred_at: "sample"
+    input  case_id: "c1"
     expect ruling: "guilty", status: "closed"
   end
 
   test "Appeal runs" do
     tests "Appeal", on: "Case"
-    setup  "Court::Case.File", action_type: "sample", actor: "sample", target: "sample", detail: "sample", occurred_at: "sample"
-    setup  "Hear", laws_applicable: 1
-    setup  "RuleInnocent"
+    setup  "Court::Case.File", case_id: "c1", action_type: "sample", actor: "sample", target: "sample", detail: "sample", occurred_at: "sample"
+    setup  "RuleInnocent", case_id: "c1"
+    input  case_id: "c1"
     expect status: "appealed"
   end
 
@@ -56,14 +59,14 @@ Hecks.behaviors "Court" do
 
   test "RecordFinding sets case_id + law_name + check_expression + evidence + explanation" do
     tests "RecordFinding", on: "Finding"
-    input  case_id: "sample", law_name: "sample", check_expression: "sample", evidence: "sample", passed: "sample_trueclass", explanation: "sample"
-    expect case_id: "sample", law_name: "sample", check_expression: "sample", evidence: "sample", passed: "sample_trueclass", explanation: "sample"
+    input  case_id: "c1", law_name: "sample", check_expression: "sample", evidence: "sample", passed: true, explanation: "sample"
+    expect case_id: "c1", law_name: "sample", check_expression: "sample", evidence: "sample", passed: true, explanation: "sample"
   end
 
   test "RecordFinding cascades through policy chain" do
     tests "RecordFinding", on: "Finding", kind: :cascade
-    setup  "Court::Case.File", action_type: "sample", actor: "sample", target: "sample", detail: "sample", occurred_at: "sample"
-    input  case_id: "sample", law_name: "sample", check_expression: "sample", evidence: "sample", passed: "sample_trueclass", explanation: "sample"
+    setup  "Court::Case.File", case_id: "c1", action_type: "sample", actor: "sample", target: "sample", detail: "sample", occurred_at: "sample"
+    input  case_id: "c1", law_name: "sample", check_expression: "sample", evidence: "sample", passed: true, explanation: "sample"
     expect emits: ["FindingRecorded", "LawCheckedInCase"]
   end
 
@@ -79,7 +82,7 @@ Hecks.behaviors "Court" do
   test "Overturn sets reasoning" do
     tests "Overturn", on: "Precedent"
     setup  "Court::Precedent.Establish", law_name: "sample", action_type: "sample", ruling: "sample", reasoning: "sample", established_at: "sample"
-    input  reasoning: "sample"
+    input  law_name: "sample", action_type: "sample", reasoning: "sample"
     expect ruling: "overturned", reasoning: "sample"
   end
 

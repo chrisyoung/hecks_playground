@@ -17,11 +17,25 @@ Hecks.bluebook "MiettePhone", version: "2026.05.12.1" do
 
   # === Authentication — pin gate ===
 
-  aggregate "Gate", "Simple password gate — type the pin, get a session" do
+  aggregate "Gate" do
+
+    description "Simple password gate — type the pin, get a session"
+    identified_by :gate_id
+    attribute :gate_id, GateId
+
+    value_object "GateId" do
+      # One gate session's identity - the caller names it; it keys the conversation that follows.
+      attribute :value, String
+    end
     attribute :pin_hash, PinHash
     attribute :session_token, SessionToken
     attribute :expires_at, Timestamp
-    attribute :locked, TrueClass
+    attribute :locked, Locked, default: { value: true }
+
+    value_object "Locked" do
+      # true until a pin unlocks the gate.
+      attribute :value, Boolean
+    end
 
     # ── Value-objects : the gate's vocabulary ──
     #
@@ -51,22 +65,17 @@ Hecks.bluebook "MiettePhone", version: "2026.05.12.1" do
     end
 
     command "Authenticate" do
-      description "Check the pin, issue a session token stored in KV"
+      goal "Check the pin, issue a session token stored in KV"
+      attribute :gate_id, GateId
       attribute :pin, Pin
-      # planner-reasonable: Authenticate is callable only when the gate
-      # is locked (default). Successful auth flips locked → false; that
-      # transition itself encodes the "pin matched" check by being the
-      # only path to unlock.
-      given { locked == true }
+      sets :gate_id
       emits "SessionGranted"
-      then_set :locked, to: false
     end
 
     command "RevokeSession" do
-      description "Kill an active session — logout from the phone"
+      goal "Kill an active session — logout from the phone"
       reference_to(Gate)
       emits "SessionRevoked"
-      then_set :locked, to: true
     end
 
     lifecycle :locked, default: true do
@@ -77,7 +86,16 @@ Hecks.bluebook "MiettePhone", version: "2026.05.12.1" do
 
   # === Conversation — chat history ===
 
-  aggregate "Conversation", "A chat thread between the user and Miette" do
+  aggregate "Conversation" do
+
+    description "A chat thread between the user and Miette"
+    identified_by :conversation_id
+    attribute :conversation_id, ConversationId
+
+    value_object "ConversationId" do
+      # One chat thread's identity - the gate session that opened it.
+      attribute :value, String
+    end
     attribute :turns, list_of(Turn)
     attribute :started_at, Timestamp
     attribute :last_active, Timestamp
@@ -125,38 +143,51 @@ Hecks.bluebook "MiettePhone", version: "2026.05.12.1" do
     end
 
     command "ActivateSession" do
-      description "Mark the conversation's session as active — fired after Authenticate"
+      goal "Mark the conversation's session as active — fired after Authenticate"
       reference_to(Conversation)
       emits "SessionActivated"
-      then_set :session_active, to: true
+      sets :session_active, to: true
     end
 
     command "StartConversation" do
-      description "Begin a new chat thread"
-      reference_to(Conversation)
+      goal "Begin a new chat thread"
+      attribute :conversation_id, ConversationId
+      sets :conversation_id
       emits "ConversationStarted"
     end
 
     command "SendMessage" do
-      description "User sends a message — routed to Summer for inference"
+      goal "User sends a message — routed to Summer for inference"
       reference_to(Conversation)
       attribute :content, MessageContent
-      given { session_active == true }
+      given("the session is active") { session_active == true }
       emits "MessageSent"
     end
 
     command "ReceiveReply" do
-      description "Summer's response arrives — appended to the thread"
+      goal "Summer's response arrives — appended to the thread"
       reference_to(Conversation)
       attribute :content, MessageContent
-      attribute :latency_ms, LatencyMs
+      attribute :latency_ms, LatencyMs, optional: true
       emits "ReplyReceived"
     end
   end
 
   # === Inference Proxy — bridges the edge to Summer ===
 
-  aggregate "InferenceProxy", "Worker-side proxy that calls Summer's serve.py" do
+  aggregate "InferenceProxy" do
+
+    description "Worker-side proxy that calls Summer's serve.py"
+    identified_by :proxy_id
+    attribute :proxy_id, ProxyId
+
+    value_object "ProxyId" do
+      # Which proxy this is - the Summer endpoint it fronts, named by the caller.
+      attribute :value, String
+    end
+    value_object "ConversationId" do
+      attribute :value, String
+    end
     attribute :summer_origin, Origin
     attribute :status, Status
     attribute :timeout_ms, TimeoutMs
@@ -185,33 +216,50 @@ Hecks.bluebook "MiettePhone", version: "2026.05.12.1" do
     end
 
     command "ConfigureProxy" do
-      description "Set the Summer endpoint — local tunnel or cloud URL"
+      goal "Set the Summer endpoint — local tunnel or cloud URL"
+      attribute :proxy_id, ProxyId
       attribute :summer_origin, Origin
       attribute :timeout_ms, TimeoutMs
       emits "ProxyConfigured"
-      then_set :summer_origin, to: :summer_origin
-      then_set :timeout_ms, to: :timeout_ms
+      sets :proxy_id
+      sets :summer_origin
+      sets :timeout_ms
     end
 
     command "RelayMessage" do
-      description "Forward user message to Summer /conceive, stream response back"
-      reference_to(Conversation)
+      goal "Forward user message to Summer /conceive, stream response back"
+      reference_to(InferenceProxy)
+      attribute :conversation_id, ConversationId
       attribute :content, MessageContent
       emits "MessageRelayed"
     end
 
     command "CheckHealth" do
-      description "Ping Summer /health — verify the model is up"
+      goal "Ping Summer /health — verify the model is up"
+      reference_to(InferenceProxy)
       emits "HealthChecked"
     end
   end
 
   # === Phone UI — the chat screen ===
 
-  aggregate "ChatScreen", "Responsive mobile-first chat interface on Pages" do
+  aggregate "ChatScreen" do
+
+    description "Responsive mobile-first chat interface on Pages"
+    identified_by :conversation_id
+    attribute :conversation_id, ConversationId
+
+    value_object "ConversationId" do
+      # The conversation this screen renders.
+      attribute :value, String
+    end
     attribute :theme, Theme
-    attribute :dark_mode, TrueClass
-    attribute :streaming, TrueClass
+    attribute :dark_mode, Flag, default: { value: false }
+    attribute :streaming, Flag, default: { value: false }
+
+    value_object "Flag" do
+      attribute :value, Boolean
+    end
 
     # ── Value-objects : the chat screen's vocabulary ──
 
@@ -222,20 +270,28 @@ Hecks.bluebook "MiettePhone", version: "2026.05.12.1" do
       attribute :value, String
     end
 
+    command "OpenScreen" do
+      goal "Open the chat screen for a conversation - the creating step the render and stream commands act on"
+      attribute :conversation_id, ConversationId
+      sets :conversation_id
+      emits "ScreenOpened"
+    end
+
     command "RenderChat" do
-      description "Build the chat HTML — message bubbles, input bar, send button"
-      reference_to(Conversation)
+      goal "Build the chat HTML — message bubbles, input bar, send button"
+      reference_to(ChatScreen)
       emits "ChatRendered"
     end
 
     command "StreamResponse" do
-      description "Show tokens as they arrive via SSE — feels alive"
-      reference_to(Conversation)
+      goal "Show tokens as they arrive via SSE — feels alive"
+      reference_to(ChatScreen)
       emits "StreamStarted"
     end
 
     command "ToggleTheme" do
-      description "Switch between light and dark mode"
+      goal "Switch between light and dark mode"
+      reference_to(ChatScreen)
       emits "ThemeToggled"
     end
   end
@@ -260,27 +316,27 @@ Hecks.bluebook "MiettePhone", version: "2026.05.12.1" do
 
   policy "StartChatOnAuth" do
     on "SessionGranted"
-    trigger "StartConversation"
+    trigger Conversation::StartConversation, with: { conversation_id: :gate_id }
   end
 
   policy "RelayOnSend" do
     on "MessageSent"
-    trigger "RelayMessage"
+    trigger InferenceProxy::RelayMessage, with: { proxy_id: "summer", conversation_id: :conversation_id, content: :content }
   end
 
   policy "ReplyOnRelay" do
     on "MessageRelayed"
-    trigger "ReceiveReply"
+    trigger Conversation::ReceiveReply, with: { conversation_id: :conversation_id, content: :content }
   end
 
   policy "RenderOnReply" do
     on "ReplyReceived"
-    trigger "RenderChat"
+    trigger ChatScreen::RenderChat, with: { conversation_id: :conversation_id }
   end
 
   policy "StreamOnSend" do
     on "MessageSent"
-    trigger "StreamResponse"
+    trigger ChatScreen::StreamResponse, with: { conversation_id: :conversation_id }
   end
 
   # ============================================================

@@ -12,19 +12,21 @@ Hecks.behaviors "StyleGuide" do
   test "SetPalette runs" do
     tests "SetPalette", on: "StyleGuide"
     setup  "DraftStyleGuide", name: "sample", spacing_unit: 1, border_radius: "sample", density: "sample"
+    input  name: "sample"
     expect ok: "true"
   end
 
   test "SetTypography runs" do
     tests "SetTypography", on: "StyleGuide"
     setup  "DraftStyleGuide", name: "sample", spacing_unit: 1, border_radius: "sample", density: "sample"
+    input  name: "sample"
     expect ok: "true"
   end
 
   test "TweakStyle sets token_name + token_value" do
     tests "TweakStyle", on: "StyleGuide"
     setup  "DraftStyleGuide", name: "sample", spacing_unit: 1, border_radius: "sample", density: "sample"
-    input  token_name: "sample", token_value: "sample"
+    input  name: "sample", token_name: "sample", token_value: "sample"
     expect ok: "true"
   end
 end

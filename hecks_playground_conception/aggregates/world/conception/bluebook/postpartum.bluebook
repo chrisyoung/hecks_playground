@@ -60,6 +60,6 @@ Hecks.bluebook "Postpartum", version: "2026.04.16.1" do
 
   policy "CheckOnBirth" do
     on "BirthRegistered"
-    trigger CheckHealth
+    trigger Postpartum::CheckHealth, with: { domain_name: :domain_name }
   end
 end

@@ -34,10 +34,12 @@ Hecks.bluebook "InstructionPair", version: "2026.04.28.1" do
     command "MintInstructionPair" do
       role "System"
       goal "Build one training pair"
+      attribute :ref,         Ref
       attribute :instruction, Instruction
       attribute :response,    Response
       attribute :category,    Category
       emits "InstructionPairCreated"
+      sets :ref
       sets :instruction
       sets :response
       sets :category

@@ -48,17 +48,20 @@ Hecks.bluebook "Appeal", version: "2026.05.12.1" do
 
   command "CloseProject" do
     goal "Close the current project and release resources"
+    reference_to(Project)
     emits "ProjectClosed"
   end
 
   command "DiscoverProjects" do
     goal "Scan a directory for hecks_playground apps -- looks for hecks_playground/*.bluebook"
+    reference_to(Project)
     attribute :search_path, SearchPath
     emits "ProjectsDiscovered"
   end
 
   command "LoadProjects" do
     goal "Discover and open all projects in a directory"
+    reference_to(Project)
     attribute :search_path, SearchPath
     emits "ProjectsLoaded"
   end
@@ -136,12 +139,14 @@ end
 
   command "InspectAggregate" do
     goal "Show details of an aggregate"
+    reference_to(Explorer)
     attribute :aggregate_name, AggregateName
     emits "AggregateInspected"
   end
 
   command "InspectCommand" do
     goal "Show details of a command"
+    reference_to(Explorer)
     attribute :aggregate_name, AggregateName
     attribute :command_name, CommandName
     emits "CommandInspected"
@@ -149,6 +154,7 @@ end
 
   command "OpenFile" do
     goal "Open a file from the project tree and record it as the last opened"
+    reference_to(Explorer)
     reference_to(Project)
     attribute :path, Path
     attribute :domain, Domain
@@ -157,11 +163,13 @@ end
 
   command "GetLastOpened" do
     goal "Return the last opened file path and domain"
+    reference_to(Explorer)
     emits "LastOpenedReturned"
   end
 
   command "ExportBluebook" do
     goal "Export the current domain as a .bluebook file"
+    reference_to(Explorer)
     attribute :format, Format
     emits "BluebookExported"
   end
@@ -238,17 +246,20 @@ end
 
   command "EditDocument" do
     goal "Apply a text change to the document"
+    reference_to(Document)
     attribute :content, Content
     emits "DocumentEdited"
   end
 
   command "SaveDocument" do
     goal "Persist the document back to disk"
+    reference_to(Document)
     emits "DocumentSaved"
   end
 
   command "ValidateDocument" do
     goal "Parse and validate the document, producing diagnostics"
+    reference_to(Document)
     emits "DocumentValidated"
   end
 
@@ -309,10 +320,12 @@ end
 
   command "Undo" do
     goal "Move the cursor back one step and revert the change"
+    reference_to(Timeline)
     end
 
   command "Redo" do
     goal "Move the cursor forward and reapply the change"
+    reference_to(Timeline)
     end
 end
 
@@ -367,15 +380,18 @@ end
 
   command "BuildTarget" do
     goal "Generate all code for the selected target"
+    reference_to(Generator)
     end
 
   command "PreviewArtifact" do
     goal "Show the content of a single generated file"
+    reference_to(Generator)
     attribute :filename, Filename
   end
 
   command "CompareArtifact" do
     goal "Compare generated output against existing file on disk"
+    reference_to(Generator)
     attribute :filename, Filename
   end
 
@@ -441,6 +457,7 @@ end
 
   command "ApplyPattern" do
     goal "Scaffold an aggregate by applying a pattern with parameters"
+    reference_to(Pattern)
     reference_to(Project)
     attribute :pattern_name, PatternName
     attribute :aggregate_name, AggregateName
@@ -449,6 +466,7 @@ end
 
   command "ListPatterns" do
     goal "Show all available patterns, optionally filtered by category"
+    reference_to(Pattern)
     attribute :category, Category
   end
 
@@ -534,6 +552,7 @@ end
 
   command "AddDomainAddition" do
     goal "Manually add a planned domain change to the feature"
+    reference_to(Feature)
     attribute :kind, Kind
     attribute :name, Name
     attribute :parent, Parent
@@ -606,12 +625,15 @@ end
 
   command "AddToBacklog" do
     goal "Add a feature to the backlog"
+    attribute :name, Name
+    sets :name
     attribute :feature_title, FeatureTitle
     emits "AddedToBacklog"
   end
 
   command "Prioritize" do
     goal "Reorder a feature within the backlog"
+    reference_to(Backlog)
     attribute :feature_title, FeatureTitle
     attribute :position, Position
     emits "Reprioritized"
@@ -619,6 +641,7 @@ end
 
   command "TrackProgress" do
     goal "Recalculate completion across all features"
+    reference_to(Backlog)
     emits "ProgressTracked"
   end
 
@@ -666,6 +689,8 @@ end
 
   command "SendToAgent" do
     goal "Send a message to a named agent"
+    attribute :name, ProductExecutorName
+    sets :name
     attribute :agent_name, AgentName
     attribute :content, Content
     emits "AgentMessageSent"
@@ -673,12 +698,14 @@ end
 
   command "SwitchAgent" do
     goal "Switch the active agent tab"
+    reference_to(ProductExecutor)
     attribute :agent_name, AgentName
     emits "AgentSwitched"
   end
 
   command "ClearAgent" do
     goal "Clear an agent's conversation"
+    reference_to(ProductExecutor)
     attribute :agent_name, AgentName
     emits "AgentCleared"
   end
@@ -719,11 +746,13 @@ end
 
   command "ToggleFlag" do
     goal "Enable or disable a feature flag at runtime"
+    reference_to(FeatureFlag)
     emits "FlagToggled"
   end
 
   command "RemoveFlag" do
     goal "Remove the flag — feature becomes permanent"
+    reference_to(FeatureFlag)
     emits "FlagRemoved"
   end
 end
@@ -794,6 +823,7 @@ end
 
   command "AddComment" do
     goal "Comment on the proposed changes"
+    reference_to(Review)
     attribute :author, Author
     attribute :body, Body
     attribute :element_name, ElementName
@@ -801,11 +831,13 @@ end
 
   command "ApproveReview" do
     goal "Approve the proposed domain changes"
+    reference_to(Review)
     attribute :author, Author
   end
 
   command "RejectReview" do
     goal "Reject the proposed changes with a reason"
+    reference_to(Review)
     attribute :author, Author
     attribute :reason, Reason
   end
@@ -878,10 +910,12 @@ end
 
   command "ResolveAnnotation" do
     goal "Mark an annotation as resolved"
+    reference_to(Annotation)
     end
 
   command "ReplyToAnnotation" do
     goal "Add a threaded reply to an existing annotation"
+    reference_to(Annotation)
     attribute :author, Author
     attribute :body, Body
   end
@@ -968,34 +1002,41 @@ end
 
   command "SendMessage" do
     goal "Send a message to the AI assistant about the domain"
+    attribute :name, AgentName
+    sets :name
     attribute :content, Content
     emits "MessageReceived"
   end
 
   command "ToggleAdapter" do
     goal "Switch between memory and live LLM adapter"
+    reference_to(Agent)
     attribute :mode, Mode
     emits "AdapterChanged"
   end
 
   command "ClearConversation" do
     goal "Reset the conversation history"
+    reference_to(Agent)
     emits "ConversationCleared"
   end
 
   command "ApplySuggestion" do
     goal "Accept and apply a suggested domain change"
+    reference_to(Agent)
     attribute :title, Title
     emits "SuggestionApplied"
   end
 
   command "RequestReview" do
     goal "Ask the AI to review the current domain"
+    reference_to(Agent)
     emits "ReviewRequested"
   end
 
   command "LoadDomainContext" do
     goal "Set which domain the agent introspects for tools and system prompt"
+    reference_to(Agent)
     attribute :domain_name, DomainName
     emits "DomainContextLoaded"
   end
@@ -1066,17 +1107,21 @@ end
 
   command "AnalyzeDomain" do
     goal "Run all analysis rules against the current domain"
+    attribute :name, InsightName
+    sets :name
     attribute :scope, Scope
   end
 
   command "DismissInsight" do
     goal "Acknowledge and hide a specific finding"
+    reference_to(Insight)
     attribute :rule, Rule
     attribute :element_name, ElementName
   end
 
   command "ConfigureRules" do
     goal "Enable or disable specific analysis rules"
+    reference_to(Insight)
     attribute :rule, Rule
     attribute :enabled, Enabled
   end
@@ -1137,10 +1182,12 @@ end
 
   command "GenerateMigration" do
     goal "Produce a migration script for the detected changes"
+    reference_to(Migration)
     end
 
   command "ApplyMigration" do
     goal "Execute the migration against a target environment"
+    reference_to(Migration)
     end
 end
 
@@ -1184,17 +1231,18 @@ end
 
   command "HighlightBreaking" do
     goal "Filter the comparison to show only breaking changes"
+    reference_to(Comparison)
     end
 end
 
 policy "ShowDiagramOnTabSelect" do
   on "TabSelected"
-  trigger GenerateDiagram
+  trigger Diagram::GenerateDiagram, with: { view_type: "aggregate_map" }
   # `condition do |event| ... end` was never a real PolicyBuilder verb --
   # `where` is (evaluated against the triggering event's own payload
   # directly, no manual event.to_h/.data unwrapping needed -- same
   # canonical-expression form every `given` block in this corpus uses).
-  where { active_tab == "diagrams" }
+  where { tab_name == "diagrams" }
 end
 
   aggregate "Diagram" do
@@ -1251,31 +1299,35 @@ end
   command "GenerateDiagram" do
     goal "Build a diagram for a file. Uses Explorer.last_opened_path when path is not provided."
     attribute :view_type, ViewType
-    attribute :path, Path
-    attribute :domain, Domain
+    attribute :path, Path, optional: true
+    attribute :domain, Domain, optional: true
     emits "DiagramGenerated"
   end
 
   command "GenerateOverview" do
     goal "Build a cross-domain relationship diagram showing all domains and their connections"
+    reference_to(Diagram)
     attribute :scope, Scope
     emits "OverviewGenerated"
   end
 
   command "SelectView" do
     goal "Switch between aggregate map, event flow, or command graph"
+    reference_to(Diagram)
     attribute :view_type, ViewType
     emits "ViewSelected"
   end
 
   command "FilterByAggregate" do
     goal "Show only nodes related to a specific aggregate"
+    reference_to(Diagram)
     attribute :aggregate_name, AggregateName
     emits "DiagramFiltered"
   end
 
   command "RunAnalysis" do
     goal "Analyze domain patterns — coupling, cohesion, naming issues"
+    reference_to(Diagram)
     emits "AnalysisCompleted"
   end
 end
@@ -1339,12 +1391,14 @@ end
 
   command "AddSticky" do
     goal "Place a new sticky note on the board"
+    reference_to(EventStorm)
     attribute :label, Label
     attribute :kind, Kind
   end
 
   command "MoveSticky" do
     goal "Reposition a sticky on the board"
+    reference_to(EventStorm)
     attribute :label, Label
     attribute :position_x, PositionX
     attribute :position_y, PositionY
@@ -1352,6 +1406,7 @@ end
 
   command "ConvertToDomain" do
     goal "Transform stickies into Bluebook DSL aggregates, commands, and events"
+    reference_to(EventStorm)
     end
 
 end
@@ -1434,30 +1489,36 @@ end
 
   command "ShowGlossary" do
     goal "Display the full glossary of domain terms"
+    attribute :name, GlossaryName
+    sets :name
     emits "GlossaryShown"
   end
 
   command "DefineTerm" do
     goal "Add a new term to the glossary"
-    attribute :name, Name
+    reference_to(Glossary)
+    attribute :term_name, TermName
     attribute :definition, Definition
     attribute :category, Category
   end
 
   command "RenameTerm" do
     goal "Rename a term and update all references"
+    reference_to(Glossary)
     attribute :old_name, OldName
     attribute :new_name, NewName
   end
 
   command "FlagAmbiguity" do
     goal "Mark a term as ambiguous -- needs clarification"
+    reference_to(Glossary)
     attribute :term_name, TermName
     attribute :reason, Reason
   end
 
   command "LinkTerms" do
     goal "Declare a relationship between two terms"
+    reference_to(Glossary)
     attribute :from_term, FromTerm
     attribute :to_term, ToTerm
     attribute :relationship, Relationship
@@ -1540,11 +1601,14 @@ end
 
   command "OpenConsole" do
     goal "Open the console -- loads available aggregates and commands"
+    attribute :name, ConsoleName
+    sets :name
     emits "ConsoleOpened"
   end
 
   command "SelectCommand" do
     goal "Pick an aggregate and command -- generates the input form"
+    reference_to(Console)
     attribute :aggregate_name, AggregateName
     attribute :command_name, CommandName
     emits "CommandSelected"
@@ -1552,6 +1616,7 @@ end
 
   command "SubmitForm" do
     goal "Execute the selected command with the filled form values"
+    reference_to(Console)
     attribute :values, Values
     # Was "CommandExecuted" -- collided with Workbench.ExecuteCommand's own
     # emit of the same name with a different field set (command_name, args
@@ -1562,6 +1627,7 @@ end
 
   command "ViewResult" do
     goal "Display the result of the last command execution"
+    reference_to(Console)
     emits "ResultViewed"
   end
 end
@@ -1630,11 +1696,14 @@ end
 
   command "RunAll" do
     goal "Dispatch every command and validate events are emitted"
+    attribute :name, AcceptanceTestName
+    sets :name
     emits "AllTestsCompleted"
   end
 
   command "RunCommand" do
     goal "Test a single command dispatch"
+    reference_to(AcceptanceTest)
     attribute :aggregate_name, AggregateName
     attribute :command_name, CommandName
     emits "CommandTested"
@@ -1642,6 +1711,7 @@ end
 
   command "Reset" do
     goal "Clear all test results"
+    reference_to(AcceptanceTest)
     emits "TestsReset"
   end
 
@@ -1721,31 +1791,38 @@ end
 
   command "SubscribeToEvents" do
     goal "Start streaming events from a project's domains"
+    attribute :name, EventStreamName
+    sets :name
     emits "EventsSubscribed"
   end
 
   command "StopStreaming" do
     goal "Stop streaming events"
+    reference_to(EventStream)
     emits "StreamingStopped"
   end
 
   command "PauseStream" do
     goal "Temporarily pause the event stream without disconnecting"
+    reference_to(EventStream)
     emits "StreamPaused"
   end
 
   command "ResumeStream" do
     goal "Resume a paused event stream"
+    reference_to(EventStream)
     emits "StreamResumed"
   end
 
   command "ClearEvents" do
     goal "Remove all events from the stream display"
+    reference_to(EventStream)
     emits "EventsCleared"
   end
 
   command "FilterEvents" do
     goal "Filter the stream by aggregate name or event type"
+    reference_to(EventStream)
     attribute :aggregate_name, AggregateName
     attribute :event_type, EventType
     emits "EventsFiltered"
@@ -1753,6 +1830,7 @@ end
 
   command "InspectEvent" do
     goal "Expand an event row to show its full payload data"
+    reference_to(EventStream)
     attribute :event_name, EventName
     attribute :timestamp, Timestamp
     emits "EventInspected"
@@ -1823,6 +1901,7 @@ end
 
   command "AddStep" do
     goal "Append a given/when/then step to the scenario"
+    reference_to(Scenario)
     attribute :phase, Phase
     attribute :aggregate_name, AggregateName
     attribute :command_name, CommandName
@@ -1831,10 +1910,12 @@ end
 
   command "RunScenario" do
     goal "Execute all steps and record pass/fail"
+    reference_to(Scenario)
     end
 
   command "RecordResult" do
     goal "Store the outcome of a scenario run"
+    reference_to(Scenario)
     attribute :result, Result
   end
 
@@ -1879,12 +1960,14 @@ end
 
   command "AddEntry" do
     goal "Add a data record to the fixture"
+    reference_to(Fixture)
     attribute :aggregate_name, AggregateName
     attribute :attributes, Attributes
   end
 
   command "ApplyToScenario" do
     goal "Load this fixture as the given state for a scenario"
+    reference_to(Fixture)
     reference_to(Scenario)
   end
 
@@ -1938,6 +2021,8 @@ end
 
   command "ExecuteCommand" do
     goal "Run a domain command in the sandbox"
+    attribute :name, PlaygroundName
+    sets :name
     attribute :aggregate_name, AggregateName
     attribute :command_name, CommandName
     attribute :attributes, Attributes
@@ -1945,11 +2030,13 @@ end
 
   command "InspectState" do
     goal "View current aggregate state in the sandbox"
+    reference_to(Playground)
     attribute :aggregate_name, AggregateName
   end
 
   command "ResetPlayground" do
     goal "Clear all sandbox state and events"
+    reference_to(Playground)
     end
 
   # RecentEvents removed (i751 sweep). Same shape as Explorer.ByKind :
@@ -2020,23 +2107,28 @@ end
 
   command "ShowWorkbench" do
     goal "Open the workbench REPL for this domain"
+    attribute :name, WorkbenchName
+    sets :name
     emits "WorkbenchShown"
   end
 
   command "SelectProject" do
     goal "Set the active project for command dispatch"
+    reference_to(Workbench)
     attribute :project_name, ProjectName
     emits "ProjectSelected"
   end
 
   command "SelectAggregate" do
     goal "Set the active aggregate for inspection"
+    reference_to(Workbench)
     attribute :aggregate_name, AggregateName
     emits "AggregateSelected"
   end
 
   command "ExecuteCommand" do
     goal "Dispatch a command against the active project's runtime"
+    reference_to(Workbench)
     attribute :command_name, CommandName
     attribute :args, Args
     emits "CommandExecuted"
@@ -2044,12 +2136,14 @@ end
 
   command "InspectRepository" do
     goal "List all records in an aggregate's repository"
+    reference_to(Workbench)
     attribute :aggregate_name, AggregateName
     emits "RepositoryInspected"
   end
 
   command "FindRecord" do
     goal "Find a single record by ID"
+    reference_to(Workbench)
     attribute :aggregate_name, AggregateName
     attribute :record_id, RecordId
     emits "RecordFound"
@@ -2057,6 +2151,7 @@ end
 
   command "ShowEventHistory" do
     goal "Show all events for the active project"
+    reference_to(Workbench)
     emits "EventHistoryShown"
   end
 end
@@ -2092,26 +2187,32 @@ end
 
   command "EnterSketch" do
     goal "Switch to sketch mode for editing domain structure"
+    reference_to(Session)
     emits "SketchEntered"
   end
 
   command "EnterPlay" do
     goal "Switch to play mode for executing domain commands"
+    reference_to(Session)
     emits "PlayEntered"
   end
 
   command "Connect" do
     goal "Establish WebSocket connection to the IDE server"
+    attribute :name, IdeSessionName
+    sets :name
     emits "Connected"
   end
 
   command "Disconnect" do
     goal "Close the WebSocket connection"
+    reference_to(Session)
     emits "Disconnected"
   end
 
   command "RestoreConnection" do
     goal "Drop and re-establish the WebSocket connection"
+    reference_to(Session)
     emits "ConnectionRestored"
   end
 end
@@ -2184,24 +2285,29 @@ end
 
   command "OpenPanel" do
     goal "Show a hidden panel"
+    attribute :name, LayoutName
+    sets :name
     attribute :panel_name, PanelName
     emits "PanelOpened"
   end
 
   command "ClosePanel" do
     goal "Hide a panel"
+    reference_to(Layout)
     attribute :panel_name, PanelName
     emits "PanelClosed"
   end
 
   command "SelectTab" do
     goal "Switch the active tab in the main area"
+    reference_to(Layout)
     attribute :tab_name, TabName
     emits "TabSelected"
   end
 
   command "ResizePanel" do
     goal "Change a panel's dimensions"
+    reference_to(Layout)
     attribute :panel_name, PanelName
     attribute :width, Width
     attribute :height, Height
@@ -2210,21 +2316,25 @@ end
 
   command "ToggleSidebar" do
     goal "Collapse or expand the sidebar"
+    reference_to(Layout)
     emits "SidebarToggled"
   end
 
   command "ToggleEventsPanel" do
     goal "Collapse or expand the bottom events panel"
+    reference_to(Layout)
     emits "EventsPanelToggled"
   end
 
   command "HideProjects" do
     goal "Hide the projects sidebar panel"
+    reference_to(Layout)
     emits "ProjectsHidden"
   end
 
   command "ShowProjects" do
     goal "Show the projects sidebar panel"
+    reference_to(Layout)
     emits "ProjectsShown"
   end
 
@@ -2271,6 +2381,8 @@ end
 
   command "TrackCurrentFile" do
     goal "Record the currently open file and domain for context"
+    attribute :name, LayoutStateName
+    sets :name
     attribute :path, Path
     attribute :domain, Domain
     emits "CurrentFileTracked"
@@ -2278,11 +2390,13 @@ end
 
   command "SaveState" do
     goal "Persist the current layout state to disk"
+    reference_to(LayoutState)
     emits "StateSaved"
   end
 
   command "RestoreState" do
     goal "Load persisted layout state from disk"
+    reference_to(LayoutState)
     emits "StateRestored"
   end
 end
@@ -2336,17 +2450,21 @@ end
 
   command "OpenMenu" do
     goal "Open a menu dropdown -- File, View, or Domain"
+    attribute :name, MenuInstanceName
+    sets :name
     attribute :menu_name, MenuName
     emits "MenuOpened"
   end
 
   command "CloseMenu" do
     goal "Close any open menu dropdown"
+    reference_to(Menu)
     emits "MenuClosed"
   end
 
   command "SelectMenuItem" do
     goal "Execute a menu item action"
+    reference_to(Menu)
     attribute :menu_name, MenuName
     attribute :action, Action
     emits "MenuItemSelected"
@@ -2397,6 +2515,7 @@ end
 
   command "TriggerShortcut" do
     goal "Fire the command associated with a key combination"
+    reference_to(KeyboardShortcut)
     attribute :key, Key
     attribute :modifiers, Modifiers
     emits "ShortcutTriggered"
@@ -2457,6 +2576,7 @@ end
 
   command "DismissNotification" do
     goal "Mark a notification as seen"
+    reference_to(Notification)
     emits "NotificationDismissed"
   end
 
@@ -2512,6 +2632,8 @@ end
 
   command "CaptureScreen" do
     goal "Save a screenshot frame from the browser"
+    attribute :name, ScreenshotName
+    sets :name
     attribute :frame_data, FrameData
     attribute :timestamp, Timestamp
     emits "ScreenshotCaptured"
@@ -2519,11 +2641,13 @@ end
 
   command "PauseCapture" do
     goal "Stop capturing screenshots"
+    reference_to(Screenshot)
     emits "CapturePaused"
   end
 
   command "ResumeCapture" do
     goal "Resume capturing screenshots"
+    reference_to(Screenshot)
     emits "CaptureResumed"
   end
 end
@@ -2574,17 +2698,21 @@ end
 
   command "SearchDomain" do
     goal "Search across all domain elements for a query string"
+    attribute :name, SearchName
+    sets :name
     attribute :query_text, QueryText
     emits "SearchCompleted"
   end
 
   command "ClearSearch" do
     goal "Reset search results"
+    reference_to(Search)
     emits "SearchCleared"
   end
 
   command "FilterSearchResults" do
     goal "Narrow results by element type"
+    reference_to(Search)
     attribute :element_type, ElementType
     emits "SearchResultsFiltered"
   end
@@ -2596,7 +2724,7 @@ policy "SwitchToEditorOnFileOpen" do
   # caught by validate -- i751 sweep). `map` was a later attempted fix
   # that ALSO retired -- `with:` moved onto `trigger` itself as a keyword
   # arg (ADR 0025).
-  trigger SelectTab, with: { tab: "editor" }
+  trigger Layout::SelectTab, with: { layout: "layout", tab_name: "editor" }
 end
 
 end

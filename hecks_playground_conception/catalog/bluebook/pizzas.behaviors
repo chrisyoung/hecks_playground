@@ -22,19 +22,22 @@ Hecks.behaviors "Pizzas" do
   test "PlaceOrder sets customer_name + quantity" do
     tests "PlaceOrder", on: "Order"
     setup  "CreatePizza", name: "sample", description: "sample"
-    input  customer_name: "sample", quantity: 1
+    input  pizza: "sample", order_id: "o1", customer_name: "sample", quantity: 1
     expect customer_name: "sample", status: "pending"
   end
 
   test "CancelOrder runs" do
     tests "CancelOrder", on: "Order"
-    setup  "PlaceOrder", customer_name: "sample", quantity: 1
+    setup  "CreatePizza", name: "sample", description: "sample"
+    setup  "PlaceOrder", pizza: "sample", order_id: "o1", customer_name: "sample", quantity: 1
+    input  order_id: "o1"
     expect status: "cancelled"
   end
 
   test "Pending returns matching records" do
     tests "Pending", on: "Order", kind: :query
-    setup  "PlaceOrder", customer_name: "sample", quantity: 1
+    setup  "CreatePizza", name: "sample", description: "sample"
+    setup  "PlaceOrder", pizza: "sample", order_id: "o1", customer_name: "sample", quantity: 1
     expect count: 1
   end
 

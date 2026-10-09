@@ -51,11 +51,13 @@ Hecks.bluebook "TrainingPairCorpus", version: "2026.04.28.1" do
     command "MintPair" do
       role "System"
       goal "Create a training pair from a bluebook"
+      attribute :ref,             Ref
       attribute :bluebook_source, BluebookSource
       attribute :ir_json,         IrJson
       attribute :valid,           Validity
       attribute :tier,            TierName
       emits "PairCreated"
+      sets :ref
       sets :bluebook_source
       sets :ir_json
       sets :valid

@@ -5,7 +5,8 @@ Hecks.behaviors "Macrophage" do
 
   test "Macrophage RecordDownstreamEdit records a test/generated edit, no complaint" do
     tests "RecordDownstreamEdit", on: "Macrophage"
-    input  file_path: "rust/tests/driven_adapter_fan_out_test.rs"
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: "2026-05-14T00:00:00Z"
+    input  macrophage: "macrophage", file_path: "rust/tests/driven_adapter_fan_out_test.rs"
     expect ok: "true"
   end
 
@@ -13,19 +14,21 @@ Hecks.behaviors "Macrophage" do
 
   test "StartSession sets session_started_at on BidirectionalAssociation" do
     tests "StartSession", on: "BidirectionalAssociation"
-    input  session_started_at: "2026-05-14T00:00:00Z"
+    input  name: { value: "macrophage" }, session_started_at: "2026-05-14T00:00:00Z"
     expect ok: "true"
   end
 
   test "BidirectionalAssociation Check records a clean run" do
     tests "Check", on: "BidirectionalAssociation"
-    input  bluebook_path: "sandbox/pigeoncoop/pigeoncoop.bluebook"
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: "2026-05-14T00:00:00Z"
+    input  bidirectional_association: "macrophage", bluebook_path: "sandbox/pigeoncoop/pigeoncoop.bluebook"
     expect ok: "true"
   end
 
   test "BidirectionalAssociation RecordViolation increments violations_detected" do
     tests "RecordViolation", on: "BidirectionalAssociation"
-    input  aggregate_a: "Parent", aggregate_b: "Student",
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: "2026-05-14T00:00:00Z"
+    input  bidirectional_association: "macrophage", aggregate_a: "Parent", aggregate_b: "Student",
            bluebook_a: "sandbox/pigeoncoop/pigeoncoop.bluebook",
            bluebook_b: "sandbox/pigeoncoop/pigeoncoop.bluebook",
            recorded_at: "2026-05-14T00:00:00Z"
@@ -34,7 +37,8 @@ Hecks.behaviors "Macrophage" do
 
   test "BidirectionalAssociation Complain sets last_complaint" do
     tests "Complain", on: "BidirectionalAssociation"
-    input  aggregate_a: "Parent", aggregate_b: "Student",
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: "2026-05-14T00:00:00Z"
+    input  bidirectional_association: "macrophage", aggregate_a: "Parent", aggregate_b: "Student",
            complaint: "The BidirectionalAssociation macrophage expected a unidirectional reference between Parent and Student.",
            last_complaint_at: "2026-05-14T00:00:00Z"
     expect ok: "true"
@@ -42,7 +46,8 @@ Hecks.behaviors "Macrophage" do
 
   test "BidirectionalAssociation Exempt records a named exemption" do
     tests "Exempt", on: "BidirectionalAssociation"
-    input  aggregate_a: "Parent", aggregate_b: "Student",
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: "2026-05-14T00:00:00Z"
+    input  bidirectional_association: "macrophage", aggregate_a: "Parent", aggregate_b: "Student",
            reason: "Parent and Student share identity in this domain; navigation is bidirectional by design.",
            exempted_at: "2026-05-14T00:00:00Z"
     expect ok: "true"
@@ -58,27 +63,27 @@ Hecks.behaviors "Macrophage" do
 
   test "IdentityDiscipline StartSession records session_started_at" do
     tests "StartSession", on: "IdentityDiscipline"
-    input  session_started_at: { value: "2026-05-14T10:00:00Z" }
+    input  name: { value: "macrophage" }, session_started_at: { value: "2026-05-14T10:00:00Z" }
     expect session_started_at: { value: "2026-05-14T10:00:00Z" }
   end
 
   test "IdentityDiscipline StartSession emits SessionStarted" do
     tests "StartSession", on: "IdentityDiscipline"
-    input  session_started_at: { value: "2026-05-14T10:00:00Z" }
+    input  name: { value: "macrophage" }, session_started_at: { value: "2026-05-14T10:00:00Z" }
     expect emits: ["SessionStarted"]
   end
 
   test "IdentityDiscipline Check records bluebooks_checked" do
     tests "Check", on: "IdentityDiscipline"
-    setup  "StartSession", session_started_at: { value: "2026-05-14T10:00:00Z" }
-    input  file_path: { value: "/tmp/fake-aggregates/clean.bluebook" }
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-14T10:00:00Z" }
+    input  identity_discipline: "macrophage", file_path: { value: "/tmp/fake-aggregates/clean.bluebook" }
     expect emits: ["BluebookChecked"]
   end
 
   test "IdentityDiscipline RecordViolation appends an IdentityViolation entity" do
     tests "RecordViolation", on: "IdentityDiscipline"
-    setup  "StartSession", session_started_at: { value: "2026-05-14T10:00:00Z" }
-    input  file_path:      { value: "/tmp/fake-aggregates/bad.bluebook" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-14T10:00:00Z" }
+    input  identity_discipline: "macrophage", file_path:      { value: "/tmp/fake-aggregates/bad.bluebook" },
            aggregate_name: { value: "ShellTool" },
            field_name:     { value: ":id" },
            kind:           { value: "identified_by_id" },
@@ -89,8 +94,8 @@ Hecks.behaviors "Macrophage" do
 
   test "IdentityDiscipline ExemptAggregate appends an ExemptedAggregate entity" do
     tests "ExemptAggregate", on: "IdentityDiscipline"
-    setup  "StartSession", session_started_at: { value: "2026-05-14T10:00:00Z" }
-    input  aggregate_name: { value: "Tools::EmailTool" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-14T10:00:00Z" }
+    input  identity_discipline: "macrophage", aggregate_name: { value: "Tools::EmailTool" },
            kind:           { value: "id_attribute" },
            reason:         { value: "phase 3 conversion queued — see i611" },
            exempted_at:    { value: "2026-05-14T10:00:02Z" }
@@ -99,8 +104,8 @@ Hecks.behaviors "Macrophage" do
 
   test "IdentityDiscipline Complain sets last_complaint" do
     tests "Complain", on: "IdentityDiscipline"
-    setup  "StartSession", session_started_at: { value: "2026-05-14T10:00:00Z" }
-    input  file_path:         { value: "/tmp/fake-aggregates/bad.bluebook" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-14T10:00:00Z" }
+    input  identity_discipline: "macrophage", file_path:         { value: "/tmp/fake-aggregates/bad.bluebook" },
            aggregate_name:    { value: "ShellTool" },
            kind:              { value: "identified_by_id" },
            complaint:         { value: "The IdentityDiscipline macrophage expected a natural-key identified_by — :id is forbidden (i611)." },
@@ -110,8 +115,8 @@ Hecks.behaviors "Macrophage" do
 
   test "IdentityDiscipline Complain emits ComplaintIssued" do
     tests "Complain", on: "IdentityDiscipline"
-    setup  "StartSession", session_started_at: { value: "2026-05-14T10:00:00Z" }
-    input  file_path:         { value: "/tmp/fake-aggregates/bad.bluebook" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-14T10:00:00Z" }
+    input  identity_discipline: "macrophage", file_path:         { value: "/tmp/fake-aggregates/bad.bluebook" },
            aggregate_name:    { value: "ShellTool" },
            kind:              { value: "identified_by_id" },
            complaint:         { value: "The IdentityDiscipline macrophage expected ..." },
@@ -121,8 +126,8 @@ Hecks.behaviors "Macrophage" do
 
   test "IdentityDiscipline RevokeExemption emits ExemptionRevoked" do
     tests "RevokeExemption", on: "IdentityDiscipline"
-    setup  "StartSession", session_started_at: { value: "2026-05-14T10:00:00Z" }
-    input  aggregate_name: { value: "Tools::EmailTool" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-14T10:00:00Z" }
+    input  identity_discipline: "macrophage", aggregate_name: { value: "Tools::EmailTool" },
            kind:           { value: "id_attribute" },
            revoked_at:     { value: "2026-05-14T10:01:00Z" }
     expect emits: ["IdentityDisciplineExemptionRevoked"]
@@ -138,28 +143,28 @@ Hecks.behaviors "Macrophage" do
 
   test "WritingDiscipline StartSession records session_started_at" do
     tests "StartSession", on: "WritingDiscipline"
-    input  session_started_at: { value: "2026-05-14T11:00:00Z" }
+    input  name: { value: "macrophage" }, session_started_at: { value: "2026-05-14T11:00:00Z" }
     expect session_started_at: { value: "2026-05-14T11:00:00Z" }
   end
 
   test "WritingDiscipline StartSession emits SessionStarted" do
     tests "StartSession", on: "WritingDiscipline"
-    input  session_started_at: { value: "2026-05-14T11:00:00Z" }
+    input  name: { value: "macrophage" }, session_started_at: { value: "2026-05-14T11:00:00Z" }
     expect emits: ["SessionStarted"]
   end
 
   test "WritingDiscipline Check records drafts_checked" do
     tests "Check", on: "WritingDiscipline"
-    setup  "StartSession", session_started_at: { value: "2026-05-14T11:00:00Z" }
-    input  draft_id:   { value: "01JCKZWRITE0010" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-14T11:00:00Z" }
+    input  writing_discipline: "macrophage", draft_id:   { value: "01JCKZWRITE0010" },
            draft_text: { value: "Clean draft with no rule violations." }
     expect emits: ["DraftChecked"]
   end
 
   test "WritingDiscipline RecordViolation appends a WritingViolation entity" do
     tests "RecordViolation", on: "WritingDiscipline"
-    setup  "StartSession", session_started_at: { value: "2026-05-14T11:00:00Z" }
-    input  draft_id:       { value: "01JCKZWRITE0011" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-14T11:00:00Z" }
+    input  writing_discipline: "macrophage", draft_id:       { value: "01JCKZWRITE0011" },
            kind:           { value: "em_dash" },
            excerpt:        { value: "prose with one offending character" },
            offset:         { value: 18 },
@@ -170,8 +175,8 @@ Hecks.behaviors "Macrophage" do
 
   test "WritingDiscipline ExemptDraft appends an ExemptedDraft entity" do
     tests "ExemptDraft", on: "WritingDiscipline"
-    setup  "StartSession", session_started_at: { value: "2026-05-14T11:00:00Z" }
-    input  draft_id:    { value: "01JCKZWRITE0011" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-14T11:00:00Z" }
+    input  writing_discipline: "macrophage", draft_id:    { value: "01JCKZWRITE0011" },
            kind:        { value: "em_dash" },
            reason:      { value: "literal quote of the rule itself, dash is intentional" },
            exempted_at: { value: "2026-05-14T11:00:02Z" }
@@ -180,8 +185,8 @@ Hecks.behaviors "Macrophage" do
 
   test "WritingDiscipline Complain sets last_complaint" do
     tests "Complain", on: "WritingDiscipline"
-    setup  "StartSession", session_started_at: { value: "2026-05-14T11:00:00Z" }
-    input  draft_id:          { value: "01JCKZWRITE0011" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-14T11:00:00Z" }
+    input  writing_discipline: "macrophage", draft_id:          { value: "01JCKZWRITE0011" },
            kind:              { value: "em_dash" },
            excerpt:           { value: "one offending span" },
            complaint:         { value: "The WritingDiscipline macrophage expected zero em-dashes (U+2014)." },
@@ -191,8 +196,8 @@ Hecks.behaviors "Macrophage" do
 
   test "WritingDiscipline Complain emits ComplaintIssued" do
     tests "Complain", on: "WritingDiscipline"
-    setup  "StartSession", session_started_at: { value: "2026-05-14T11:00:00Z" }
-    input  draft_id:          { value: "01JCKZWRITE0011" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-14T11:00:00Z" }
+    input  writing_discipline: "macrophage", draft_id:          { value: "01JCKZWRITE0011" },
            kind:              { value: "we_dont_we_do" },
            excerpt:           { value: "we do not sell products, we build futures" },
            complaint:         { value: "The WritingDiscipline macrophage expected sparse use of the negative-positive construction." },
@@ -202,15 +207,15 @@ Hecks.behaviors "Macrophage" do
 
   test "WritingDiscipline SetThreshold updates we_dont_we_do_threshold" do
     tests "SetThreshold", on: "WritingDiscipline"
-    setup  "StartSession", session_started_at: { value: "2026-05-14T11:00:00Z" }
-    input  we_dont_we_do_threshold: { value: 2 }
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-14T11:00:00Z" }
+    input  writing_discipline: "macrophage", we_dont_we_do_threshold: { value: 2 }
     expect we_dont_we_do_threshold: { value: 2 }
   end
 
   test "WritingDiscipline RevokeExemption emits ExemptionRevoked" do
     tests "RevokeExemption", on: "WritingDiscipline"
-    setup  "StartSession", session_started_at: { value: "2026-05-14T11:00:00Z" }
-    input  draft_id:   { value: "01JCKZWRITE0011" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-14T11:00:00Z" }
+    input  writing_discipline: "macrophage", draft_id:   { value: "01JCKZWRITE0011" },
            kind:       { value: "em_dash" },
            revoked_at: { value: "2026-05-14T11:01:00Z" }
     expect emits: ["WritingDisciplineExemptionRevoked"]
@@ -226,14 +231,14 @@ Hecks.behaviors "Macrophage" do
 
   test "CorrespondenceDiscipline StartSession records session_started_at" do
     tests "StartSession", on: "CorrespondenceDiscipline"
-    input  session_started_at: { value: "2026-05-15T09:00:00Z" }
+    input  name: { value: "macrophage" }, session_started_at: { value: "2026-05-15T09:00:00Z" }
     expect session_started_at: { value: "2026-05-15T09:00:00Z" }
   end
 
   test "CorrespondenceDiscipline Check records a watched-surface dispatch" do
     tests "Check", on: "CorrespondenceDiscipline"
-    setup  "StartSession", session_started_at: { value: "2026-05-15T09:00:00Z" }
-    input  surface:       { value: "HecksPlayground::Framework::Tools::EmailTool.CreateDraft" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-15T09:00:00Z" }
+    input  correspondence_discipline: "macrophage", surface:       { value: "HecksPlayground::Framework::Tools::EmailTool.CreateDraft" },
            command_fqn:   { value: "HecksPlayground::Framework::Tools::EmailTool.CreateDraft" },
            invocation_id: { value: "cmd_a91f" },
            body:          { value: "Hi Angie, the Bicho Bolita receipts for May are attached." },
@@ -243,8 +248,8 @@ Hecks.behaviors "Macrophage" do
 
   test "CorrespondenceDiscipline RecordViolation appends a FlowViolation entity" do
     tests "RecordViolation", on: "CorrespondenceDiscipline"
-    setup  "StartSession", session_started_at: { value: "2026-05-15T09:00:00Z" }
-    input  recorded_at:    { value: "2026-05-15T09:01:00Z" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-15T09:00:00Z" }
+    input  correspondence_discipline: "macrophage", recorded_at:    { value: "2026-05-15T09:01:00Z" },
            command_fqn:    { value: "HecksPlayground::Framework::Tools::EmailTool.CreateDraft" },
            surface:        { value: "HecksPlayground::Framework::Tools::EmailTool.CreateDraft" },
            invocation_id:  { value: "cmd_a91f" },
@@ -256,8 +261,8 @@ Hecks.behaviors "Macrophage" do
 
   test "CorrespondenceDiscipline ExemptSurface appends an ExemptedSurface entity" do
     tests "ExemptSurface", on: "CorrespondenceDiscipline"
-    setup  "StartSession", session_started_at: { value: "2026-05-15T09:00:00Z" }
-    input  surface:     { value: "HecksPlayground::Framework::Tools::EmailTool.LabelMessage" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-15T09:00:00Z" }
+    input  correspondence_discipline: "macrophage", surface:     { value: "HecksPlayground::Framework::Tools::EmailTool.LabelMessage" },
            reason:      { value: "header-only surface ; no discretionary prose to compose" },
            exempted_at: { value: "2026-05-15T09:02:00Z" }
     expect emits: ["SurfaceExempted"]
@@ -265,8 +270,8 @@ Hecks.behaviors "Macrophage" do
 
   test "CorrespondenceDiscipline Complain sets last_complaint" do
     tests "Complain", on: "CorrespondenceDiscipline"
-    setup  "StartSession", session_started_at: { value: "2026-05-15T09:00:00Z" }
-    input  command_fqn:       { value: "HecksPlayground::Framework::Tools::EmailTool.CreateDraft" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-15T09:00:00Z" }
+    input  correspondence_discipline: "macrophage", command_fqn:       { value: "HecksPlayground::Framework::Tools::EmailTool.CreateDraft" },
            surface:           { value: "HecksPlayground::Framework::Tools::EmailTool.CreateDraft" },
            invocation_id:     { value: "cmd_a91f" },
            complaint:         { value: "The CorrespondenceDiscipline macrophage expected Writing.Compose to dispatch before Tools::EmailTool.CreateDraft#cmd_a91f. None was found in the prior 5 minutes." },
@@ -276,8 +281,8 @@ Hecks.behaviors "Macrophage" do
 
   test "CorrespondenceDiscipline Complain emits ComplaintIssued" do
     tests "Complain", on: "CorrespondenceDiscipline"
-    setup  "StartSession", session_started_at: { value: "2026-05-15T09:00:00Z" }
-    input  command_fqn:       { value: "HecksPlayground::Framework::Tools::EmailTool.CreateDraft" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-15T09:00:00Z" }
+    input  correspondence_discipline: "macrophage", command_fqn:       { value: "HecksPlayground::Framework::Tools::EmailTool.CreateDraft" },
            surface:           { value: "HecksPlayground::Framework::Tools::EmailTool.CreateDraft" },
            invocation_id:     { value: "cmd_a91f" },
            complaint:         { value: "The CorrespondenceDiscipline macrophage expected Writing.Compose to dispatch before Tools::EmailTool.CreateDraft#cmd_a91f. None was found in the prior 5 minutes." },
@@ -287,8 +292,8 @@ Hecks.behaviors "Macrophage" do
 
   test "CorrespondenceDiscipline WatchSurface registers a new surface" do
     tests "WatchSurface", on: "CorrespondenceDiscipline"
-    setup  "StartSession", session_started_at: { value: "2026-05-15T09:00:00Z" }
-    input  surface:       { value: "Tools::SlackTool.Post" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-15T09:00:00Z" }
+    input  correspondence_discipline: "macrophage", surface:       { value: "Tools::SlackTool.Post" },
            match_kind:    { value: "substring" },
            registered_at: { value: "2026-05-15T09:03:00Z" }
     expect emits: ["SurfaceWatched"]
@@ -296,15 +301,15 @@ Hecks.behaviors "Macrophage" do
 
   test "CorrespondenceDiscipline SetWindow updates compose_window_minutes" do
     tests "SetWindow", on: "CorrespondenceDiscipline"
-    setup  "StartSession", session_started_at: { value: "2026-05-15T09:00:00Z" }
-    input  compose_window_minutes: { value: 15 }
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-15T09:00:00Z" }
+    input  correspondence_discipline: "macrophage", compose_window_minutes: { value: 15 }
     expect compose_window_minutes: { value: 15 }
   end
 
   test "CorrespondenceDiscipline UnwatchSurface retires a watched surface" do
     tests "UnwatchSurface", on: "CorrespondenceDiscipline"
-    setup  "StartSession", session_started_at: { value: "2026-05-15T09:00:00Z" }
-    input  surface:    { value: "Tools::SlackTool.Post" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-15T09:00:00Z" }
+    input  correspondence_discipline: "macrophage", surface:    { value: "Tools::SlackTool.Post" },
            retired_at: { value: "2026-05-15T09:04:00Z" }
     expect emits: ["SurfaceUnwatched"]
   end
@@ -318,27 +323,27 @@ Hecks.behaviors "Macrophage" do
 
   test "AdapterLocation StartSession records session_started_at" do
     tests "StartSession", on: "AdapterLocation"
-    input  session_started_at: { value: "2026-05-30T10:00:00Z" }
+    input  name: { value: "macrophage" }, session_started_at: { value: "2026-05-30T10:00:00Z" }
     expect session_started_at: { value: "2026-05-30T10:00:00Z" }
   end
 
   test "AdapterLocation StartSession emits SessionStarted" do
     tests "StartSession", on: "AdapterLocation"
-    input  session_started_at: { value: "2026-05-30T10:00:00Z" }
+    input  name: { value: "macrophage" }, session_started_at: { value: "2026-05-30T10:00:00Z" }
     expect emits: ["SessionStarted"]
   end
 
   test "AdapterLocation Check records a clean run" do
     tests "Check", on: "AdapterLocation"
-    setup  "StartSession", session_started_at: { value: "2026-05-30T10:00:00Z" }
-    input  file_path: { value: "aggregates/framework/tools/hecksagons/shell_adapter.hecksagon" }
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-30T10:00:00Z" }
+    input  adapter_location: "macrophage", file_path: { value: "aggregates/framework/tools/hecksagons/shell_adapter.hecksagon" }
     expect emits: ["FileScanned"]
   end
 
   test "AdapterLocation RecordViolation appends a LocationViolation entity" do
     tests "RecordViolation", on: "AdapterLocation"
-    setup  "StartSession", session_started_at: { value: "2026-05-30T10:00:00Z" }
-    input  file_path:     { value: "aggregates/framework/misplaced.hecksagon" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-30T10:00:00Z" }
+    input  adapter_location: "macrophage", file_path:     { value: "aggregates/framework/misplaced.hecksagon" },
            adapter_name:  { value: "MisplacedAdapter" },
            expected_path: { value: "aggregates/framework/hecksagons/misplaced.hecksagon" },
            recorded_at:   { value: "2026-05-30T10:00:01Z" }
@@ -347,8 +352,8 @@ Hecks.behaviors "Macrophage" do
 
   test "AdapterLocation Complain sets last_complaint" do
     tests "Complain", on: "AdapterLocation"
-    setup  "StartSession", session_started_at: { value: "2026-05-30T10:00:00Z" }
-    input  file_path:         { value: "aggregates/framework/misplaced.hecksagon" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-30T10:00:00Z" }
+    input  adapter_location: "macrophage", file_path:         { value: "aggregates/framework/misplaced.hecksagon" },
            adapter_name:      { value: "MisplacedAdapter" },
            expected_path:     { value: "aggregates/framework/hecksagons/misplaced.hecksagon" },
            complaint:         { value: "The AdapterLocation macrophage expected the adapter declared in aggregates/framework/misplaced.hecksagon to live at aggregates/framework/hecksagons/misplaced.hecksagon." },
@@ -358,8 +363,8 @@ Hecks.behaviors "Macrophage" do
 
   test "AdapterLocation Complain emits ComplaintIssued" do
     tests "Complain", on: "AdapterLocation"
-    setup  "StartSession", session_started_at: { value: "2026-05-30T10:00:00Z" }
-    input  file_path:         { value: "aggregates/framework/misplaced.hecksagon" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-30T10:00:00Z" }
+    input  adapter_location: "macrophage", file_path:         { value: "aggregates/framework/misplaced.hecksagon" },
            adapter_name:      { value: "MisplacedAdapter" },
            expected_path:     { value: "aggregates/framework/hecksagons/misplaced.hecksagon" },
            complaint:         { value: "The AdapterLocation macrophage expected the adapter declared in aggregates/framework/misplaced.hecksagon to live at aggregates/framework/hecksagons/misplaced.hecksagon." },
@@ -369,8 +374,8 @@ Hecks.behaviors "Macrophage" do
 
   test "AdapterLocation Exempt records a named exemption" do
     tests "Exempt", on: "AdapterLocation"
-    setup  "StartSession", session_started_at: { value: "2026-05-30T10:00:00Z" }
-    input  file_path:   { value: "aggregates/framework/adapter_families/claude_tool.hecksagon" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-30T10:00:00Z" }
+    input  adapter_location: "macrophage", file_path:   { value: "aggregates/framework/adapter_families/claude_tool.hecksagon" },
            reason:      { value: "legacy adapter_families shim queued for sprint-14 cutover" },
            exempted_at: { value: "2026-05-30T10:00:03Z" }
     expect emits: ["AdapterLocationExemptionGranted"]
@@ -382,21 +387,21 @@ Hecks.behaviors "Macrophage" do
 
   test "SuccessFailurePairing StartSession records session_started_at" do
     tests "StartSession", on: "SuccessFailurePairing"
-    input  session_started_at: { value: "2026-05-30T10:10:00Z" }
+    input  name: { value: "macrophage" }, session_started_at: { value: "2026-05-30T10:10:00Z" }
     expect session_started_at: { value: "2026-05-30T10:10:00Z" }
   end
 
   test "SuccessFailurePairing Check records a clean run" do
     tests "Check", on: "SuccessFailurePairing"
-    setup  "StartSession", session_started_at: { value: "2026-05-30T10:10:00Z" }
-    input  file_path: { value: "aggregates/framework/tools/hecksagons/shell_adapter.hecksagon" }
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-30T10:10:00Z" }
+    input  success_failure_pairing: "macrophage", file_path: { value: "aggregates/framework/tools/hecksagons/shell_adapter.hecksagon" }
     expect emits: ["FileScanned"]
   end
 
   test "SuccessFailurePairing RecordViolation appends a PairingViolation entity" do
     tests "RecordViolation", on: "SuccessFailurePairing"
-    setup  "StartSession", session_started_at: { value: "2026-05-30T10:10:00Z" }
-    input  file_path:    { value: "aggregates/framework/tools/hecksagons/success_only.hecksagon" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-30T10:10:00Z" }
+    input  success_failure_pairing: "macrophage", file_path:    { value: "aggregates/framework/tools/hecksagons/success_only.hecksagon" },
            adapter_name: { value: "SuccessOnlyAdapter" },
            found_pair:   { value: "success-only : BashCompleted" },
            recorded_at:  { value: "2026-05-30T10:10:01Z" }
@@ -405,8 +410,8 @@ Hecks.behaviors "Macrophage" do
 
   test "SuccessFailurePairing Complain sets last_complaint" do
     tests "Complain", on: "SuccessFailurePairing"
-    setup  "StartSession", session_started_at: { value: "2026-05-30T10:10:00Z" }
-    input  file_path:         { value: "aggregates/framework/tools/hecksagons/success_only.hecksagon" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-30T10:10:00Z" }
+    input  success_failure_pairing: "macrophage", file_path:         { value: "aggregates/framework/tools/hecksagons/success_only.hecksagon" },
            adapter_name:      { value: "SuccessOnlyAdapter" },
            found_pair:        { value: "success-only : BashCompleted" },
            complaint:         { value: "The SuccessFailurePairing macrophage expected SuccessOnlyAdapter to dispatch both a success and a failure event." },
@@ -416,8 +421,8 @@ Hecks.behaviors "Macrophage" do
 
   test "SuccessFailurePairing Complain emits ComplaintIssued" do
     tests "Complain", on: "SuccessFailurePairing"
-    setup  "StartSession", session_started_at: { value: "2026-05-30T10:10:00Z" }
-    input  file_path:         { value: "aggregates/framework/tools/hecksagons/success_only.hecksagon" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-30T10:10:00Z" }
+    input  success_failure_pairing: "macrophage", file_path:         { value: "aggregates/framework/tools/hecksagons/success_only.hecksagon" },
            adapter_name:      { value: "SuccessOnlyAdapter" },
            found_pair:        { value: "success-only : BashCompleted" },
            complaint:         { value: "The SuccessFailurePairing macrophage expected SuccessOnlyAdapter to dispatch both a success and a failure event." },
@@ -427,8 +432,8 @@ Hecks.behaviors "Macrophage" do
 
   test "SuccessFailurePairing Exempt records a named exemption" do
     tests "Exempt", on: "SuccessFailurePairing"
-    setup  "StartSession", session_started_at: { value: "2026-05-30T10:10:00Z" }
-    input  file_path:    { value: "aggregates/framework/tools/hecksagons/broadcast.hecksagon" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-30T10:10:00Z" }
+    input  success_failure_pairing: "macrophage", file_path:    { value: "aggregates/framework/tools/hecksagons/broadcast.hecksagon" },
            adapter_name: { value: "BroadcastAdapter" },
            reason:       { value: "fire-and-forget telemetry broadcast — no failure semantics by design" },
            exempted_at:  { value: "2026-05-30T10:10:03Z" }
@@ -441,21 +446,21 @@ Hecks.behaviors "Macrophage" do
 
   test "InvocationPrinciple StartSession records session_started_at" do
     tests "StartSession", on: "InvocationPrinciple"
-    input  session_started_at: { value: "2026-05-30T10:20:00Z" }
+    input  name: { value: "macrophage" }, session_started_at: { value: "2026-05-30T10:20:00Z" }
     expect session_started_at: { value: "2026-05-30T10:20:00Z" }
   end
 
   test "InvocationPrinciple Check records a clean run" do
     tests "Check", on: "InvocationPrinciple"
-    setup  "StartSession", session_started_at: { value: "2026-05-30T10:20:00Z" }
-    input  file_path: { value: "aggregates/framework/tools/hecksagons/shell_adapter.hecksagon" }
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-30T10:20:00Z" }
+    input  invocation_principle: "macrophage", file_path: { value: "aggregates/framework/tools/hecksagons/shell_adapter.hecksagon" }
     expect emits: ["FileScanned"]
   end
 
   test "InvocationPrinciple RecordViolation appends a CallbackViolation entity" do
     tests "RecordViolation", on: "InvocationPrinciple"
-    setup  "StartSession", session_started_at: { value: "2026-05-30T10:20:00Z" }
-    input  file_path:      { value: "aggregates/framework/tools/hecksagons/callback.hecksagon" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-30T10:20:00Z" }
+    input  invocation_principle: "macrophage", file_path:      { value: "aggregates/framework/tools/hecksagons/callback.hecksagon" },
            adapter_name:   { value: "CallbackAdapter" },
            forbidden_call: { value: "rt.find(" },
            line_number:    { value: 12 },
@@ -465,8 +470,8 @@ Hecks.behaviors "Macrophage" do
 
   test "InvocationPrinciple Complain sets last_complaint" do
     tests "Complain", on: "InvocationPrinciple"
-    setup  "StartSession", session_started_at: { value: "2026-05-30T10:20:00Z" }
-    input  file_path:         { value: "aggregates/framework/tools/hecksagons/callback.hecksagon" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-30T10:20:00Z" }
+    input  invocation_principle: "macrophage", file_path:         { value: "aggregates/framework/tools/hecksagons/callback.hecksagon" },
            adapter_name:      { value: "CallbackAdapter" },
            forbidden_call:    { value: "rt.find(" },
            line_number:       { value: 12 },
@@ -477,8 +482,8 @@ Hecks.behaviors "Macrophage" do
 
   test "InvocationPrinciple Complain emits ComplaintIssued" do
     tests "Complain", on: "InvocationPrinciple"
-    setup  "StartSession", session_started_at: { value: "2026-05-30T10:20:00Z" }
-    input  file_path:         { value: "aggregates/framework/tools/hecksagons/callback.hecksagon" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-30T10:20:00Z" }
+    input  invocation_principle: "macrophage", file_path:         { value: "aggregates/framework/tools/hecksagons/callback.hecksagon" },
            adapter_name:      { value: "CallbackAdapter" },
            forbidden_call:    { value: "rt.find(" },
            line_number:       { value: 12 },
@@ -489,8 +494,8 @@ Hecks.behaviors "Macrophage" do
 
   test "InvocationPrinciple Exempt records a named exemption" do
     tests "Exempt", on: "InvocationPrinciple"
-    setup  "StartSession", session_started_at: { value: "2026-05-30T10:20:00Z" }
-    input  file_path:    { value: "aggregates/framework/tools/hecksagons/legacy_shim.hecksagon" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-30T10:20:00Z" }
+    input  invocation_principle: "macrophage", file_path:    { value: "aggregates/framework/tools/hecksagons/legacy_shim.hecksagon" },
            adapter_name: { value: "LegacyShim" },
            reason:       { value: "transitional bridge around an unmigrated synchronous query call site — retires at sprint-14 cutover" },
            exempted_at:  { value: "2026-05-30T10:20:03Z" }
@@ -503,21 +508,21 @@ Hecks.behaviors "Macrophage" do
 
   test "IdempotentByConstruction StartSession records session_started_at" do
     tests "StartSession", on: "IdempotentByConstruction"
-    input  session_started_at: { value: "2026-05-30T10:30:00Z" }
+    input  name: { value: "macrophage" }, session_started_at: { value: "2026-05-30T10:30:00Z" }
     expect session_started_at: { value: "2026-05-30T10:30:00Z" }
   end
 
   test "IdempotentByConstruction Check records a clean run" do
     tests "Check", on: "IdempotentByConstruction"
-    setup  "StartSession", session_started_at: { value: "2026-05-30T10:30:00Z" }
-    input  file_path: { value: "aggregates/framework/tools/hecksagons/shell_adapter.hecksagon" }
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-30T10:30:00Z" }
+    input  idempotent_by_construction: "macrophage", file_path: { value: "aggregates/framework/tools/hecksagons/shell_adapter.hecksagon" }
     expect emits: ["FileScanned"]
   end
 
   test "IdempotentByConstruction RecordViolation appends an OptInViolation entity" do
     tests "RecordViolation", on: "IdempotentByConstruction"
-    setup  "StartSession", session_started_at: { value: "2026-05-30T10:30:00Z" }
-    input  file_path:         { value: "aggregates/framework/tools/hecksagons/opt_in.hecksagon" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-30T10:30:00Z" }
+    input  idempotent_by_construction: "macrophage", file_path:         { value: "aggregates/framework/tools/hecksagons/opt_in.hecksagon" },
            forbidden_pattern: { value: "idempotent" },
            line_number:       { value: 22 },
            recorded_at:       { value: "2026-05-30T10:30:01Z" }
@@ -526,8 +531,8 @@ Hecks.behaviors "Macrophage" do
 
   test "IdempotentByConstruction Complain sets last_complaint" do
     tests "Complain", on: "IdempotentByConstruction"
-    setup  "StartSession", session_started_at: { value: "2026-05-30T10:30:00Z" }
-    input  file_path:         { value: "aggregates/framework/tools/hecksagons/opt_in.hecksagon" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-30T10:30:00Z" }
+    input  idempotent_by_construction: "macrophage", file_path:         { value: "aggregates/framework/tools/hecksagons/opt_in.hecksagon" },
            forbidden_pattern: { value: "idempotent" },
            line_number:       { value: 22 },
            complaint:         { value: "The IdempotentByConstruction macrophage expected zero user-space idempotency opt-in." },
@@ -537,8 +542,8 @@ Hecks.behaviors "Macrophage" do
 
   test "IdempotentByConstruction Complain emits ComplaintIssued" do
     tests "Complain", on: "IdempotentByConstruction"
-    setup  "StartSession", session_started_at: { value: "2026-05-30T10:30:00Z" }
-    input  file_path:         { value: "aggregates/framework/tools/hecksagons/opt_in.hecksagon" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-30T10:30:00Z" }
+    input  idempotent_by_construction: "macrophage", file_path:         { value: "aggregates/framework/tools/hecksagons/opt_in.hecksagon" },
            forbidden_pattern: { value: "idempotent" },
            line_number:       { value: 22 },
            complaint:         { value: "The IdempotentByConstruction macrophage expected zero user-space idempotency opt-in." },
@@ -548,8 +553,8 @@ Hecks.behaviors "Macrophage" do
 
   test "IdempotentByConstruction Exempt records a named exemption" do
     tests "Exempt", on: "IdempotentByConstruction"
-    setup  "StartSession", session_started_at: { value: "2026-05-30T10:30:00Z" }
-    input  file_path:   { value: "aggregates/discipline/immune_system/macrophage/fixtures/adapter_discipline/negative_opt_in_idempotent.hecksagon" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-05-30T10:30:00Z" }
+    input  idempotent_by_construction: "macrophage", file_path:   { value: "aggregates/discipline/immune_system/macrophage/fixtures/adapter_discipline/negative_opt_in_idempotent.hecksagon" },
            reason:      { value: "negative fixture demonstrating the violation — macrophage-own test surface" },
            exempted_at: { value: "2026-05-30T10:30:03Z" }
     expect emits: ["IdempotentByConstructionExemptionGranted"]
@@ -559,21 +564,21 @@ Hecks.behaviors "Macrophage" do
 
   test "RelationshipDiscipline StartSession records session_started_at" do
     tests "StartSession", on: "RelationshipDiscipline"
-    input  session_started_at: { value: "2026-06-18T10:00:00Z" }
+    input  name: { value: "macrophage" }, session_started_at: { value: "2026-06-18T10:00:00Z" }
     expect session_started_at: { value: "2026-06-18T10:00:00Z" }
   end
 
   test "RelationshipDiscipline Check emits CheckRun" do
     tests "Check", on: "RelationshipDiscipline"
-    setup  "StartSession", session_started_at: { value: "2026-06-18T10:00:00Z" }
-    input  file_path: { value: "/tmp/fake-aggregates/has_codey_ref.bluebook" }
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-06-18T10:00:00Z" }
+    input  relationship_discipline: "macrophage", file_path: { value: "/tmp/fake-aggregates/has_codey_ref.bluebook" }
     expect emits: ["RelationshipDisciplineCheckRun"]
   end
 
   test "RelationshipDiscipline RecordViolation appends a NotationViolation entity" do
     tests "RecordViolation", on: "RelationshipDiscipline"
-    setup  "StartSession", session_started_at: { value: "2026-06-18T10:00:00Z" }
-    input  file_path:      { value: "/tmp/fake-aggregates/has_codey_ref.bluebook" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-06-18T10:00:00Z" }
+    input  relationship_discipline: "macrophage", file_path:      { value: "/tmp/fake-aggregates/has_codey_ref.bluebook" },
            aggregate_name: { value: "Lease" },
            reference_line: { value: "has_one Plan::Story" },
            kind:           { value: "codey_double_colon" },
@@ -584,8 +589,8 @@ Hecks.behaviors "Macrophage" do
 
   test "RelationshipDiscipline Complain sets last_complaint" do
     tests "Complain", on: "RelationshipDiscipline"
-    setup  "StartSession", session_started_at: { value: "2026-06-18T10:00:00Z" }
-    input  kind:              { value: "codey_double_colon" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-06-18T10:00:00Z" }
+    input  relationship_discipline: "macrophage", kind:              { value: "codey_double_colon" },
            complaint:         { value: "The RelationshipDiscipline macrophage expected the English `from <Context>` form, not the codey `::`." },
            last_complaint_at: { value: "2026-06-18T10:00:02Z" }
     expect last_complaint: { value: "The RelationshipDiscipline macrophage expected the English `from <Context>` form, not the codey `::`." }
@@ -593,8 +598,8 @@ Hecks.behaviors "Macrophage" do
 
   test "RelationshipDiscipline ExemptReference emits ExemptionGranted" do
     tests "ExemptReference", on: "RelationshipDiscipline"
-    setup  "StartSession", session_started_at: { value: "2026-06-18T10:00:00Z" }
-    input  file_path:      { value: "/tmp/fake-aggregates/has_codey_ref.bluebook" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-06-18T10:00:00Z" }
+    input  relationship_discipline: "macrophage", file_path:      { value: "/tmp/fake-aggregates/has_codey_ref.bluebook" },
            reference_line: { value: "has_one Plan::Story" },
            kind:           { value: "codey_double_colon" },
            reason:         { value: "transitional :: until the from-parser merges — see upsert-on-identity" },
@@ -604,8 +609,8 @@ Hecks.behaviors "Macrophage" do
 
   test "RelationshipDiscipline RevokeExemption emits ExemptionRevoked" do
     tests "RevokeExemption", on: "RelationshipDiscipline"
-    setup  "StartSession", session_started_at: { value: "2026-06-18T10:00:00Z" }
-    input  file_path:      { value: "/tmp/fake-aggregates/has_codey_ref.bluebook" },
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: { value: "2026-06-18T10:00:00Z" }
+    input  relationship_discipline: "macrophage", file_path:      { value: "/tmp/fake-aggregates/has_codey_ref.bluebook" },
            reference_line: { value: "has_one Plan::Story" },
            kind:           { value: "codey_double_colon" },
            revoked_at:     { value: "2026-06-18T10:01:00Z" }
@@ -616,14 +621,14 @@ Hecks.behaviors "Macrophage" do
 
   test "StartSession sets session_started_at on Warnings" do
     tests "StartSession", on: "Warnings"
-    input  session_started_at: "2026-06-18T10:00:00Z"
+    input  name: { value: "macrophage" }, session_started_at: "2026-06-18T10:00:00Z"
     expect ok: "true"
   end
 
   test "Warnings RecordCompilerWarning increments compiler_warnings and total_warnings" do
     tests "RecordCompilerWarning", on: "Warnings"
-    setup  "StartSession", session_started_at: "2026-06-18T10:00:00Z"
-    input  file_path:    "src/lib.rs",
+    setup  "StartSession", name: { value: "macrophage" }, session_started_at: "2026-06-18T10:00:00Z"
+    input  warnings: "macrophage", file_path:    "src/lib.rs",
            warning_text: "warning: unused variable `x` [unused_variables]",
            recorded_at:  "2026-06-18T10:00:01Z"
     expect emits: ["CompilerWarningRecorded"]

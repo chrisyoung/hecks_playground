@@ -140,7 +140,7 @@ Hecks.behaviors "Storehouse" do
     setup  "Declare", name: "Authorize", phase: "before", check: "sample-gate", pattern: "*", order: 20
     # Qualified : Retire is shared with Storehouse::Primitive (same bluebook),
     # so a bare setup would resolve first-match-wins to Primitive. Address it.
-    setup  "Gate.Retire",  name: "Authorize"
+    setup  "Storehouse::Gate.Retire",  name: "Authorize"
     expect count: 0
   end
 end

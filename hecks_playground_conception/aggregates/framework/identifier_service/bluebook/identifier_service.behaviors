@@ -28,6 +28,7 @@ Hecks.behaviors "IdentifierService" do
 
   test "MintDefault records minted_at + subject" do
     tests "MintDefault", on: "IdentifierService"
+    setup  "StartSession", name: { value: "default" }, session_started_at: { value: "2026-05-14T00:00:00Z" }
     input  name:       { value: "default" },
            subject:    { value: "Sandbox::Note" },
            minted_at:  { value: "2026-05-14T00:00:02Z" },
@@ -38,6 +39,7 @@ Hecks.behaviors "IdentifierService" do
 
   test "MintDefault emits UuidMinted" do
     tests "MintDefault", on: "IdentifierService"
+    setup  "StartSession", name: { value: "default" }, session_started_at: { value: "2026-05-14T00:00:00Z" }
     input  name:       { value: "default" },
            subject:    { value: "Sandbox::Note" },
            minted_at:  { value: "2026-05-14T00:00:03Z" },
@@ -54,6 +56,7 @@ Hecks.behaviors "IdentifierService" do
 
   test "DeriveNaturalKey records derived_at + subject" do
     tests "DeriveNaturalKey", on: "IdentifierService"
+    setup  "StartSession", name: { value: "default" }, session_started_at: { value: "2026-05-14T00:00:00Z" }
     input  name:                { value: "default" },
            subject:             { value: "PigeonCoop::Person" },
            natural_key_fields:  { value: "identity" },
@@ -66,6 +69,7 @@ Hecks.behaviors "IdentifierService" do
 
   test "DeriveNaturalKey emits NaturalKeyDerived" do
     tests "DeriveNaturalKey", on: "IdentifierService"
+    setup  "StartSession", name: { value: "default" }, session_started_at: { value: "2026-05-14T00:00:00Z" }
     input  name:                { value: "default" },
            subject:             { value: "Tools::ShellTool" },
            natural_key_fields:  { value: "shell_command" },
@@ -82,6 +86,7 @@ Hecks.behaviors "IdentifierService" do
 
   test "RecordMigration records migration_at + subject" do
     tests "RecordMigration", on: "IdentifierService"
+    setup  "StartSession", name: { value: "default" }, session_started_at: { value: "2026-05-14T00:00:00Z" }
     input  name:          { value: "default" },
            subject:       { value: "PigeonCoop::Person" },
            old_identity:  { value: "Person:abc-123-uuid" },
@@ -94,6 +99,7 @@ Hecks.behaviors "IdentifierService" do
 
   test "RecordMigration emits MigrationRecorded" do
     tests "RecordMigration", on: "IdentifierService"
+    setup  "StartSession", name: { value: "default" }, session_started_at: { value: "2026-05-14T00:00:00Z" }
     input  name:          { value: "default" },
            subject:       { value: "Tools::EmailTool" },
            old_identity:  { value: "EmailTool:opaque-uuid" },

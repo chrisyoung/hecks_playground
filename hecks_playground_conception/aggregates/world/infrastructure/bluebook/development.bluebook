@@ -105,6 +105,7 @@ Hecks.bluebook "Development", version: "2026.05.16.1" do
     lifecycle :status, default: "pending" do
       transition "ComputeVector" => "vectorized", from: "pending"
       transition "FindArchetype" => "matched", from: "vectorized"
+      transition "FindArchetype" => "matched", from: "matched"
       transition "PlanDevelopment" => "planned", from: "matched"
       transition "DevelopDomain" => "developed", from: "planned"
       transition "RejectDevelopment" => "rejected", from: "planned"
@@ -113,7 +114,7 @@ Hecks.bluebook "Development", version: "2026.05.16.1" do
 
   policy "FindOnVector" do
     on "VectorComputed"
-    trigger FindArchetype
+    trigger Development::FindArchetype, with: { domain_name: :domain_name }
   end
 
   policy "SyncOnDevelopment" do

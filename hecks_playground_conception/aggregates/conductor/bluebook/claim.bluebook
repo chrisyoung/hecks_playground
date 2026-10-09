@@ -27,7 +27,7 @@ Hecks.bluebook "Conductor", version: "2026.06.28.1" do
     command "Acquire" do
       role "System"
       goal "Acquire a claim on a story for a worker. Acquires only when the story has no active (held) claim - the structural mutex refusing a second concurrent acquire. Creates the record in state=held and stores the Worker foreign key (references-not-ids : the synthesised belongs_to Worker FK is now live)."
-      attribute :story,       Story
+      reference_to(Claim)
       attribute :worker,      Worker
       attribute :claimed_at,  ClaimedAt
       given("the story has no active (held) claim - the structural mutex") { state != "held" }

@@ -30,6 +30,7 @@ Hecks.behaviors "Plan" do
   test "Start moves a tasked story to started" do
     tests "Start", on: "Story"
     setup  "Capture",        ref: "l7", title: "L7", tier: 1, summary: "s", target: "t", project: "plan"
+    setup  "Plan", number: "1", goal: "g", project: "plan"
     setup  "AssignToSprint", ref: "l7", sprint_ref: "1"
     setup  "Tasked",         ref: "l7"
     setup  "MarkSprintActive", ref: "l7"
@@ -40,6 +41,7 @@ Hecks.behaviors "Plan" do
   test "Start emits StoryStarted" do
     tests "Start", on: "Story"
     setup  "Capture",        ref: "l8", title: "L8", tier: 1, summary: "s", target: "t", project: "plan"
+    setup  "Plan", number: "1", goal: "g", project: "plan"
     setup  "AssignToSprint", ref: "l8", sprint_ref: "1"
     setup  "Tasked",         ref: "l8"
     setup  "MarkSprintActive", ref: "l8"
@@ -81,6 +83,7 @@ Hecks.behaviors "Plan" do
   test "AssignToSprint keeps state untasked (metadata-only since sprint 14)" do
     tests "AssignToSprint", on: "Story"
     setup  "Capture", ref: "l9", title: "L9", tier: 1, summary: "s", target: "t", project: "plan"
+    setup  "Plan", number: "1", goal: "g", project: "plan"
     input  ref: "l9", sprint_ref: "1"
     expect ref: "l9", state: "untasked", sprint: "1"
   end
@@ -130,44 +133,44 @@ Hecks.behaviors "Plan" do
   test "Task.Complete moves a pending task to done" do
     tests "Complete", on: "Task"
     setup  "Add", id: "l12-t0", story: "l12", order: 0, description: "do it"
-    input  id: "l12-t0"
+    input  id: "l12-t0", story: "l12"
     expect id: "l12-t0", status: "done"
   end
 
   test "Task.Complete emits TaskCompleted" do
     tests "Complete", on: "Task"
     setup  "Add", id: "l13-t0", story: "l13", order: 0, description: "do it"
-    input  id: "l13-t0"
+    input  id: "l13-t0", story: "l13"
     expect emits: ["TaskCompleted"]
   end
 
   test "Task.Cancel moves a pending task to cancelled" do
     tests "Cancel", on: "Task"
     setup  "Add", id: "l14-t0", story: "l14", order: 0, description: "drop it"
-    input  id: "l14-t0"
+    input  id: "l14-t0", story: "l14"
     expect id: "l14-t0", status: "cancelled"
   end
 
   test "Task.Cancel emits TaskCancelled" do
     tests "Cancel", on: "Task"
     setup  "Add", id: "l15-t0", story: "l15", order: 0, description: "drop it"
-    input  id: "l15-t0"
+    input  id: "l15-t0", story: "l15"
     expect emits: ["TaskCancelled"]
   end
 
   test "Task.Complete on an already-done task is refused" do
     tests "Complete", on: "Task"
     setup  "Add",      id: "l16-t0", story: "l16", order: 0, description: "x"
-    setup  "Complete", id: "l16-t0"
-    input  id: "l16-t0"
+    setup  "Complete", id: "l16-t0", story: "l16"
+    input  id: "l16-t0", story: "l16"
     expect refused: "task must not already be resolved"
   end
 
   test "Task.Reopen returns a done task to pending" do
     tests "Reopen", on: "Task"
     setup  "Add",      id: "l17-t0", story: "l17", order: 0, description: "x"
-    setup  "Complete", id: "l17-t0"
-    input  id: "l17-t0"
+    setup  "Complete", id: "l17-t0", story: "l17"
+    input  id: "l17-t0", story: "l17"
     expect id: "l17-t0", status: "pending"
   end
 
@@ -184,7 +187,7 @@ Hecks.behaviors "Plan" do
     # the owning Story (routed by the event payload's story field),
     # which emits PendingTaskCountBumped. Verified empirically against
     # a live store : pending_task_count moves from 0 → 1.
-    tests "Add", on: "Task", kind: :cascade
+    tests "Add", on: "Task"
     setup  "Capture", ref: "l22", title: "L22", tier: 1, summary: "s", target: "t", project: "plan"
     input  id: "l22-t0", story: "l22", order: 0, description: "cascade probe"
     expect emits: ["TaskAdded", "PendingTaskCountBumped"]
@@ -206,18 +209,19 @@ Hecks.behaviors "Plan" do
   test "Story.MarkReady on a started story with an outstanding task is refused" do
     tests "MarkReady", on: "Story"
     setup  "Capture",                         ref: "l18", title: "L18", tier: 1, summary: "s", target: "t", project: "plan"
+    setup  "Plan", number: "1", goal: "g", project: "plan"
     setup  "AssignToSprint",                  ref: "l18", sprint_ref: "1"
     setup  "Tasked",                          ref: "l18"
     setup  "MarkSprintActive", ref: "l18"
     setup  "Start",                           ref: "l18"
 
+    setup  "BumpPendingTaskCount",            ref: "l18"
     setup  "RequestReady",                           ref: "l18"
     setup  "RecordVerbResolvesCheckResult",   ref: "l18", ok: true
     setup  "RecordMergedCheckResult",         ref: "l18", ok: true
     setup  "RecordWorktreeCheckResult",       ref: "l18", ok: true
     setup  "RecordTestsCheckResult",          ref: "l18", ok: true
-    setup  "RecordPrMergeableCheckResult",    ref: "l18", ok: true
-    setup  "BumpPendingTaskCount",            ref: "l18"
+    setup  "RecordPrMergeableCheckResult",    ref: "l18", ok: true, tool: "check", output: "", exit_code: 0
     input  ref: "l18"
     expect refused: "ready_means_all_tasks_resolved"
   end
@@ -225,18 +229,19 @@ Hecks.behaviors "Plan" do
   test "Story.MarkReady succeeds once pending_task_count is 0" do
     tests "MarkReady", on: "Story"
     setup  "Capture",                         ref: "l19", title: "L19", tier: 1, summary: "s", target: "t", project: "plan"
+    setup  "Plan", number: "1", goal: "g", project: "plan"
     setup  "AssignToSprint",                  ref: "l19", sprint_ref: "1"
     setup  "Tasked",                          ref: "l19"
     setup  "MarkSprintActive", ref: "l19"
     setup  "Start",                           ref: "l19"
 
+    setup  "BumpPendingTaskCount",            ref: "l19"
     setup  "RequestReady",                           ref: "l19"
     setup  "RecordVerbResolvesCheckResult",   ref: "l19", ok: true
     setup  "RecordMergedCheckResult",         ref: "l19", ok: true
     setup  "RecordWorktreeCheckResult",       ref: "l19", ok: true
     setup  "RecordTestsCheckResult",          ref: "l19", ok: true
-    setup  "RecordPrMergeableCheckResult",    ref: "l19", ok: true
-    setup  "BumpPendingTaskCount",            ref: "l19"
+    setup  "RecordPrMergeableCheckResult",    ref: "l19", ok: true, tool: "check", output: "", exit_code: 0
     setup  "DropPendingTaskCount",            ref: "l19"
     input  ref: "l19"
     expect ref: "l19", state: "ready_for_review"
@@ -248,10 +253,10 @@ Hecks.behaviors "Plan" do
     # by the leaked task id names no Story and made the cascade silently error,
     # so pending_task_count never dropped. Add bumps to 1 ; Complete must emit
     # PendingTaskCountDropped (proof it found the owning Story).
-    tests "Complete", on: "Task", kind: :cascade
+    tests "Complete", on: "Task"
     setup "Capture", ref: "l24", title: "L24", tier: 1, summary: "s", target: "t", project: "plan"
     setup "Add",     id: "l24-t0", story: "l24", order: 0, description: "drop probe"
-    input id: "l24-t0"
+    input id: "l24-t0", story: "l24"
     expect emits: ["TaskCompleted", "PendingTaskCountDropped"]
   end
 
@@ -263,9 +268,10 @@ Hecks.behaviors "Plan" do
   # clear on MarkReady WITHOUT any Bump/Drop interaction. Regression guard
   # for the bug where the default was missing and the invariant rejected
   # MarkReady because None != 0.
-  test "Story.MarkReady succeeds on a freshly-Captured story without any task interactions" do
-    tests "MarkReady", on: "Story"
+  test "Story.MarkReady (auto-fired by the last recorded check) succeeds on a freshly-Captured story without any task interactions" do
+    tests "RecordPrMergeableCheckResult", on: "Story"
     setup  "Capture",                         ref: "l23", title: "L23", tier: 1, summary: "s", target: "t", project: "plan"
+    setup  "Plan", number: "1", goal: "g", project: "plan"
     setup  "AssignToSprint",                  ref: "l23", sprint_ref: "1"
     setup  "Tasked",                          ref: "l23"
     setup  "MarkSprintActive", ref: "l23"
@@ -276,8 +282,7 @@ Hecks.behaviors "Plan" do
     setup  "RecordMergedCheckResult",         ref: "l23", ok: true
     setup  "RecordWorktreeCheckResult",       ref: "l23", ok: true
     setup  "RecordTestsCheckResult",          ref: "l23", ok: true
-    setup  "RecordPrMergeableCheckResult",    ref: "l23", ok: true
-    input  ref: "l23"
+    input  ref: "l23", ok: true, tool: "check", output: "", exit_code: 0
     expect ref: "l23", state: "ready_for_review", pending_task_count: 0
   end
 
@@ -315,6 +320,7 @@ Hecks.behaviors "Plan" do
   test "Approve is refused when the worktree has not been removed" do
     tests "Approve", on: "Story"
     setup  "Capture",                       ref: "wr2", title: "WR", tier: 1, summary: "s", target: "t", project: "plan"
+    setup  "Plan", number: "1", goal: "g", project: "plan"
     setup  "AssignToSprint",                ref: "wr2", sprint_ref: "1"
     setup  "Tasked",                        ref: "wr2"
     setup  "MarkSprintActive", ref: "wr2"
@@ -325,8 +331,7 @@ Hecks.behaviors "Plan" do
     setup  "RecordMergedCheckResult",       ref: "wr2", ok: true
     setup  "RecordWorktreeCheckResult",     ref: "wr2", ok: true
     setup  "RecordTestsCheckResult",        ref: "wr2", ok: true
-    setup  "RecordPrMergeableCheckResult",  ref: "wr2", ok: true
-    setup  "MarkReady",                     ref: "wr2"
+    setup  "RecordPrMergeableCheckResult",  ref: "wr2", ok: true, tool: "check", output: "", exit_code: 0
     input  story: "wr2"
     expect refused: "removed_means_done"
   end
@@ -334,6 +339,7 @@ Hecks.behaviors "Plan" do
   test "Approve succeeds once the worktree is removed" do
     tests "Approve", on: "Story"
     setup  "Capture",                          ref: "wr3", title: "WR", tier: 1, summary: "s", target: "t", project: "plan"
+    setup  "Plan", number: "1", goal: "g", project: "plan"
     setup  "AssignToSprint",                   ref: "wr3", sprint_ref: "1"
     setup  "Tasked",                           ref: "wr3"
     setup  "MarkSprintActive", ref: "wr3"
@@ -344,9 +350,8 @@ Hecks.behaviors "Plan" do
     setup  "RecordMergedCheckResult",          ref: "wr3", ok: true
     setup  "RecordWorktreeCheckResult",        ref: "wr3", ok: true
     setup  "RecordTestsCheckResult",           ref: "wr3", ok: true
-    setup  "RecordPrMergeableCheckResult",    ref: "wr3", ok: true
+    setup  "RecordPrMergeableCheckResult",    ref: "wr3", ok: true, tool: "check", output: "", exit_code: 0
     setup  "RecordWorktreeRemovedCheckResult", ref: "wr3", ok: true
-    setup  "MarkReady",                        ref: "wr3"
     input  story: "wr3"
     expect ref: "wr3", state: "done"
   end
@@ -359,6 +364,7 @@ Hecks.behaviors "Plan" do
     # pr_mergeable false. The refused message is the given guard string.
     tests "MarkReady", on: "Story"
     setup  "Capture",                         ref: "pm1", title: "PM1", tier: 1, summary: "s", target: "t", project: "plan"
+    setup  "Plan", number: "1", goal: "g", project: "plan"
     setup  "AssignToSprint",                  ref: "pm1", sprint_ref: "1"
     setup  "Tasked",                          ref: "pm1"
     setup  "MarkSprintActive", ref: "pm1"
@@ -374,9 +380,10 @@ Hecks.behaviors "Plan" do
     expect refused: "the PR must be mergeable"
   end
 
-  test "Story.MarkReady succeeds once pr_mergeable is armed true" do
-    tests "MarkReady", on: "Story"
+  test "Story.MarkReady (auto-fired by the last recorded check) succeeds once pr_mergeable is armed true" do
+    tests "RecordPrMergeableCheckResult", on: "Story"
     setup  "Capture",                         ref: "pm2", title: "PM2", tier: 1, summary: "s", target: "t", project: "plan"
+    setup  "Plan", number: "1", goal: "g", project: "plan"
     setup  "AssignToSprint",                  ref: "pm2", sprint_ref: "1"
     setup  "Tasked",                          ref: "pm2"
     setup  "MarkSprintActive", ref: "pm2"
@@ -387,15 +394,14 @@ Hecks.behaviors "Plan" do
     setup  "RecordMergedCheckResult",         ref: "pm2", ok: true
     setup  "RecordWorktreeCheckResult",       ref: "pm2", ok: true
     setup  "RecordTestsCheckResult",          ref: "pm2", ok: true
-    setup  "RecordPrMergeableCheckResult",    ref: "pm2", ok: true
-    input  ref: "pm2"
+    input  ref: "pm2", ok: true, tool: "check", output: "", exit_code: 0
     expect ref: "pm2", state: "ready_for_review"
   end
 
   test "RecordPrMergeableCheckResult arms pr_mergeable" do
     tests "RecordPrMergeableCheckResult", on: "Story"
     setup  "Capture", ref: "pm3", title: "PM3", tier: 1, summary: "s", target: "t", project: "plan"
-    input  ref: "pm3", ok: true
+    input  ref: "pm3", ok: true, tool: "check", output: "", exit_code: 0
     expect ref: "pm3", pr_mergeable: true
   end
 
@@ -425,8 +431,8 @@ Hecks.behaviors "Plan" do
     setup  "Capture", ref: "dep5", title: "Dep story", tier: 1, summary: "s", target: "t", project: "plan"
     setup  "Capture", ref: "dep6", title: "Main story", tier: 1, summary: "s", target: "t", project: "plan"
     setup  "AddDependency", ref: "dep6", dependency: "dep5"
-    input  ref: "dep6", dependency: "dep5", dependencies: []
-    expect ref: "dep6"
+    input  ref: "dep6", dependency: "dep5"
+    expect ref: "dep6", dependencies: []
   end
 
   test "RemoveDependency emits DependencyRemoved" do
@@ -434,7 +440,7 @@ Hecks.behaviors "Plan" do
     setup  "Capture", ref: "dep7", title: "Dep story", tier: 1, summary: "s", target: "t", project: "plan"
     setup  "Capture", ref: "dep8", title: "Main story", tier: 1, summary: "s", target: "t", project: "plan"
     setup  "AddDependency", ref: "dep8", dependency: "dep7"
-    input  ref: "dep8", dependency: "dep7", dependencies: []
+    input  ref: "dep8", dependency: "dep7"
     expect emits: ["DependencyRemoved"]
   end
 
@@ -445,6 +451,7 @@ Hecks.behaviors "Plan" do
   test "Claimable includes a tasked story with no dependencies (unblocked)" do
     tests "Claimable", on: "Story", kind: :query
     setup  "Capture", ref: "clm1", title: "Claimable", tier: 1, summary: "s", target: "t", project: "plan"
+    setup  "Plan", number: "20", goal: "g", project: "plan"
     setup  "AssignToSprint", ref: "clm1", sprint_ref: "20"
     setup  "Tasked", ref: "clm1"
     expect includes: { ref: "clm1", state: "tasked" }
@@ -473,15 +480,15 @@ Hecks.behaviors "Plan" do
   test "RecordMainUpToDateCheckResult arms main_up_to_date when ok is true" do
     tests "RecordMainUpToDateCheckResult", on: "Story"
     setup  "Capture", ref: "mu1", title: "MU", tier: 1, summary: "s", target: "t", project: "plan"
-    input  ref: "mu1", ok: true
+    input  ref: "mu1", ok: true, tool: "check", output: "", exit_code: 0
     expect ref: "mu1", main_up_to_date: true
   end
 
   test "RecordMainUpToDateCheckResult clears main_up_to_date when ok is false" do
     tests "RecordMainUpToDateCheckResult", on: "Story"
     setup  "Capture",                         ref: "mu2", title: "MU", tier: 1, summary: "s", target: "t", project: "plan"
-    setup  "RecordMainUpToDateCheckResult",    ref: "mu2", ok: true
-    input  ref: "mu2", ok: false
+    setup  "RecordMainUpToDateCheckResult",    ref: "mu2", ok: true, tool: "check", output: "", exit_code: 0
+    input  ref: "mu2", ok: false, tool: "check", output: "", exit_code: 0
     expect ref: "mu2", main_up_to_date: false
   end
 
@@ -489,6 +496,7 @@ Hecks.behaviors "Plan" do
   test "RequestReady moves a started story to checking" do
     tests "RequestReady", on: "Story"
     setup  "Capture",        ref: "ck1", title: "C1", tier: 1, summary: "s", target: "t", project: "plan"
+    setup  "Plan", number: "1", goal: "g", project: "plan"
     setup  "AssignToSprint", ref: "ck1", sprint_ref: "1"
     setup  "Tasked",         ref: "ck1"
     setup  "MarkSprintActive", ref: "ck1"
@@ -498,8 +506,9 @@ Hecks.behaviors "Plan" do
   end
 
   test "A recorded check auto-advances checking to ready_for_review when all gates pass" do
-    tests "RecordPrMergeableCheckResult", on: "Story", kind: :cascade
+    tests "RecordPrMergeableCheckResult", on: "Story"
     setup  "Capture",                       ref: "ck2", title: "C2", tier: 1, summary: "s", target: "t", project: "plan"
+    setup  "Plan", number: "1", goal: "g", project: "plan"
     setup  "AssignToSprint",                ref: "ck2", sprint_ref: "1"
     setup  "Tasked",                        ref: "ck2"
     setup  "MarkSprintActive", ref: "ck2"
@@ -509,13 +518,14 @@ Hecks.behaviors "Plan" do
     setup  "RecordMergedCheckResult",       ref: "ck2", ok: true
     setup  "RecordWorktreeCheckResult",     ref: "ck2", ok: true
     setup  "RecordTestsCheckResult",        ref: "ck2", ok: true
-    input  ref: "ck2", ok: true
+    input  ref: "ck2", ok: true, tool: "check", output: "", exit_code: 0
     expect ref: "ck2", state: "ready_for_review"
   end
 
   test "A failing check leaves the story in checking (the gate holds)" do
-    tests "RecordPrMergeableCheckResult", on: "Story", kind: :cascade
+    tests "RecordPrMergeableCheckResult", on: "Story"
     setup  "Capture",                       ref: "ck3", title: "C3", tier: 1, summary: "s", target: "t", project: "plan"
+    setup  "Plan", number: "1", goal: "g", project: "plan"
     setup  "AssignToSprint",                ref: "ck3", sprint_ref: "1"
     setup  "Tasked",                        ref: "ck3"
     setup  "MarkSprintActive", ref: "ck3"
@@ -525,13 +535,14 @@ Hecks.behaviors "Plan" do
     setup  "RecordMergedCheckResult",       ref: "ck3", ok: true
     setup  "RecordWorktreeCheckResult",     ref: "ck3", ok: true
     setup  "RecordTestsCheckResult",        ref: "ck3", ok: true
-    input  ref: "ck3", ok: false
+    input  ref: "ck3", ok: false, tool: "check", output: "", exit_code: 1
     expect ref: "ck3", state: "checking"
   end
 
   test "ChecksFailed moves a checking story back to started" do
     tests "ChecksFailed", on: "Story"
     setup  "Capture",        ref: "cf1", title: "CF1", tier: 1, summary: "s", target: "t", project: "plan"
+    setup  "Plan", number: "1", goal: "g", project: "plan"
     setup  "AssignToSprint", ref: "cf1", sprint_ref: "1"
     setup  "Tasked",         ref: "cf1"
     setup  "MarkSprintActive", ref: "cf1"
@@ -601,7 +612,7 @@ Hecks.behaviors "Plan" do
   test "Plan refuses a sprint with an empty number" do
     tests "Plan", on: "Sprint"
     input  number: "", goal: "no number", project: "plan"
-    expect refused: "number must be set"
+    expect refused: "pass number.value"
   end
 
 
@@ -615,13 +626,13 @@ Hecks.behaviors "Plan" do
   test "Plan refuses a sprint with no project" do
     tests "Plan", on: "Sprint"
     input  number: "5", goal: "orphan sprint"
-    expect refused: "missing attribute: project"
+    expect refused: "was not given project"
   end
 
   test "Capture refuses a story with no project" do
     tests "Capture", on: "Story"
     input  ref: "np1", title: "No project", tier: 1, summary: "s", target: "t"
-    expect refused: "missing attribute: project"
+    expect refused: "was not given project"
   end
 
   test "Sprint.AssignToProject sets a sprint's project" do
@@ -635,13 +646,14 @@ Hecks.behaviors "Plan" do
     tests "AssignToProject", on: "Sprint"
     setup  "Plan", number: "201", goal: "g", project: "plan"
     input  id: "201"
-    expect refused: "missing attribute: project"
+    expect refused: "was not given project"
   end
 
 
   test "Start succeeds when the story sprint has ratified contracts" do
     tests "Start", on: "Story"
     setup  "Capture",        ref: "cg2", title: "CG2", tier: 1, summary: "s", target: "t", project: "plan"
+    setup  "Plan", number: "1", goal: "g", project: "plan"
     setup  "AssignToSprint", ref: "cg2", sprint_ref: "1"
     setup  "Tasked",         ref: "cg2"
     setup  "MarkSprintActive", ref: "cg2"
@@ -678,7 +690,7 @@ Hecks.behaviors "Plan" do
   test "Sprint.Plan refused without a number" do
     tests "Plan", on: "Sprint"
     input  number: "", goal: "g", project: "plan"
-    expect refused: "number must be set"
+    expect refused: "pass number.value"
   end
 
   test "Sprint.UpdateGoal refused with an empty goal" do
@@ -715,6 +727,7 @@ Hecks.behaviors "Plan" do
   test "Story.Start refused when untasked" do
     tests "Start", on: "Story"
     setup  "Capture",        ref: "rt2", title: "t", tier: 1, summary: "s", target: "t", project: "plan"
+    setup  "Plan", number: "1", goal: "g", project: "plan"
     setup  "AssignToSprint", ref: "rt2", sprint_ref: "1"
     setup  "MarkSprintActive", ref: "rt2"
     input  ref: "rt2"
@@ -725,20 +738,20 @@ Hecks.behaviors "Plan" do
   test "Task.Reopen refused when the task is not resolved" do
     tests "Reopen", on: "Task"
     setup  "Add", id: "tk1", story: "rt1", order: 1, description: "d"
-    input  id: "tk1"
+    input  id: "tk1", story: "rt1"
     expect refused: "task must currently be resolved"
   end
 
   test "Project.Activate refused when not paused" do
     tests "Activate", on: "Project"
-    setup  "Register", name: "pa1"
+    setup  "Register", name: "pa1", description: "a project"
     input  name: "pa1"
     expect refused: "must be paused"
   end
 
   test "Project.Pause refused when not active" do
     tests "Pause", on: "Project"
-    setup  "Register", name: "pa2"
+    setup  "Register", name: "pa2", description: "a project"
     setup  "Pause",    name: "pa2"
     input  name: "pa2"
     expect refused: "must be active"
@@ -776,6 +789,7 @@ Hecks.behaviors "Plan" do
     tests "Start", on: "Story"
     setup  "Capture",        ref: "dpar", title: "t", tier: 1, summary: "s", target: "t", project: "plan"
     setup  "Capture",        ref: "dchild", title: "t", tier: 1, summary: "s", target: "t", project: "plan"
+    setup  "Plan", number: "1", goal: "g", project: "plan"
     setup  "AssignToSprint", ref: "dchild", sprint_ref: "1"
     setup  "Tasked",         ref: "dchild"
     setup  "AddDependency",  ref: "dchild", dependency: "dpar"
@@ -788,14 +802,14 @@ Hecks.behaviors "Plan" do
   # its own active_sprint field. No cross-aggregate read.
   test "Project.ActivateSprint records the active sprint locally" do
     tests "ActivateSprint", on: "Project"
-    setup  "Register", name: "alpha"
+    setup  "Register", name: "alpha", description: "a project"
     input  project: "alpha", sprint_ref: "1"
     expect active_sprint: "1"
   end
 
   test "Project.ActivateSprint refuses a different sprint while one is active" do
     tests "ActivateSprint", on: "Project"
-    setup  "Register",       name: "beta"
+    setup  "Register",       name: "beta", description: "a project"
     setup  "Plan::Project.ActivateSprint", project: "beta", sprint_ref: "1"
     input  project: "beta", sprint_ref: "2"
     expect refused: "one active sprint per project"
@@ -803,7 +817,7 @@ Hecks.behaviors "Plan" do
 
   test "Project.ActivateSprint is idempotent on the same sprint" do
     tests "ActivateSprint", on: "Project"
-    setup  "Register",       name: "gamma"
+    setup  "Register",       name: "gamma", description: "a project"
     setup  "Plan::Project.ActivateSprint", project: "gamma", sprint_ref: "1"
     input  project: "gamma", sprint_ref: "1"
     expect active_sprint: "1"
@@ -811,7 +825,7 @@ Hecks.behaviors "Plan" do
 
   test "Project.DeactivateSprint clears the active sprint" do
     tests "DeactivateSprint", on: "Project"
-    setup  "Register",               name: "delta"
+    setup  "Register",               name: "delta", description: "a project"
     setup  "Plan::Project.ActivateSprint", project: "delta", sprint_ref: "1"
     input  project: "delta"
     expect active_sprint: ""
@@ -819,7 +833,7 @@ Hecks.behaviors "Plan" do
 
   test "Project.DeactivateSprint is refused when no sprint is active" do
     tests "DeactivateSprint", on: "Project"
-    setup  "Register", name: "epsilon"
+    setup  "Register", name: "epsilon", description: "a project"
     input  project: "epsilon"
     expect refused: "a sprint must be active to deactivate"
   end
@@ -844,6 +858,7 @@ Hecks.behaviors "Plan" do
   test "Story.Reset reverts a started story to tasked and clears sprint_active" do
     tests "Reset", on: "Story"
     setup  "Capture",          ref: "rst1", title: "RST1", tier: 1, summary: "s", target: "t", project: "plan"
+    setup  "Plan", number: "1", goal: "g", project: "plan"
     setup  "AssignToSprint",   ref: "rst1", sprint_ref: "1"
     setup  "MarkSprintActive", ref: "rst1"
     setup  "Tasked",           ref: "rst1"

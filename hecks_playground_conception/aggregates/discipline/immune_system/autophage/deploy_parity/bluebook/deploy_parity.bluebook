@@ -101,6 +101,7 @@ Hecks.bluebook "DeployParity", version: "2026.05.16.1" do
     command "StartSession" do
       role "System"
       goal "Reset per-session counters at boot. The parity state and history are NOT reset — they are the audit trail."
+      attribute :repo,               RepoPath
       attribute :session_started_at, Timestamp
       sets :last_check_at, to: :session_started_at
       emits "SessionStarted"
@@ -109,6 +110,7 @@ Hecks.bluebook "DeployParity", version: "2026.05.16.1" do
     command "Check" do
       role "System"
       goal "Probe the live Pages deployment and compare deployed_commit to main_head. The :exec arm runs `wrangler pages deployment list` and `git rev-parse main`. Pure declarative contract here — execution deferred to i629."
+      reference_to(DeployParity)
       attribute :checked_at,       Timestamp
       attribute :main_head,        CommitSha
       attribute :deployed_commit,  CommitSha
@@ -125,6 +127,7 @@ Hecks.bluebook "DeployParity", version: "2026.05.16.1" do
     command "RecordDrift" do
       role "System"
       goal "Record drift state after a Check finds main_head != deployed_commit. drift_age is the computed duration. Called by the :exec arm after a Check run that detects a gap."
+      reference_to(DeployParity)
       attribute :drift_age,   DriftAge
       attribute :recorded_at, Timestamp
       sets :drift_age
@@ -134,6 +137,7 @@ Hecks.bluebook "DeployParity", version: "2026.05.16.1" do
     command "Complain" do
       role "System"
       goal "Surface deploy drift as additional-context. Sets last_complaint + last_complaint_at so the statusline surfaces the gap on the next turn. git_connected=false warrants its own complaint line (CLI-only project)."
+      reference_to(DeployParity)
       attribute :complaint,         ComplaintText
       attribute :last_complaint_at, Timestamp
       sets :last_complaint,    to: :complaint
@@ -144,6 +148,7 @@ Hecks.bluebook "DeployParity", version: "2026.05.16.1" do
     command "Clear" do
       role "System"
       goal "Drift reconciled — Fibroblast ran the deploy and re-confirmed parity, or human deployed manually. Resets drift_age; records when the resolution happened."
+      reference_to(DeployParity)
       attribute :cleared_at, Timestamp
       emits "DriftCleared"
     end

@@ -43,6 +43,7 @@ Hecks.bluebook "ChangeTracker", version: "2026.05.16.1" do
     command "ScanForChanges" do
       role "System"
       goal "Compare file mtimes against last known state — find the delta"
+      attribute :name,               TrackerName
       attribute :tracked_files,      FileCount
       attribute :changed_since_last, ChangeCount
       emits "ChangesScanned"

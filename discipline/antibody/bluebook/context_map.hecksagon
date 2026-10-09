@@ -1,0 +1,4 @@
+# The sibling hecksagon every `attaches "Governance"` here needs (hecks 2.0+ refuses an attach with no
+# declared ACL side). Governance itself is carried by the gem; this block holds no wiring of its own.
+Hecks.hecksagon "Governance" do
+end

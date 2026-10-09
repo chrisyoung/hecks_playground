@@ -3,18 +3,21 @@ Hecks.behaviors "Conductor" do
 
   test "Acquire creates a held claim" do
     tests "Acquire", on: "Claim"
+    setup  "Conductor::Worker.Register", worker_id: "w1", stale_after: 4102444800
     input  story: "s1", worker: "w1", claimed_at: "t0"
     expect story: "s1", state: "held"
   end
 
   test "Acquire stores the worker foreign key" do
     tests "Acquire", on: "Claim"
+    setup  "Conductor::Worker.Register", worker_id: "w1", stale_after: 4102444800
     input  story: "s1b", worker: "w1", claimed_at: "t0"
     expect story: "s1b", worker: "w1", state: "held"
   end
 
   test "Release moves a held claim to released" do
     tests "Release", on: "Claim"
+    setup  "Conductor::Worker.Register", worker_id: "w1", stale_after: 4102444800
     setup  "Acquire", story: "s2", worker: "w1", claimed_at: "t0"
     input  story: "s2"
     expect state: "released"
@@ -22,6 +25,7 @@ Hecks.behaviors "Conductor" do
 
   test "Expire moves a held claim to expired" do
     tests "Expire", on: "Claim"
+    setup  "Conductor::Worker.Register", worker_id: "w1", stale_after: 4102444800
     setup  "Acquire", story: "s3", worker: "w1", claimed_at: "t0"
     input  story: "s3"
     expect state: "expired"
@@ -29,6 +33,8 @@ Hecks.behaviors "Conductor" do
 
   test "Acquire is refused when the story already has a held claim (the mutex)" do
     tests "Acquire", on: "Claim"
+    setup  "Conductor::Worker.Register", worker_id: "w1", stale_after: 4102444800
+    setup  "Conductor::Worker.Register", worker_id: "w2", stale_after: 4102444800
     setup  "Acquire", story: "s9", worker: "w1", claimed_at: "t0"
     input  story: "s9", worker: "w2", claimed_at: "t1"
     expect refused: "the story has no active (held) claim - the structural mutex"
@@ -36,6 +42,8 @@ Hecks.behaviors "Conductor" do
 
   test "A released claim can be re-acquired" do
     tests "Acquire", on: "Claim"
+    setup  "Conductor::Worker.Register", worker_id: "w1", stale_after: 4102444800
+    setup  "Conductor::Worker.Register", worker_id: "w2", stale_after: 4102444800
     setup  "Acquire", story: "s10", worker: "w1", claimed_at: "t0"
     setup  "Release", story: "s10"
     input  story: "s10", worker: "w2", claimed_at: "t2"
@@ -48,12 +56,14 @@ Hecks.behaviors "Conductor" do
 
   test "Active includes a held claim" do
     tests "Active", on: "Claim", kind: :query
+    setup  "Conductor::Worker.Register", worker_id: "w1", stale_after: 4102444800
     setup  "Acquire", story: "s11", worker: "w1", claimed_at: "t0"
     expect includes: { story: "s11", state: "held" }
   end
 
   test "Active excludes a released claim" do
     tests "Active", on: "Claim", kind: :query
+    setup  "Conductor::Worker.Register", worker_id: "w1", stale_after: 4102444800
     setup  "Acquire", story: "s12", worker: "w1", claimed_at: "t0"
     setup  "Release", story: "s12"
     expect count: 0
@@ -61,6 +71,7 @@ Hecks.behaviors "Conductor" do
 
   test "Active excludes an expired claim" do
     tests "Active", on: "Claim", kind: :query
+    setup  "Conductor::Worker.Register", worker_id: "w1", stale_after: 4102444800
     setup  "Acquire", story: "s13", worker: "w1", claimed_at: "t0"
     setup  "Expire",  story: "s13"
     expect count: 0
@@ -72,6 +83,7 @@ Hecks.behaviors "Conductor" do
 
   test "HeldByWorker includes a held claim for that worker" do
     tests "HeldByWorker", on: "Claim", kind: :query
+    setup  "Conductor::Worker.Register", worker_id: "w1", stale_after: 4102444800
     setup  "Acquire", story: "s14", worker: "w1", claimed_at: "t0"
     input  worker: "w1"
     expect includes: { story: "s14", worker: "w1", state: "held" }
@@ -79,6 +91,8 @@ Hecks.behaviors "Conductor" do
 
   test "HeldByWorker excludes a claim held by a different worker" do
     tests "HeldByWorker", on: "Claim", kind: :query
+    setup  "Conductor::Worker.Register", worker_id: "w2", stale_after: 4102444800
+    setup  "Conductor::Worker.Register", worker_id: "w1", stale_after: 4102444800
     setup  "Acquire", story: "s15", worker: "w2", claimed_at: "t0"
     input  worker: "w1"
     expect count: 0
@@ -86,6 +100,7 @@ Hecks.behaviors "Conductor" do
 
   test "HeldByWorker excludes a released claim for that worker" do
     tests "HeldByWorker", on: "Claim", kind: :query
+    setup  "Conductor::Worker.Register", worker_id: "w1", stale_after: 4102444800
     setup  "Acquire", story: "s16", worker: "w1", claimed_at: "t0"
     setup  "Release", story: "s16"
     input  worker: "w1"

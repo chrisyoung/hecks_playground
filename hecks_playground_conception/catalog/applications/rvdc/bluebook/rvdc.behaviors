@@ -5,14 +5,15 @@ Hecks.behaviors "RVDC" do
 
   test "Boot sets port" do
     tests "Boot", on: "App"
-    input  port: 1
+    input  name: "rvdc", port: 1
     expect ok: "true"
   end
 
   test "RegisterDomains sets domains" do
     tests "RegisterDomains", on: "App"
-    input  domains: "sample"
-    expect domains: "sample"
+    setup  "Boot", name: "rvdc", port: 1
+    input  name: "rvdc", domains: [{ value: "Electrical" }]
+    expect domains: [{ value: "Electrical" }]
   end
 
 end

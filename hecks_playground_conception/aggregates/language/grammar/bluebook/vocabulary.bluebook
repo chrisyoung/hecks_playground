@@ -46,6 +46,7 @@ Hecks.bluebook "Vocabulary", version: "2026.06.14.1" do
     command "Compile" do
       role "System"
       goal "Walk all bluebooks, enumerate valid sentences and compositions, build the phrase book"
+      attribute :name, Name, default: { value: "vocabulary" }
       emits "VocabularyCompiled"
       sets :last_compiled, to: "now"
     end
@@ -61,16 +62,16 @@ Hecks.bluebook "Vocabulary", version: "2026.06.14.1" do
 
   policy "CompileOnDefine" do
     on "SentenceDefined"
-    trigger Vocabulary::Compile
+    trigger Vocabulary::Compile, with: { name: "vocabulary" }
   end
 
   policy "CompileOnCompose" do
     on "CompositionCreated"
-    trigger Vocabulary::Compile
+    trigger Vocabulary::Compile, with: { name: "vocabulary" }
   end
 
   policy "CompileOnGrant" do
     on "AccessGranted"
-    trigger Vocabulary::Compile
+    trigger Vocabulary::Compile, with: { name: "vocabulary" }
   end
 end

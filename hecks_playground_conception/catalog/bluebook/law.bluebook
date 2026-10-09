@@ -74,6 +74,7 @@ Hecks.bluebook "Law", version: "2026.05.12.1" do
       role "Architect"
       goal "Change the check or description of an existing law"
       reference_to(Law)
+      attribute :name, Name
       attribute :description, Description
       attribute :check_expression, CheckExpression
       emits "LawAmended"
@@ -85,6 +86,7 @@ Hecks.bluebook "Law", version: "2026.05.12.1" do
       role "Architect"
       goal "Temporarily disable a law — it still exists but is not enforced"
       reference_to(Law)
+      attribute :name, Name
       emits "LawSuspended"
     end
 
@@ -92,6 +94,7 @@ Hecks.bluebook "Law", version: "2026.05.12.1" do
       role "Architect"
       goal "Re-enable a suspended law"
       reference_to(Law)
+      attribute :name, Name
       emits "LawReinstated"
     end
 
@@ -99,6 +102,11 @@ Hecks.bluebook "Law", version: "2026.05.12.1" do
       role "Enforcer"
       goal "A contract check found this law was violated"
       reference_to(Law)
+      attribute :name, Name
+      attribute :violator, String
+      attribute :location, String
+      attribute :detail, String
+      attribute :detected_at, String
       emits "ViolationRecorded"
       sets :violation_count, increment: 1
     end
@@ -178,6 +186,9 @@ Hecks.bluebook "Law", version: "2026.05.12.1" do
       role "Architect"
       goal "Mark a violation as resolved — the offending code or domain was fixed"
       reference_to(Violation)
+      attribute :law_name, LawName
+      attribute :violator, Violator
+      attribute :detected_at, DetectedAt
       emits "ViolationResolved"
     end
 
@@ -263,6 +274,7 @@ Hecks.bluebook "Law", version: "2026.05.12.1" do
       role "Enforcer"
       goal "Record the result of checking one law"
       reference_to(Enforcement)
+      attribute :enforcement_id, EnforcementId
       attribute :passed, TrueClass
       emits "LawChecked"
     end
@@ -271,7 +283,8 @@ Hecks.bluebook "Law", version: "2026.05.12.1" do
       role "Enforcer"
       goal "All laws checked — render final verdict"
       reference_to(Enforcement)
-      attribute :enforced_at, EnforcedAt
+      attribute :enforcement_id, EnforcementId
+      attribute :enforced_at, EnforcedAt, optional: true
       emits "EnforcementConcluded"
       sets :enforced_at
     end
@@ -280,6 +293,7 @@ Hecks.bluebook "Law", version: "2026.05.12.1" do
       role "Enforcer"
       goal "Every law passed — scope is lawful"
       reference_to(Enforcement)
+      attribute :enforcement_id, EnforcementId
       emits "ScopeLawful"
       given("no violations") { laws_violated == 0 }
     end
@@ -288,6 +302,7 @@ Hecks.bluebook "Law", version: "2026.05.12.1" do
       role "Enforcer"
       goal "One or more laws were violated — scope is unlawful"
       reference_to(Enforcement)
+      attribute :enforcement_id, EnforcementId
       emits "ScopeUnlawful"
     end
 
@@ -301,12 +316,12 @@ Hecks.bluebook "Law", version: "2026.05.12.1" do
   # Enforcement flow
   policy "ReportOnViolation" do
     on "ViolationRecorded"
-    trigger Report
+    trigger Violation::Report, with: { law_name: :name, violator: :violator, location: :location, detail: :detail, detected_at: :detected_at }
   end
 
   policy "ConcludeOnAllChecked" do
     on "LawChecked"
-    trigger Conclude
+    trigger Enforcement::Conclude, with: { enforcement_id: :enforcement_id }
   end
 
   # === The Laws ===

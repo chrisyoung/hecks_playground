@@ -24,16 +24,18 @@ Hecks.bluebook "CloudflareDeploy", version: "2026.05.12.1" do
 
   # === Deployment — one command, full stack ===
 
-  aggregate "Deployment", "The full deploy — D1 + Worker + Pages in one shot" do
+  aggregate "Deployment" do
+
+    description "The full deploy — D1 + Worker + Pages in one shot"
     identified_by :name
     # Singleton key — deploys are one-at-a-time per environment ; the
     # whole pipeline operates on the same Deployment record so the
     # provisioned → migrated → ... lifecycle advances. Defaults to
     # "deploy" so callers don't have to thread the id through every
     # step ; the runtime's singleton fallback finds the row.
-    attribute :name, DeploymentName, default: "deploy"
+    attribute :name, DeploymentName, default: { value: "deploy" }
     # Lifecycle-tracked field — wrapped + default so dispatch reads back "pending".
-    attribute :status, DeploymentStatus, default: "pending"
+    attribute :status, DeploymentStatus, default: { value: "pending" }
     attribute :worker_url, WorkerUrl
     attribute :pages_url, PagesUrl
     attribute :d1_database_id, D1DatabaseId
@@ -78,39 +80,43 @@ Hecks.bluebook "CloudflareDeploy", version: "2026.05.12.1" do
 
     command "ProvisionD1" do
       role "System"
-      description "Run wrangler d1 create — provision the database"
-      attribute :database_name, DatabaseName
+      goal "Run wrangler d1 create — provision the database"
+      attribute :name, DeploymentName, default: { value: "deploy" }
+      attribute :database_name, DatabaseName, optional: true
+      sets :name
       emits "D1Provisioned"
     end
 
     command "ApplyMigrations" do
       role "System"
-      description "Run wrangler d1 migrations apply — create tables"
+      goal "Run wrangler d1 migrations apply — create tables"
+      reference_to(Deployment)
       emits "MigrationsApplied"
     end
 
     command "DeployWorker" do
       role "System"
-      description "Run wrangler deploy — push the API to Workers"
+      goal "Run wrangler deploy — push the API to Workers"
+      reference_to(Deployment)
       emits "WorkerDeployed"
     end
 
     command "DeployPages" do
       role "System"
-      description "Run wrangler pages deploy — push the site to Pages"
+      goal "Run wrangler pages deploy — push the site to Pages"
+      reference_to(Deployment)
       emits "PagesDeployed"
     end
 
     command "MarkLive" do
       role "System"
-      description "Everything deployed — record the URLs and timestamp"
+      goal "Everything deployed — record the URLs and timestamp"
       reference_to(Deployment)
-      attribute :worker_url, WorkerUrl
-      attribute :pages_url, PagesUrl
+      attribute :worker_url, WorkerUrl, optional: true
+      attribute :pages_url, PagesUrl, optional: true
       emits "AppLive"
-      then_set :status, to: "live"
-      then_set :worker_url, to: :worker_url
-      then_set :pages_url, to: :pages_url
+      sets :worker_url
+      sets :pages_url
     end
 
     lifecycle :status, default: "pending" do
@@ -131,20 +137,22 @@ Hecks.bluebook "CloudflareDeploy", version: "2026.05.12.1" do
   # cross-bluebook reference is purely declarative — both bluebooks
   # must be loaded together for the full pipeline to dispatch.
 
-  workflow "Deploy" do
-    description "From bluebook to live app — API + UI + database on Cloudflare"
-    step "Compile"
-    step "GenerateWorker"
-    step "GenerateSite"
-    step "GenerateMigrations"
-    step "GenerateConfig"
-    step "WireApiCalls"
-    step "ProvisionD1"
-    step "ApplyMigrations"
-    step "DeployWorker"
-    step "DeployPages"
-    step "MarkLive"
-  end
+  # Parked: the published gem has no `workflow` word (the policies below already
+  # carry the sequence). Restore when the gem gains one.
+  # workflow "Deploy" do
+  # description "From bluebook to live app — API + UI + database on Cloudflare"
+  # step "Compile"
+  # step "GenerateWorker"
+  # step "GenerateSite"
+  # step "GenerateMigrations"
+  # step "GenerateConfig"
+  # step "WireApiCalls"
+  # step "ProvisionD1"
+  # step "ApplyMigrations"
+  # step "DeployWorker"
+  # step "DeployPages"
+  # step "MarkLive"
+  # end
 
   # ============================================================
   # POLICIES — the deploy sequence
@@ -156,27 +164,27 @@ Hecks.bluebook "CloudflareDeploy", version: "2026.05.12.1" do
 
   policy "ProvisionAfterConfig" do
     on "ConfigGenerated"
-    trigger "ProvisionD1"
+    trigger Deployment::ProvisionD1
   end
 
   policy "MigrateAfterProvision" do
     on "D1Provisioned"
-    trigger "ApplyMigrations"
+    trigger Deployment::ApplyMigrations, with: { name: :name }
   end
 
   policy "WorkerAfterMigrate" do
     on "MigrationsApplied"
-    trigger "DeployWorker"
+    trigger Deployment::DeployWorker, with: { name: :name }
   end
 
   policy "PagesAfterWorker" do
     on "WorkerDeployed"
-    trigger "DeployPages"
+    trigger Deployment::DeployPages, with: { name: :name }
   end
 
   policy "LiveAfterPages" do
     on "PagesDeployed"
-    trigger "MarkLive"
+    trigger Deployment::MarkLive, with: { name: :name }
   end
 
   # ============================================================

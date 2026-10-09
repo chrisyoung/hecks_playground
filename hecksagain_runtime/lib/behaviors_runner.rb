@@ -107,10 +107,12 @@ module HecksagainRuntime
     # the runtime state resets per test.
     def run_corpus(root)
       files = Dir.glob(File.join(root, "**", "*.behaviors")).sort
+      Expectations.snapshot_stores(root)
       staged = HecksagainRuntime.stage_flat_corpus(root)
       results = files.map { |f| run_file(f, corpus_root: root, staged_root: staged) }
       { root: root, files_swept: files.size, files: results, summary: summarize(results) }
     ensure
+      Expectations.reset_stores(root, staged) if staged
       FileUtils.remove_entry(staged) if staged && staged != root && File.exist?(staged)
     end
 

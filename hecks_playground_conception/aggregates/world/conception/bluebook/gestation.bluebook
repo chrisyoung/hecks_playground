@@ -69,7 +69,7 @@ Hecks.bluebook "Gestation", version: "2026.05.12.1" do
       role "Miette"
       goal "Scaffold the hecks_playground/ folder with one bluebook per bounded context"
       attribute :project_name, ProjectName
-      attribute :nursery_path, NurseryPath
+      attribute :nursery_path, NurseryPath, default: { value: "" }
       attribute :bounded_contexts, list_of(BoundedContextName)
       emits "GestationStarted"
       sets :project_name
@@ -116,6 +116,6 @@ Hecks.bluebook "Gestation", version: "2026.05.12.1" do
 
   policy "GestateOnConception" do
     on "DomainConceived"
-    trigger StartGestation
+    trigger Gestation::StartGestation, with: { project_name: :name, bounded_contexts: :bounded_contexts }
   end
 end

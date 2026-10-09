@@ -128,6 +128,7 @@ Hecks.bluebook "Driving", version: "2026.06.20.1" do
     command "AddDispatch" do
       role "Framework"
       goal "Add (or replace) one ordered command this Driver fires per tick. Keyed by dispatch_id ('<name>:<order>') so re-adding upserts. `when` gates clock-kind dispatches to an hour-range ; interval/cron pass '—'."
+      reference_to(Driver)
       attribute :dispatch_id, DispatchId
       attribute :command,     CommandFqn
       attribute :order,       Order
@@ -139,6 +140,7 @@ Hecks.bluebook "Driving", version: "2026.06.20.1" do
     command "Fire" do
       role "System"
       goal "One tick of the clock. The live realization is `storehouse drive` (the interval scheduler) : per poll it enumerates the due `driving on interval` handlers, dispatches each Driver's Dispatch entities in order against its root through storehouse, and stamps last_fired_at. Fire only records the tick — the per-Dispatch fan-out is the runtime's job, mirroring ProcessMacrophage.Sweep and Inbox.Check (the dispatch IS the act)."
+      reference_to(Driver)
       attribute :fired_at, Timestamp
       sets :last_fired_at, to: :fired_at
       emits "Fired"

@@ -6,7 +6,7 @@ Hecks.behaviors "Immunity" do
 
   test "DetectThreat sets threat_pattern" do
     tests "DetectThreat", on: "Immunity"
-    input  threat_pattern: "sample"
+    input  name: { value: "immunity" }, threat_pattern: "sample"
     expect ok: "true"
   end
 
@@ -19,33 +19,36 @@ Hecks.behaviors "Immunity" do
 
   test "GraftVerbImmunity sets noun_suffixes + adjective_suffixes + dual_words" do
     tests "GraftVerbImmunity", on: "Immunity"
-    setup  "DetectThreat", threat_pattern: "sample"
-    input  noun_suffixes: "sample", adjective_suffixes: "sample", dual_words: "sample"
-    expect noun_suffixes: "sample", adjective_suffixes: "sample", dual_words: "sample"
+    setup  "DetectThreat", name: { value: "immunity" }, threat_pattern: "sample"
+    input  immunity: "immunity", noun_suffixes: [{ value: "sample" }], adjective_suffixes: [{ value: "sample" }], dual_words: [{ value: "sample" }]
+    expect noun_suffixes: ["sample"], adjective_suffixes: ["sample"], dual_words: ["sample"]
   end
 
   test "GenerateAntibody sets pattern + learned_from" do
     tests "GenerateAntibody", on: "Immunity"
-    input  pattern: "sample", learned_from: "sample"
-    expect antibodies_size: 1
+    setup  "DetectThreat", name: { value: "immunity" }, threat_pattern: "sample"
+    input  immunity: "immunity", pattern: "sample", learned_from: "sample"
+    expect antibodies: [{ pattern: "sample", learned_from: "sample", strength: 1 }]
   end
 
   test "StrengthenAntibody sets pattern" do
     tests "StrengthenAntibody", on: "Immunity"
-    setup  "DetectThreat", threat_pattern: "sample"
-    input  pattern: "sample"
+    setup  "DetectThreat", name: { value: "immunity" }, threat_pattern: "sample"
+    input  immunity: "immunity", pattern: "sample"
     expect ok: "true"
   end
 
   test "Neutralize runs" do
     tests "Neutralize", on: "Immunity"
-    setup  "DetectThreat", threat_pattern: "sample"
+    setup  "DetectThreat", name: { value: "immunity" }, threat_pattern: "sample"
+    input  immunity: "immunity", pattern: "sample", learned_from: "sample"
     expect ok: "true"
   end
 
   test "Neutralize cascades through policy chain" do
     tests "Neutralize", on: "Immunity", kind: :cascade
-    setup  "DetectThreat", threat_pattern: "sample"
+    setup  "DetectThreat", name: { value: "immunity" }, threat_pattern: "sample"
+    input  immunity: "immunity", pattern: "sample", learned_from: "sample"
     expect emits: ["ThreatNeutralized", "AntibodyGenerated"]
   end
 end

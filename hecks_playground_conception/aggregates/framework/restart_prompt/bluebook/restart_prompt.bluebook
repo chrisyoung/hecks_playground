@@ -34,7 +34,7 @@ Hecks.bluebook "RestartPrompt", version: "2026.05.19.1" do
 
     attribute :name,               Name,             default: { value: "miette" }
     attribute :latest_content,     ComposedContent,  default: { value: "—" }
-    attribute :latest_at,          Timestamp,        default: { value: "—" }
+    attribute :latest_at,          Timestamp,        default: { iso8601: "—" }
     attribute :latest_session_id,  SessionId,        default: { value: "—" }
     attribute :total_compositions, Count,            default: { value: 0 }
 
@@ -89,8 +89,9 @@ Hecks.bluebook "RestartPrompt", version: "2026.05.19.1" do
     command "Compose" do
       role "Framework"
       goal "Record a new session recap as the latest restart prompt. Sets latest_content, latest_at, latest_session_id to the incoming values ; records total_compositions from the caller (caller reads current state, increments externally). Emits RestartPromptComposed — the daemon catches this event and writes restarts_inbox/latest.md."
+      attribute :name,                Name
       attribute :content,             ComposedContent
-      attribute :session_id,          SessionId
+      attribute :session_id,         SessionId
       attribute :composed_at,         Timestamp
       attribute :total_compositions,  Count
       emits "Composed"

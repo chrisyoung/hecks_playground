@@ -30,8 +30,9 @@ Hecks.behaviors "Fibroblast" do
            signal_source:    { kind: "autophage" },
            signal_aggregate: { name: "NavSitemapParity" },
            received_at:      { value: "2026-05-16T01:00:00Z" }
-    input  strategy: { name: "nav_sitemap_close" }
-    expect strategy: { name: "nav_sitemap_close" }
+    input  signal_id: { value: "nsp-drift-001" },
+           strategy: { name: "nav_sitemap_close" }
+    expect strategy: "nav_sitemap_close"
   end
 
   test "SelectStrategy emits StrategySelected" do
@@ -41,7 +42,8 @@ Hecks.behaviors "Fibroblast" do
            signal_source:    { kind: "autophage" },
            signal_aggregate: { name: "NavSitemapParity" },
            received_at:      { value: "2026-05-16T01:00:00Z" }
-    input  strategy: { name: "nav_sitemap_close" }
+    input  signal_id: { value: "nsp-drift-001" },
+           strategy: { name: "nav_sitemap_close" }
     expect emits: ["StrategySelected"]
   end
 
@@ -54,7 +56,8 @@ Hecks.behaviors "Fibroblast" do
            signal_source:    { kind: "autophage" },
            signal_aggregate: { name: "NavSitemapParity" },
            received_at:      { value: "2026-05-16T01:00:00Z" }
-    input  commit_sha: { value: "abc1234" },
+    input  signal_id: { value: "nsp-drift-002" },
+           commit_sha: { value: "abc1234" },
            healed_at:  { value: "2026-05-16T01:02:00Z" }
     expect commit_sha: { value: "abc1234" }
   end
@@ -66,7 +69,8 @@ Hecks.behaviors "Fibroblast" do
            signal_source:    { kind: "autophage" },
            signal_aggregate: { name: "NavSitemapParity" },
            received_at:      { value: "2026-05-16T01:00:00Z" }
-    input  commit_sha: { value: "abc1234" },
+    input  signal_id: { value: "nsp-drift-002" },
+           commit_sha: { value: "abc1234" },
            healed_at:  { value: "2026-05-16T01:02:00Z" }
     expect emits: ["Healed"]
   end
@@ -84,7 +88,8 @@ Hecks.behaviors "Fibroblast" do
            signal_source:    { kind: "macrophage" },
            signal_aggregate: { name: "BidirectionalAssociation" },
            received_at:      { value: "2026-05-16T01:00:00Z" }
-    input  reason:      { value: "Signal from BidirectionalAssociation does not map to a declared first-target strategy — surfacing to human." },
+    input  signal_id: { value: "mac-001" },
+           reason:      { value: "Signal from BidirectionalAssociation does not map to a declared first-target strategy — surfacing to human." },
            declined_at: { value: "2026-05-16T01:00:30Z" }
     expect last_complaint: { value: "Signal from BidirectionalAssociation does not map to a declared first-target strategy — surfacing to human." }
   end
@@ -96,7 +101,8 @@ Hecks.behaviors "Fibroblast" do
            signal_source:    { kind: "macrophage" },
            signal_aggregate: { name: "BidirectionalAssociation" },
            received_at:      { value: "2026-05-16T01:00:00Z" }
-    input  reason:      { value: "No unambiguous strategy for this signal." },
+    input  signal_id: { value: "mac-001" },
+           reason:      { value: "No unambiguous strategy for this signal." },
            declined_at: { value: "2026-05-16T01:00:30Z" }
     expect emits: ["Declined"]
   end
@@ -110,7 +116,8 @@ Hecks.behaviors "Fibroblast" do
            signal_source:    { kind: "autophage" },
            signal_aggregate: { name: "NavSitemapParity" },
            received_at:      { value: "2026-05-16T01:00:00Z" }
-    input  outcome:     { status: "closed", reason: "" },
+    input  signal_id: { value: "nsp-drift-003" },
+           outcome:     { status: "closed", reason: "" },
            recorded_at: { value: "2026-05-16T01:03:00Z" }
     expect emits: ["OutcomeRecorded"]
   end
@@ -125,15 +132,15 @@ Hecks.behaviors "Fibroblast" do
 
   test "Sweep records the tick start" do
     tests "Sweep", on: "Fibroblast"
-    input  id:       { value: "sweep" },
-           swept_at: { value: "2026-05-22T07:22:00Z" }
+    input  signal_id: { value: "sweep" },
+           swept_at:  { value: "2026-05-22T07:22:00Z" }
     expect started_at: { value: "2026-05-22T07:22:00Z" }
   end
 
   test "Sweep emits SweepRan" do
     tests "Sweep", on: "Fibroblast"
-    input  id:       { value: "sweep" },
-           swept_at: { value: "2026-05-22T07:22:00Z" }
+    input  signal_id: { value: "sweep" },
+           swept_at:  { value: "2026-05-22T07:22:00Z" }
     expect emits: ["SweepRan"]
   end
 end

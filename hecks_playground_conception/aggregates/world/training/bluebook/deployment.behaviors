@@ -6,7 +6,7 @@ Hecks.behaviors "Deployment" do
 
   test "DeployModel sets model_path + serving_method" do
     tests "DeployModel", on: "Deployment"
-    input  model_path: "sample", serving_method: "sample"
-    expect model_path: "sample", serving_method: "sample", status: "live"
+    input  name: "sample", model_path: "sample", serving_method: "sample"
+    expect name: "sample", model_path: "sample", serving_method: "sample", status: "live"
   end
 end

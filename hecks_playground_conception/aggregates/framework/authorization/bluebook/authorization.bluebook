@@ -136,6 +136,7 @@ Hecks.bluebook "Authorization", version: "2026.06.27.1" do
     command "Assign" do
       role "Framework"
       goal "Assign (upsert by auth identity) a role to a principal. Re-assigning replaces the role — the audit trail keeps both events. Idempotent : the roster re-asserts each boot."
+      reference_to(RoleAssignment)
       attribute :auth_identity_id, AuthIdentityId
       attribute :role_name,        RoleName
       sets :auth_identity_id

@@ -143,6 +143,7 @@ Hecks.bluebook "Pizzas" do
       role "Customer"
       goal "Cancel a pending order before preparation starts"
       reference_to(Order)
+      attribute :order_id, OrderId
       emits "OrderCancelled"
     end
 

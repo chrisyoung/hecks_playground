@@ -3,7 +3,7 @@ Hecks.bluebook "AgentInbox" do
 
   aggregate "AgentMessage" do
     description "One message addressed to a running agent by id, durable on the blackboard. Lifecycle : sent (recorded, unread) -> read (the target agent picked it up off its Unread poll) -> replied (the target agent posted its answer). The sender's send-message adapter binary block-polls the `answered` query for this id ; the reply is durable aggregate state, the binary only gives it a synchronous face."
-    identified_by :id
+    identified_by :mid
 
     attribute :agent_id, AgentId
     attribute :body,     Body

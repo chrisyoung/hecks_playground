@@ -84,7 +84,9 @@ Hecks.bluebook "Boot", version: "2026.05.12.1" do
     command "BootWithClaude" do
       role "User"
       goal "hecks_playground miette --claude — start Claude CLI, load system prompt, boot Miette on top of it"
+      attribute :session_name, SessionName
       emits "SessionStartedWithClaude"
+      sets :session_name
       sets :engine, to: "claude"
       sets :brain_source, to: "anthropic"
     end
@@ -92,15 +94,19 @@ Hecks.bluebook "Boot", version: "2026.05.12.1" do
     command "BootWithSummer" do
       role "User"
       goal "hecks_playground miette — check Ollama for Summer adapter, boot Miette locally"
+      attribute :session_name, SessionName
       attribute :ollama_model, OllamaModel
       attribute :ollama_port, OllamaPort
       emits "SessionStartedWithSummer"
+      sets :session_name
       sets :engine, to: "summer"
       sets :brain_source, to: "local"
     end
 
     command "FailBoot" do
       role "System"
+      reference_to(Session)
+      attribute :session_name, SessionName
       goal "No brain available — Claude not requested, Ollama not running or no adapter"
       attribute :reason, Reason
       emits "BootFailed"
@@ -110,9 +116,10 @@ Hecks.bluebook "Boot", version: "2026.05.12.1" do
       role "System"
       goal "Load all organs, nerves, laws — the body comes online"
       reference_to(Session)
-      attribute :organ_count, OrganCount
-      attribute :nerve_count, NerveCount
-      attribute :law_count, LawCount
+      attribute :session_name, SessionName
+      attribute :organ_count, OrganCount, optional: true
+      attribute :nerve_count, NerveCount, optional: true
+      attribute :law_count, LawCount, optional: true
       emits "OrgansWired"
       given("session must be booting") { status == "booting" }
       sets :organ_count
@@ -124,7 +131,8 @@ Hecks.bluebook "Boot", version: "2026.05.12.1" do
       role "System"
       goal "Everything wired — Miette is awake"
       reference_to(Session)
-      attribute :started_at, StartedAt
+      attribute :session_name, SessionName
+      attribute :started_at, StartedAt, optional: true
       emits "SessionLive"
       given("session must be booting") { status == "booting" }
       sets :started_at
@@ -134,6 +142,7 @@ Hecks.bluebook "Boot", version: "2026.05.12.1" do
       role "User"
       goal "Miette sleeps — close the session, persist state"
       reference_to(Session)
+      attribute :session_name, SessionName
       emits "SessionEnded"
     end
 
@@ -187,13 +196,16 @@ Hecks.bluebook "Boot", version: "2026.05.12.1" do
     command "Probe" do
       role "System"
       goal "Check for available brains — Claude CLI present? Ollama running? Summer adapter loaded?"
+      attribute :probe_name, ProbeName
       emits "BrainProbed"
+      sets :probe_name
     end
 
     command "RecommendClaude" do
       role "System"
       goal "Claude is available and was requested via --claude flag"
       reference_to(BrainProbe)
+      attribute :probe_name, ProbeName
       emits "ClaudeRecommended"
       sets :recommended_engine, to: "claude"
     end
@@ -202,6 +214,7 @@ Hecks.bluebook "Boot", version: "2026.05.12.1" do
       role "System"
       goal "No --claude flag, Ollama is running with Summer adapter"
       reference_to(BrainProbe)
+      attribute :probe_name, ProbeName
       emits "SummerRecommended"
       sets :recommended_engine, to: "summer"
     end
@@ -210,6 +223,7 @@ Hecks.bluebook "Boot", version: "2026.05.12.1" do
       role "System"
       goal "No brain available — cannot boot"
       reference_to(BrainProbe)
+      attribute :probe_name, ProbeName
       emits "NoBrainAvailable"
       sets :recommended_engine, to: "none"
     end
@@ -218,32 +232,32 @@ Hecks.bluebook "Boot", version: "2026.05.12.1" do
   # Boot flow
   policy "ProbeOnStart" do
     on "SessionStartedWithClaude"
-    trigger Probe
+    trigger BrainProbe::Probe, with: { probe_name: "probe" }
   end
 
   policy "ProbeOnLocalStart" do
     on "SessionStartedWithSummer"
-    trigger Probe
+    trigger BrainProbe::Probe, with: { probe_name: "probe" }
   end
 
   policy "WireOnProbe" do
     on "ClaudeRecommended"
-    trigger WireOrgans
+    trigger Session::WireOrgans, with: { session_name: "session" }
   end
 
   policy "WireOnLocalProbe" do
     on "SummerRecommended"
-    trigger WireOrgans
+    trigger Session::WireOrgans, with: { session_name: "session" }
   end
 
   policy "FailOnNoBrain" do
     on "NoBrainAvailable"
-    trigger FailBoot
+    trigger Session::FailBoot, with: { session_name: "session", reason: "no inference engine available" }
   end
 
   policy "GoLiveOnWire" do
     on "OrgansWired"
-    trigger GoLive
+    trigger Session::GoLive, with: { session_name: :session_name }
   end
 
   # Fixtures — the three boot scenarios

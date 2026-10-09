@@ -13,19 +13,20 @@ Hecks.behaviors "Composition" do
   test "Compose cascades through policy chain" do
     tests "Compose", on: "Composition", kind: :cross_cascade
     input  phrase: "sample", from_domain: "sample", from_command: "sample", to_domain: "sample", to_command: "sample", bridge_type: "sample", connector: "sample"
-    expect emits_subset: ["CompositionCreated", "VocabularyCompiled"]
+    expect_event "CompositionCreated", "VocabularyCompiled"
   end
 
   test "TranslateComposition sets natural_phrase" do
     tests "TranslateComposition", on: "Composition"
     setup  "Composition::Composition.Compose", phrase: "sample", from_domain: "sample", from_command: "sample", to_domain: "sample", to_command: "sample", bridge_type: "sample", connector: "sample"
-    input  natural_phrase: "sample"
-    expect translations_size: 1
+    input  phrase: "sample", natural_phrase: "sample"
+    expect translations: ["sample"]
   end
 
   test "MarkInvalid runs" do
     tests "MarkInvalid", on: "Composition"
     setup  "Composition::Composition.Compose", phrase: "sample", from_domain: "sample", from_command: "sample", to_domain: "sample", to_command: "sample", bridge_type: "sample", connector: "sample"
+    input  phrase: "sample"
     expect valid: "false"
   end
 end

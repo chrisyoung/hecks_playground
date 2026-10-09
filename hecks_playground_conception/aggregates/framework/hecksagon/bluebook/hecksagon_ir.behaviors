@@ -23,7 +23,7 @@ Hecks.behaviors "HecksagonIr" do
            framework_kind: { value: "" },
            persistence:    { value: "heki" },
            subscriptions:  []
-    expect emits: ["Conceived"]
+    expect emits: ["HecksagonConceived"]
   end
 
   # ── IoAdapter ──────────────────────────────────────────────────
@@ -43,7 +43,7 @@ Hecks.behaviors "HecksagonIr" do
            kind:      { value: "env" },
            options:   [],
            on_events: []
-    expect emits: ["Conceived"]
+    expect emits: ["IoAdapterConceived"]
   end
 
   # ── ShellAdapter ───────────────────────────────────────────────
@@ -75,7 +75,7 @@ Hecks.behaviors "HecksagonIr" do
            working_dir:   { value: "" },
            env:           [],
            ok_exit:       { value: "" }
-    expect emits: ["Conceived"]
+    expect emits: ["ShellAdapterConceived"]
   end
 
   # ── Gate ───────────────────────────────────────────────────────
@@ -96,7 +96,7 @@ Hecks.behaviors "HecksagonIr" do
            aggregate:        { value: "Dispatch" },
            role:             { value: "Caller" },
            allowed_commands: []
-    expect emits: ["Conceived"]
+    expect emits: ["GateConceived"]
   end
 
   # ── LlmAdapter ─────────────────────────────────────────────────
@@ -129,7 +129,7 @@ Hecks.behaviors "HecksagonIr" do
            response_into_target: { value: "MusingMint.MintMusing" },
            response_into_attr:   { value: "text" },
            backend:              { value: "claude" }
-    expect emits: ["Conceived"]
+    expect emits: ["LlmAdapterConceived"]
   end
 
   # ── ComputeAdapter ─────────────────────────────────────────────
@@ -152,7 +152,7 @@ Hecks.behaviors "HecksagonIr" do
            triggers:             [],
            response_into_target: { value: "HecksPlayground::Framework::HeartbeatScheduler::HeartbeatScheduler.Dispatch" },
            response_into_attr:   { value: "dispatched_tick" }
-    expect emits: ["Conceived"]
+    expect emits: ["ComputeAdapterConceived"]
   end
 
   # ── TtsAdapter ─────────────────────────────────────────────────
@@ -189,6 +189,6 @@ Hecks.behaviors "HecksagonIr" do
            triggers:          [],
            cache_dir:         { value: "" },
            auto_play:         { value: "true" }
-    expect emits: ["Conceived"]
+    expect emits: ["TtsAdapterConceived"]
   end
 end

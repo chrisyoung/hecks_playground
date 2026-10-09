@@ -3,20 +3,20 @@ Hecks.behaviors "Conductor" do
 
   test "Register mints a worker alive" do
     tests "Register", on: "Worker"
-    input  worker_id: "w1"
+    input  worker_id: "w1", stale_after: 4102444800
     expect worker_id: "w1", status: "alive"
   end
 
   test "Heartbeat stamps heartbeat_at" do
     tests "Heartbeat", on: "Worker"
-    setup  "Register", worker_id: "w2"
-    input  worker_id: "w2", heartbeat_at: "2026-06-03T00:00:00Z"
+    setup  "Register", worker_id: "w2", stale_after: 4102444800
+    input  worker_id: "w2", heartbeat_at: "2026-06-03T00:00:00Z", stale_after: 4102444800
     expect heartbeat_at: "2026-06-03T00:00:00Z"
   end
 
   test "MarkDead sets status dead" do
     tests "MarkDead", on: "Worker"
-    setup  "Register", worker_id: "w3"
+    setup  "Register", worker_id: "w3", stale_after: 4102444800
     input  worker_id: "w3"
     expect status: "dead"
   end
@@ -27,21 +27,21 @@ Hecks.behaviors "Conductor" do
 
   test "Alive includes a registered (alive) worker" do
     tests "Alive", on: "Worker", kind: :query
-    setup  "Register", worker_id: "w4"
+    setup  "Register", worker_id: "w4", stale_after: 4102444800
     expect includes: { worker_id: "w4", status: "alive" }
   end
 
   test "Alive excludes a worker marked dead" do
     tests "Alive", on: "Worker", kind: :query
-    setup  "Register", worker_id: "w5"
+    setup  "Register", worker_id: "w5", stale_after: 4102444800
     setup  "MarkDead",  worker_id: "w5"
     expect count: 0
   end
 
   test "Alive returns only the still-alive worker when one of two is dead" do
     tests "Alive", on: "Worker", kind: :query
-    setup  "Register", worker_id: "w8"
-    setup  "Register", worker_id: "w9"
+    setup  "Register", worker_id: "w8", stale_after: 4102444800
+    setup  "Register", worker_id: "w9", stale_after: 4102444800
     setup  "MarkDead",  worker_id: "w9"
     expect count: 1
   end
@@ -50,41 +50,41 @@ Hecks.behaviors "Conductor" do
 
   test "Dead includes a worker that has been marked dead" do
     tests "Dead", on: "Worker", kind: :query
-    setup  "Register", worker_id: "w6"
+    setup  "Register", worker_id: "w6", stale_after: 4102444800
     setup  "MarkDead",  worker_id: "w6"
     expect includes: { worker_id: "w6", status: "dead" }
   end
 
   test "Dead excludes a worker that is still alive" do
     tests "Dead", on: "Worker", kind: :query
-    setup  "Register", worker_id: "w7"
+    setup  "Register", worker_id: "w7", stale_after: 4102444800
     expect count: 0
   end
 
   # Stale query (the clock's consumer) : runtime enforces status == alive AND
-  # stale_after < :now. ISO-8601 instants sort chronologically, so :now is
+  # stale_after < :now. stale_after and :now are Unix epoch seconds, so :now is
   # supplied as a plain literal here ; in production the {now} clock primitive
   # fills it from the wall clock. The liveness sweep fans MarkDead over this.
 
   test "Stale includes an alive worker whose deadline has passed" do
     tests "Stale", on: "Worker", kind: :query
-    setup  "Register", worker_id: "w10", stale_after: "2026-01-01T00:00:00Z"
-    input  now: "2026-06-01T00:00:00Z"
+    setup  "Register", worker_id: "w10", stale_after: 1767225600
+    input  now: 1780272000
     expect includes: { worker_id: "w10", status: "alive" }
   end
 
   test "Stale excludes a worker whose deadline is still in the future" do
     tests "Stale", on: "Worker", kind: :query
-    setup  "Register", worker_id: "w11", stale_after: "2027-01-01T00:00:00Z"
-    input  now: "2026-06-01T00:00:00Z"
+    setup  "Register", worker_id: "w11", stale_after: 1798761600
+    input  now: 1780272000
     expect count: 0
   end
 
   test "Stale excludes a dead worker even if past its deadline" do
     tests "Stale", on: "Worker", kind: :query
-    setup  "Register", worker_id: "w12", stale_after: "2026-01-01T00:00:00Z"
+    setup  "Register", worker_id: "w12", stale_after: 1767225600
     setup  "MarkDead", worker_id: "w12"
-    input  now: "2026-06-01T00:00:00Z"
+    input  now: 1780272000
     expect count: 0
   end
 end

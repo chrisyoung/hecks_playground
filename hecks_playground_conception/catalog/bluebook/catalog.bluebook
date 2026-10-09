@@ -83,6 +83,7 @@ Hecks.bluebook "Catalog", version: "2026.05.12.1" do
       role "Miette"
       goal "Domain developed — bump version, snapshot the old one, update entry"
       reference_to(Entry)
+      attribute :name, Name
       attribute :version, Version
       attribute :aggregate_count, AggregateCount
       attribute :command_count, CommandCount
@@ -100,6 +101,7 @@ Hecks.bluebook "Catalog", version: "2026.05.12.1" do
       role "Miette"
       goal "A domain is no longer in active use"
       reference_to(Entry)
+      attribute :name, Name
       emits "DomainRetired"
     end
 
@@ -183,11 +185,14 @@ Hecks.bluebook "Catalog", version: "2026.05.12.1" do
       goal "Capture the full bluebook content at this version — preserves the exact shape"
       attribute :domain_name, DomainName
       attribute :version, Version
-      attribute :snapshot, Snapshot
-      attribute :developed_from, DevelopedFrom
+      # The policies that snapshot on register/develop know only the
+      # entry's facts; the bluebook text, its origin and the vector
+      # are filled by whoever captures them.
+      attribute :snapshot, Snapshot, optional: true
+      attribute :developed_from, DevelopedFrom, optional: true
       attribute :aggregate_count, AggregateCount
       attribute :command_count, CommandCount
-      attribute :vector, list_of(Vector)
+      attribute :vector, list_of(Vector), optional: true
       emits "VersionSnapshotted"
       sets :domain_name
       sets :version
@@ -200,8 +205,10 @@ Hecks.bluebook "Catalog", version: "2026.05.12.1" do
 
     command "CompareVersions" do
       role "Miette"
-      goal "Diff two versions of a domain — see what changed in development"
+      goal "Diff two versions of a domain — see what changed in development. Recorded against the snapshot named by domain_name + version, which must already exist."
+      reference_to(Version)
       attribute :domain_name, DomainName
+      attribute :version, Version
       attribute :from_version, FromVersion
       attribute :to_version, ToVersion
       emits "VersionsCompared"
@@ -246,14 +253,24 @@ Hecks.bluebook "Catalog", version: "2026.05.12.1" do
     command "SyncFromCannon" do
       role "System"
       goal "Copy bluebooks from cannon to catalog, bump versions on changes, snapshot old versions"
+      attribute :mirror_name, MirrorName
       attribute :cannon_path, CannonPath
       emits "CatalogSynced"
+      sets :mirror_name
       sets :cannon_path
     end
 
     command "DetectDrift" do
       role "System"
-      goal "Compare catalog versions against cannon — find what changed"
+      goal "Compare catalog versions against cannon — find what changed. Names the drifted domain and the figures cannon now has, so DevelopOnDrift can bring its entry up to date."
+      reference_to(Mirror)
+      attribute :mirror_name, MirrorName
+      attribute :name, String
+      attribute :version, String
+      attribute :aggregate_count, Integer
+      attribute :command_count, Integer
+      attribute :policy_count, Integer
+      attribute :lines, Integer
       emits "DriftDetected"
     end
   end
@@ -299,13 +316,24 @@ Hecks.bluebook "Catalog", version: "2026.05.12.1" do
     attribute :total_aggregates, TotalAggregates
     attribute :total_commands, TotalCommands
 
+    command "OpenIndex" do
+      role "System"
+      goal "Create the singleton index once; RebuildIndex then refreshes it on every register and develop"
+      attribute :index_name, IndexName
+      emits "IndexOpened"
+      sets :index_name
+    end
+
     command "RebuildIndex" do
       role "System"
       goal "Scan catalog and nursery, recount everything"
-      attribute :catalog_count, CatalogCount
-      attribute :nursery_count, NurseryCount
-      attribute :total_aggregates, TotalAggregates
-      attribute :total_commands, TotalCommands
+      reference_to(Index)
+      attribute :index_name, IndexName
+      # The reindex policies know nothing of the counts; the scan supplies them.
+      attribute :catalog_count, CatalogCount, optional: true
+      attribute :nursery_count, NurseryCount, optional: true
+      attribute :total_aggregates, TotalAggregates, optional: true
+      attribute :total_commands, TotalCommands, optional: true
       emits "IndexRebuilt"
       sets :catalog_count
       sets :nursery_count
@@ -317,30 +345,30 @@ Hecks.bluebook "Catalog", version: "2026.05.12.1" do
   # Every development snapshots the old version first
   policy "SnapshotOnDevelop" do
     on "DomainDeveloped"
-    trigger SnapshotVersion
+    trigger Version::SnapshotVersion, with: { domain_name: :name, version: :version, aggregate_count: :aggregate_count, command_count: :command_count }
   end
 
   # Every registration gets a snapshot too — version 1
   policy "SnapshotOnRegister" do
     on "DomainRegistered"
-    trigger SnapshotVersion
+    trigger Version::SnapshotVersion, with: { domain_name: :name, version: :version, aggregate_count: :aggregate_count, command_count: :command_count }
   end
 
   # Development triggers reindexing
   policy "ReindexOnDevelop" do
     on "DomainDeveloped"
-    trigger RebuildIndex
+    trigger Index::RebuildIndex, with: { index_name: "index" }
   end
 
   # Sync detects drift and develops
   policy "DevelopOnDrift" do
     on "DriftDetected"
-    trigger DevelopDomain
+    trigger Entry::DevelopDomain, with: { name: :name, version: :version, aggregate_count: :aggregate_count, command_count: :command_count, policy_count: :policy_count, lines: :lines }
   end
 
   # Registration triggers index
   policy "IndexOnRegister" do
     on "DomainRegistered"
-    trigger RebuildIndex
+    trigger Index::RebuildIndex, with: { index_name: "index" }
   end
 end

@@ -3,7 +3,7 @@ Hecks.behaviors "Governance" do
 
   test "Record logs a denied native tool attempt" do
     tests "Record", on: "Violation"
-    input  id: "v-1", tool_name: "Bash", reason: "native Bash makes no bus event", occurred_at: "2026-06-25T05:00:00Z"
+    input  id: "v-1", tool_name: "Bash", reason: "native Bash makes no bus event", gate: "governed-door", cause: "native-tool", occurred_at: "2026-06-25T05:00:00Z"
     expect tool_name: "Bash", reason: "native Bash makes no bus event"
   end
 
@@ -15,13 +15,13 @@ Hecks.behaviors "Governance" do
 
   test "Record emits Recorded" do
     tests "Record", on: "Violation"
-    input  id: "v-2", tool_name: "Read", reason: "native Read makes no bus event", occurred_at: "2026-06-25T05:01:00Z"
+    input  id: "v-2", tool_name: "Read", reason: "native Read makes no bus event", gate: "governed-door", cause: "native-tool", occurred_at: "2026-06-25T05:01:00Z"
     expect_event "Recorded"
   end
 
   test "ByTool lists the denials recorded for one tool" do
     tests "ByTool", on: "Violation", kind: :query
-    setup  "Record", id: "v-9", tool_name: "Bash", reason: "native Bash makes no bus event", occurred_at: "2026-06-25T05:02:00Z"
+    setup  "Record", id: "v-9", tool_name: "Bash", reason: "native Bash makes no bus event", gate: "governed-door", cause: "native-tool", occurred_at: "2026-06-25T05:02:00Z"
     input  tool_name: "Bash"
     expect count: 1
   end

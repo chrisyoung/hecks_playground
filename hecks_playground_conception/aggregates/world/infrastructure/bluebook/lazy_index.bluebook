@@ -42,6 +42,7 @@ Hecks.bluebook "LazyIndex", version: "2026.05.16.1" do
     command "QueryIndex" do
       role "System"
       goal "Look up domains by name, sector, or pattern — load from .heki on demand"
+      attribute :name,             IndexName
       attribute :loaded_in_memory, LoadedInMemory
       emits "IndexQueried"
       sets :loaded_in_memory

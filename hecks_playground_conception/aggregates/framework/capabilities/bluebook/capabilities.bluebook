@@ -198,6 +198,7 @@ Hecks.bluebook "Capabilities", version: "2026.05.12.1" do
     command "Discover" do
       role "Framework"
       goal "Sweep known capability surfaces (ruby/hecks_playground/capabilities/*.rb for the Ruby DSL ; framework/*/*.bluebook for native capabilities) and Register each one that isn't already in the registry. Emits CapabilitiesDiscovered with the count of new records added. The runtime substrate composes the underlying Tools.Glob + per-file Read + Register cascade ; this command is the dispatch entry point."
+      attribute :name,          Name
       attribute :registered_at, Timestamp
       emits "CapabilitiesDiscovered"
     end

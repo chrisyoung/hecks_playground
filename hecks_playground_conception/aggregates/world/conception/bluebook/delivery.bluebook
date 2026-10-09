@@ -40,10 +40,10 @@ Hecks.bluebook "Delivery", version: "2026.04.16.1" do
       role "Midwife"
       goal "Write the bluebook to the nursery — the domain is born"
       attribute :domain_name,     DomainName
-      attribute :path,            Path
-      attribute :aggregate_count, ElementCount
-      attribute :command_count,   ElementCount
-      attribute :fixture_count,   ElementCount
+      attribute :path,            Path, default: { value: "" }
+      attribute :aggregate_count, ElementCount, default: { value: 0 }
+      attribute :command_count,   ElementCount, default: { value: 0 }
+      attribute :fixture_count,   ElementCount, default: { value: 0 }
       emits "DomainDelivered"
       sets :domain_name
       sets :path
@@ -70,11 +70,11 @@ Hecks.bluebook "Delivery", version: "2026.04.16.1" do
 
   policy "DeliverOnPass" do
     on "LaborPassed"
-    trigger DeliverDomain
+    trigger Delivery::DeliverDomain, with: { domain_name: :domain_name }
   end
 
   policy "RegisterOnDelivery" do
     on "DomainDelivered"
-    trigger RegisterBirth
+    trigger Delivery::RegisterBirth, with: { domain_name: :domain_name }
   end
 end

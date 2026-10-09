@@ -53,7 +53,7 @@ Hecks.bluebook "Labor", version: "2026.04.16.1" do
       role "Midwife"
       goal "Verify Ruby and Rust read the domain identically"
       reference_to(Labor)
-      attribute :parity, ParityResult
+      attribute :parity, ParityResult, default: { value: "checked" }
       emits "ParityChecked"
       sets :parity
     end
@@ -83,6 +83,6 @@ Hecks.bluebook "Labor", version: "2026.04.16.1" do
 
   policy "ParityOnValidation" do
     on "BluebookValidated"
-    trigger CheckParity
+    trigger Labor::CheckParity, with: { domain_name: :domain_name }
   end
 end

@@ -104,6 +104,7 @@ Hecks.bluebook "Relationship", version: "2026.06.18.2" do
     command "Resolve" do
       role "System"
       goal "Resolve scope, nature, and cardinality from the verb — never authored, always derived"
+      reference_to(Relationship)
       attribute :scope,       Scope
       attribute :nature,      Nature
       attribute :cardinality, Cardinality
