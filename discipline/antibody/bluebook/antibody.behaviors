@@ -126,15 +126,13 @@ Hecks.behaviors "Antibody" do
     expect path: "rust/src/sample.rs", reason: "kernel-floor — retires when sample"
   end
 
-  # PENDING: hecks 3.10 refuses a creating command on an identity that already exists
-  # (AlreadyExists), so the fork's upsert-on-register is not expressible; the overwrite
-  # is covered by ReviseExemption below. Restore this as a live test if the gem ever
-  # admits an upsert word for a creating command.
-  test "RegisterExemption overwrites the reason for an existing path (idempotent upsert)" do
-    tests "RegisterExemption", on: "ExemptRegistry", kind: :pending
+  # RegisterExemption creates the registry row, so registering a path twice is refused ;
+  # ReviseExemption below is how a reason is overwritten.
+  test "RegisterExemption is refused for a path that is already registered" do
+    tests "RegisterExemption", on: "ExemptRegistry"
     setup  "RegisterExemption", path: "rust/src/sample.rs", reason: "old reason"
     input  path: "rust/src/sample.rs", reason: "new reason — kernel-surface"
-    expect path: "rust/src/sample.rs", reason: "new reason — kernel-surface"
+    expect refused: "already exists"
   end
 
   # PENDING: the fork iterated a bulk list and saved one record plus one event per row.
