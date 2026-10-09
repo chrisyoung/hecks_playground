@@ -265,4 +265,17 @@ Hecks.behaviors "Correspondence" do
     expect draft_status: "drafting", emits: ["FollowUpComposed"]
   end
 
+  test "ReceiveInboundAgain records a second inbound from a known correspondent" do
+    tests "ReceiveInboundAgain", on: "Correspondent"
+    setup  "ReceiveInbound",
+           person:      { value: "beyondfitaz@gmail.com" },
+           received_at: { value: "2026-05-24T09:00:00Z" }
+    setup  "MarkSent",
+           person:    { value: "beyondfitaz@gmail.com" },
+           letter_id: { value: "01JCKCORR0080" },
+           sent_at:   { value: "2026-05-24T10:00:00Z" }
+    input  person:      { value: "beyondfitaz@gmail.com" },
+           received_at: { value: "2026-05-25T09:00:00Z" }
+    expect awaiting_reply: true, last_inbound_at: { value: "2026-05-25T09:00:00Z" }, emits: ["InboundReceivedAgain"]
+  end
 end
