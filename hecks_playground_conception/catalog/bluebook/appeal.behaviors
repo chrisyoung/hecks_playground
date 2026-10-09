@@ -70,22 +70,16 @@ Hecks.behaviors "Appeal" do
     expect ok: "true"
   end
 
-  # PENDING: under the published gem the chain stops after TabSelected.
-  # SwitchToEditorOnFileOpen selects the "editor" tab, and
-  # ShowDiagramOnTabSelect only fires for the "diagrams" tab (its `where`
-  # is honoured now), so DiagramGenerated is not part of this chain. The
-  # fork ignored the `where`. Restore (as :cascade, expecting
-  # DiagramGenerated) once the design decides FileOpened should also
-  # generate a diagram; the TabSelected -> DiagramGenerated link itself is
-  # covered by "SelectTab cascades through policy chain".
+  # Opening a file selects the editor tab. ShowDiagramOnTabSelect only fires for the
+  # "diagrams" tab, so no diagram is generated here ; that link is covered by
+  # "SelectTab cascades through policy chain".
   test "OpenFile cascades through policy chain" do
-    tests "OpenFile", on: "Explorer", kind: :pending
+    tests "OpenFile", on: "Explorer"
     setup  "OpenProject", path: "sample"
     setup  "Appeal::Explorer.LoadDomain", project: "sample", domain_name: "sample"
     setup  "Appeal::Layout.OpenPanel", name: "layout", panel_name: "sample"
-    setup  "Appeal::Diagram.GenerateDiagram", view_type: "sample", path: "sample", domain: "sample"
     input  explorer: "sample", project: "sample", path: "sample", domain: "sample"
-    expect emits: ["FileOpened", "TabSelected", "DiagramGenerated"]
+    expect emits: ["FileOpened", "TabSelected"]
   end
 
   test "GetLastOpened runs" do
